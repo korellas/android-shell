@@ -164,11 +164,12 @@ import org.connectbot.ui.components.AuthBannerDialog
 import org.connectbot.ui.components.FloatingTextInputDialog
 import org.connectbot.ui.components.InlinePrompt
 import org.connectbot.ui.components.ResizeDialog
-import org.connectbot.ui.components.TERMINAL_KEYBOARD_HEIGHT_DP
 import org.connectbot.ui.components.TerminalKeyboard
 import org.connectbot.ui.components.UrlScanDialog
+import org.connectbot.ui.screens.login.KeyEnrollmentDialog
 import org.connectbot.ui.theme.terminal
 import org.connectbot.util.PreferenceConstants
+import org.connectbot.util.TerminalBarLayout
 import org.connectbot.util.UrlUtils
 import org.connectbot.util.rememberTerminalTypefaceResultFromStoredValue
 import timber.log.Timber
@@ -407,8 +408,11 @@ private fun ConsoleTerminalPage(
     onShortcutModifierChange: () -> Unit,
     modifier: Modifier = Modifier,
     terminalModifier: Modifier = Modifier,
+    showPrompt: Boolean = true,
 ) {
     Box(modifier = modifier) {
+        val keyboardContext = LocalContext.current
+        val keyboardBarHeight = remember { TerminalBarLayout.load(PreferenceManager.getDefaultSharedPreferences(keyboardContext)).height }
         val fontResult = rememberTerminalTypefaceResultFromStoredValue(bridge.fontFamily)
         val coroutineScope = rememberCoroutineScope()
         val fontSize by bridge.fontSizeFlow.collectAsState()
@@ -429,7 +433,7 @@ private fun ConsoleTerminalPage(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    bottom = if (keyboardAlwaysVisible) TERMINAL_KEYBOARD_HEIGHT_DP.dp else 0.dp,
+                    bottom = if (keyboardAlwaysVisible) keyboardBarHeight.dp else 0.dp,
                 )
                 .then(terminalModifier)
                 .testTag("terminal"),
@@ -505,20 +509,22 @@ private fun ConsoleTerminalPage(
 
             val promptState by bridge.promptManager.promptState.collectAsState()
 
-            InlinePrompt(
-                promptRequest = promptState,
-                onResponse = { response ->
-                    bridge.promptManager.respond(response)
-                },
-                onCancel = {
-                    bridge.promptManager.cancelPrompt()
-                },
-                onDismiss = {
-                    termFocusRequester.requestFocus()
-                },
-                modifier = Modifier.align(Alignment.BottomCenter)
-                    .padding(bottom = if (showExtraKeyboard) TERMINAL_KEYBOARD_HEIGHT_DP.dp else 0.dp),
-            )
+            if (showPrompt) {
+                InlinePrompt(
+                    promptRequest = promptState,
+                    onResponse = { response ->
+                        bridge.promptManager.respond(response)
+                    },
+                    onCancel = {
+                        bridge.promptManager.cancelPrompt()
+                    },
+                    onDismiss = {
+                        termFocusRequester.requestFocus()
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                        .padding(bottom = if (showExtraKeyboard) keyboardBarHeight.dp else 0.dp),
+                )
+            }
 
             AnimatedVisibility(
                 visible = bridge.isDisconnected && !bridge.isConnecting && promptState == null,
@@ -570,6 +576,8 @@ fun ConsoleScreen(
     modifier: Modifier = Modifier,
     onNavigateToSettings: () -> Unit = {},
     viewModel: ConsoleViewModel = hiltViewModel(),
+    startKeySetup: Boolean = false,
+    keySetupHostId: Long? = null,
 ) {
     val context = LocalContext.current
     val terminalManager = LocalTerminalManager.current
@@ -654,6 +662,11 @@ fun ConsoleScreen(
     var disconnectTarget by remember { mutableStateOf<TerminalBridge?>(null) }
     var showSessionPickerDialog by remember { mutableStateOf(false) }
     var showTextInputDialog by rememberSaveable { mutableStateOf(false) }
+    var keyEnrollmentTargetId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val keyEnrollmentTarget = keyEnrollmentTargetId?.let { targetId ->
+        uiState.bridges.firstOrNull { it.host.id == targetId }
+    }
+    var pendingKeySetup by rememberSaveable { mutableStateOf(startKeySetup) }
     var textInputInitialText by rememberSaveable { mutableStateOf("") }
     var showExtraKeyboard by remember { mutableStateOf(true) } // Start visible to show animation
     var hasPlayedKeyboardAnimation by remember { mutableStateOf(false) }
@@ -709,7 +722,7 @@ fun ConsoleScreen(
 
     // Check if any modal (menu or dialog) is currently active
     val anyModalActive = showMenu || showUrlScanDialog || showResizeDialog ||
-        showDisconnectDialog || showSessionPickerDialog || showTextInputDialog ||
+        showDisconnectDialog || showSessionPickerDialog || showTextInputDialog || keyEnrollmentTarget != null ||
         isBiometricPromptActive || currentAuthBanner != null
 
     fun restartTitleBarTimer() {
@@ -905,6 +918,14 @@ fun ConsoleScreen(
     val sessionOpen = currentBridge?.isSessionOpen == true
     val disconnected = currentBridge?.isDisconnected == true
     val canForwardPorts = currentBridge?.canFowardPorts() == true
+    val canEnrollKey = currentBridge?.host?.id?.let { it > 0 } == true &&
+        (currentBridge.transport as? org.connectbot.transport.SSH)?.canEnrollKey == true
+    LaunchedEffect(pendingKeySetup, currentBridge, canEnrollKey, promptState) {
+        if (pendingKeySetup && canEnrollKey && currentBridgeId == keySetupHostId && promptState == null) {
+            pendingKeySetup = false
+            keyEnrollmentTargetId = currentBridgeId
+        }
+    }
     val snackbarHostState = remember { SnackbarHostState() }
 
     val isConnectionActive = currentBridge != null && !disconnected
@@ -1131,6 +1152,7 @@ fun ConsoleScreen(
 
                         key(bridge.host.id) {
                             ConsoleTerminalPage(
+                                showPrompt = keyEnrollmentTarget == null,
                                 bridge = bridge,
                                 isActive = true,
                                 keyboardAlwaysVisible = keyboardAlwaysVisible,
@@ -1205,6 +1227,7 @@ fun ConsoleScreen(
         }
 
         // Dialogs
+        keyEnrollmentTarget?.let { target -> KeyEnrollmentDialog(target, onDismiss = { keyEnrollmentTargetId = null }) }
         if (showUrlScanDialog) {
             UrlScanDialog(
                 urls = scannedUrls,
@@ -1343,6 +1366,15 @@ fun ConsoleScreen(
                             termFocusRequester.requestFocus()
                         },
                     ) {
+                        if (canEnrollKey) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.login_register_key)) },
+                                onClick = {
+                                    showMenu = false
+                                    keyEnrollmentTargetId = currentBridgeId
+                                },
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.console_menu_paste)) },
                             onClick = {

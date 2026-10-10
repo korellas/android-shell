@@ -1,6 +1,6 @@
 /*
  * ConnectBot: simple, powerful, open-source SSH client for Android
- * Copyright 2025 Kenny Root
+ * Copyright 2025-2026 Kenny Root
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,27 @@ import timber.log.Timber
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PubkeyEditorViewModelTest {
+
+    @Test
+    fun biometricKeyCannotBeConvertedToPasswordOrStartupUnlock() = runTest {
+        val key = Pubkey(
+            id = 42, nickname = "protected", type = "EC", privateKey = null, publicKey = byteArrayOf(1),
+            encrypted = false, startup = false, confirmation = false, createdDate = 0,
+            storageType = org.connectbot.data.entity.KeyStorageType.ANDROID_KEYSTORE, allowBackup = false, keystoreAlias = "alias",
+        )
+        whenever(repository.getById(42)).thenReturn(key)
+        val viewModel = createViewModel(42)
+        advanceUntilIdle()
+        viewModel.updateNewPassword1("password")
+        viewModel.updateNewPassword2("password")
+        viewModel.updateUnlockAtStartup(true)
+        viewModel.updateNickname("renamed")
+        viewModel.save()
+        advanceUntilIdle()
+        val saved = argumentCaptor<Pubkey>()
+        verify(repository).save(saved.capture())
+        org.junit.Assert.assertEquals(key.copy(nickname = "renamed"), saved.firstValue)
+    }
 
     private val testDispatcher = UnconfinedTestDispatcher()
     private val dispatchers = CoroutineDispatchers(

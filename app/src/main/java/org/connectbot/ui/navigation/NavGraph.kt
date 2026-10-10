@@ -40,6 +40,7 @@ import org.connectbot.ui.screens.hints.HintsScreen
 import org.connectbot.ui.screens.hosteditor.HostEditorScreen
 import org.connectbot.ui.screens.hostlist.HostListScreen
 import org.connectbot.ui.screens.knownhostlist.KnownHostListScreen
+import org.connectbot.ui.screens.login.LoginScreen
 import org.connectbot.ui.screens.portforwardlist.PortForwardEditorScreen
 import org.connectbot.ui.screens.portforwardlist.PortForwardListScreen
 import org.connectbot.ui.screens.profiles.ProfileEditorScreen
@@ -80,7 +81,7 @@ fun ConnectBotNavHost(
                     navController.navigateSafely(NavDestinations.SETTINGS)
                 },
                 onNavigateToPubkeys = {
-                    navController.navigateSafely(NavDestinations.PUBKEY_LIST)
+                    navController.navigateSafely(NavDestinations.LOGIN)
                 },
                 onNavigateToPortForwards = { host ->
                     navController.navigateSafely("${NavDestinations.PORT_FORWARD_LIST}/${host.id}")
@@ -99,13 +100,28 @@ fun ConnectBotNavHost(
             org.connectbot.ui.screens.identities.IdentityListScreen(onNavigateBack = { navController.safePopBackStack() })
         }
 
+        composable(NavDestinations.LOGIN) {
+            LoginScreen(
+                onNavigateBack = { navController.safePopBackStack() },
+                onSetupHost = { hostId -> navController.navigateSafely("${NavDestinations.CONSOLE}/$hostId?${NavArgs.KEY_SETUP}=true") },
+                onManageKeys = { navController.navigateSafely(NavDestinations.PUBKEY_LIST) },
+                onManageAccounts = { navController.navigateSafely(NavDestinations.IDENTITIES) },
+            )
+        }
+
         composable(
-            route = "${NavDestinations.CONSOLE}/{${NavArgs.HOST_ID}}",
+            route = "${NavDestinations.CONSOLE}/{${NavArgs.HOST_ID}}?${NavArgs.KEY_SETUP}={${NavArgs.KEY_SETUP}}",
             arguments = listOf(
                 navArgument(NavArgs.HOST_ID) { type = NavType.LongType },
+                navArgument(NavArgs.KEY_SETUP) {
+                    type = NavType.BoolType
+                    defaultValue = false
+                },
             ),
-        ) {
+        ) { entry ->
             ConsoleScreen(
+                startKeySetup = entry.arguments?.getBoolean(NavArgs.KEY_SETUP) == true,
+                keySetupHostId = entry.arguments?.getLong(NavArgs.HOST_ID),
                 onNavigateBack = { navController.safePopBackStack() },
                 onNavigateToPortForwards = { hostIdForPortForwards ->
                     navController.navigateSafely("${NavDestinations.PORT_FORWARD_LIST}/$hostIdForPortForwards")
@@ -137,6 +153,14 @@ fun ConnectBotNavHost(
                     navController.navigateSafely("${NavDestinations.KNOWN_HOST_LIST}/$hostId")
                 },
                 onNavigateToIdentities = { navController.navigateSafely(NavDestinations.IDENTITIES) },
+                onNavigateToLogin = {
+                    navController.safePopBackStack()
+                    navController.navigateSafely(NavDestinations.LOGIN)
+                },
+                onNavigateToKeySetup = { hostId ->
+                    navController.safePopBackStack()
+                    navController.navigateSafely("${NavDestinations.CONSOLE}/$hostId?${NavArgs.KEY_SETUP}=true")
+                },
             )
         }
 
@@ -227,6 +251,7 @@ fun ConnectBotNavHost(
             SettingsScreen(
                 onNavigateBack = { navController.safePopBackStack() },
                 highlightItem = highlight,
+                onEditPalette = { navController.navigateSafely(NavDestinations.COLORS) },
             )
         }
 
@@ -360,7 +385,7 @@ fun NavController.navigateSafely(
 
 /** Opens the requested session with its own ViewModel when switching consoles. */
 fun NavController.navigateToConsole(hostId: Long) {
-    val sameConsole = currentDestination?.route == "${NavDestinations.CONSOLE}/{${NavArgs.HOST_ID}}" &&
+    val sameConsole = currentDestination?.route?.substringBefore('?') == "${NavDestinations.CONSOLE}/{${NavArgs.HOST_ID}}" &&
         currentBackStackEntry?.arguments?.getLong(NavArgs.HOST_ID) == hostId
     navigate("${NavDestinations.CONSOLE}/$hostId") {
         launchSingleTop = sameConsole

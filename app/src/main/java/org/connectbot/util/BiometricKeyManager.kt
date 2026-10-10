@@ -1,6 +1,6 @@
 /*
  * ConnectBot: simple, powerful, open-source SSH client for Android
- * Copyright 2025 Kenny Root
+ * Copyright 2025-2026 Kenny Root
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,13 @@ package org.connectbot.util
 import android.content.Context
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import org.connectbot.ui.screens.generatepubkey.KeyType
 import timber.log.Timber
+import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.PrivateKey
@@ -44,6 +46,7 @@ interface BiometricKeyManager {
     fun getPrivateKey(alias: String): PrivateKey
     fun getPublicKey(alias: String): PublicKey?
     fun keyExists(alias: String): Boolean
+    fun isAuthPerUse(alias: String): Boolean
     fun deleteKey(alias: String)
     fun sign(signature: Signature, data: ByteArray): ByteArray
 
@@ -71,9 +74,6 @@ class BiometricKeyManagerImpl(
         private const val TAG = "BiometricKeyManager"
         private const val KEYSTORE_PROVIDER = "AndroidKeyStore"
         private const val KEY_ALIAS_PREFIX = "connectbot_bio_"
-
-        // Authentication validity duration in seconds after successful biometric auth
-        private const val AUTH_VALIDITY_DURATION_SECONDS = 30
     }
 
     private val keyStore: KeyStore by lazy {
@@ -134,15 +134,15 @@ class BiometricKeyManagerImpl(
             // Require biometric authentication for every use
             setUserAuthenticationRequired(true)
 
-            // Set authentication validity duration - allows signing for N seconds after auth
+            // Bind authorization to the signing operation, not an unlocked time window.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 setUserAuthenticationParameters(
-                    AUTH_VALIDITY_DURATION_SECONDS,
+                    0,
                     KeyProperties.AUTH_BIOMETRIC_STRONG,
                 )
             } else {
                 @Suppress("DEPRECATION")
-                setUserAuthenticationValidityDurationSeconds(AUTH_VALIDITY_DURATION_SECONDS)
+                setUserAuthenticationValidityDurationSeconds(-1)
             }
 
             // Invalidate key if new biometrics are enrolled
@@ -207,15 +207,15 @@ class BiometricKeyManagerImpl(
             // Require biometric authentication for every use
             setUserAuthenticationRequired(true)
 
-            // Set authentication validity duration - allows signing for N seconds after auth
+            // Bind authorization to the signing operation, not an unlocked time window.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 setUserAuthenticationParameters(
-                    AUTH_VALIDITY_DURATION_SECONDS,
+                    0,
                     KeyProperties.AUTH_BIOMETRIC_STRONG,
                 )
             } else {
                 @Suppress("DEPRECATION")
-                setUserAuthenticationValidityDurationSeconds(AUTH_VALIDITY_DURATION_SECONDS)
+                setUserAuthenticationValidityDurationSeconds(-1)
             }
 
             // Invalidate key if new biometrics are enrolled
@@ -264,6 +264,12 @@ class BiometricKeyManagerImpl(
     override fun getPublicKey(alias: String): PublicKey? = keyStore.getCertificate(alias)?.publicKey
 
     override fun keyExists(alias: String): Boolean = keyStore.containsAlias(alias)
+
+    override fun isAuthPerUse(alias: String): Boolean {
+        val key = getPrivateKey(alias)
+        val info = KeyFactory.getInstance(key.algorithm, KEYSTORE_PROVIDER).getKeySpec(key, KeyInfo::class.java)
+        return info.isUserAuthenticationRequired && info.userAuthenticationValidityDurationSeconds <= 0
+    }
 
     override fun deleteKey(alias: String) {
         if (keyStore.containsAlias(alias)) {

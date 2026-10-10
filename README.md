@@ -24,6 +24,23 @@ For local verification:
 ./gradlew :app:lintOssDebug :termlib:lintDebug spotlessCheck
 ```
 
+## SSH key setup
+
+Open **Login & SSH keys** from the host list, or **Register a key on this server**
+in a connected SSH terminal. Log in with an existing method, then explicitly
+register a new fingerprint-protected key or an existing SSH key. Registration
+appends to the account's `~/.ssh/authorized_keys`, preserving existing keys and
+their restrictions. A separate key-only connection must succeed before the
+selected host's login settings change. Password login and shared accounts are
+not changed. Servers using a custom authorized-key location require manual setup.
+
+New fingerprint keys authorize each SSH signing operation through Android
+Keystore and the system biometric prompt. Existing time-based keys remain
+compatible. Device-local private keys cannot be exported or restored to another
+phone; keep another working key or login method. If registration or verification
+fails, a public key may already have been added to the server. Register Mosh
+account keys through an SSH host for the same server.
+
 ## Upstream and licenses
 
 The original ConnectBot history, copyright notices and [LICENSE](LICENSE)

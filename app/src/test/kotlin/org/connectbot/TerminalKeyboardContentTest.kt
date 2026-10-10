@@ -149,6 +149,10 @@ class TerminalKeyboardContentTest {
                 up()
             }
         composeTestRule
+            .onNodeWithText("Fn")
+            .assertIsDisplayed()
+            .performClick()
+        composeTestRule
             .onNodeWithText(composeTestRule.activity.getString(R.string.button_key_f1))
             .performClick()
 
@@ -168,7 +172,7 @@ class TerminalKeyboardContentTest {
     }
 
     @Test
-    fun terminalKeyboardContent_keepsEscapeTabControlAndAltFixedWhileSpecialKeysScroll() {
+    fun terminalKeyboardContent_keepsEscapeTabControlAndFnFixedWhileSpecialKeysScroll() {
         var escapePressed = false
         var tabPressed = false
         var ctrlPressed = false
@@ -185,7 +189,7 @@ class TerminalKeyboardContentTest {
             composeTestRule.activity.getString(R.string.button_key_esc),
             "⇥",
             composeTestRule.activity.getString(R.string.button_key_ctrl),
-            composeTestRule.activity.getString(R.string.button_key_alt),
+            "Fn",
         ).map { composeTestRule.onNodeWithText(it) }
         val initialBounds = fixedKeys.map { it.assertIsDisplayed().fetchSemanticsNode().boundsInRoot }
 
@@ -208,7 +212,7 @@ class TerminalKeyboardContentTest {
         assertTrue(escapePressed)
         assertTrue(tabPressed)
         assertTrue(ctrlPressed)
-        assertTrue(altPressed)
+        composeTestRule.onNodeWithText("F1").assertIsDisplayed()
     }
 
     @Test
@@ -227,7 +231,7 @@ class TerminalKeyboardContentTest {
     }
 
     @Test
-    fun imeToggleInvokesCallbackAndReportsInteraction() {
+    fun composeToggleIsRemovedEvenWhenOldPreferenceIsEnabled() {
         var toggles = 0
         var interactions = 0
         setKeyboardContent(
@@ -235,10 +239,9 @@ class TerminalKeyboardContentTest {
             onInteraction = { interactions++ },
         )
 
-        composeTestRule.onNodeWithText("IME").assertIsDisplayed().performClick()
+        composeTestRule.onNodeWithText("IME").assertDoesNotExist()
 
-        assertEquals(1, toggles)
-        assertTrue(interactions > 0)
+        assertEquals(0, toggles)
     }
 
     @Test
