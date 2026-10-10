@@ -19,6 +19,7 @@ package org.connectbot.transport
 
 import com.trilead.ssh2.Connection
 import com.trilead.ssh2.InteractiveCallback
+import com.trilead.ssh2.auth.SignatureProxy
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Test
 import org.mockito.ArgumentMatchers.any
@@ -42,6 +43,30 @@ class SshAuthenticationRunnerTest {
     private var promptedPassword: String? = "entered"
     private var candidates = emptyList<AuthenticationIdentity>()
     private var identityLoads = 0
+
+    @Test
+    fun protectedKeyUsesExternalSignerAfterAcceptedProbe() {
+        val signer = mock(SignatureProxy::class.java)
+        candidates = listOf(AuthenticationIdentity("protected", firstKey, signatureProxy = signer))
+        `when`(connection.probePublicKey("alice", firstKey.public)).thenReturn(true)
+        `when`(connection.authenticateWithPublicKey("alice", signer)).thenReturn(true)
+        assertThat(runner().authenticate()).isEqualTo(AuthenticationOutcome.Authenticated)
+        verify(connection, never()).authenticateWithPublicKey("alice", firstKey)
+        verify(connection).authenticateWithPublicKey("alice", signer)
+    }
+
+    @Test
+    fun cancelledSignatureDoesNotFallBackToSavedPassword() {
+        val signer = mock(SignatureProxy::class.java)
+        methods = arrayOf("publickey", "password")
+        storedPassword = "stored"
+        candidates = listOf(AuthenticationIdentity("protected", firstKey, signatureProxy = signer))
+        `when`(connection.probePublicKey("alice", firstKey.public)).thenReturn(true)
+        `when`(connection.authenticateWithPublicKey("alice", signer))
+            .thenThrow(IOException("Signing failed", AuthenticationCancelledException()))
+        assertThat(runner().authenticate()).isEqualTo(AuthenticationOutcome.Cancelled)
+        verify(connection, never()).authenticateWithPassword(anyString(), anyString())
+    }
 
     private fun runner(): SshAuthenticationRunner {
         `when`(connection.getRemainingAuthMethods("alice")).thenAnswer { methods }

@@ -100,9 +100,14 @@ class HostEditorScreenTest {
         }
     }
 
+    private fun selectCategory(category: String) {
+        composeTestRule.onNodeWithTag("host_category_" + category).performClick()
+    }
+
     @Test
     fun automationRowAlignsWithPreferencesAndRequiresSavedHost() {
         navigateToHostEditorScreen(-1L)
+        selectCategory("session")
         val automationTitle = composeTestRule.activity.getString(R.string.hostpref_postlogin_title)
         val precedingTitle = composeTestRule.activity.getString(R.string.hostpref_quickdisconnect_title)
         composeTestRule.onNodeWithText(automationTitle).performScrollTo().assertIsNotEnabled()
@@ -196,12 +201,16 @@ class HostEditorScreenTest {
         composeTestRule.onNodeWithText("Nickname").assertIsDisplayed()
         composeTestRule.onNodeWithText("Quick connect").assertDoesNotExist()
         composeTestRule.onNodeWithText("ssh").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Username").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Username").assertDoesNotExist()
         composeTestRule.onNodeWithText("Host").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("Port").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.hostpref_ipversion_title)).assertDoesNotExist()
         composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.hostpref_password_title)).assertDoesNotExist()
         composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.hostpref_jumphost_title)).performScrollTo().assertIsDisplayed()
+        selectCategory("authentication")
+        composeTestRule.onNodeWithText("Username").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.hostpref_password_title)).performScrollTo().assertIsDisplayed()
+        selectCategory("session")
         composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.hostpref_postlogin_title)).performScrollTo().assertIsDisplayed()
     }
 
@@ -212,7 +221,9 @@ class HostEditorScreenTest {
         composeTestRule.onNodeWithTag("add_host_button").assertIsNotDisplayed()
         composeTestRule.onNodeWithText("Nickname").performTextInput("example.com:2222")
 
+        selectCategory("authentication")
         composeTestRule.onNodeWithText("Username").performScrollTo().assert(hasText("admin"))
+        selectCategory("connection")
         composeTestRule.onNodeWithText("Host").performScrollTo().assert(hasText("example.com"))
         composeTestRule.onNodeWithText("Port").performScrollTo().assert(hasText("2222"))
         composeTestRule.onNodeWithTag("add_host_button").assertIsDisplayed()
@@ -225,7 +236,9 @@ class HostEditorScreenTest {
         composeTestRule.onNodeWithText("Host").performScrollTo().performClick()
         composeTestRule.onNodeWithText("Nickname").performScrollTo().performTextReplacement("root@other.example:8022")
 
+        selectCategory("authentication")
         composeTestRule.onNodeWithText("Username").performScrollTo().assert(hasText("admin"))
+        selectCategory("connection")
         composeTestRule.onNodeWithText("Host").performScrollTo().assert(hasText("example.com"))
         composeTestRule.onNodeWithText("Port").performScrollTo().assert(hasText("2222"))
         composeTestRule.onNodeWithText("Host").performTextReplacement("third.example")
@@ -233,7 +246,7 @@ class HostEditorScreenTest {
     }
 
     @Test
-    fun hostEditorScreen_advancedOptionsRetainValuesAndCollapseWithCustomNickname() {
+    fun hostEditorScreen_categoryChangesRetainPasswordAndAdvancedNetworkOptions() {
         navigateToHostEditorScreen(-1L)
         composeTestRule.onNodeWithText("Nickname").performTextInput("user@example.com")
         composeTestRule.onNodeWithText("Host").performScrollTo().performClick()
@@ -243,15 +256,19 @@ class HostEditorScreenTest {
         val passwordLabel = composeTestRule.activity.getString(R.string.hostpref_password_title)
         val ipVersionLabel = composeTestRule.activity.getString(R.string.hostpref_ipversion_title)
         composeTestRule.onNodeWithText(ipVersionLabel).performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText(passwordLabel).performScrollTo().performTextInput("secret")
         composeTestRule.onNodeWithText("Hide advanced options").performScrollTo().performClick()
 
         composeTestRule.onNodeWithText(ipVersionLabel).assertDoesNotExist()
         composeTestRule.onNodeWithText(passwordLabel).assertDoesNotExist()
-        composeTestRule.onNodeWithText("My Server").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Nickname").performScrollTo().assert(hasText("My Server"))
         composeTestRule.onNodeWithText("example.com").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("add_host_button").assertIsDisplayed()
+        selectCategory("authentication")
+        composeTestRule.onNodeWithText(passwordLabel).performScrollTo().performTextInput("secret")
+        selectCategory("connection")
         composeTestRule.onNodeWithText("Show advanced options").performScrollTo().performClick()
+        composeTestRule.onNodeWithText(ipVersionLabel).performScrollTo().assertIsDisplayed()
+        selectCategory("authentication")
         composeTestRule.onNodeWithText(passwordLabel).performScrollTo().assert(hasText("secret"))
     }
 
@@ -281,7 +298,9 @@ class HostEditorScreenTest {
         val moshPortLabel = composeTestRule.activity.getString(R.string.hostpref_mosh_port_title)
         val timeoutLabel = composeTestRule.activity.getString(R.string.hostpref_mosh_network_timeout_title)
         val localeLabel = composeTestRule.activity.getString(R.string.hostpref_locale_title)
+        selectCategory("authentication")
         composeTestRule.onNodeWithText("Username").performScrollTo().assertIsDisplayed()
+        selectCategory("connection")
         composeTestRule.onNodeWithText(commandLabel).assertDoesNotExist()
         composeTestRule.onNodeWithText(moshPortLabel).assertDoesNotExist()
         composeTestRule.onNodeWithText(localeLabel).assertDoesNotExist()
@@ -315,6 +334,8 @@ class HostEditorScreenTest {
         composeTestRule.onNodeWithText("Port").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("Show advanced options").performScrollTo().performClick()
         composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.hostpref_ipversion_title)).performScrollTo().assertIsDisplayed()
+        selectCategory("authentication")
+        composeTestRule.onNodeWithText("Username").assertDoesNotExist()
         composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.hostpref_password_title)).assertDoesNotExist()
     }
 
@@ -322,7 +343,7 @@ class HostEditorScreenTest {
     fun hostEditorScreen_existingSshHost_opensKnownHostKeys() {
         navigateToHostEditorScreen(42L)
 
-        composeTestRule.onNodeWithText("Show advanced options").performScrollTo().performClick()
+        selectCategory("authentication")
         composeTestRule.onNodeWithTag("known_host_keys_preference").performScrollTo().performClick()
 
         composeTestRule.runOnIdle {
@@ -334,10 +355,12 @@ class HostEditorScreenTest {
     fun hostEditorScreen_localProtocol_hidesUserHostPortFields() {
         navigateToHostEditorScreen(-1L)
 
+        selectCategory("authentication")
         composeTestRule
             .onNodeWithText("Username")
             .performScrollTo()
             .assertIsDisplayed()
+        selectCategory("connection")
         composeTestRule
             .onNodeWithText("Host")
             .performScrollTo()
@@ -369,6 +392,9 @@ class HostEditorScreenTest {
         composeTestRule
             .onNodeWithText("Port")
             .assertIsNotDisplayed()
+        selectCategory("authentication")
+        composeTestRule.onNodeWithText("Username").assertDoesNotExist()
+        composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.hostpref_password_title)).assertDoesNotExist()
     }
 
     @Test

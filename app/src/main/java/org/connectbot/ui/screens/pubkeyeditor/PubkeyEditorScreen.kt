@@ -177,77 +177,82 @@ fun PubkeyEditorScreenContent(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     // Change Password Section
-                    Text(
-                        text = stringResource(R.string.pubkey_change_password),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
+                    if (!uiState.isBiometric) {
+                        Text(
+                            text = stringResource(R.string.pubkey_change_password),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                    if (uiState.isEncrypted) {
+                        if (uiState.isEncrypted) {
+                            OutlinedTextField(
+                                value = uiState.oldPassword,
+                                onValueChange = onOldPasswordChange,
+                                label = { Text(stringResource(R.string.prompt_old_password)) },
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
                         OutlinedTextField(
-                            value = uiState.oldPassword,
-                            onValueChange = onOldPasswordChange,
-                            label = { Text(stringResource(R.string.prompt_old_password)) },
+                            value = uiState.newPassword1,
+                            onValueChange = onNewPassword1Change,
+                            label = { Text(stringResource(R.string.prompt_password)) },
+                            supportingText = { Text(stringResource(R.string.prompt_password_can_be_blank)) },
                             visualTransformation = PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                         )
+
                         Spacer(modifier = Modifier.height(8.dp))
-                    }
 
-                    OutlinedTextField(
-                        value = uiState.newPassword1,
-                        onValueChange = onNewPassword1Change,
-                        label = { Text(stringResource(R.string.prompt_password)) },
-                        supportingText = { Text(stringResource(R.string.prompt_password_can_be_blank)) },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
+                        OutlinedTextField(
+                            value = uiState.newPassword2,
+                            onValueChange = onNewPassword2Change,
+                            label = {
+                                Text(
+                                    "${stringResource(R.string.prompt_password)} ${
+                                        stringResource(
+                                            R.string.prompt_again,
+                                        )
+                                    }",
+                                )
+                            },
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            isError = uiState.passwordMismatch,
+                        )
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = uiState.newPassword2,
-                        onValueChange = onNewPassword2Change,
-                        label = {
+                        if (uiState.passwordMismatch) {
                             Text(
-                                "${stringResource(R.string.prompt_password)} ${
-                                    stringResource(
-                                        R.string.prompt_again,
-                                    )
-                                }",
+                                text = stringResource(R.string.alert_passwords_do_not_match_msg),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(start = 16.dp, top = 4.dp),
                             )
-                        },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        isError = uiState.passwordMismatch,
-                    )
+                        }
 
-                    if (uiState.passwordMismatch) {
-                        Text(
-                            text = stringResource(R.string.alert_passwords_do_not_match_msg),
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(start = 16.dp, top = 4.dp),
-                        )
+                        if (uiState.wrongPassword) {
+                            Text(
+                                text = stringResource(R.string.alert_wrong_password_msg),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                    } else {
+                        Text(stringResource(R.string.login_recovery_note), style = MaterialTheme.typography.bodySmall)
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
-
-                    if (uiState.wrongPassword) {
-                        Text(
-                            text = stringResource(R.string.alert_wrong_password_msg),
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(start = 16.dp, top = 4.dp),
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
 
                     // Options
                     Text(
@@ -257,28 +262,30 @@ fun PubkeyEditorScreenContent(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !uiState.willBeEncrypted) {
-                                onUnlockAtStartupChange(!uiState.unlockAtStartup)
-                            },
-                    ) {
-                        Checkbox(
-                            checked = uiState.unlockAtStartup,
-                            onCheckedChange = onUnlockAtStartupChange,
-                            enabled = !uiState.willBeEncrypted,
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.pubkey_load_on_start),
-                            color = if (!uiState.willBeEncrypted) {
-                                MaterialTheme.colorScheme.onSurface
-                            } else {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                            },
-                        )
+                    if (!uiState.isBiometric) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !uiState.willBeEncrypted) {
+                                    onUnlockAtStartupChange(!uiState.unlockAtStartup)
+                                },
+                        ) {
+                            Checkbox(
+                                checked = uiState.unlockAtStartup,
+                                onCheckedChange = onUnlockAtStartupChange,
+                                enabled = !uiState.willBeEncrypted,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.pubkey_load_on_start),
+                                color = if (!uiState.willBeEncrypted) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                },
+                            )
+                        }
                     }
 
                     if (uiState.willBeEncrypted && uiState.unlockAtStartup) {

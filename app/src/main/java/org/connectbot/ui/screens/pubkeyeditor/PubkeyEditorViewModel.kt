@@ -39,6 +39,7 @@ data class PubkeyEditorUiState(
     val nickname: String = "",
     val keyType: String = "",
     val isEncrypted: Boolean = false,
+    val isBiometric: Boolean = false,
     val oldPassword: String = "",
     val newPassword1: String = "",
     val newPassword2: String = "",
@@ -95,6 +96,7 @@ class PubkeyEditorViewModel @Inject constructor(
                             nickname = pubkey.nickname,
                             keyType = pubkey.type,
                             isEncrypted = pubkey.encrypted,
+                            isBiometric = pubkey.isBiometric,
                             unlockAtStartup = pubkey.startup,
                             confirmUse = pubkey.confirmation,
                             isLoading = false,
@@ -148,18 +150,22 @@ class PubkeyEditorViewModel @Inject constructor(
     }
 
     fun updateOldPassword(password: String) {
+        if (_uiState.value.isBiometric) return
         _uiState.update { it.copy(oldPassword = password, wrongPassword = false, hasUnsavedChanges = true) }
     }
 
     fun updateNewPassword1(password: String) {
+        if (_uiState.value.isBiometric) return
         _uiState.update { it.copy(newPassword1 = password, hasUnsavedChanges = true) }
     }
 
     fun updateNewPassword2(password: String) {
+        if (_uiState.value.isBiometric) return
         _uiState.update { it.copy(newPassword2 = password, hasUnsavedChanges = true) }
     }
 
     fun updateUnlockAtStartup(checked: Boolean) {
+        if (_uiState.value.isBiometric) return
         _uiState.update { it.copy(unlockAtStartup = checked, hasUnsavedChanges = true) }
     }
 
@@ -180,8 +186,10 @@ class PubkeyEditorViewModel @Inject constructor(
                     // Password needs to be changed if:
                     // 1. Key is encrypted and user provided old password (removing or changing password)
                     // 2. Key is not encrypted but user provided new password (adding password)
-                    val needsPasswordChange = (state.isEncrypted && state.oldPassword.isNotEmpty()) ||
-                        (!state.isEncrypted && state.newPassword1.isNotEmpty())
+                    val needsPasswordChange = !pubkey.isBiometric && (
+                        (state.isEncrypted && state.oldPassword.isNotEmpty()) ||
+                            (!state.isEncrypted && state.newPassword1.isNotEmpty())
+                        )
 
                     var newPrivateKey = pubkey.privateKey
                     var newEncrypted = pubkey.encrypted
@@ -229,7 +237,7 @@ class PubkeyEditorViewModel @Inject constructor(
                         nickname = state.nickname,
                         privateKey = newPrivateKey,
                         encrypted = newEncrypted,
-                        startup = state.unlockAtStartup,
+                        startup = if (pubkey.isBiometric) pubkey.startup else state.unlockAtStartup,
                         confirmation = state.confirmUse,
                     )
 

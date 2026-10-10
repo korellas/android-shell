@@ -30,7 +30,7 @@
 	<string name="app_copyright">Copyright &#xA9; Kenny Root</string>
 
 	<!-- Window title for the Pubkeys List -->
-	<string name="title_pubkey_list">"Pubkeys"</string>
+	<string name="title_pubkey_list">SSH keys</string>
 	<!-- Window title for the Port Forwards List -->
 	<string name="title_port_forwards_list">"Port forwards"</string>
 	<!-- Window title for Help index -->
@@ -345,7 +345,7 @@
 	<!-- Explanation below the alerts switch; the service notification is required independently of optional alerts. -->
 	<string name="pref_service_notification_visibility">Android controls the visibility of the ongoing connection notification independently of connection alerts.</string>
 	<!-- Clickable Settings notice opening Android notification settings when notifications are blocked. -->
-	<string name="pref_notifications_blocked">Android has blocked notifications for ConnectBot. Background connection support remains enabled.</string>
+	<string name="pref_notifications_blocked">Android has blocked notifications for Android Shell. Background connection support remains enabled.</string>
 
 	<!-- Name for the keyboard shortcuts preference -->
 	<string name="pref_keymode_title">"Directory shortcuts"</string>
@@ -457,7 +457,7 @@
 	<string name="hostpref_colorscheme_title">"Terminal color scheme"</string>
 
 	<!-- Host pubkey usage preference title -->
-	<string name="hostpref_pubkeyid_title">"Use pubkey authentication"</string>
+	<string name="hostpref_pubkeyid_title">SSH key for login</string>
 
 	<!-- Preference title for the SSH Authentication Agent Forwarding for a host connection -->
 	<string name="hostpref_authagent_title">"Use SSH auth agent"</string>
@@ -650,7 +650,7 @@
 	<string name="format_port">"port"</string>
 
 	<!-- Menu item to open the pubkey management screen -->
-	<string name="list_menu_pubkeys">"Manage pubkeys"</string>
+	<string name="list_menu_pubkeys">Manage SSH keys</string>
 	<!-- Title of the screen listing trusted SSH host keys -->
 	<string name="known_hosts_title">Known hosts</string>
 	<!-- Host editor action opening the trusted SSH host keys for the current host -->
@@ -1754,7 +1754,7 @@
 	<!-- Quick connection confirmation button. -->
 	<string name="quick_connect_action">Connect</string>
 	<!-- Screen title and menu action for shared login credentials. -->
-	<string name="identities_title">Authentication identities</string>
+	<string name="identities_title">Shared login accounts</string>
 	<!-- Description of reusable login credentials. -->
 	<string name="identities_summary">Reuse a username, key and optional password across hosts. Select an identity in the host editor.</string>
 	<!-- Accessibility description for adding login credentials. -->
@@ -1764,7 +1764,7 @@
 	<!-- Option to use the individual host's credentials. -->
 	<string name="identity_per_host">This host only</string>
 	<!-- Link from a host editor to the shared identity list. -->
-	<string name="identity_manage">Manage identities</string>
+	<string name="identity_manage">Manage shared login accounts</string>
 	<!-- Password backup restriction in the identity editor. -->
 	<string name="identity_password_backup_note">Passwords stay encrypted on this device and must be re-entered after restoring to another device.</string>
 	<!-- Shared credential deletion confirmation. -->
@@ -1787,4 +1787,144 @@
 	<string name="tmux_previous_window">← tmux · previous window</string>
 	<!-- Explanation of Android's backup and restore workflow in settings. -->
 	<string name="pref_android_backup_summary">Android backs up hosts, favorites, identities, profiles, colors, automation and imported fonts when system backup is enabled. Passwords and device-only keys need to be set up again after restore.</string>
+  <!-- Settings redesign: settings_display label or guidance. -->
+  <string name="settings_display">Display</string>
+  <!-- Settings redesign: settings_gestures label or guidance. -->
+  <string name="settings_gestures">Gestures</string>
+  <!-- Settings redesign: settings_terminal label or guidance. -->
+  <string name="settings_terminal">Terminal</string>
+  <!-- Settings redesign: settings_connection label or guidance. -->
+  <string name="settings_connection">Connections &amp; alerts</string>
+  <!-- Settings redesign: settings_security_backup label or guidance. -->
+  <string name="settings_security_backup">Security &amp; backup</string>
+  <!-- Settings redesign: settings_appearance label or guidance. -->
+  <string name="settings_appearance">Appearance</string>
+  <!-- Settings redesign: settings_console label or guidance. -->
+  <string name="settings_console">Console</string>
+  <!-- Settings redesign: settings_backup label or guidance. -->
+  <string name="settings_backup">Backup</string>
+  <!-- Settings redesign: settings_notifications label or guidance. -->
+  <string name="settings_notifications">Notifications</string>
+  <!-- Settings redesign: settings_color_theme label or guidance. -->
+  <string name="settings_color_theme">Color theme</string>
+  <!-- Settings redesign: settings_edit_palette label or guidance. -->
+  <string name="settings_edit_palette">Edit palettes</string>
+  <!-- Settings redesign: settings_color_profile label or guidance. -->
+  <string name="settings_color_profile">Applies to profile %1$s. Other profiles keep their colors.</string>
+  <!-- Settings redesign: settings_special_keys label or guidance. -->
+  <string name="settings_special_keys">Special key bar</string>
+  <!-- Settings redesign: settings_edit_keybar label or guidance. -->
+  <string name="settings_edit_keybar">Edit key bar</string>
+  <!-- Settings redesign: settings_text_input label or guidance. -->
+  <string name="settings_text_input">Text input</string>
+  <!-- Settings redesign: settings_keyboard_advanced label or guidance. -->
+  <string name="settings_keyboard_advanced">Advanced · Hardware keys and shortcuts</string>
+  <!-- Settings redesign: settings_keybar_height label or guidance. -->
+  <string name="settings_keybar_height">Key height</string>
+  <!-- Settings redesign: settings_scroll_keys label or guidance. -->
+  <string name="settings_scroll_keys">Scrollable keys</string>
+  <!-- Settings redesign: settings_move_key_up label or guidance. -->
+  <string name="settings_move_key_up">Move %1$s up</string>
+  <!-- Settings redesign: settings_move_key_down label or guidance. -->
+  <string name="settings_move_key_down">Move %1$s down</string>
+  <!-- Settings redesign: settings_fixed_keys label or guidance. -->
+  <string name="settings_fixed_keys">Esc · Tab · Ctrl stay on the left. Fn stays at the far right. Composition mode is in the console menu.</string>
+  <!-- Settings redesign: settings_fn_group label or guidance. -->
+  <string name="settings_fn_group">Group F1–F12 under Fn</string>
+  <!-- Settings redesign: settings_fn_group_summary label or guidance. -->
+  <string name="settings_fn_group_summary">Fn switches the scrolling area to function keys.</string>
+  <!-- Settings redesign: settings_reset_keybar label or guidance. -->
+  <string name="settings_reset_keybar">Reset key bar</string>
+  <!-- Settings redesign: terminal_bar_function_keys label or guidance. -->
+  <string name="terminal_bar_function_keys">Function keys</string>
+  <!-- Settings redesign: settings_keybar_summary label or guidance. -->
+  <string name="settings_keybar_summary">Esc · Tab · Ctrl · %1$ddp</string>
+  <!-- Settings redesign: settings_scrollback_value label or guidance. -->
+  <string name="settings_scrollback_value">Scrollback: %1$s lines</string>
+  <!-- Settings redesign: settings_decrease_scrollback label or guidance. -->
+  <string name="settings_decrease_scrollback">Decrease scrollback</string>
+  <!-- Settings redesign: settings_increase_scrollback label or guidance. -->
+  <string name="settings_increase_scrollback">Increase scrollback</string>
+  <!-- Settings redesign: settings_off label or guidance. -->
+  <string name="settings_off">Off</string>
+  <!-- Settings redesign: settings_alerts_on label or guidance. -->
+  <string name="settings_alerts_on">Connection alerts on</string>
+  <!-- Settings redesign: settings_alerts_off label or guidance. -->
+  <string name="settings_alerts_off">Connection alerts off</string>
+  <!-- Settings redesign: settings_auth_off label or guidance. -->
+  <string name="settings_auth_off">Launch authentication off</string>
+  <!-- Host editor category for the connection address and transport. -->
+  <string name="host_editor_connection">Connection</string>
+  <!-- Host editor category for identities, SSH keys and passwords. -->
+  <string name="host_editor_authentication">Authentication</string>
+  <!-- Host editor category for the host color and terminal profile. -->
+  <string name="host_editor_appearance">Display &amp; profile</string>
+  <!-- Host editor category for session behavior and login automation. -->
+  <string name="host_editor_session">Session &amp; startup</string>
+  <!-- Connection category summary before a host address is entered. -->
+  <string name="host_editor_connection_summary">Address, port and protocol</string>
+  <!-- Authentication category summary without displaying a password. -->
+  <string name="host_editor_authentication_summary">Credentials, SSH keys and password</string>
+    <!-- SSH login setup: login title. -->
+    <string name="login_title">Login &amp; SSH keys</string>
+    <!-- SSH login setup: login setup. -->
+    <string name="login_setup">Set up fingerprint login</string>
+    <!-- SSH login setup: login setup summary. -->
+    <string name="login_setup_summary">Log in normally, register a public key, then verify key login.</string>
+    <!-- SSH login setup: login keys. -->
+    <string name="login_keys">Manage SSH keys</string>
+    <!-- SSH login setup: login keys summary. -->
+    <string name="login_keys_summary">Create or import keys, copy public keys, and manage protection.</string>
+    <!-- SSH login setup: login accounts summary. -->
+    <string name="login_accounts_summary">Reuse a username and login settings across servers.</string>
+    <!-- SSH login setup: login choose server. -->
+    <string name="login_choose_server">Choose an SSH server</string>
+    <!-- SSH login setup: login no servers. -->
+    <string name="login_no_servers">Save an SSH host first. For Mosh, register through an SSH host for the same server.</string>
+    <!-- SSH login setup: login register key. -->
+    <string name="login_register_key">Register a key on this server</string>
+    <!-- SSH login setup: login new key. -->
+    <string name="login_new_key">New fingerprint-protected key</string>
+    <!-- SSH login setup: login default key name. -->
+    <string name="login_default_key_name">Phone fingerprint key</string>
+    <!-- SSH login setup: login key name. -->
+    <string name="login_key_name">Key name</string>
+    <!-- SSH login setup: login existing key. -->
+    <string name="login_existing_key">Existing SSH key</string>
+    <!-- SSH login setup: login key protected. -->
+    <string name="login_key_protected">Fingerprint protected · device only</string>
+    <!-- SSH login setup: login key exportable. -->
+    <string name="login_key_exportable">Regular SSH key</string>
+    <!-- SSH login setup: login no biometric. -->
+    <string name="login_no_biometric">Strong biometric authentication is unavailable. Enroll a fingerprint in Android settings or choose an existing key.</string>
+    <!-- SSH login setup: login registration note. -->
+    <string name="login_registration_note">Add the public key to this account in ~/.ssh/authorized_keys. Existing keys and password login remain unchanged. Only this host will use the key after verification.</string>
+    <!-- SSH login setup: login recovery note. -->
+    <string name="login_recovery_note">Fingerprint keys cannot be exported or restored on another phone. Keep your Mac key or another login method. Changing enrolled biometrics can invalidate this key.</string>
+    <!-- SSH login setup: login register confirm. -->
+    <string name="login_register_confirm">Register and verify login</string>
+    <!-- SSH login setup: login registering. -->
+    <string name="login_registering">Registering public key…</string>
+    <!-- SSH login setup: login verifying. -->
+    <string name="login_verifying">Verifying a separate key-only SSH login…</string>
+    <!-- SSH login setup: login applying. -->
+    <string name="login_applying">Applying verified login to this host…</string>
+    <!-- SSH login setup: login registration added. -->
+    <string name="login_registration_added">Public key added</string>
+    <!-- SSH login setup: login registration existing. -->
+    <string name="login_registration_existing">Public key already present; existing options preserved</string>
+    <!-- SSH login setup: login setup success. -->
+    <string name="login_setup_success">Key login verified. This host will use the selected key on its next connection.</string>
+    <!-- SSH login setup: login setup rejected. -->
+    <string name="login_setup_rejected">Key login could not be verified. Original login settings are unchanged. The public key may remain on the server.</string>
+    <!-- SSH login setup: login setup additional auth. -->
+    <string name="login_setup_additional_auth">The server accepted the key but requires additional authentication. Original login settings are unchanged.</string>
+    <!-- SSH login setup: login setup failed. -->
+    <string name="login_setup_failed">Setup did not complete. If registration started, the public key may already be on the server.</string>
+    <!-- SSH login setup: login save host first. -->
+    <string name="login_save_host_first">Save this SSH host before registering a key.</string>
+    <!-- SSH login setup: login retry. -->
+    <string name="login_retry">Retry</string>
+    <!-- SSH login setup: login done. -->
+    <string name="login_done">Done</string>
 </resources>

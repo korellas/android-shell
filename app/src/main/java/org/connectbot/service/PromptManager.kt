@@ -17,6 +17,7 @@
 
 package org.connectbot.service
 
+import androidx.biometric.BiometricPrompt
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -87,6 +88,7 @@ class PromptManager {
     suspend fun requestBiometricAuth(
         keyNickname: String,
         keystoreAlias: String,
+        cryptoObject: BiometricPrompt.CryptoObject? = null,
     ): Boolean {
         val deferred = CompletableDeferred<PromptResponse>()
         currentDeferred = deferred
@@ -95,13 +97,18 @@ class PromptManager {
             PromptRequest.BiometricPrompt(
                 keyNickname = keyNickname,
                 keystoreAlias = keystoreAlias,
+                cryptoObject = cryptoObject,
             )
         }
 
         val response = deferred.await()
         _promptState.update { null }
 
-        return (response as? PromptResponse.BiometricResponse)?.success ?: false
+        val biometricResponse = response as? PromptResponse.BiometricResponse ?: return false
+        return biometricResponse.success && (
+            cryptoObject == null ||
+                (cryptoObject.signature != null && biometricResponse.cryptoObject?.signature === cryptoObject.signature)
+            )
     }
 
     /**
@@ -175,6 +182,7 @@ sealed class PromptRequest {
     data class BiometricPrompt(
         val keyNickname: String,
         val keystoreAlias: String,
+        val cryptoObject: androidx.biometric.BiometricPrompt.CryptoObject? = null,
     ) : PromptRequest()
 
     data class HostKeyFingerprintPrompt(
@@ -220,5 +228,8 @@ sealed class PromptRequest {
 sealed class PromptResponse {
     data class BooleanResponse(val value: Boolean) : PromptResponse()
     data class StringResponse(val value: String?) : PromptResponse()
-    data class BiometricResponse(val success: Boolean) : PromptResponse()
+    data class BiometricResponse(
+        val success: Boolean,
+        val cryptoObject: BiometricPrompt.CryptoObject? = null,
+    ) : PromptResponse()
 }

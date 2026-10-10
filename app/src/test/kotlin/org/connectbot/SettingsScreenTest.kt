@@ -22,10 +22,11 @@ import android.graphics.Bitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -42,6 +43,8 @@ import org.connectbot.ui.screens.settings.SettingsScreen
 import org.connectbot.ui.screens.settings.SettingsScreenContent
 import org.connectbot.ui.screens.settings.SettingsUiState
 import org.connectbot.ui.theme.ConnectBotTheme
+import org.connectbot.util.TerminalBarLayout
+import org.connectbot.util.ThemeMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -54,6 +57,7 @@ import java.io.File
 
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
+@Config(qualifiers = "w412dp-h900dp-xhdpi")
 class SettingsScreenTest {
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
@@ -64,6 +68,71 @@ class SettingsScreenTest {
     @Before
     fun setUp() {
         hiltRule.inject()
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h900dp")
+    fun categoriesOpenDetailsAndBackReturnsToList() {
+        setSettingsContent(category = null)
+        composeTestRule.onNodeWithText("Display").assertIsDisplayed()
+        composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.pref_memkeys_title)).assertDoesNotExist()
+        composeTestRule.onNodeWithText("Security & backup").performClick()
+        composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.pref_memkeys_title)).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(composeTestRule.activity.getString(R.string.button_navigate_up)).performClick()
+        composeTestRule.onNodeWithText("Display").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w750dp-h900dp")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun unfoldedSettingsKeepCategoriesBesideDetails() {
+        setSettingsContent(category = null)
+        saveScreenshot("fold8-settings-wide.png")
+        val display = composeTestRule.onNodeWithTag("settings_category_display")
+        composeTestRule.onNodeWithText("Security & backup").performClick()
+        display.assertIsDisplayed()
+        val setting = composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.pref_memkeys_title))
+        setting.assertIsDisplayed()
+        assertTrue(display.fetchSemanticsNode().boundsInRoot.right < setting.fetchSemanticsNode().boundsInRoot.left)
+    }
+
+    @Test
+    @Config(sdk = [34], qualifiers = "ko-rKR-w412dp-h900dp-xhdpi")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun coverDesignPreviewAndKeybarEditorReturnSelectedHeight() {
+        var selectedLayout: TerminalBarLayout? = null
+        var selectedScrollback: String? = null
+        setSettingsContent(
+            category = null,
+            uiState = SettingsUiState(themeMode = ThemeMode.DARK, scrollback = "1000"),
+            onScrollbackChange = { selectedScrollback = it },
+            onTerminalBarLayoutChange = { selectedLayout = it },
+        )
+        saveScreenshot("fold8-settings-cover.png")
+        composeTestRule.onNodeWithTag("settings_category_display").performClick()
+        saveScreenshot("fold8-settings-display.png")
+        composeTestRule.onNodeWithContentDescription(composeTestRule.activity.getString(R.string.button_navigate_up)).performClick()
+        composeTestRule.onNodeWithTag("settings_category_keyboard").performClick()
+        composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.settings_edit_keybar)).performClick()
+        saveScreenshot("fold8-keybar-editor.png")
+        composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.pref_terminal_margin_value, 36)).performClick()
+        assertEquals(36, selectedLayout?.keyHeight)
+        repeat(2) { composeTestRule.onNodeWithContentDescription(composeTestRule.activity.getString(R.string.button_navigate_up)).performClick() }
+        composeTestRule.onNodeWithTag("settings_category_terminal").performClick()
+        saveScreenshot("fold8-terminal-settings.png")
+        composeTestRule.onNodeWithContentDescription(composeTestRule.activity.getString(R.string.settings_decrease_scrollback)).performClick()
+        assertEquals("500", selectedScrollback)
+        composeTestRule.onNodeWithContentDescription(composeTestRule.activity.getString(R.string.settings_increase_scrollback)).performClick()
+        assertEquals("2000", selectedScrollback)
+    }
+
+    @TargetApi(26)
+    private fun saveScreenshot(name: String) {
+        val file = File("build/reports/" + name)
+        file.parentFile!!.mkdirs()
+        file.outputStream().use { output ->
+            composeTestRule.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, output)
+        }
     }
 
     @Test
@@ -83,10 +152,12 @@ class SettingsScreenTest {
 
     @Test
     fun settingsOfferTmuxWindowSwipeAndTerminalMargin() {
-        setSettingsContent()
-        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("Swipe tmux windows"))
+        setSettingsContent(category = "gesture")
+        composeTestRule.onNodeWithTag("settings_details").performScrollToNode(hasText("Swipe tmux windows"))
         composeTestRule.onNodeWithText("Swipe tmux windows").assertIsDisplayed()
-        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("Terminal margin"))
+        composeTestRule.onNodeWithContentDescription(composeTestRule.activity.getString(R.string.button_navigate_up)).performClick()
+        composeTestRule.onNodeWithTag("settings_category_display").performClick()
+        composeTestRule.onNodeWithTag("settings_details").performScrollToNode(hasText("Terminal margin"))
         composeTestRule.onNodeWithText("Terminal margin").assertIsDisplayed()
     }
 
@@ -196,6 +267,7 @@ class SettingsScreenTest {
             }
         }
 
+        composeTestRule.onNodeWithTag("settings_category_connection").performClick()
         composeTestRule
             .onNodeWithText(connectionAlertsTitle)
             .assertIsDisplayed()
@@ -221,10 +293,11 @@ class SettingsScreenTest {
 
     @Test
     fun settingsScreenContent_whenCanAuthenticate_displaysSecurityPreference() {
-        val security = composeTestRule.activity.getString(R.string.pref_security_category)
+        val security = composeTestRule.activity.getString(R.string.settings_security_backup)
         val authOnLaunch = composeTestRule.activity.getString(R.string.pref_auth_on_launch_title)
 
         setSettingsContent(
+            category = "security",
             uiState = SettingsUiState(canAuthenticate = true),
         )
 
@@ -242,6 +315,7 @@ class SettingsScreenTest {
         val memkeys = composeTestRule.activity.getString(R.string.pref_memkeys_title)
 
         setSettingsContent(
+            category = "security",
             uiState = SettingsUiState(memkeys = true),
             onMemkeysChange = { memkeysValue = it },
         )
@@ -260,11 +334,12 @@ class SettingsScreenTest {
         val rawKeyEvents = composeTestRule.activity.getString(R.string.pref_ime_shortcut_mode_type_null)
 
         setSettingsContent(
+            category = "keyboard",
             onImeShortcutInputModeChange = { selectedMode = it },
         )
 
         composeTestRule
-            .onNode(hasScrollAction())
+            .onNodeWithTag("settings_details")
             .performScrollToNode(hasText(title))
         composeTestRule
             .onNodeWithText(title)
@@ -277,23 +352,25 @@ class SettingsScreenTest {
     }
 
     @Test
+    @Config(qualifiers = "w1000dp-h1200dp-xhdpi")
     fun settingsScreenContent_scrollbackDialogConfirmsUpdatedValue() {
         var scrollbackValue: String? = null
         val scrollback = composeTestRule.activity.getString(R.string.pref_scrollback_title)
 
         setSettingsContent(
+            category = "terminal",
             uiState = SettingsUiState(scrollback = "140"),
             onScrollbackChange = { scrollbackValue = it },
         )
 
         composeTestRule
-            .onNode(hasScrollAction())
+            .onNodeWithTag("settings_details")
             .performScrollToNode(hasText(scrollback))
         composeTestRule
             .onNodeWithText(scrollback)
             .performClick()
         composeTestRule
-            .onNodeWithText("140")
+            .onNode(hasSetTextAction().and(hasText("140")))
             .performTextReplacement("200")
         composeTestRule
             .onNodeWithText(composeTestRule.activity.getString(android.R.string.ok))
@@ -303,6 +380,7 @@ class SettingsScreenTest {
     }
 
     @Test
+    @Config(qualifiers = "w1000dp-h1200dp-xhdpi")
     fun settingsScreenContent_customTerminalTypeCanBeAddedAndRemoved() {
         var addedTerminalType: String? = null
         var removedTerminalType: String? = null
@@ -310,13 +388,14 @@ class SettingsScreenTest {
         val add = composeTestRule.activity.getString(R.string.button_add)
 
         setSettingsContent(
+            category = "terminal",
             uiState = SettingsUiState(customTerminalTypes = listOf("tmux-256color")),
             onAddCustomTerminalType = { addedTerminalType = it },
             onRemoveCustomTerminalType = { removedTerminalType = it },
         )
 
         composeTestRule
-            .onNode(hasScrollAction())
+            .onNodeWithTag("settings_details")
             .performScrollToNode(hasText(customTerminal))
         composeTestRule
             .onNodeWithText("tmux-256color")
@@ -352,11 +431,12 @@ class SettingsScreenTest {
                     Profile(id = 2L, name = "Home"),
                 ),
             ),
+            category = "terminal",
             onDefaultProfileChange = { selectedProfileId = it },
         )
 
         composeTestRule
-            .onNode(hasScrollAction())
+            .onNodeWithTag("settings_details")
             .performScrollToNode(hasText(defaultProfile))
         composeTestRule
             .onNodeWithText("Home")
@@ -372,6 +452,7 @@ class SettingsScreenTest {
     }
 
     private fun setSettingsContent(
+        category: String? = "connection",
         uiState: SettingsUiState = SettingsUiState(),
         onAuthOnLaunchChange: (Boolean) -> Unit = {},
         onMemkeysChange: (Boolean) -> Unit = {},
@@ -386,9 +467,10 @@ class SettingsScreenTest {
         onBellNotificationChange: (Boolean) -> Unit = {},
         onConnectionLostNotificationChange: (Boolean) -> Unit = {},
         onNotificationSettingsClick: () -> Unit = {},
+        onTerminalBarLayoutChange: (TerminalBarLayout) -> Unit = {},
     ) {
         composeTestRule.setContent {
-            ConnectBotTheme {
+            ConnectBotTheme(themeMode = uiState.themeMode) {
                 SettingsScreenContent(
                     uiState = uiState,
                     onNavigateBack = {},
@@ -432,8 +514,10 @@ class SettingsScreenTest {
                     onBellNotificationChange = onBellNotificationChange,
                     onConnectionLostNotificationChange = onConnectionLostNotificationChange,
                     onNotificationSettingsClick = onNotificationSettingsClick,
+                    onTerminalBarLayoutChange = onTerminalBarLayoutChange,
                 )
             }
         }
+        if (category != null) composeTestRule.onNodeWithTag("settings_category_" + category).performClick()
     }
 }

@@ -19,6 +19,7 @@ package org.connectbot.transport
 
 import com.trilead.ssh2.Connection
 import com.trilead.ssh2.InteractiveCallback
+import com.trilead.ssh2.auth.SignatureProxy
 import com.trilead.ssh2.crypto.Base64
 import com.trilead.ssh2.crypto.PublicKeyUtils
 import java.io.IOException
@@ -39,6 +40,7 @@ internal class AuthenticationIdentity(
     val isAvailable: () -> Boolean = { true },
     val confirm: () -> Boolean = { true },
     val prepare: () -> Boolean = { true },
+    val signatureProxy: SignatureProxy? = null,
 ) {
     val keyId: String = String(Base64.encode(PublicKeyUtils.extractPublicKeyBlob(pair.public)))
 }
@@ -115,7 +117,9 @@ internal class SshAuthenticationRunner(
                         continue
                     }
                     if (!candidate.isAvailable()) continue
-                    if (connection.authenticateWithPublicKey(username, candidate.pair)) {
+                    val accepted = candidate.signatureProxy?.let { connection.authenticateWithPublicKey(username, it) }
+                        ?: connection.authenticateWithPublicKey(username, candidate.pair)
+                    if (accepted) {
                         return AuthenticationOutcome.Authenticated
                     }
                     if (connection.isAuthenticationPartialSuccess) {

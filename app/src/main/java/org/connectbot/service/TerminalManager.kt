@@ -150,6 +150,9 @@ class TerminalManager :
     internal lateinit var pubkeyRepository: PubkeyRepository
 
     @Inject
+    internal lateinit var biometricKeyManager: org.connectbot.util.BiometricKeyManager
+
+    @Inject
     internal lateinit var prefs: SharedPreferences
 
     @Inject
@@ -508,6 +511,21 @@ class TerminalManager :
         return wr?.get()
     }
 
+    internal fun updateHostConfiguration(bridge: TerminalBridge, host: Host) {
+        synchronized(_bridges) {
+            hostBridgeMap.entries.removeAll { it.value.get() === bridge }
+            nicknameBridgeMap.entries.removeAll { it.value.get() === bridge }
+            bridge.host = host
+            bridge.transport?.setHost(host)
+            if (bridge in _bridges) {
+                val reference = WeakReference(bridge)
+                hostBridgeMap[host] = reference
+                nicknameBridgeMap[host.nickname] = reference
+            }
+        }
+        notifyHostStatusChanged()
+    }
+
     /**
      * Find a connected [TerminalBridge] using its nickname.
      *
@@ -632,13 +650,22 @@ class TerminalManager :
     /**
      * Add a biometric key from Android Keystore to in-memory cache.
      * The PrivateKey from Keystore is a proxy that delegates signing to secure hardware.
-     * Since biometric auth was just completed, the 30-second signing window is active.
-     * The key will be automatically removed when the auth window expires.
+     * Auth-per-use keys cache only a reference; SSH still authorizes each signature.
+     * Legacy time-based keys expire from the cache with their authentication window.
      *
      * @return BiometricKeyResult indicating success or failure with reason
      */
     fun addBiometricKey(pubkey: Pubkey, keystoreAlias: String, publicKey: java.security.PublicKey): BiometricKeyResult {
         removeKey(pubkey.nickname)
+
+        if (biometricKeyManager.isAuthPerUse(keystoreAlias)) {
+            return try {
+                addKey(pubkey, KeyPair(publicKey, biometricKeyManager.getPrivateKey(keystoreAlias)), false)
+                BiometricKeyResult.Success
+            } catch (e: Exception) {
+                BiometricKeyResult.Error(e.message ?: "Could not load the protected key")
+            }
+        }
 
         // Get the private key reference from Keystore
         // This is a proxy object - actual signing is done in secure hardware
@@ -1134,7 +1161,7 @@ class TerminalManager :
 
         const val VIBRATE_DURATION: Long = 30
 
-        // Must match AUTH_VALIDITY_DURATION_SECONDS in BiometricKeyManager
+        // Cache lifetime for legacy time-based biometric keys only.
         const val BIOMETRIC_AUTH_VALIDITY_SECONDS = 30
     }
 }

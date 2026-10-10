@@ -117,4 +117,18 @@ class SettingsViewModelThemeTest {
 
         verify(prefsEditor).putString(PreferenceConstants.THEME_MODE, "DARK")
     }
+
+    @Test
+    fun colorSelectionOnlyChangesEffectiveDefaultProfile() = runTest {
+        val default = Profile(id = 1L, name = "Default", fontSize = 14)
+        whenever(profileRepository.getDefault()).thenReturn(default)
+        whenever(profileRepository.getAll()).thenReturn(listOf(default.copy(colorSchemeId = -4L), Profile(id = 2L, name = "Work", colorSchemeId = -5L)))
+
+        viewModel.updateColorScheme(-4L)
+        advanceUntilIdle()
+
+        verify(profileRepository).save(default.copy(colorSchemeId = -4L))
+        assertEquals(-4L, viewModel.uiState.value.availableProfiles.first { it.id == 1L }.colorSchemeId)
+        assertEquals(-5L, viewModel.uiState.value.availableProfiles.first { it.id == 2L }.colorSchemeId)
+    }
 }
