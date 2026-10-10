@@ -50,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,8 +65,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.edit
 import androidx.preference.PreferenceManager
 import org.connectbot.R
@@ -122,7 +123,7 @@ fun FloatingTextInputDialog(
     var windowHeightPx by remember { mutableFloatStateOf(screenHeightPx * savedHeight) }
 
     // Text state and focus
-    var text by remember { mutableStateOf(initialText) }
+    var text by rememberSaveable { mutableStateOf(initialText) }
     val focusRequester = remember { FocusRequester() }
 
     // Request focus when shown
@@ -150,17 +151,12 @@ fun FloatingTextInputDialog(
         }
     }
 
-    Popup(
+    Dialog(
         onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = true),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    // Dismiss when clicking outside
-                    detectDragGestures { _, _ -> }
-                },
+            modifier = Modifier.fillMaxSize(),
         ) {
             Column(
                 modifier = Modifier

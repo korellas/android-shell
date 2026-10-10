@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <include domain="database" path="connectbot_backup_temp.db" />
+    <include domain="sharedpref" path="." />
+    <exclude domain="sharedpref" path="secure_host_passwords.xml" />
+    <include domain="file" path="fonts/" />
+</full-backup-content>

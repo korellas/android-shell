@@ -17,6 +17,8 @@
 
 package org.connectbot
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.ActivityInfo.SCREEN_ORIENTATION_BEHIND
 import android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -31,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -38,6 +41,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -85,6 +89,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 
 @HiltAndroidTest
@@ -288,6 +294,50 @@ class ConsoleScreenTest {
     }
 
     @Test
+    fun consoleScreen_titleBarIsCompactWithOptionsAtRightEdge() {
+        setContent()
+        navigateToConsoleScreen()
+
+        val bar = composeTestRule.onNodeWithTag("top_app_bar")
+        bar.assertHeightIsEqualTo(36.dp)
+        val options = composeTestRule.onNodeWithContentDescription("More options")
+        val back = composeTestRule.onNodeWithContentDescription("Back")
+        val barBounds = bar.fetchSemanticsNode().boundsInRoot
+        val optionsBounds = options.fetchSemanticsNode().boundsInRoot
+        assertEquals(barBounds.right, optionsBounds.right, 1f)
+        assertTrue(back.fetchSemanticsNode().boundsInRoot.right <= optionsBounds.left)
+    }
+
+    @Test
+    fun consoleScreen_fullscreenIsEnabledByDefault() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        setContent()
+        navigateToConsoleScreen()
+
+        composeTestRule.onNodeWithContentDescription("More options").performClick()
+        composeTestRule.onNodeWithText("Full screen").performClick()
+        composeTestRule.runOnIdle {
+            assertFalse(prefs.getBoolean(PreferenceConstants.FULLSCREEN, true))
+        }
+    }
+
+    @Test
+    fun consoleScreen_respectsSavedFullscreenOptOut() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+            .putBoolean(PreferenceConstants.FULLSCREEN, false).commit()
+        setContent()
+        navigateToConsoleScreen()
+
+        composeTestRule.onNodeWithContentDescription("More options").performClick()
+        composeTestRule.onNodeWithText("Full screen").performClick()
+        composeTestRule.runOnIdle {
+            assertTrue(PreferenceManager.getDefaultSharedPreferences(context).getBoolean(PreferenceConstants.FULLSCREEN, false))
+        }
+    }
+
+    @Test
     fun consoleScreen_displaysBackButton() {
         setContent()
         navigateToConsoleScreen()
@@ -369,23 +419,91 @@ class ConsoleScreenTest {
     }
 
     @Test
-    fun consoleScreen_displaysTitleBarTextInputButton() {
+    fun consoleScreen_textInputIsAvailableInOptionsMenu() {
         setContent()
         navigateToConsoleScreen()
 
-        composeTestRule
-            .onNodeWithTag("title_bar_text_input")
-            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("Text input").assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription("More options").performClick()
+        composeTestRule.onNodeWithText("Text input").assertIsDisplayed()
     }
 
     @Test
-    fun consoleScreen_displaysPasteButton() {
+    fun consoleScreen_pasteIsAvailableInOptionsMenu() {
         setContent()
         navigateToConsoleScreen()
 
-        composeTestRule
-            .onNodeWithContentDescription("Paste")
-            .assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Paste").assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription("More options").performClick()
+        composeTestRule.onNodeWithText("Paste").assertIsDisplayed()
+    }
+
+    private fun showInteractiveConsole(disconnected: Boolean = false): TerminalBridge {
+        val bridge = mock(TerminalBridge::class.java)
+        `when`(bridge.host).thenReturn(Host(id = 23, nickname = "my-server", hostname = "example.org"))
+        `when`(bridge.isDisconnected).thenReturn(disconnected)
+        val viewModel = mock(ConsoleViewModel::class.java)
+        // Leave terminal rendering to the library; exercise the app's chrome and actions.
+        `when`(viewModel.uiState).thenReturn(MutableStateFlow(ConsoleUiState(bridges = listOf(bridge), isLoading = true)))
+        `when`(viewModel.networkStatusMessages).thenReturn(MutableSharedFlow())
+        setContent(mockConsoleViewModel = viewModel)
+        navigateToConsoleScreen()
+        return bridge
+    }
+
+    @Test
+    fun multilinePasteSendsDirectlyWithoutOpeningEditor() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("commands", "echo 한글\npwd\n"))
+        val bridge = showInteractiveConsole()
+        composeTestRule.onNodeWithContentDescription("More options").performClick()
+        composeTestRule.onNodeWithText("Paste").performClick()
+        composeTestRule.onNodeWithText("echo 한글\npwd\n").assertDoesNotExist()
+        composeTestRule.runOnIdle { verify(bridge).injectString("echo 한글\npwd\n") }
+    }
+
+    @Test
+    fun editAndPasteOpensClipboardInEditorWithoutSending() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("commands", "echo 한글\npwd\n"))
+        val bridge = showInteractiveConsole()
+        composeTestRule.onNodeWithContentDescription("More options").performClick()
+        composeTestRule.onNodeWithText("Edit and paste").performClick()
+        composeTestRule.onNodeWithText("echo 한글\npwd\n").assertIsDisplayed()
+        verify(bridge, never()).injectString("echo 한글\npwd\n")
+    }
+
+    @Test
+    fun singleLinePasteSendsDirectly() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("path", "/tmp/한글"))
+        val bridge = showInteractiveConsole()
+        composeTestRule.onNodeWithContentDescription("More options").performClick()
+        composeTestRule.onNodeWithText("Paste").performClick()
+        composeTestRule.runOnIdle { verify(bridge).injectString("/tmp/한글") }
+    }
+
+    @Test
+    fun sessionTitleOpensDrawerAndConnectedCloseNeedsConfirmation() {
+        val bridge = showInteractiveConsole()
+        composeTestRule.onNodeWithTag("session_title").performClick()
+        composeTestRule.onNodeWithText("example.org:22").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Close my-server").performClick()
+        verify(bridge, never()).dispatchDisconnect(org.connectbot.service.DisconnectReason.USER_REQUESTED)
+        composeTestRule.onNodeWithText("Yes").performClick()
+        composeTestRule.runOnIdle { verify(bridge).dispatchDisconnect(org.connectbot.service.DisconnectReason.USER_REQUESTED) }
+    }
+
+    @Test
+    fun disconnectedSessionClosesWithoutConfirmation() {
+        val bridge = showInteractiveConsole(disconnected = true)
+        composeTestRule.onNodeWithTag("session_title").performClick()
+        composeTestRule.onNodeWithContentDescription("Close my-server").performClick()
+        composeTestRule.runOnIdle { verify(bridge).dispatchDisconnect(org.connectbot.service.DisconnectReason.USER_REQUESTED) }
+        composeTestRule.onNodeWithText("Yes").assertDoesNotExist()
     }
 
     @Test

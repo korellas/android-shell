@@ -1,6 +1,6 @@
 /*
  * ConnectBot: simple, powerful, open-source SSH client for Android
- * Copyright 2025 Kenny Root
+ * Copyright 2025-2026 Kenny Root
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,6 +78,29 @@ class HostDaoTest {
         val hosts = hostDao.observeAll().first()
         assertThat(hosts).hasSize(3)
         assertThat(hosts.map { it.nickname }).containsExactly("alpha", "beta", "gamma")
+    }
+
+    @Test
+    fun favoritesArePinnedBeforeNameAndColorSorting() = runTest {
+        hostDao.insert(createTestHost(nickname = "alpha", color = "blue"))
+        hostDao.insert(createTestHost(nickname = "zulu", color = "red"))
+        database.openHelper.writableDatabase.execSQL("UPDATE hosts SET favorite = 1 WHERE nickname = 'zulu'")
+        assertThat(hostDao.observeAll().first().map { it.nickname }).containsExactly("zulu", "alpha")
+        assertThat(hostDao.observeAllSortedByColor().first().map { it.nickname }).containsExactly("zulu", "alpha")
+    }
+
+    @Test
+    fun sharedIdentityDeletionDetachesHostWithoutDeletingIt() = runTest {
+        val id = hostDao.insert(createTestHost(nickname = "server"))
+        val db = database.openHelper.writableDatabase
+        db.execSQL("INSERT INTO identities (id, name, username, pubkey_id) VALUES (1, 'Work', 'alice', -1)")
+        db.execSQL("UPDATE hosts SET identity_id = 1 WHERE id = ?", arrayOf(id))
+        db.execSQL("DELETE FROM identities WHERE id = 1")
+        assertThat(hostDao.getById(id)?.nickname).isEqualTo("server")
+        db.query("SELECT identity_id FROM hosts WHERE id = $id").use { cursor ->
+            assertThat(cursor.moveToFirst()).isTrue()
+            assertThat(cursor.isNull(0)).isTrue()
+        }
     }
 
     @Test

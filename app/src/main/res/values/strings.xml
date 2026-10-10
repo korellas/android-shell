@@ -255,7 +255,7 @@
 	<!-- Title of the preference used to enable or disable the back-up of pubkeys. -->
 	<string name="pref_backupkeys_title">Backup pubkeys</string>
 	<!-- Summary for the preference used to enable or disable the back-up of pubkeys. -->
-	<string name="pref_backupkeys_summary">Keep back-ups of the private keys using Android\'s backup mechanism</string>
+	<string name="pref_backupkeys_summary">Include permitted private keys only with encrypted Android backup or device transfer. Device-only keys and passwords are excluded.</string>
 
 	<!-- The category title for user interface preferences -->
 	<string name="pref_ui_category">"User interface"</string>
@@ -610,6 +610,8 @@
 	<string name="console_menu_close">"Close"</string>
 	<!-- Button to paste from the clipboard to the terminal. -->
 	<string name="console_menu_paste">"Paste"</string>
+	<!-- Open clipboard text in the editor before sending it to the terminal. -->
+	<string name="console_menu_edit_paste">Edit and paste</string>
 	<!-- Button that brings user to the Port Forwards List. -->
 	<string name="console_menu_portforwards">"Port forwards"</string>
 	<!-- Button that brings user to the terminal resizing dialog where they can force a size. -->
@@ -1468,6 +1470,8 @@
 	<string name="import_file_unavailable">Cannot open selected file</string>
 
 	<!-- Shortcut customization dialog strings -->
+	<!-- Host menu item to request a launcher shortcut for this connection. -->
+	<string name="list_host_add_to_home">Add to home screen</string>
 	<!-- Dialog title when customizing a shortcut icon -->
 	<string name="shortcut_customize_title">Customize Shortcut</string>
 	<!-- Label for the shortcut icon color selection dropdown -->
@@ -1552,6 +1556,16 @@
 	<string name="automation_disable_forward">Disable port forward</string>
 	<!-- Small card at the end of the automation list. -->
 	<string name="automation_add">Add action</string>
+	<!-- Button in the automation editor that fills startup actions with a tmux attach-or-create command and Enter. -->
+	<string name="automation_tmux_preset">Auto-connect tmux</string>
+	<!-- Explanation beside the tmux startup preset button. -->
+	<string name="automation_tmux_preset_summary">Reuse a session or create it if missing. Requires tmux on the server.</string>
+	<!-- Confirmation title when a tmux preset would replace existing startup actions. -->
+	<string name="automation_tmux_replace_title">Replace startup actions?</string>
+	<!-- Explain that replacing actions edits a draft, not saved settings or the current remote session. -->
+	<string name="automation_tmux_replace_message">Replace the current action list with tmux auto-connect. Changes only apply after saving.</string>
+	<!-- Confirm replacing the startup action draft with the tmux preset. -->
+	<string name="automation_tmux_replace">Replace</string>
 	<!-- Automation editor save FAB and confirmation action. -->
 	<string name="automation_save">Save</string>
 	<!-- Edit an automation action. -->
@@ -1709,4 +1723,68 @@
 	<string name="terminal_jump_cycle">Jump host chain contains a cycle. Check the jump host settings.</string>
 	<!-- Terminal error when a connection requires more than 32 jump hosts. -->
 	<string name="terminal_jump_too_deep">Jump host chain exceeds the limit of 32 hosts.</string>
+	<!-- Contextual terminal selection actions; edit copies the selection into the input window. -->
+	<string name="selection_copy">Copy</string>
+	<!-- Expand a terminal selection to whole lines. -->
+	<string name="selection_line">Line</string>
+	<!-- Copy selected terminal text into the editable input window. -->
+	<string name="selection_edit">Edit</string>
+	<!-- Heading in the bottom sheet for switching or closing terminal sessions. -->
+	<string name="console_sessions_title">Open sessions</string>
+	<!-- Accessibility label for closing the named session. -->
+	<string name="console_close_session">Close %1$s</string>
+	<!-- Connection status in the session drawer. -->
+	<string name="console_session_connected">Connected</string>
+	<!-- Connection status in the session drawer. -->
+	<string name="console_session_connecting">Connecting</string>
+	<!-- Connection status in the session drawer. -->
+	<string name="console_session_disconnected">Disconnected</string>
+	<!-- Host row menu action to pin a favorite. -->
+	<string name="favorite_add">Add to favorites</string>
+	<!-- Host row menu action to unpin a favorite. -->
+	<string name="favorite_remove">Remove from favorites</string>
+	<!-- Favorite host icon accessibility description. -->
+	<string name="favorite_label">Favorite</string>
+	<!-- Connection menu action and quick connection dialog title. -->
+	<string name="quick_connect_title">Quick connect</string>
+	<!-- Address syntax hint in the quick connection dialog. -->
+	<string name="quick_connect_hint">user@host:port</string>
+	<!-- Quick connection dialog explanation. -->
+	<string name="quick_connect_summary">Connect without saving a host. The port is optional.</string>
+	<!-- Quick connection confirmation button. -->
+	<string name="quick_connect_action">Connect</string>
+	<!-- Screen title and menu action for shared login credentials. -->
+	<string name="identities_title">Authentication identities</string>
+	<!-- Description of reusable login credentials. -->
+	<string name="identities_summary">Reuse a username, key and optional password across hosts. Select an identity in the host editor.</string>
+	<!-- Accessibility description for adding login credentials. -->
+	<string name="identity_add">Add identity</string>
+	<!-- Name field in the identity editor. -->
+	<string name="identity_name">Identity name</string>
+	<!-- Option to use the individual host's credentials. -->
+	<string name="identity_per_host">This host only</string>
+	<!-- Link from a host editor to the shared identity list. -->
+	<string name="identity_manage">Manage identities</string>
+	<!-- Password backup restriction in the identity editor. -->
+	<string name="identity_password_backup_note">Passwords stay encrypted on this device and must be re-entered after restoring to another device.</string>
+	<!-- Shared credential deletion confirmation. -->
+	<string name="identity_delete_confirmation">Delete %1$s? Hosts remain saved with their current username and key, but the shared password will be removed.</string>
+	<!-- Switch for horizontal tmux window navigation. -->
+	<string name="pref_swipe_tmux_title">Swipe tmux windows</string>
+	<!-- Explanation of tmux gesture semantics. -->
+	<string name="pref_swipe_tmux_summary">Swipe left for next, right for previous. Sends tmux keys, not SSH session switching.</string>
+	<!-- Switch for a custom tmux prefix. -->
+	<string name="pref_tmux_ctrl_a_title">Use Ctrl+A tmux prefix</string>
+	<!-- tmux prefix switch explanation. -->
+	<string name="pref_tmux_ctrl_a_summary">Enable only if your server uses Ctrl+A instead of Ctrl+B.</string>
+	<!-- Terminal padding setting. -->
+	<string name="pref_terminal_margin_title">Terminal margin</string>
+	<!-- Terminal padding setting value in density-independent pixels. -->
+	<string name="pref_terminal_margin_value">%1$d dp</string>
+	<!-- Transient feedback after sending tmux next-window keys. -->
+	<string name="tmux_next_window">tmux · next window →</string>
+	<!-- Transient feedback after sending tmux previous-window keys. -->
+	<string name="tmux_previous_window">← tmux · previous window</string>
+	<!-- Explanation of Android's backup and restore workflow in settings. -->
+	<string name="pref_android_backup_summary">Android backs up hosts, favorites, identities, profiles, colors, automation and imported fonts when system backup is enabled. Passwords and device-only keys need to be set up again after restore.</string>
 </resources>

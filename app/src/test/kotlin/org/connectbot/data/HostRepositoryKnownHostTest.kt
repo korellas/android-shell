@@ -47,6 +47,21 @@ import org.mockito.kotlin.mock
  */
 @RunWith(AndroidJUnit4::class)
 class HostRepositoryKnownHostTest {
+    @Test
+    fun sharedIdentityChangesApplyAtAuthenticationAndDeletionKeepsHost() = runTest {
+        val identity = repository.saveIdentity(org.connectbot.data.entity.Identity(name = "Work", username = "alice", pubkeyId = 9))
+        val host = repository.saveHost(Host(nickname = "server", username = "old", identityId = identity.id, favorite = true))
+        repository.saveIdentity(identity.copy(username = "new-user", pubkeyId = 12))
+        val resolved = repository.resolveIdentityBlocking(host)
+        assertThat(resolved.username).isEqualTo("new-user")
+        assertThat(resolved.pubkeyId).isEqualTo(12)
+        repository.deleteIdentity(identity.id)
+        val remaining = repository.findHostById(host.id)!!
+        assertThat(remaining.identityId).isNull()
+        assertThat(remaining.username).isEqualTo("new-user")
+        assertThat(remaining.pubkeyId).isEqualTo(12)
+        assertThat(remaining.favorite).isTrue()
+    }
 
     private lateinit var database: ConnectBotDatabase
     private lateinit var repository: HostRepository

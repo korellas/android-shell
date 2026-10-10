@@ -24,6 +24,7 @@ import kotlinx.coroutines.test.runTest
 import org.connectbot.data.ConnectBotDatabase
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -65,6 +66,8 @@ class MoshTimeoutMigrationTest {
             assertEquals("example.com", host.hostname)
             assertEquals("alice", host.username)
             assertNull(host.moshNetworkTimeout)
+            assertFalse(host.favorite)
+            assertNull(host.identityId)
             for (timeout in listOf(0, 86400, null)) {
                 database.hostDao().update(host.copy(moshNetworkTimeout = timeout))
                 assertEquals(timeout, database.hostDao().getAll().single().moshNetworkTimeout)

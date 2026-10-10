@@ -52,6 +52,28 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 @OptIn(ExperimentalCoroutinesApi::class)
 class HostEditorViewModelTest {
+    @Test
+    fun existingHostDisplaysCurrentSharedUsername() = runTest {
+        val identity = org.connectbot.data.entity.Identity(id = 9, name = "Work", username = "new-user", pubkeyId = 12)
+        `when`(repository.observeIdentities()).thenReturn(flowOf(listOf(identity)))
+        `when`(repository.findHostById(10)).thenReturn(Host(id = 10, nickname = "server", username = "old", identityId = 9))
+        val viewModel = createViewModel(10)
+        advanceUntilIdle()
+        assertEquals("new-user", viewModel.uiState.value.username)
+        assertEquals(12L, viewModel.uiState.value.pubkeyId)
+    }
+
+    @Test
+    fun deletingSelectedIdentityReturnsEditorToPerHostCredentials() = runTest {
+        val identities = kotlinx.coroutines.flow.MutableStateFlow(listOf(org.connectbot.data.entity.Identity(id = 9, name = "Work", username = "alice")))
+        `when`(repository.observeIdentities()).thenReturn(identities)
+        `when`(repository.findHostById(10)).thenReturn(Host(id = 10, nickname = "server", username = "alice", identityId = 9))
+        val viewModel = createViewModel(10)
+        advanceUntilIdle()
+        identities.value = emptyList()
+        advanceUntilIdle()
+        assertEquals(null, viewModel.uiState.value.identityId)
+    }
 
     private val testDispatcher = StandardTestDispatcher()
     private val dispatchers = CoroutineDispatchers(testDispatcher, testDispatcher, testDispatcher)
@@ -79,6 +101,7 @@ class HostEditorViewModelTest {
         // Mock default behavior for observe calls
         `when`(pubkeyRepository.observeAll()).thenReturn(flowOf(emptyList()))
         `when`(repository.observeSshHosts()).thenReturn(flowOf(emptyList()))
+        `when`(repository.observeIdentities()).thenReturn(flowOf(emptyList()))
         `when`(repository.observeAutomation(org.mockito.ArgumentMatchers.anyLong())).thenReturn(flowOf(emptyList()))
         `when`(profileRepository.observeAll()).thenReturn(flowOf(emptyList()))
         `when`(prefs.getLong("defaultProfileId", 0L)).thenReturn(0L)

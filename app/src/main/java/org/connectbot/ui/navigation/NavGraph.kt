@@ -91,7 +91,12 @@ fun ConnectBotNavHost(
                 onNavigateToHelp = {
                     navController.navigateSafely(NavDestinations.HELP)
                 },
+                onNavigateToIdentities = { navController.navigateSafely(NavDestinations.IDENTITIES) },
             )
+        }
+
+        composable(NavDestinations.IDENTITIES) {
+            org.connectbot.ui.screens.identities.IdentityListScreen(onNavigateBack = { navController.safePopBackStack() })
         }
 
         composable(
@@ -131,6 +136,7 @@ fun ConnectBotNavHost(
                 onNavigateToKnownHosts = { hostId ->
                     navController.navigateSafely("${NavDestinations.KNOWN_HOST_LIST}/$hostId")
                 },
+                onNavigateToIdentities = { navController.navigateSafely(NavDestinations.IDENTITIES) },
             )
         }
 

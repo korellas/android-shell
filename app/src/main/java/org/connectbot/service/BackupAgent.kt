@@ -18,157 +18,104 @@
 package org.connectbot.service
 
 import android.app.backup.BackupAgentHelper
-import android.app.backup.BackupDataInput
-import android.app.backup.BackupDataOutput
+import android.app.backup.FullBackupDataOutput
 import android.app.backup.SharedPreferencesBackupHelper
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import androidx.preference.PreferenceManager
 import androidx.room.Room
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.connectbot.data.ColorSchemeRepository
 import org.connectbot.data.ConnectBotDatabase
 import org.connectbot.data.HostRepository
 import org.connectbot.data.PubkeyRepository
 import org.connectbot.di.CoroutineDispatchers
+import org.connectbot.util.LocalFontProvider
 import org.connectbot.util.PreferenceConstants
-import timber.log.Timber
+import org.connectbot.util.SecurePasswordStorage
+import java.io.EOFException
 import java.io.File
 import java.io.FileInputStream
+import java.io.IOException
 
-/**
- * ConnectBot's backup agent with selective pubkey filtering.
- *
- * This agent backs up:
- * - Shared preferences
- * - The Room database (connectbot.db)
- *
- * However, before backing up the database, it filters out:
- * - Pubkeys with allowBackup = false
- * - Pubkeys with storageType = ANDROID_KEYSTORE
- *
- * This ensures sensitive SSH keys are not included in cloud backups
- * if the user has disabled backup for those keys.
- *
- * Implementation: We create a temporary database, insert the backupable
- * data into it, back it up as the original db name, then delete the
- * temporary database. Upon restore, the original db name is used
- * automatically.
- */
 class BackupAgent : BackupAgentHelper() {
-    companion object {
-        private const val TAG = "CB.BackupAgent"
-        private const val DATABASE_NAME = "connectbot.db"
-        private const val TEMP_DATABASE_NAME = "connectbot_backup_temp.db"
-    }
+    private var snapshotRestored = false
 
     override fun onCreate() {
-        Timber.d("onCreate called")
-
-        // Backup shared preferences
-        val prefsHelper = SharedPreferencesBackupHelper(
-            this,
-            packageName + "_preferences",
-        )
-        addHelper(PreferenceConstants.BACKUP_PREF_KEY, prefsHelper)
+        // Keep restoring preferences from older key/value backups.
+        addHelper(PreferenceConstants.BACKUP_PREF_KEY, SharedPreferencesBackupHelper(this, packageName + "_preferences"))
     }
 
-    override fun onBackup(
-        oldState: ParcelFileDescriptor?,
-        data: BackupDataOutput,
-        newState: ParcelFileDescriptor,
-    ) {
-        // First, handle preferences and other helpers
-        super.onBackup(oldState, data, newState)
+    override fun onFullBackup(data: FullBackupDataOutput) {
+        val preferences = File(dataDir, "shared_prefs/${packageName}_preferences.xml")
+        if (preferences.isFile) fullBackupFile(preferences, data)
+        val fonts = File(filesDir, LocalFontProvider.FONTS_DIR).canonicalFile
+        fonts.walkTopDown().filter { it.isFile && it.canonicalPath.startsWith(fonts.path + File.separator) }
+            .forEach { fullBackupFile(it, data) }
 
-        // Check if user wants to backup the keys at all
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        val backupKeys = prefs.getBoolean(
-            PreferenceConstants.BACKUP_KEYS,
-            PreferenceConstants.BACKUP_KEYS_DEFAULT,
-        )
-
-        try {
-            backupDatabaseWithFiltering(data, backupKeys)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to backup database")
-        }
-    }
-
-    /**
-     * Create a temporary database with only backupable data, back it up, then delete it.
-     */
-    private fun backupDatabaseWithFiltering(data: BackupDataOutput, backupKeys: Boolean) {
-        val dbFile = getDatabasePath(DATABASE_NAME)
-        if (!dbFile.exists()) {
-            Timber.w("Database does not exist yet, skipping backup")
-            return
-        }
-
-        val tempDbFile = getDatabasePath(TEMP_DATABASE_NAME)
-
-        // Manually create database and repositories for BackupFilter
-        val database = Room.databaseBuilder(
-            applicationContext,
-            ConnectBotDatabase::class.java,
-            DATABASE_NAME,
-        ).addMigrations(ConnectBotDatabase.MIGRATION_4_5, ConnectBotDatabase.MIGRATION_10_11).build()
+        if (!getDatabasePath(DATABASE_NAME).isFile) return
+        val encryptedTransport = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+            data.transportFlags and (FLAG_CLIENT_SIDE_ENCRYPTION_ENABLED or FLAG_DEVICE_TO_DEVICE_TRANSFER) != 0
+        val backupKeys = encryptedTransport && PreferenceManager.getDefaultSharedPreferences(this)
+            .getBoolean(PreferenceConstants.BACKUP_KEYS, PreferenceConstants.BACKUP_KEYS_DEFAULT)
+        val snapshot = getDatabasePath(SNAPSHOT_NAME)
+        // Auto Backup runs in restricted mode, without the normal Hilt application.
+        val database = Room.databaseBuilder(this, ConnectBotDatabase::class.java, DATABASE_NAME)
+            .addMigrations(ConnectBotDatabase.MIGRATION_4_5, ConnectBotDatabase.MIGRATION_10_11).build()
         val dispatchers = CoroutineDispatchers(default = Dispatchers.Default, io = Dispatchers.IO, main = Dispatchers.Main)
-        val securePasswordStorage = org.connectbot.util.SecurePasswordStorage(applicationContext)
-        val hostRepository = HostRepository(applicationContext, database, database.hostDao(), database.portForwardDao(), database.knownHostDao(), securePasswordStorage)
-        val colorSchemeRepository = ColorSchemeRepository(database.colorSchemeDao(), dispatchers = dispatchers)
-        val pubkeyRepository = PubkeyRepository(database.pubkeyDao())
-
-        val filter = BackupFilter(applicationContext, hostRepository, colorSchemeRepository, pubkeyRepository)
+        val hosts = HostRepository(this, database, database.hostDao(), database.portForwardDao(), database.knownHostDao(), SecurePasswordStorage(this))
+        val filter = BackupFilter(this, hosts, ColorSchemeRepository(database.colorSchemeDao(), dispatchers), PubkeyRepository(database.pubkeyDao()))
         try {
-            // Step 1: Build a temporary database with filtered data
-            Timber.d("Building temporary database with backupable data")
-            kotlinx.coroutines.runBlocking {
-                filter.buildFilteredDatabase(tempDbFile, backupKeys)
-            }
-
-            // Step 2: Back up the filtered database
-            Timber.d("Backing up filtered database")
-            backupFile(tempDbFile, DATABASE_NAME, data)
-        } catch (e: Exception) {
-            Timber.e(e, "Error during database backup with filtering")
-            throw e
+            runBlocking { filter.buildFilteredDatabase(snapshot, backupKeys) }
+            fullBackupFile(snapshot, data)
         } finally {
-            // Step 3: Clean up the temporary database
-            filter.cleanupTempDatabase(tempDbFile)
-            database.close() // Close the manually created database
+            filter.cleanupTempDatabase(snapshot)
+            database.close()
         }
     }
 
-    /**
-     * Back up a file using BackupDataOutput.
-     */
-    private fun backupFile(file: File, key: String, data: BackupDataOutput) {
-        if (!file.exists()) {
-            Timber.w("File does not exist: ${file.path}")
-            return
-        }
-
-        FileInputStream(file).use { input ->
-            val fileSize = file.length().toInt()
-            val buffer = ByteArray(fileSize)
-            val bytesRead = input.read(buffer)
-
-            if (bytesRead > 0) {
-                data.writeEntityHeader(key, bytesRead)
-                data.writeEntityData(buffer, bytesRead)
-                Timber.d("Backed up $key ($bytesRead bytes)")
+    override fun onRestoreFile(data: ParcelFileDescriptor, size: Long, destination: File, type: Int, mode: Long, mtime: Long) {
+        val target = destination.canonicalFile
+        val snapshot = getDatabasePath(SNAPSHOT_NAME).canonicalFile
+        val preferences = File(dataDir, "shared_prefs/${packageName}_preferences.xml").canonicalFile
+        val fonts = File(filesDir, LocalFontProvider.FONTS_DIR).canonicalFile
+        val accepted = target == snapshot || target == preferences ||
+            target.path.startsWith(fonts.path + File.separator)
+        if (accepted) {
+            super.onRestoreFile(data, size, target, type, mode, mtime)
+            if (target == snapshot && type == TYPE_FILE) snapshotRestored = true
+        } else {
+            // The framework owns this descriptor; consume only this entry, without closing it.
+            val input = FileInputStream(data.fileDescriptor)
+            val buffer = ByteArray(8192)
+            var remaining = size
+            while (remaining > 0) {
+                val read = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+                if (read < 0) throw EOFException("Incomplete backup entry")
+                remaining -= read
             }
         }
     }
 
-    override fun onRestore(
-        data: BackupDataInput,
-        appVersionCode: Int,
-        newState: ParcelFileDescriptor,
-    ) {
-        Timber.d("onRestore called (app version: $appVersionCode)")
+    override fun onRestoreFinished() {
+        super.onRestoreFinished()
+        val snapshot = getDatabasePath(SNAPSHOT_NAME)
+        if (!snapshotRestored || !snapshot.isFile) return
+        val live = getDatabasePath(DATABASE_NAME)
+        if (!snapshot.renameTo(live)) throw IOException("Could not restore connection database")
+        // Restore runs before app launch; journals from the replaced database must not be replayed.
+        File(live.path + "-wal").delete()
+        File(live.path + "-shm").delete()
+        val passwords = File(dataDir, "shared_prefs/${SecurePasswordStorage.PREFS_FILE_NAME}.xml")
+        for (file in listOf(passwords, File(passwords.path + ".bak"))) {
+            if (file.exists() && !file.delete()) throw IOException("Could not clear device-bound passwords after restore")
+        }
+        snapshotRestored = false
+    }
 
-        // Restore shared preferences and other helpers
-        super.onRestore(data, appVersionCode, newState)
+    companion object {
+        private const val DATABASE_NAME = "connectbot.db"
+        private const val SNAPSHOT_NAME = "connectbot_backup_temp.db"
     }
 }

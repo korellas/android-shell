@@ -25,6 +25,14 @@ import org.junit.Test
 
 class SessionSwipeNavigationTest {
     @Test
+    fun tmuxUsesConfiguredPrefixAndWindowCommand() {
+        assertEquals("\u0002n", tmuxWindowCommand(1, false))
+        assertEquals("\u0002p", tmuxWindowCommand(-1, false))
+        assertEquals("\u0001n", tmuxWindowCommand(1, true))
+        assertEquals("\u0001p", tmuxWindowCommand(-1, true))
+    }
+
+    @Test
     fun sessionSwipeTarget_leftSwipe_selectsNextSession() {
         assertEquals(
             1,

@@ -69,7 +69,7 @@ object HostConfigJson {
      * Note: Excluded fields (runtime state like last_connect, host_key_algo) are
      * configured in the generateExportSchema Gradle task and marked in the schema.
      */
-    val EXPORT_TABLES = listOf("profiles", "hosts", "port_forwards", "automation_actions")
+    val EXPORT_TABLES = listOf("profiles", "identities", "hosts", "port_forwards", "automation_actions")
 
     /**
      * Export host configurations to JSON.

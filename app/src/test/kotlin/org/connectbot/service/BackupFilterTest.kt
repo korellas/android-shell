@@ -73,6 +73,10 @@ class BackupFilterTest {
             mockColorSchemeRepository,
             mockPubkeyRepository,
         )
+        runBlocking {
+            whenever(mockHostRepository.getProfiles()).thenReturn(emptyList())
+            whenever(mockHostRepository.getIdentities()).thenReturn(emptyList())
+        }
     }
 
     @Test
@@ -89,6 +93,58 @@ class BackupFilterTest {
         assertTrue(result.any { it.nickname == "key1" })
         assertTrue(result.any { it.nickname == "key2" })
         assertTrue(result.any { it.nickname == "key3" })
+    }
+
+    @Test
+    fun backupPreservesProfilesAndIdentitiesWithoutDanglingKeys() = runBlocking {
+        val source = Room.inMemoryDatabaseBuilder(context, ConnectBotDatabase::class.java)
+            .allowMainThreadQueries().build()
+        val snapshotFile = context.getDatabasePath("profile_backup_test.db")
+        val dispatchers = org.connectbot.di.CoroutineDispatchers(
+            default = kotlinx.coroutines.Dispatchers.Unconfined,
+            io = kotlinx.coroutines.Dispatchers.Unconfined,
+            main = kotlinx.coroutines.Dispatchers.Unconfined,
+        )
+        try {
+            val profile = org.connectbot.data.entity.Profile(id = 7, name = "Korean", fontSize = 18)
+            source.profileDao().insert(profile)
+            val identity = org.connectbot.data.entity.Identity(id = 7, name = "Work", username = "alice", pubkeyId = 9)
+            source.identityDao().insert(identity)
+            source.hostDao().insert(Host(nickname = "mac", hostname = "example.org", profileId = profile.id, identityId = identity.id, pubkeyId = 9, favorite = true))
+            val hosts = HostRepository(
+                context,
+                source,
+                source.hostDao(),
+                source.portForwardDao(),
+                source.knownHostDao(),
+                org.connectbot.util.SecurePasswordStorage(context),
+            )
+            val filter = BackupFilter(
+                context,
+                hosts,
+                ColorSchemeRepository(source.colorSchemeDao(), dispatchers),
+                PubkeyRepository(source.pubkeyDao()),
+            )
+
+            filter.buildFilteredDatabase(snapshotFile, backupKeys = false)
+
+            val restored = Room.databaseBuilder(context, ConnectBotDatabase::class.java, snapshotFile.name)
+                .allowMainThreadQueries().build()
+            try {
+                assertEquals(profile, restored.profileDao().getById(profile.id))
+                val host = restored.hostDao().getAll().single()
+                assertEquals(profile.id, host.profileId)
+                assertEquals(identity.id, host.identityId)
+                assertTrue(host.favorite)
+                assertEquals(org.connectbot.util.HostConstants.PUBKEYID_NEVER, host.pubkeyId)
+                assertEquals(identity.copy(pubkeyId = org.connectbot.util.HostConstants.PUBKEYID_NEVER), restored.identityDao().getById(identity.id))
+            } finally {
+                restored.close()
+            }
+        } finally {
+            source.close()
+            backupFilter.cleanupTempDatabase(snapshotFile)
+        }
     }
 
     @Test
@@ -294,7 +350,7 @@ class BackupFilterTest {
 
             // Open the temp database and verify contents
             val tempDb =
-                Room.databaseBuilder(context, ConnectBotDatabase::class.java, tempDbFile.name)
+                Room.databaseBuilder(context, ConnectBotDatabase::class.java, tempDbFile.absolutePath)
                     .allowMainThreadQueries()
                     .build()
 
@@ -362,7 +418,7 @@ class BackupFilterTest {
 
             // Open the temp database and verify contents
             val tempDb =
-                Room.databaseBuilder(context, ConnectBotDatabase::class.java, tempDbFile.name)
+                Room.databaseBuilder(context, ConnectBotDatabase::class.java, tempDbFile.absolutePath)
                     .allowMainThreadQueries()
                     .build()
 

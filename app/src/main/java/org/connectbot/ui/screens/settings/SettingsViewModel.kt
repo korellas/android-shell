@@ -69,9 +69,12 @@ data class SettingsUiState(
     val scrollback: String = "140",
     val rotation: String = "Default",
     val titlebarhide: Boolean = false,
-    val fullscreen: Boolean = false,
+    val fullscreen: Boolean = true,
     val pgupdngesture: Boolean = false,
     val swipeSessions: Boolean = false,
+    val swipeTmux: Boolean = true,
+    val tmuxCtrlA: Boolean = false,
+    val terminalMargin: Int = 0,
     val volumefont: Boolean = true,
     val keepalive: Boolean = true,
     val alwaysvisible: Boolean = true,
@@ -214,9 +217,12 @@ class SettingsViewModel @Inject constructor(
             scrollback = prefs.getString(PreferenceConstants.SCROLLBACK, "140") ?: "140",
             rotation = prefs.getString(PreferenceConstants.ROTATION, "Default") ?: "Default",
             titlebarhide = prefs.getBoolean(PreferenceConstants.TITLEBARHIDE, false),
-            fullscreen = prefs.getBoolean(PreferenceConstants.FULLSCREEN, false),
+            fullscreen = prefs.getBoolean(PreferenceConstants.FULLSCREEN, true),
             pgupdngesture = prefs.getBoolean(PreferenceConstants.PG_UPDN_GESTURE, false),
             swipeSessions = prefs.getBoolean(PreferenceConstants.SWIPE_SESSIONS, false),
+            swipeTmux = prefs.getBoolean(PreferenceConstants.SWIPE_TMUX, true),
+            tmuxCtrlA = prefs.getBoolean(PreferenceConstants.TMUX_CTRL_A, false),
+            terminalMargin = prefs.getInt(PreferenceConstants.TERMINAL_MARGIN, 0).coerceIn(0, 24),
             volumefont = prefs.getBoolean(PreferenceConstants.VOLUME_FONT, true),
             keepalive = prefs.getBoolean(PreferenceConstants.KEEP_ALIVE, true),
             alwaysvisible = prefs.getBoolean(PreferenceConstants.KEY_ALWAYS_VISIBLE, true),
@@ -355,6 +361,22 @@ class SettingsViewModel @Inject constructor(
 
     fun updateSwipeSessions(value: Boolean) {
         updateBooleanPref(PreferenceConstants.SWIPE_SESSIONS, value) { copy(swipeSessions = value) }
+        if (value) updateBooleanPref(PreferenceConstants.SWIPE_TMUX, false) { copy(swipeTmux = false) }
+    }
+
+    fun updateSwipeTmux(value: Boolean) {
+        updateBooleanPref(PreferenceConstants.SWIPE_TMUX, value) { copy(swipeTmux = value) }
+        if (value) updateBooleanPref(PreferenceConstants.SWIPE_SESSIONS, false) { copy(swipeSessions = false) }
+    }
+
+    fun updateTmuxCtrlA(value: Boolean) = updateBooleanPref(PreferenceConstants.TMUX_CTRL_A, value) { copy(tmuxCtrlA = value) }
+
+    fun updateTerminalMargin(value: Int) {
+        val margin = value.coerceIn(0, 24)
+        viewModelScope.launch {
+            prefs.edit { putInt(PreferenceConstants.TERMINAL_MARGIN, margin) }
+            _uiState.update { it.copy(terminalMargin = margin) }
+        }
     }
 
     fun updateVolumeFont(value: Boolean) {

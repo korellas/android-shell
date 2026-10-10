@@ -200,6 +200,9 @@ fun SettingsScreen(
         onTitleBarHideChange = viewModel::updateTitleBarHide,
         onPgUpDnGestureChange = viewModel::updatePgUpDnGesture,
         onSwipeSessionsChange = viewModel::updateSwipeSessions,
+        onSwipeTmuxChange = viewModel::updateSwipeTmux,
+        onTmuxCtrlAChange = viewModel::updateTmuxCtrlA,
+        onTerminalMarginChange = viewModel::updateTerminalMargin,
         onVolumeFontChange = viewModel::updateVolumeFont,
         onKeepAliveChange = viewModel::updateKeepAlive,
         onAlwaysVisibleChange = viewModel::updateAlwaysVisible,
@@ -268,6 +271,9 @@ fun SettingsScreenContent(
     onNotificationSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
     highlightItem: String? = null,
+    onSwipeTmuxChange: (Boolean) -> Unit = {},
+    onTmuxCtrlAChange: (Boolean) -> Unit = {},
+    onTerminalMarginChange: (Int) -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -398,6 +404,14 @@ fun SettingsScreenContent(
                     summary = stringResource(R.string.pref_backupkeys_summary),
                     checked = uiState.backupkeys,
                     onCheckedChange = onBackupkeysChange,
+                )
+            }
+
+            item {
+                Text(
+                    stringResource(R.string.pref_android_backup_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
 
@@ -596,6 +610,34 @@ fun SettingsScreenContent(
                     summary = stringResource(R.string.pref_swipe_sessions_summary),
                     checked = uiState.swipeSessions,
                     onCheckedChange = onSwipeSessionsChange,
+                )
+            }
+
+            item {
+                SwitchPreference(
+                    title = stringResource(R.string.pref_swipe_tmux_title),
+                    summary = stringResource(R.string.pref_swipe_tmux_summary),
+                    checked = uiState.swipeTmux,
+                    onCheckedChange = onSwipeTmuxChange,
+                )
+            }
+            if (uiState.swipeTmux) {
+                item {
+                    SwitchPreference(
+                        title = stringResource(R.string.pref_tmux_ctrl_a_title),
+                        summary = stringResource(R.string.pref_tmux_ctrl_a_summary),
+                        checked = uiState.tmuxCtrlA,
+                        onCheckedChange = onTmuxCtrlAChange,
+                    )
+                }
+            }
+            item {
+                ListPreference(
+                    title = stringResource(R.string.pref_terminal_margin_title),
+                    summary = stringResource(R.string.pref_terminal_margin_value, uiState.terminalMargin),
+                    value = uiState.terminalMargin.toString(),
+                    entries = listOf(0, 2, 4, 8, 12, 16, 24).map { stringResource(R.string.pref_terminal_margin_value, it) to it.toString() },
+                    onValueChange = { onTerminalMarginChange(it.toInt()) },
                 )
             }
 

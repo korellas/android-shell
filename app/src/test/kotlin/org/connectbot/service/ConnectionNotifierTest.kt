@@ -28,6 +28,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.connectbot.R
 import org.connectbot.data.entity.Host
 import org.connectbot.di.CoroutineDispatchers
 import org.junit.Assert.assertEquals
@@ -102,12 +103,12 @@ class ConnectionNotifierTest {
     }
 
     @Test
-    fun collapsedSummaryOmitsServerNamesWhenNoSessionsAreConnected() = runTest(dispatcher) {
+    fun connectingOnlySessionDoesNotShowNotification() = runTest(dispatcher) {
         notifier.showRunningNotification(service, listOf(first.copy(connected = false, connecting = true)))
         advanceUntilIdle()
 
-        assertEquals("0 sessions connected", title(summary()))
-        assertNull(summary().extras.getCharSequence(Notification.EXTRA_TEXT))
+        assertTrue(manager.activeNotifications.isEmpty())
+        assertNull(shadowOf(service).lastForegroundNotification)
     }
 
     @Test
@@ -164,7 +165,7 @@ class ConnectionNotifierTest {
 
     @Test
     fun mutedBellsDoNotHideConnectionFailuresAndNewConnectionIsUnmuted() = runTest(dispatcher) {
-        notifier.updateSessions(service, listOf(first))
+        notifier.updateSessions(service, listOf(first, second))
         notifier.showActivityNotification(service, first)
         notifier.handleAction(service, ConnectionNotifier.ACTION_MUTE, first.id)
         notifier.showActivityNotification(service, first)
@@ -201,14 +202,14 @@ class ConnectionNotifierTest {
     }
 
     @Test
-    fun finalConnectionFailureSurvivesStoppingForegroundUntilSeen() = runTest(dispatcher) {
+    fun finalConnectionFailureClearsAllNotifications() = runTest(dispatcher) {
         notifier.showRunningNotification(service, listOf(first))
         notifier.sessionEnded(service, first.copy(connected = false), DisconnectReason.IO_ERROR, alert = true)
         notifier.updateSessions(service, emptyList())
         notifier.hideRunningNotification(service)
         advanceUntilIdle()
-        assertEquals("0 sessions connected · 1 needs attention", title(summary()))
-        assertFalse(summary().flags and Notification.FLAG_ONGOING_EVENT != 0)
+        assertTrue(manager.activeNotifications.isEmpty())
+        assertTrue(shadowOf(service).isForegroundStopped)
         notifier.handleAction(service, ConnectionNotifier.ACTION_SEEN, first.id)
         advanceUntilIdle()
         assertTrue(manager.activeNotifications.isEmpty())
@@ -247,7 +248,7 @@ class ConnectionNotifierTest {
         assertEquals(NotificationCompat.PRIORITY_DEFAULT, summary().priority)
         val public = alert(second.id).publicVersion
         assertEquals("1 session connected · 2 need attention", text(public))
-        assertEquals("ConnectBot", public.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertEquals(service.getString(R.string.app_name), public.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
         assertTrue(public.actions.isNullOrEmpty())
         assertFalse(public.extras.toString().contains("staging"))
         notifier.handleAction(service, ConnectionNotifier.ACTION_SEEN_ALL, "")
@@ -269,30 +270,39 @@ class ConnectionNotifierTest {
     }
 
     @Test
-    fun postedAlertsRemainActionableAfterNotifierIsRecreated() = runTest(dispatcher) {
-        notifier.updateSessions(service, listOf(first, second))
+    fun postedAlertsAreClearedAfterRestartWithoutLiveSessions() = runTest(dispatcher) {
+        val remaining = NotificationSession("session-3", Host(id = 3L, nickname = "remaining"), connected = true)
+        notifier.updateSessions(service, listOf(first, second, remaining))
         notifier.sessionEnded(service, first.copy(connected = false), DisconnectReason.NETWORK_LOST, alert = true)
         notifier.sessionEnded(service, second.copy(connected = false), DisconnectReason.IO_ERROR, alert = true)
         advanceUntilIdle()
         val afterRestart = ConnectionNotifier(CoroutineDispatchers(dispatcher, dispatcher, dispatcher))
         afterRestart.handleAction(service, ConnectionNotifier.ACTION_SEEN, first.id)
         advanceUntilIdle()
-        assertEquals("0 sessions connected · 1 needs attention", title(summary()))
-        assertEquals(second.host.getUri(), shadowOf(alert(second.id).contentIntent).savedIntent.data)
-        afterRestart.handleAction(service, ConnectionNotifier.ACTION_SEEN, second.id)
-        advanceUntilIdle()
         assertTrue(manager.activeNotifications.isEmpty())
     }
 
     @Test
     fun lateBellCannotReplaceALostConnectionAlert() = runTest(dispatcher) {
-        notifier.updateSessions(service, listOf(first))
+        notifier.updateSessions(service, listOf(first, second))
         notifier.sessionEnded(service, first.copy(connected = false), DisconnectReason.NETWORK_LOST, alert = true)
         notifier.showActivityNotification(service, first)
         advanceUntilIdle()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             assertEquals(ConnectionNotifier.LOSS_CHANNEL, alert(first.id).channelId)
         }
+    }
+
+    @Test
+    fun emptySessionUpdateClearsBellAlerts() = runTest(dispatcher) {
+        notifier.updateSessions(service, listOf(first))
+        notifier.showActivityNotification(service, first)
+        advanceUntilIdle()
+        assertNotNull(alert(first.id))
+
+        notifier.updateSessions(service, emptyList())
+        advanceUntilIdle()
+        assertTrue(manager.activeNotifications.isEmpty())
     }
 
     @Test

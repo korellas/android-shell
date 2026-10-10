@@ -30,6 +30,25 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class HostConfigJsonTest {
+    @Test
+    fun identitiesRemapHostLinksWithoutTreatingKeyIdsAsIdentityIds() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        database.identityDao().insert(org.connectbot.data.entity.Identity(id = 7, name = "Work", username = "alice", pubkeyId = 7))
+        database.hostDao().insert(org.connectbot.data.entity.Host(nickname = "server", identityId = 7, favorite = true, profileId = null))
+        val json = HostConfigJson.exportToJson(context, database).first
+        val destination = Room.inMemoryDatabaseBuilder(context, ConnectBotDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            destination.identityDao().insert(org.connectbot.data.entity.Identity(name = "Personal", username = "bob"))
+            HostConfigJson.importFromJson(context, destination, json)
+            val identity = destination.identityDao().getAll().single { it.name == "Work" }
+            assertThat(identity.pubkeyId).isEqualTo(7L)
+            val host = destination.hostDao().getAll().single()
+            assertThat(host.identityId).isEqualTo(identity.id)
+            assertThat(host.favorite).isTrue()
+        } finally {
+            destination.close()
+        }
+    }
 
     private lateinit var database: ConnectBotDatabase
 

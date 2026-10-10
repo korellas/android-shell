@@ -97,6 +97,7 @@ fun HostEditorScreen(
     onNavigateToAutomation: (Long) -> Unit = {},
     viewModel: HostEditorViewModel = hiltViewModel(),
     onNavigateToKnownHosts: (Long) -> Unit = {},
+    onNavigateToIdentities: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -105,6 +106,8 @@ fun HostEditorScreen(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
         onNavigateToKnownHosts = onNavigateToKnownHosts,
+        onNavigateToIdentities = onNavigateToIdentities,
+        onIdentityChange = viewModel::updateIdentity,
         onNicknameChange = viewModel::updateNickname,
         onNicknameFocusChange = viewModel::onNicknameFocusChanged,
         onProtocolChange = viewModel::updateProtocol,
@@ -169,6 +172,8 @@ fun HostEditorScreenContent(
     onMoshServerChange: (String) -> Unit = {},
     onLocaleChange: (String) -> Unit = {},
     onNavigateToKnownHosts: (Long) -> Unit = {},
+    onNavigateToIdentities: () -> Unit = {},
+    onIdentityChange: (Long?) -> Unit = {},
 ) {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -176,6 +181,7 @@ fun HostEditorScreenContent(
         uiState.error?.let { snackbarHostState.showSnackbar(it, withDismissAction = true) }
     }
     var showProtocolMenu by remember { mutableStateOf(false) }
+    var showIdentityMenu by remember { mutableStateOf(false) }
     var showAdvancedOptions by rememberSaveable(hostId) { mutableStateOf(false) }
     val protocols = listOf("ssh", "mosh", "telnet", "local")
     val canSave = (uiState.protocol == "local" || uiState.hostname.isNotBlank()) &&
@@ -260,8 +266,33 @@ fun HostEditorScreenContent(
             if (uiState.protocol != "local") {
                 // Show username field for SSH and Mosh protocols
                 if (uiState.protocol == "ssh" || uiState.protocol == "mosh") {
+                    ExposedDropdownMenuBox(expanded = showIdentityMenu, onExpandedChange = { showIdentityMenu = it }, modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = uiState.availableIdentities.find { it.id == uiState.identityId }?.name ?: stringResource(R.string.identity_per_host),
+                            onValueChange = {},
+                            readOnly = true,
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.identities_title)) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(showIdentityMenu) },
+                            modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth().padding(top = 8.dp),
+                        )
+                        ExposedDropdownMenu(expanded = showIdentityMenu, onDismissRequest = { showIdentityMenu = false }) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.identity_per_host)) }, onClick = {
+                                onIdentityChange(null)
+                                showIdentityMenu = false
+                            })
+                            uiState.availableIdentities.forEach { identity ->
+                                DropdownMenuItem(text = { Text(identity.name) }, onClick = {
+                                    onIdentityChange(identity.id)
+                                    showIdentityMenu = false
+                                })
+                            }
+                        }
+                    }
+                    TextButton(onClick = onNavigateToIdentities) { Text(stringResource(R.string.identity_manage)) }
                     OutlinedTextField(
                         value = uiState.username,
+                        enabled = uiState.identityId == null,
                         onValueChange = onUsernameChange,
                         label = { Text(stringResource(R.string.hostpref_username_title)) },
                         modifier = Modifier
@@ -383,7 +414,7 @@ fun HostEditorScreenContent(
                     }
 
                     // Save password section (SSH and Mosh)
-                    if (uiState.protocol == "ssh" || uiState.protocol == "mosh") {
+                    if ((uiState.protocol == "ssh" || uiState.protocol == "mosh") && uiState.identityId == null) {
                         OutlinedTextField(
                             value = uiState.password,
                             onValueChange = onPasswordChange,
@@ -452,11 +483,13 @@ fun HostEditorScreenContent(
 
             // Pubkey selector
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-            PubkeySelector(
-                pubkeyId = uiState.pubkeyId,
-                availablePubkeys = uiState.availablePubkeys,
-                onPubkeySelect = onPubkeyChange,
-            )
+            if (uiState.identityId == null) {
+                PubkeySelector(
+                    pubkeyId = uiState.pubkeyId,
+                    availablePubkeys = uiState.availablePubkeys,
+                    onPubkeySelect = onPubkeyChange,
+                )
+            }
 
             // Profile selector
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -844,7 +877,7 @@ private fun ColorSchemeSelector(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PubkeySelector(
+internal fun PubkeySelector(
     pubkeyId: Long,
     availablePubkeys: List<Pubkey>,
     onPubkeySelect: (Long) -> Unit,

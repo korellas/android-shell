@@ -19,6 +19,7 @@ package org.connectbot.ui.navigation
 
 object NavDestinations {
     const val HOST_LIST = "host_list"
+    const val IDENTITIES = "identities"
     const val CONSOLE = "console"
     const val HOST_EDITOR = "host_editor"
     const val AUTOMATION_EDITOR = "automation_editor"

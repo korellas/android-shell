@@ -289,7 +289,9 @@ class MainActivity : AppCompatActivity() {
             val onNavigateToConsole: (Host) -> Unit = { host ->
                 Timber.d("onNavigateToConsole called for host: ${host.nickname}")
 
-                if (!appViewModel.shouldRequestNotificationPermission()) {
+                if (host.isTemporary) {
+                    requestedUri = host.getUri()
+                } else if (!appViewModel.shouldRequestNotificationPermission()) {
                     navController.navigate("${NavDestinations.CONSOLE}/${host.id}")
                 } else {
                     // Store in hostAwaitingPermission (not compose state) so we don't navigate
@@ -315,7 +317,7 @@ class MainActivity : AppCompatActivity() {
                 onAuthenticationSuccess = { appViewModel.onAuthenticationSuccess() },
                 onRetryMigration = { appViewModel.retryMigration() },
                 onSelectShortcut = { host, color, iconStyle ->
-                    createShortcutAndFinish(host, color, iconStyle)
+                    createHostShortcut(host, color, iconStyle)
                 },
                 onNavigateToConsole = onNavigateToConsole,
             )
@@ -399,12 +401,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun createShortcutAndFinish(host: Host, color: String?, iconStyle: IconStyle) {
+    private fun createHostShortcut(host: Host, color: String?, iconStyle: IconStyle) {
         try {
             val label = host.nickname.takeUnless { it.isBlank() }
                 ?: host.hostname.takeUnless { it.isBlank() }
                 ?: getString(R.string.app_name)
-            val intent = Intent(Intent.ACTION_VIEW, host.getUri()).apply {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                action = Intent.ACTION_VIEW
+                data = host.getUri()
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
             val icon = ShortcutIconGenerator.generateShortcutIcon(this, color, iconStyle)
@@ -415,14 +419,18 @@ class MainActivity : AppCompatActivity() {
                 .setIntent(intent)
                 .build()
 
-            val result = ShortcutManagerCompat.createShortcutResultIntent(this, shortcut)
-            setResult(RESULT_OK, result)
+            if (makingShortcut) {
+                val result = ShortcutManagerCompat.createShortcutResultIntent(this, shortcut)
+                setResult(RESULT_OK, result)
+            } else if (!ShortcutManagerCompat.requestPinShortcut(this, shortcut, null)) {
+                Toast.makeText(this, R.string.shortcut_create_failed, Toast.LENGTH_LONG).show()
+            }
         } catch (e: RuntimeException) {
             Timber.e(e, "Failed to create host shortcut")
             Toast.makeText(this, R.string.shortcut_create_failed, Toast.LENGTH_LONG).show()
-            setResult(RESULT_CANCELED)
+            if (makingShortcut) setResult(RESULT_CANCELED)
         }
-        finish()
+        if (makingShortcut) finish()
     }
 }
 

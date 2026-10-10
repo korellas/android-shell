@@ -20,6 +20,7 @@ package org.connectbot.data.entity
 import android.net.Uri
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -31,13 +32,21 @@ import androidx.room.PrimaryKey
     indices = [
         Index(value = ["nickname"], unique = true),
         Index(value = ["protocol", "username", "hostname", "port"]),
+        Index(value = ["identity_id"]),
     ],
+    foreignKeys = [ForeignKey(entity = Identity::class, parentColumns = ["id"], childColumns = ["identity_id"], onDelete = ForeignKey.SET_NULL)],
 )
 data class Host(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
 
     val nickname: String = "",
+
+    @ColumnInfo(defaultValue = "0")
+    val favorite: Boolean = false,
+
+    @ColumnInfo(name = "identity_id")
+    val identityId: Long? = null,
 
     val protocol: String = "ssh",
 

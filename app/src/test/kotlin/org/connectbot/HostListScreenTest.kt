@@ -24,6 +24,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -35,6 +36,7 @@ import org.connectbot.ui.screens.hostlist.HostListScreenContent
 import org.connectbot.ui.screens.hostlist.HostListTestTags
 import org.connectbot.ui.screens.hostlist.HostListUiState
 import org.connectbot.ui.theme.ConnectBotTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -44,6 +46,22 @@ import org.junit.runner.RunWith
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
 class HostListScreenTest {
+    @Test
+    fun quickConnectSupportsIpv6WithoutSaving() {
+        var connected: Host? = null
+        setHostListContent(uiState = HostListUiState(), onNavigateToConsole = { connected = it })
+        openTopMenu()
+        composeTestRule.onNodeWithText("Quick connect").performClick()
+        composeTestRule.onNodeWithText("user@host:port").performTextInput("alice@[::1]")
+        composeTestRule.onNodeWithText("Connect").performClick()
+        composeTestRule.runOnIdle {
+            assertTrue(connected?.isTemporary == true)
+            assertEquals("alice", connected?.username)
+            assertEquals("[::1]", connected?.hostname)
+            assertEquals(22, connected?.port)
+        }
+    }
+
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
 
@@ -415,6 +433,47 @@ class HostListScreenTest {
         composeTestRule
             .onNodeWithContentDescription(composeTestRule.activity.getString(R.string.button_more_options))
             .performClick()
+    }
+
+    @Test
+    fun hostMenuCanCreateShortcutWithoutConnecting() {
+        val host = testHost(id = 7L, nickname = "shortcut")
+        var selectedHost: Host? = null
+        var connected = false
+        setHostListContent(
+            uiState = HostListUiState(hosts = listOf(host)),
+            onSelectShortcut = { selectedHost = it },
+            onNavigateToConsole = { connected = true },
+        )
+
+        openHostMenu(host)
+        composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.list_host_add_to_home)).performClick()
+
+        assertTrue(selectedHost == host)
+        assertTrue(!connected)
+    }
+
+    @Test
+    fun hostMenuOffersFavorites() {
+        val host = testHost(id = 8L, nickname = "favorite")
+        setHostListContent(uiState = HostListUiState(hosts = listOf(host)))
+        openHostMenu(host)
+        composeTestRule.onNodeWithText("Add to favorites").assertIsDisplayed()
+    }
+
+    @Test
+    fun quickConnectOpensWithoutCreatingSavedHost() {
+        setHostListContent()
+        openTopMenu()
+        composeTestRule.onNodeWithText("Quick connect").performClick()
+        composeTestRule.onNodeWithText("user@host:port").assertIsDisplayed()
+    }
+
+    @Test
+    fun hostListOffersAuthenticationIdentities() {
+        setHostListContent()
+        openTopMenu()
+        composeTestRule.onNodeWithText("Authentication identities").assertIsDisplayed()
     }
 
     private fun openHostMenu(host: Host) {

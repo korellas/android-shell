@@ -34,6 +34,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
@@ -45,7 +47,6 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -219,7 +220,7 @@ private fun StringPromptContent(
         modifier = Modifier
             .fillMaxWidth()
             .background(terminalColors.overlayBackground)
-            .padding(16.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         if (!instructions.isNullOrEmpty()) {
             Text(
@@ -230,49 +231,37 @@ private fun StringPromptContent(
             )
         }
 
-        OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
-            label = hint?.let { { Text(it, color = terminalColors.overlayTextSecondary) } },
-            visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(
-                imeAction = ImeAction.Done,
-                keyboardType = if (isPassword) KeyboardType.Password else KeyboardType.Unspecified,
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = {
-                    onSubmit(text)
-                },
-            ),
-            singleLine = true,
-            colors = TextFieldDefaults.colors(
-                focusedTextColor = terminalColors.overlayText,
-                unfocusedTextColor = terminalColors.overlayText,
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                cursorColor = terminalColors.overlayText,
-                focusedIndicatorColor = terminalColors.overlayTextSecondary,
-                unfocusedIndicatorColor = terminalColors.overlayTextSecondary.copy(alpha = 0.5f),
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester),
-        )
-
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.End,
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onCancel) {
-                Text(stringResource(R.string.delete_neg), color = terminalColors.overlayText)
+            TextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = hint?.let { { Text(it, color = terminalColors.overlayTextSecondary) } },
+                visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Done,
+                    keyboardType = if (isPassword) KeyboardType.Password else KeyboardType.Unspecified,
+                ),
+                keyboardActions = KeyboardActions(onDone = { onSubmit(text) }),
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedTextColor = terminalColors.overlayText,
+                    unfocusedTextColor = terminalColors.overlayText,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    cursorColor = terminalColors.overlayText,
+                    focusedIndicatorColor = terminalColors.overlayTextSecondary,
+                    unfocusedIndicatorColor = terminalColors.overlayTextSecondary.copy(alpha = 0.5f),
+                ),
+                modifier = Modifier.weight(1f).focusRequester(focusRequester),
+            )
+            IconButton(onClick = { onSubmit(text) }) {
+                Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.button_ok), tint = terminalColors.overlayText)
             }
-            Button(
-                onClick = { onSubmit(text) },
-                modifier = Modifier.padding(start = 8.dp),
-            ) {
-                Text(stringResource(R.string.button_ok))
+            IconButton(onClick = onCancel) {
+                Icon(Icons.Default.Close, stringResource(R.string.delete_neg), tint = terminalColors.overlayText)
             }
         }
     }

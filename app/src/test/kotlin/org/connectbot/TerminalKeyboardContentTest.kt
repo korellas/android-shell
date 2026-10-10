@@ -17,13 +17,17 @@
 
 package org.connectbot
 
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -152,6 +156,62 @@ class TerminalKeyboardContentTest {
     }
 
     @Test
+    fun terminalKeyboardContent_insertAndDeleteInvokeKeyCallback() {
+        val pressedKeys = mutableListOf<Int>()
+
+        setKeyboardContent(onKeyPress = { pressedKeys += it })
+
+        composeTestRule.onNodeWithText("Ins").performClick()
+        composeTestRule.onNodeWithText("Del").performClick()
+
+        assertEquals(listOf(VTermKey.INS, VTermKey.DEL), pressedKeys)
+    }
+
+    @Test
+    fun terminalKeyboardContent_keepsEscapeTabControlAndAltFixedWhileSpecialKeysScroll() {
+        var escapePressed = false
+        var tabPressed = false
+        var ctrlPressed = false
+        var altPressed = false
+        setKeyboardContent(
+            onEscPress = { escapePressed = true },
+            onTabPress = { tabPressed = true },
+            onCtrlPress = { ctrlPressed = true },
+            onAltPress = { altPressed = true },
+            modifier = Modifier.width(320.dp),
+        )
+
+        val fixedKeys = listOf(
+            composeTestRule.activity.getString(R.string.button_key_esc),
+            "⇥",
+            composeTestRule.activity.getString(R.string.button_key_ctrl),
+            composeTestRule.activity.getString(R.string.button_key_alt),
+        ).map { composeTestRule.onNodeWithText(it) }
+        val initialBounds = fixedKeys.map { it.assertIsDisplayed().fetchSemanticsNode().boundsInRoot }
+
+        composeTestRule
+            .onNodeWithContentDescription(composeTestRule.activity.getString(R.string.image_description_up))
+            .performTouchInput {
+                swipe(
+                    start = centerRight,
+                    end = centerLeft.copy(x = -300f),
+                    durationMillis = 300,
+                )
+            }
+
+        fixedKeys.forEachIndexed { index, key ->
+            key.assertIsDisplayed()
+            assertEquals(initialBounds[index], key.fetchSemanticsNode().boundsInRoot)
+            key.performClick()
+        }
+        assertTrue(initialBounds.zipWithNext().all { (left, right) -> left.right <= right.left })
+        assertTrue(escapePressed)
+        assertTrue(tabPressed)
+        assertTrue(ctrlPressed)
+        assertTrue(altPressed)
+    }
+
+    @Test
     fun terminalKeyboardContent_reportsHorizontalScrollInteractions() {
         val scrollStates = mutableListOf<Boolean>()
 
@@ -160,7 +220,7 @@ class TerminalKeyboardContentTest {
         )
 
         composeTestRule
-            .onNodeWithText(composeTestRule.activity.getString(R.string.button_key_ctrl))
+            .onNodeWithContentDescription(composeTestRule.activity.getString(R.string.image_description_up))
             .performTouchInput { swipeLeft() }
 
         assertTrue(scrollStates.isNotEmpty())
@@ -210,6 +270,7 @@ class TerminalKeyboardContentTest {
         bumpyArrows: Boolean = false,
         showImeToggleKey: Boolean = true,
         onToggleComposeMode: () -> Unit = {},
+        modifier: Modifier = Modifier,
     ) {
         composeTestRule.setContent {
             ConnectBotTheme {
@@ -229,6 +290,7 @@ class TerminalKeyboardContentTest {
                     bumpyArrows = bumpyArrows,
                     showImeToggleKey = showImeToggleKey,
                     onToggleComposeMode = onToggleComposeMode,
+                    modifier = modifier,
                 )
             }
         }

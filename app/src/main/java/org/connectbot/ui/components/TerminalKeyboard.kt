@@ -236,6 +236,34 @@ internal fun TerminalKeyboardContent(
                 .height(TERMINAL_KEYBOARD_HEIGHT_DP.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            KeyButton(
+                text = stringResource(R.string.button_key_esc),
+                contentDescription = stringResource(R.string.image_description_send_escape_character),
+                onClick = onEscPress,
+            )
+
+            KeyButton(
+                text = "⇥",
+                contentDescription = stringResource(R.string.image_description_send_tab_character),
+                onClick = onTabPress,
+            )
+
+            // Ctrl key (sticky modifier)
+            ModifierKeyButton(
+                text = stringResource(R.string.button_key_ctrl),
+                contentDescription = stringResource(R.string.image_description_toggle_control_character),
+                modifierLevel = modifierState.ctrlState,
+                onClick = onCtrlPress,
+            )
+
+            // Alt key (sticky modifier)
+            ModifierKeyButton(
+                text = stringResource(R.string.button_key_alt),
+                contentDescription = stringResource(R.string.image_description_toggle_alt_key),
+                modifierLevel = modifierState.altState,
+                onClick = onAltPress,
+            )
+
             // Scrollable key buttons
             Row(
                 modifier = Modifier
@@ -243,36 +271,6 @@ internal fun TerminalKeyboardContent(
                     .horizontalScroll(scrollState),
                 horizontalArrangement = Arrangement.Start, // No spacing between keys
             ) {
-                // Ctrl key (sticky modifier)
-                ModifierKeyButton(
-                    text = stringResource(R.string.button_key_ctrl),
-                    contentDescription = stringResource(R.string.image_description_toggle_control_character),
-                    modifierLevel = modifierState.ctrlState,
-                    onClick = onCtrlPress,
-                )
-
-                // Alt key (sticky modifier)
-                ModifierKeyButton(
-                    text = stringResource(R.string.button_key_alt),
-                    contentDescription = stringResource(R.string.image_description_toggle_alt_key),
-                    modifierLevel = modifierState.altState,
-                    onClick = onAltPress,
-                )
-
-                // Esc key
-                KeyButton(
-                    text = stringResource(R.string.button_key_esc),
-                    contentDescription = stringResource(R.string.image_description_send_escape_character),
-                    onClick = onEscPress,
-                )
-
-                // Tab key
-                KeyButton(
-                    text = "⇥", // Tab symbol
-                    contentDescription = stringResource(R.string.image_description_send_tab_character),
-                    onClick = onTabPress,
-                )
-
                 // Arrow keys (repeatable)
                 RepeatableKeyButton(
                     icon = Icons.Default.KeyboardArrowUp,
@@ -342,6 +340,18 @@ internal fun TerminalKeyboardContent(
                     text = stringResource(R.string.button_key_pgdn),
                     contentDescription = null,
                     onClick = { onKeyPress(VTermKey.PAGEDOWN) },
+                )
+
+                KeyButton(
+                    text = "Ins",
+                    contentDescription = stringResource(R.string.automation_key_insert),
+                    onClick = { onKeyPress(VTermKey.INS) },
+                )
+
+                KeyButton(
+                    text = "Del",
+                    contentDescription = stringResource(R.string.automation_key_delete),
+                    onClick = { onKeyPress(VTermKey.DEL) },
                 )
 
                 // Function keys F1-F12

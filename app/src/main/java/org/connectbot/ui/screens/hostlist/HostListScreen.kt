@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -48,6 +49,8 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -96,6 +99,7 @@ import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.Pubkey
 import org.connectbot.service.DisconnectReason
 import org.connectbot.service.descriptionResource
+import org.connectbot.transport.SSH
 import org.connectbot.ui.LocalTerminalManager
 import org.connectbot.ui.PreviewScreen
 import org.connectbot.ui.components.DisconnectAllDialog
@@ -124,6 +128,7 @@ fun HostListScreen(
     makingShortcut: Boolean = false,
     onSelectShortcut: (Host, String?, IconStyle) -> Unit = { _, _, _ -> },
     viewModel: HostListViewModel = hiltViewModel(),
+    onNavigateToIdentities: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -272,6 +277,8 @@ fun HostListScreen(
         onExportHosts = viewModel::exportHosts,
         // Some document providers label JSON exports as text/plain or application/octet-stream.
         onImportHosts = { importLauncher.launch(arrayOf("*/*")) },
+        onToggleFavorite = viewModel::toggleFavorite,
+        onNavigateToIdentities = onNavigateToIdentities,
         modifier = modifier,
     )
 }
@@ -298,8 +305,12 @@ fun HostListScreenContent(
     onSelectShortcut: (Host) -> Unit = {},
     onExportHosts: () -> Unit = {},
     onImportHosts: () -> Unit = {},
+    onToggleFavorite: (Host) -> Unit = {},
+    onNavigateToIdentities: () -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    var showQuickConnect by remember { mutableStateOf(false) }
+    var quickConnectAddress by remember { mutableStateOf("") }
     var showDisconnectAllDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -327,6 +338,20 @@ fun HostListScreenContent(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false },
                         ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.quick_connect_title)) },
+                                onClick = {
+                                    showMenu = false
+                                    showQuickConnect = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.identities_title)) },
+                                onClick = {
+                                    showMenu = false
+                                    onNavigateToIdentities()
+                                },
+                            )
                             DropdownMenuItem(
                                 text = {
                                     Text(
@@ -468,10 +493,12 @@ fun HostListScreenContent(
                                 },
                                 onEdit = { onNavigateToEditHost(host) },
                                 onPortForwards = { onNavigateToPortForwards(host) },
+                                onCreateShortcut = { onSelectShortcut(host) },
                                 onDuplicate = { onDuplicateHost(host) },
                                 onForgetHostKeys = { onForgetHostKeys(host) },
                                 onDisconnect = { onDisconnectHost(host) },
                                 onDelete = { onDeleteHost(host) },
+                                onToggleFavorite = { onToggleFavorite(host) },
                                 makingShortcut = makingShortcut,
                             )
                         }
@@ -479,6 +506,39 @@ fun HostListScreenContent(
                 }
             }
         }
+    }
+
+    if (showQuickConnect) {
+        val address = quickConnectAddress.trim()
+        val uri = SSH.getUri(address)
+        val hostPart = address.substringAfterLast('@')
+        val portSuffix = if (hostPart.startsWith('[')) hostPart.substringAfter(']', "") else hostPart.substringAfter(':', "")
+        val explicitPort = portSuffix.removePrefix(":")
+        val portValid = portSuffix.isEmpty() || explicitPort.toIntOrNull()?.let { it in 1..65535 } == true
+        val canConnect = uri != null && !uri.host.isNullOrBlank() && portValid
+        AlertDialog(
+            onDismissRequest = { showQuickConnect = false },
+            title = { Text(stringResource(R.string.quick_connect_title)) },
+            text = {
+                OutlinedTextField(
+                    value = quickConnectAddress,
+                    onValueChange = { quickConnectAddress = it },
+                    label = { Text(stringResource(R.string.quick_connect_hint)) },
+                    supportingText = { Text(stringResource(R.string.quick_connect_summary)) },
+                    singleLine = true,
+                    isError = address.isNotEmpty() && !canConnect,
+                )
+            },
+            confirmButton = {
+                TextButton(enabled = canConnect, onClick = {
+                    uri?.let {
+                        showQuickConnect = false
+                        onNavigateToConsole(SSH().createHost(it).copy(id = -1L))
+                    }
+                }) { Text(stringResource(R.string.quick_connect_action)) }
+            },
+            dismissButton = { TextButton(onClick = { showQuickConnect = false }) { Text(stringResource(R.string.button_cancel)) } },
+        )
     }
 
     if (showDisconnectAllDialog) {
@@ -499,10 +559,12 @@ private fun HostListItem(
     onClick: () -> Unit,
     onEdit: () -> Unit,
     onPortForwards: () -> Unit,
+    onCreateShortcut: () -> Unit,
     onDuplicate: () -> Unit,
     onForgetHostKeys: () -> Unit,
     onDisconnect: () -> Unit,
     onDelete: () -> Unit,
+    onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
     makingShortcut: Boolean = false,
     disconnectReason: DisconnectReason? = null,
@@ -638,6 +700,14 @@ private fun HostListItem(
                             onDismissRequest = { showMenu = false },
                         ) {
                             DropdownMenuItem(
+                                text = { Text(stringResource(if (host.favorite) R.string.favorite_remove else R.string.favorite_add)) },
+                                onClick = {
+                                    showMenu = false
+                                    onToggleFavorite()
+                                },
+                                leadingIcon = { Icon(if (host.favorite) Icons.Default.Star else Icons.Default.StarBorder, null) },
+                            )
+                            DropdownMenuItem(
                                 text = { Text(stringResource(R.string.list_host_edit)) },
                                 onClick = {
                                     showMenu = false
@@ -665,6 +735,16 @@ private fun HostListItem(
                                 },
                                 leadingIcon = {
                                     Icon(Icons.Default.ContentCopy, null)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.list_host_add_to_home)) },
+                                onClick = {
+                                    showMenu = false
+                                    onCreateShortcut()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Add, null)
                                 },
                             )
                             if (host.protocol == "ssh") {
@@ -708,10 +788,12 @@ private fun HostListItem(
                 .clickable(onClick = onClick)
                 .testTag(HostListTestTags.itemRow(host.id)),
         ) {
-            Text(
-                text = host.nickname,
-                fontWeight = FontWeight.Bold,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (host.favorite) {
+                    Icon(Icons.Default.Star, stringResource(R.string.favorite_label), modifier = Modifier.size(18.dp).padding(end = 2.dp))
+                }
+                Text(text = host.nickname, fontWeight = FontWeight.Bold)
+            }
         }
         HorizontalDivider()
 

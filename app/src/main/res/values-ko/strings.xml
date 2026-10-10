@@ -103,7 +103,7 @@
   <string name="button_import">수입</string>
   <string name="font_importing">폰트 가져오는 중…</string>
   <string name="pref_backupkeys_title">공개키 백업</string>
-  <string name="pref_backupkeys_summary">Android의 백업 메커니즘을 사용하여 비공개 키 백업 유지</string>
+  <string name="pref_backupkeys_summary">암호화된 Android 백업이나 기기 간 이동에서만 백업을 허용한 개인 키를 포함해요. 기기 전용 키와 비밀번호는 제외돼요.</string>
   <string name="pref_ui_category">사용자 인터페이스</string>
   <string name="pref_language_title">언어</string>
   <string name="pref_language_system_default">시스템 기본값</string>
@@ -234,6 +234,8 @@
   <string name="console_menu_reconnect">다시 연결</string>
   <string name="console_menu_close">닫기</string>
   <string name="console_menu_paste">붙여넣기</string>
+  <!-- 클립보드 내용을 편집한 뒤 터미널에 붙여넣는 메뉴. -->
+  <string name="console_menu_edit_paste">편집해서 붙여넣기</string>
   <string name="console_menu_portforwards">포트 포워드</string>
   <string name="console_menu_resize">크기 고정</string>
   <string name="console_menu_urlscan">URL 검색</string>
@@ -507,6 +509,8 @@
   <string name="import_hosts_success">\"%1$d개의 호스트(건너뛴 항목 %2$d개)와 %3$d개의 프로필(건너뛴 항목 %4$d개)을 가져왔습니다.\"</string>
   <string name="export_hosts_failed">호스트 내보내기에 실패했습니다: %s</string>
   <string name="import_hosts_failed">호스트 가져오기에 실패했습니다: %s</string>
+  <!-- Host menu item to request a launcher shortcut for this connection. -->
+  <string name="list_host_add_to_home">홈 화면에 추가</string>
   <string name="shortcut_customize_title">단축키 사용자 지정</string>
   <string name="shortcut_icon_color">아이콘 색상</string>
   <string name="shortcut_icon_style">아이콘 스타일</string>
@@ -602,6 +606,16 @@
   <string name="automation_enable_forward" tools:machine_translated="true">포트 포워딩 활성화</string>
   <string name="automation_disable_forward" tools:machine_translated="true">포트 포워딩 비활성화</string>
   <string name="automation_add" tools:machine_translated="true">동작 추가</string>
+  <!-- Button in the automation editor that fills startup actions with a tmux attach-or-create command and Enter. -->
+  <string name="automation_tmux_preset">tmux 자동 연결</string>
+  <!-- Explanation beside the tmux startup preset button. -->
+  <string name="automation_tmux_preset_summary">기존 세션 재사용 · 없으면 생성. 서버에 tmux가 필요합니다.</string>
+  <!-- Confirmation title when a tmux preset would replace existing startup actions. -->
+  <string name="automation_tmux_replace_title">자동 실행을 바꿀까요?</string>
+  <!-- Explain that replacing actions edits a draft, not saved settings or the current remote session. -->
+  <string name="automation_tmux_replace_message">현재 동작 목록을 tmux 자동 연결로 바꿉니다. 저장을 눌러야 적용됩니다.</string>
+  <!-- Confirm replacing the startup action draft with the tmux preset. -->
+  <string name="automation_tmux_replace">바꾸기</string>
   <string name="automation_save" tools:machine_translated="true">저장</string>
   <string name="automation_edit" tools:machine_translated="true">수정</string>
   <string name="automation_delete" tools:machine_translated="true">삭제합니다.</string>
@@ -694,4 +708,68 @@
   <string name="connection_alert_permission_message" tools:machine_translated="true">알림을 허용하면 연결된 호스트를 확인하고 터미널 벨 소리와 연결 끊김 알림을 받을 수 있습니다. 이 권한을 허용하지 않아도 연결은 백그라운드에서 계속 실행될 수 있습니다.</string>
   <string name="connection_alert_permission_denied_title" tools:machine_translated="true">알림 사용</string>
   <string name="connection_alert_permission_denied_message" tools:machine_translated="true">Android 설정에서 ConnectBot의 알림을 활성화하여 연결된 호스트를 확인하고 터미널 벨 소리와 연결 끊김 알림을 받으세요. 백그라운드 연결 지원은 계속 활성화됩니다.</string>
+	<!-- 터미널 선택 영역 복사 버튼. -->
+	<string name="selection_copy">복사</string>
+	<!-- 선택 영역을 줄 단위로 확장. -->
+	<string name="selection_line">줄 선택</string>
+	<!-- 선택 내용을 복사해서 입력창에서 편집. -->
+	<string name="selection_edit">편집</string>
+	<!-- 세션 관리 하단 시트 제목. -->
+	<string name="console_sessions_title">열린 세션</string>
+	<!-- 세션 닫기 접근성 설명. -->
+	<string name="console_close_session">%1$s 닫기</string>
+	<!-- 세션 연결 상태. -->
+	<string name="console_session_connected">연결됨</string>
+	<!-- 세션 연결 상태. -->
+	<string name="console_session_connecting">연결 중</string>
+	<!-- 세션 연결 상태. -->
+	<string name="console_session_disconnected">연결 끊김</string>
+	<!-- 호스트 즐겨찾기 등록. -->
+	<string name="favorite_add">즐겨찾기에 추가</string>
+	<!-- 호스트 즐겨찾기 해제. -->
+	<string name="favorite_remove">즐겨찾기에서 제거</string>
+	<!-- 즐겨찾기 아이콘 설명. -->
+	<string name="favorite_label">즐겨찾기</string>
+	<!-- 빠른 연결 메뉴와 대화상자 제목. -->
+	<string name="quick_connect_title">빠른 연결</string>
+	<!-- 빠른 연결 주소 입력 형식. -->
+	<string name="quick_connect_hint">user@host:port</string>
+	<!-- 빠른 연결 설명. -->
+	<string name="quick_connect_summary">호스트를 저장하지 않고 연결해요. 포트는 생략할 수 있어요.</string>
+	<!-- 빠른 연결 실행 버튼. -->
+	<string name="quick_connect_action">연결</string>
+	<!-- 공용 인증정보 관리 제목. -->
+	<string name="identities_title">인증정보</string>
+	<!-- 공용 인증정보 설명. -->
+	<string name="identities_summary">사용자 이름·키·비밀번호를 여러 서버에서 함께 써요. 호스트 편집에서 사용할 인증정보를 고르면 돼요.</string>
+	<!-- 인증정보 추가 버튼 설명. -->
+	<string name="identity_add">인증정보 추가</string>
+	<!-- 인증정보 이름 필드. -->
+	<string name="identity_name">인증정보 이름</string>
+	<!-- 호스트별 인증정보 사용 옵션. -->
+	<string name="identity_per_host">이 호스트만의 인증정보</string>
+	<!-- 인증정보 관리 화면 링크. -->
+	<string name="identity_manage">인증정보 관리</string>
+	<!-- 저장 비밀번호의 백업 제한 설명. -->
+	<string name="identity_password_backup_note">비밀번호는 이 기기에 암호화해 보관해요. 다른 기기로 복원하면 다시 입력해야 해요.</string>
+	<!-- 인증정보 삭제 확인 설명. -->
+	<string name="identity_delete_confirmation">%1$s 인증정보를 삭제할까요? 호스트와 현재 사용자 이름·키는 남지만 공용 비밀번호는 삭제돼요.</string>
+	<!-- tmux 창 스와이프 설정. -->
+	<string name="pref_swipe_tmux_title">tmux 창 스와이프</string>
+	<!-- tmux 스와이프 방향과 동작 설명. -->
+	<string name="pref_swipe_tmux_summary">왼쪽으로 밀면 다음 창, 오른쪽은 이전 창이에요. SSH 세션이 아니라 tmux 창을 바꿔요.</string>
+	<!-- tmux 접두키 설정. -->
+	<string name="pref_tmux_ctrl_a_title">tmux 접두키 Ctrl+A 사용</string>
+	<!-- 서버의 tmux 접두키 설정 설명. -->
+	<string name="pref_tmux_ctrl_a_summary">서버에서 Ctrl+B 대신 Ctrl+A를 쓰는 경우에만 켜세요.</string>
+	<!-- 터미널 여백 설정. -->
+	<string name="pref_terminal_margin_title">터미널 여백</string>
+	<!-- 터미널 여백 dp 단위 값. -->
+	<string name="pref_terminal_margin_value">%1$d dp</string>
+	<!-- tmux 다음 창 전환 피드백. -->
+	<string name="tmux_next_window">tmux · 다음 창 →</string>
+	<!-- tmux 이전 창 전환 피드백. -->
+	<string name="tmux_previous_window">← tmux · 이전 창</string>
+	<!-- Android 시스템 백업과 복원 안내. -->
+	<string name="pref_android_backup_summary">시스템 백업이 켜져 있으면 Android가 호스트·즐겨찾기·인증정보·프로필·색상·자동화·가져온 글꼴을 백업해요. 복원 후 비밀번호와 기기 전용 키는 다시 설정해야 해요.</string>
 </resources>

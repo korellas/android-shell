@@ -82,7 +82,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.app.versioning)
-    alias(libs.plugins.easylauncher)
     alias(libs.plugins.spotless)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.kover)
@@ -124,7 +123,7 @@ android {
     dynamicFeatures += setOf(":mosh")
 
     defaultConfig {
-        applicationId = "org.connectbot"
+        applicationId = "dev.korellas.androidshell"
 
         minSdk =
             libs.versions.minSdk
@@ -142,7 +141,7 @@ android {
             debugSymbolLevel = "full"
         }
 
-        testApplicationId = "org.connectbot.tests"
+        testApplicationId = "dev.korellas.androidshell.tests"
         testInstrumentationRunner = "org.connectbot.HiltTestRunner"
 
         // The following argument makes the Android Test Orchestrator run its
@@ -419,7 +418,7 @@ tasks.withType<Test>().configureEach {
 // Generate filtered export schema from Room schema
 // Only includes tables needed for export/import (profiles, hosts, port_forwards)
 val generateExportSchema by tasks.registering {
-    val exportTables = setOf("profiles", "hosts", "port_forwards", "automation_actions")
+    val exportTables = setOf("profiles", "identities", "hosts", "port_forwards", "automation_actions")
     val excludedFields = setOf("last_connect", "host_key_algo")
 
     // Read schema version from Room's @Database annotation.
@@ -492,7 +491,7 @@ tasks
 
 dependencies {
     implementation(libs.sshlib)
-    implementation(libs.termlib)
+    implementation(project(":termlib"))
     implementation(libs.androidx.media3.common.ktx)
     implementation(libs.androidx.navigation.testing)
     implementation(libs.androidx.ui)

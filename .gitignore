@@ -30,3 +30,6 @@ build/
 
 # Jenkinsfile-runner
 \.jenkinsfile-runner/
+
+.superpowers/
+.worktrees/

@@ -227,7 +227,8 @@ class ConsoleMenuImeTest {
                 up()
             }
             composeRule.onNodeWithTag("top_app_bar").assertIsDisplayed()
-            composeRule.onNodeWithTag("title_bar_text_input").performClick()
+            openMenu()
+            composeRule.onNodeWithText(context.getString(R.string.console_menu_text_input)).performClick()
 
             composeRule.mainClock.advanceTimeBy(3_500)
             composeRule.waitForIdle()

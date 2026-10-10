@@ -27,6 +27,7 @@ import org.connectbot.data.dao.KnownHostDao
 import org.connectbot.data.dao.PortForwardDao
 import org.connectbot.data.entity.AutomationAction
 import org.connectbot.data.entity.Host
+import org.connectbot.data.entity.Identity
 import org.connectbot.data.entity.KnownHost
 import org.connectbot.data.entity.PortForward
 import org.connectbot.util.SecurePasswordStorage
@@ -53,6 +54,39 @@ class HostRepository @Inject constructor(
     private val knownHostDao: KnownHostDao,
     private val securePasswordStorage: SecurePasswordStorage,
 ) {
+    fun observeIdentities() = database.identityDao().observeAll()
+
+    suspend fun getIdentities() = database.identityDao().getAll()
+
+    suspend fun getProfiles() = database.profileDao().getAll()
+
+    suspend fun saveIdentity(identity: Identity): Identity = if (identity.id == 0L) {
+        identity.copy(id = database.identityDao().insert(identity))
+    } else {
+        database.identityDao().update(identity)
+        identity
+    }
+
+    suspend fun deleteIdentity(id: Long) {
+        database.withTransaction {
+            // Preserve the latest account settings when unlinking hosts.
+            val identity = database.identityDao().getById(id) ?: return@withTransaction
+            hostDao.getAll().filter { it.identityId == id }.forEach {
+                hostDao.update(it.copy(username = identity.username, pubkeyId = identity.pubkeyId, identityId = null))
+                securePasswordStorage.deletePassword(it.id)
+            }
+            database.identityDao().delete(id)
+        }
+        securePasswordStorage.deleteIdentityPassword(id)
+    }
+
+    fun resolveIdentityBlocking(host: Host): Host = runBlocking {
+        val identity = host.identityId?.let { database.identityDao().getById(it) }
+        if (identity == null) host else host.copy(username = identity.username, pubkeyId = identity.pubkeyId)
+    }
+
+    suspend fun toggleFavorite(hostId: Long) = hostDao.toggleFavorite(hostId)
+
     fun observeAutomation(hostId: Long) = database.automationActionDao().observeByHost(hostId)
 
     suspend fun getAutomation(hostId: Long) = database.automationActionDao().getByHost(hostId)

@@ -283,6 +283,11 @@ class ConnectionNotifier @Inject constructor(dispatchers: CoroutineDispatchers) 
     }
 
     private fun refresh(context: Context) {
+        if (sessions.none { it.connected }) {
+            notices.keys.toList().forEach { clearNotice(context, it) }
+            manager(context).cancel(ONLINE_NOTIFICATION)
+            return
+        }
         notices.values.forEach { postNotice(context, it) }
         if (foreground || notices.isNotEmpty()) {
             manager(context).notify(ONLINE_NOTIFICATION, summary(context))
@@ -346,6 +351,12 @@ class ConnectionNotifier @Inject constructor(dispatchers: CoroutineDispatchers) 
 
     fun showRunningNotification(context: Service, current: List<NotificationSession>) = enqueue(context) {
         replaceSessions(context, current)
+        if (sessions.none { it.connected }) {
+            foreground = false
+            context.stopForeground(Service.STOP_FOREGROUND_REMOVE)
+            refresh(context)
+            return@enqueue
+        }
         foreground = true
         val notification = summary(context)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {

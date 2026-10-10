@@ -296,12 +296,9 @@ class SchemaBasedExporter(
         idMapping: Map<String, String>,
         originalRows: JSONArray,
     ) {
-        // Find self-referencing fields (foreign keys that reference the same table)
+        // Legacy jump links have no Room foreign-key declaration.
         val selfRefFields = entitySchema.fields.filter { field ->
-            entitySchema.foreignKeys.none { fk ->
-                fk.columns.contains(field.columnName)
-            } && field.fieldPath.endsWith("Id") && field.fieldPath != "id" &&
-                field.affinity == "INTEGER"
+            tableName == "hosts" && field.fieldPath == "jumpHostId"
         }
 
         // Also check for explicit self-referencing foreign keys

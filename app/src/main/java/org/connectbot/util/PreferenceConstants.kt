@@ -39,6 +39,9 @@ object PreferenceConstants {
     const val TITLEBARHIDE: String = "titlebarhide"
     const val PG_UPDN_GESTURE: String = "pgupdngesture"
     const val SWIPE_SESSIONS: String = "swipeSessions"
+    const val SWIPE_TMUX: String = "swipeTmux"
+    const val TMUX_CTRL_A: String = "tmuxCtrlA"
+    const val TERMINAL_MARGIN: String = "terminalMargin"
 
     const val KEYMODE: String = "keymode"
     const val KEY_ALWAYS_VISIBLE: String = "alwaysvisible"

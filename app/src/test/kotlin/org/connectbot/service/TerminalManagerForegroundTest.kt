@@ -32,7 +32,9 @@ import org.connectbot.data.HostRepository
 import org.connectbot.data.entity.Host
 import org.connectbot.di.CoroutineDispatchers
 import org.connectbot.util.PreferenceConstants
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -67,11 +69,12 @@ class TerminalManagerForegroundTest {
         shadowOf(RuntimeEnvironment.getApplication()).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    private fun mockBridges() = mockConstruction(TerminalBridge::class.java) { bridge, construction ->
+    private fun mockBridges(connecting: Boolean = false) = mockConstruction(TerminalBridge::class.java) { bridge, construction ->
         val host = construction.arguments()[1] as Host
         `when`(bridge.host).thenReturn(host)
         `when`(bridge.notificationSessionId).thenReturn("session-${host.id}")
         `when`(bridge.isSessionOpen).thenReturn(true)
+        `when`(bridge.connecting).thenReturn(connecting)
         `when`(bridge.sessionAttention).thenReturn(SessionAttention())
     }
 
@@ -114,7 +117,7 @@ class TerminalManagerForegroundTest {
     }
 
     @Test
-    fun openingConnectionsAlwaysStartsForegroundAndOnlyFinalDisconnectStopsIt() = runTest(dispatcher) {
+    fun connectedSessionsStartForegroundAndOnlyFinalDisconnectStopsIt() = runTest(dispatcher) {
         shadowOf(manager.getSystemService(NotificationManager::class.java)).setNotificationsEnabled(false)
         val first = Host(id = 1L, nickname = "first")
         val second = Host(id = 2L, nickname = "second")
@@ -155,7 +158,7 @@ class TerminalManagerForegroundTest {
     }
 
     @Test
-    fun pendingReconnectKeepsForegroundAfterLastBridgeIsRemoved() = runTest(dispatcher) {
+    fun pendingReconnectDoesNotKeepForegroundAfterLastConnectionEnds() = runTest(dispatcher) {
         val host = Host(id = 1L, nickname = "first")
         `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)
         mockBridges().use {
@@ -168,7 +171,69 @@ class TerminalManagerForegroundTest {
             pending.add(WeakReference(bridge))
             manager.onDisconnected(bridge)
             advanceUntilIdle()
+            assertTrue(shadowOf(manager).isForegroundStopped)
+            assertTrue(manager.getSystemService(NotificationManager::class.java).activeNotifications.isEmpty())
+        }
+    }
+
+    @Test
+    fun connectingSessionStartsForegroundOnlyAfterConnected() = runTest(dispatcher) {
+        val host = Host(id = 1L, nickname = "first")
+        `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)
+        mockBridges(connecting = true).use {
+            val bridge = manager.openConnectionForHostId(host.id)!!
+            advanceUntilIdle()
+            assertNull(shadowOf(manager).lastForegroundNotification)
+            assertTrue(manager.getSystemService(NotificationManager::class.java).activeNotifications.isEmpty())
+
+            `when`(bridge.connecting).thenReturn(false)
+            manager.notifyBridgeStateChanged()
+            advanceUntilIdle()
             assertFalse(shadowOf(manager).isForegroundStopped)
+            assertTrue(
+                manager.getSystemService(NotificationManager::class.java).activeNotifications.any { notice ->
+                    notice.id == ConnectionNotifier.ONLINE_NOTIFICATION
+                },
+            )
+        }
+    }
+
+    @Test
+    fun disconnectedBridgeRetainedInConsoleDoesNotKeepForeground() = runTest(dispatcher) {
+        val host = Host(id = 1L, nickname = "first")
+        `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)
+        mockBridges().use {
+            val bridge = manager.openConnectionForHostId(host.id)!!
+            advanceUntilIdle()
+            assertFalse(shadowOf(manager).isForegroundStopped)
+
+            `when`(bridge.isDisconnected).thenReturn(true)
+            `when`(bridge.isSessionOpen).thenReturn(false)
+            manager.notifyBridgeStateChanged()
+            advanceUntilIdle()
+            assertTrue(manager.bridgesFlow.value.contains(bridge))
+            assertTrue(shadowOf(manager).isForegroundStopped)
+            assertTrue(manager.getSystemService(NotificationManager::class.java).activeNotifications.isEmpty())
+        }
+    }
+
+    @Test
+    fun openingAnotherConnectionRefreshesExistingBellAlertCounts() = runTest(dispatcher) {
+        manager.prefs.edit().putBoolean(PreferenceConstants.CONNECTION_ALERTS, true).apply()
+        val first = Host(id = 1L, nickname = "first")
+        val second = Host(id = 2L, nickname = "second")
+        `when`(manager.hostRepository.findHostById(first.id)).thenReturn(first)
+        `when`(manager.hostRepository.findHostById(second.id)).thenReturn(second)
+        mockBridges().use {
+            val bridge = manager.openConnectionForHostId(first.id)!!
+            manager.sendActivityNotification(bridge)
+            advanceUntilIdle()
+
+            manager.openConnectionForHostId(second.id)
+            advanceUntilIdle()
+            val notice = manager.getSystemService(NotificationManager::class.java).activeNotifications
+                .single { posted -> posted.tag == bridge.notificationSessionId }.notification
+            assertEquals("2 sessions connected · 1 needs attention", notice.publicVersion.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         }
     }
 }

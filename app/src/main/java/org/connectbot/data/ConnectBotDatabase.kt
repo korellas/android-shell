@@ -26,6 +26,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import org.connectbot.data.dao.AutomationActionDao
 import org.connectbot.data.dao.ColorSchemeDao
 import org.connectbot.data.dao.HostDao
+import org.connectbot.data.dao.IdentityDao
 import org.connectbot.data.dao.KnownHostDao
 import org.connectbot.data.dao.PortForwardDao
 import org.connectbot.data.dao.ProfileDao
@@ -34,6 +35,7 @@ import org.connectbot.data.entity.AutomationAction
 import org.connectbot.data.entity.ColorPalette
 import org.connectbot.data.entity.ColorScheme
 import org.connectbot.data.entity.Host
+import org.connectbot.data.entity.Identity
 import org.connectbot.data.entity.KnownHost
 import org.connectbot.data.entity.PortForward
 import org.connectbot.data.entity.Profile
@@ -74,6 +76,7 @@ import java.util.UUID
 @Database(
     entities = [
         Host::class,
+        Identity::class,
         Pubkey::class,
         PortForward::class,
         KnownHost::class,
@@ -82,7 +85,7 @@ import java.util.UUID
         Profile::class,
         AutomationAction::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -94,12 +97,14 @@ import java.util.UUID
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 11, to = 12),
+        AutoMigration(from = 12, to = 13),
     ],
 )
 @TypeConverters(Converters::class)
 abstract class ConnectBotDatabase : RoomDatabase() {
     abstract fun automationActionDao(): AutomationActionDao
     abstract fun hostDao(): HostDao
+    abstract fun identityDao(): IdentityDao
     abstract fun pubkeyDao(): PubkeyDao
     abstract fun portForwardDao(): PortForwardDao
     abstract fun knownHostDao(): KnownHostDao

@@ -19,11 +19,13 @@ package org.connectbot.service
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import org.connectbot.data.ColorSchemeRepository
 import org.connectbot.data.ConnectBotDatabase
 import org.connectbot.data.HostRepository
 import org.connectbot.data.PubkeyRepository
 import org.connectbot.data.entity.KeyStorageType
+import org.connectbot.util.HostConstants
 import timber.log.Timber
 import java.io.File
 
@@ -48,12 +50,14 @@ class BackupFilter(
      * @param tempDbFile The temporary database file to create
      */
     suspend fun buildFilteredDatabase(tempDbFile: File, backupKeys: Boolean) {
+        cleanupTempDatabase(tempDbFile)
         // Create a new temporary database
         val tempDb = Room.databaseBuilder(
             context,
             ConnectBotDatabase::class.java,
-            tempDbFile.name,
+            tempDbFile.absolutePath,
         )
+            .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
             .allowMainThreadQueries() // Backup runs on backup thread
             .build()
 
@@ -72,9 +76,15 @@ class BackupFilter(
 
             Timber.d("Backing up ${allHosts.size} hosts, ${backupablePubkeys.size} pubkeys, ${allColorSchemes.size} color schemes")
 
+            val keyIds = backupablePubkeys.map { it.id }.toSet()
+            fun backupKeyId(id: Long): Long = if (id > 0L && id !in keyIds) HostConstants.PUBKEYID_NEVER else id
+
+            hostRepository.getProfiles().forEach { tempDb.profileDao().insert(it) }
+            hostRepository.getIdentities().forEach { tempDb.identityDao().insert(it.copy(pubkeyId = backupKeyId(it.pubkeyId))) }
+
             // Insert all backupable data into temp database
             allHosts.forEach { host ->
-                tempDb.hostDao().insert(host)
+                tempDb.hostDao().insert(host.copy(pubkeyId = backupKeyId(host.pubkeyId)))
                 // Also backup port forwards and known hosts for this host
                 val portForwards = hostRepository.getPortForwardsForHost(host.id)
                 portForwards.forEach { tempDb.portForwardDao().insert(it) }

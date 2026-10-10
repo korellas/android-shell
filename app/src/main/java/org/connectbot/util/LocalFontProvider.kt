@@ -1,6 +1,6 @@
 /*
  * ConnectBot: simple, powerful, open-source SSH client for Android
- * Copyright 2025 Kenny Root
+ * Copyright 2025-2026 Kenny Root
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -154,7 +154,7 @@ class LocalFontProvider(private val context: Context) {
 
     companion object {
         private const val TAG = "LocalFontProvider"
-        private const val FONTS_DIR = "fonts"
+        const val FONTS_DIR = "fonts"
 
         /**
          * Prefix used to identify local font names in storage.

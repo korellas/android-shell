@@ -114,6 +114,12 @@ class HostListViewModel @Inject constructor(
         }
     }
 
+    fun toggleFavorite(host: Host) {
+        viewModelScope.launch(dispatchers.io) {
+            repository.toggleFavorite(host.id)
+        }
+    }
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private fun observeHosts() {
         viewModelScope.launch {

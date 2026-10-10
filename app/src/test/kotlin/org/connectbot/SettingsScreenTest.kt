@@ -82,6 +82,15 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun settingsOfferTmuxWindowSwipeAndTerminalMargin() {
+        setSettingsContent()
+        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("Swipe tmux windows"))
+        composeTestRule.onNodeWithText("Swipe tmux windows").assertIsDisplayed()
+        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("Terminal margin"))
+        composeTestRule.onNodeWithText("Terminal margin").assertIsDisplayed()
+    }
+
+    @Test
     fun notificationSettingsLinkRemainsAvailableWhenMainSettingIsOff() {
         setSettingsContent(uiState = SettingsUiState(connectionAlerts = false))
 

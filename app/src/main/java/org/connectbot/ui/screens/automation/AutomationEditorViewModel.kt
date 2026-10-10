@@ -144,6 +144,15 @@ class AutomationEditorViewModel @Inject constructor(
         edit(AutomationAction(hostId = hostId, type = type, durationMs = if (type == AutomationActionType.DELAY) 1000 else 30_000))
     }
 
+    fun useTmuxPreset() {
+        change(
+            listOf(
+                AutomationAction(hostId = hostId, type = AutomationActionType.SEND_TEXT, text = "[ -n \"\$TMUX\" ] || tmux new-session -A -s main"),
+                AutomationAction(hostId = hostId, type = AutomationActionType.SEND_KEY),
+            ),
+        )
+    }
+
     fun edit(action: AutomationAction) {
         savedStateHandle["editing"] = AutomationDraftCodec.encode(listOf(action))
         mutableState.update { it.copy(editing = action, editError = null) }

@@ -382,7 +382,8 @@ open class SSH :
         return outcome
     }
 
-    private fun authenticateConnection(jc: Connection, authHost: Host, isJump: Boolean): AuthenticationOutcome {
+    private fun authenticateConnection(jc: Connection, configuredHost: Host, isJump: Boolean): AuthenticationOutcome {
+        val authHost = if (configuredHost.identityId != null) manager?.hostRepository?.resolveIdentityBlocking(configuredHost) ?: configuredHost else configuredHost
         val sourceName = authHost.authBannerSourceName()
         // Freeze the unlocked identities at the start of this connection's authentication.
         val loadedKeys = manager?.loadedKeypairs?.entries?.mapNotNull { entry ->
@@ -429,7 +430,10 @@ open class SSH :
                     }
                 },
                 savedPassword = {
-                    manager?.securePasswordStorage?.getPassword(authHost.id)?.also {
+                    (
+                        authHost.identityId?.let { manager?.securePasswordStorage?.getIdentityPassword(it) }
+                            ?: if (authHost.identityId == null) manager?.securePasswordStorage?.getPassword(authHost.id) else null
+                        )?.also {
                         bridge?.outputLine(manager?.res?.getString(R.string.terminal_auth_saved_password))
                     }
                 },

@@ -155,6 +155,7 @@ fun AutomationEditorScreen(
         }
     }
     var showAdd by rememberSaveable { mutableStateOf(false) }
+    var showReplaceTmux by rememberSaveable { mutableStateOf(false) }
     val list = rememberLazyListState()
     val reorderableState = rememberReorderableLazyListState(list) { from, to ->
         if (!state.saving && to.index in state.actions.indices) {
@@ -195,6 +196,27 @@ fun AutomationEditorScreen(
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(16.dp),
                     )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        stringResource(R.string.automation_tmux_preset_summary),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(
+                        onClick = {
+                            if (state.actions.isEmpty()) viewModel.useTmuxPreset() else showReplaceTmux = true
+                        },
+                        enabled = !state.saving && state.hostExists,
+                        colors = buttonColors,
+                    ) {
+                        Text(stringResource(R.string.automation_tmux_preset))
+                    }
                 }
                 LazyColumn(
                     state = list,
@@ -298,6 +320,25 @@ fun AutomationEditorScreen(
         }
     }
 
+    if (showReplaceTmux) {
+        AlertDialog(
+            onDismissRequest = { showReplaceTmux = false },
+            title = { Text(stringResource(R.string.automation_tmux_replace_title)) },
+            text = { Text(stringResource(R.string.automation_tmux_replace_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.useTmuxPreset()
+                        showReplaceTmux = false
+                    },
+                    enabled = !state.saving && state.hostExists,
+                ) { Text(stringResource(R.string.automation_tmux_replace)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReplaceTmux = false }) { Text(stringResource(R.string.automation_cancel)) }
+            },
+        )
+    }
     if (showAdd) {
         AlertDialog(
             onDismissRequest = { showAdd = false },

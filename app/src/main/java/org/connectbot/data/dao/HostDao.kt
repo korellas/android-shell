@@ -33,14 +33,14 @@ interface HostDao {
     /**
      * Observe all hosts, ordered by nickname.
      */
-    @Query("SELECT * FROM hosts ORDER BY nickname ASC")
+    @Query("SELECT * FROM hosts ORDER BY favorite DESC, nickname ASC")
     fun observeAll(): Flow<List<Host>>
 
     /**
      * Observe all hosts, ordered by color then nickname.
      * Used for color-grouped host list display.
      */
-    @Query("SELECT * FROM hosts ORDER BY color, nickname ASC")
+    @Query("SELECT * FROM hosts ORDER BY favorite DESC, color, nickname ASC")
     fun observeAllSortedByColor(): Flow<List<Host>>
 
     /**
@@ -79,6 +79,9 @@ interface HostDao {
      */
     @Update
     suspend fun update(host: Host)
+
+    @Query("UPDATE hosts SET favorite = NOT favorite WHERE id = :hostId")
+    suspend fun toggleFavorite(hostId: Long)
 
     /**
      * Delete a host.

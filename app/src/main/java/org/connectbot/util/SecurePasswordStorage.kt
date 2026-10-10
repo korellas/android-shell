@@ -160,10 +160,27 @@ class SecurePasswordStorage @Inject constructor(
         prefs.edit().remove(getPasswordKey(hostId)).apply()
     }
 
+    fun saveIdentityPassword(identityId: Long, password: String?) {
+        val key = "identity_$identityId"
+        if (password.isNullOrEmpty()) {
+            prefs.edit().remove(key).apply()
+        } else {
+            encrypt(password)?.let { prefs.edit().putString(key, it).apply() }
+        }
+    }
+
+    fun getIdentityPassword(identityId: Long): String? = prefs.getString("identity_$identityId", null)?.let(::decrypt)
+
+    fun hasIdentityPassword(identityId: Long): Boolean = prefs.contains("identity_$identityId")
+
+    fun deleteIdentityPassword(identityId: Long) {
+        prefs.edit().remove("identity_$identityId").apply()
+    }
+
     private fun getPasswordKey(hostId: Long): String = "$KEY_PREFIX$hostId"
 
     companion object {
-        private const val PREFS_FILE_NAME = "secure_host_passwords"
+        const val PREFS_FILE_NAME = "secure_host_passwords"
         private const val KEY_PREFIX = "password_"
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val KEY_ALIAS = "connectbot_password_key"

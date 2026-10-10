@@ -121,6 +121,57 @@ class AutomationEditorScreenTest {
     }
 
     @Test
+    fun tmuxPresetCreatesEditableDraftAndSavesCommandThenEnter() {
+        compose.onNodeWithText(text(R.string.automation_tmux_preset)).assertIsDisplayed().performClick()
+        compose.waitForIdle()
+
+        val actions = viewModel.state.value.actions
+        assertEquals(2, actions.size)
+        assertEquals(AutomationActionType.SEND_TEXT, actions[0].type)
+        assertEquals("[ -n \"\$TMUX\" ] || tmux new-session -A -s main", actions[0].text)
+        assertEquals(AutomationActionType.SEND_KEY, actions[1].type)
+        assertEquals(VTermKey.ENTER, actions[1].key)
+        assertEquals(TerminalKeyModifiers.NONE, actions[1].modifiers)
+        assertEquals(listOf(0, 1), actions.map { it.position })
+        assertTrue(actions.all { it.hostId == 1L })
+        assertTrue(viewModel.state.value.dirty)
+        assertTrue(viewModel.state.value.saved.isEmpty())
+        runBlocking { Mockito.verify(repository, Mockito.never()).saveAutomation(1, actions) }
+
+        compose.onNodeWithContentDescription(text(R.string.automation_save)).performClick()
+        compose.waitForIdle()
+        runBlocking { Mockito.verify(repository).saveAutomation(1, actions) }
+        assertTrue(navigatedBack)
+        assertTrue(!viewModel.state.value.dirty)
+    }
+
+    @Test
+    fun tmuxPresetRequiresConfirmationBeforeReplacingExistingActions() {
+        addString()
+        val original = viewModel.state.value.actions
+        compose.onNodeWithText(text(R.string.automation_tmux_preset)).performClick()
+        compose.onNodeWithText(text(R.string.automation_tmux_replace_title)).assertIsDisplayed()
+        assertEquals(original, viewModel.state.value.actions)
+        compose.onNodeWithText(text(R.string.automation_cancel)).performClick()
+        assertEquals(original, viewModel.state.value.actions)
+
+        compose.onNodeWithText(text(R.string.automation_tmux_preset)).performClick()
+        compose.onNodeWithText(text(R.string.automation_tmux_replace)).performClick()
+        compose.waitForIdle()
+        assertEquals(2, viewModel.state.value.actions.size)
+        assertTrue(viewModel.state.value.actions.none { it.id == original.single().id })
+    }
+
+    @Test
+    fun applyingTmuxPresetAgainDoesNotAppendMoreActions() {
+        compose.onNodeWithText(text(R.string.automation_tmux_preset)).performClick()
+        compose.onNodeWithText(text(R.string.automation_tmux_preset)).performClick()
+        compose.onNodeWithText(text(R.string.automation_tmux_replace)).performClick()
+        compose.waitForIdle()
+        assertEquals(listOf(AutomationActionType.SEND_TEXT, AutomationActionType.SEND_KEY), viewModel.state.value.actions.map { it.type })
+    }
+
+    @Test
     fun deletingUnsavedAdditionHidesSaveFab() {
         addString()
         compose.onNodeWithText(text(R.string.automation_delete)).performClick()
@@ -207,6 +258,7 @@ class AutomationEditorScreenTest {
         compose.onNodeWithText(text(R.string.automation_edit)).assertIsNotEnabled().performClick()
         compose.onNodeWithText(text(R.string.automation_delete)).assertIsNotEnabled().performClick()
         compose.onNodeWithText(text(R.string.automation_add)).assertIsNotEnabled().performClick()
+        compose.onNodeWithText(text(R.string.automation_tmux_preset)).assertIsNotEnabled().performClick()
         assertEquals(actions, viewModel.state.value.actions)
         assertEquals(null, viewModel.state.value.editing)
 

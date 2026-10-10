@@ -25,14 +25,18 @@ import org.connectbot.R
 import org.connectbot.data.entity.Host
 import org.connectbot.util.IconStyle
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.isNull
 import org.mockito.Mockito.mockStatic
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowToast
 
 @RunWith(RobolectricTestRunner::class)
 class MainActivityShortcutTest {
@@ -82,9 +86,59 @@ class MainActivityShortcutTest {
         }
     }
 
-    private fun createShortcut(host: Host) {
+    @Test
+    fun inAppShortcutRequestsLauncherPinWithoutClosingActivity() {
+        val host = Host(id = 2, nickname = "Mac", hostname = "example.org", username = "user")
+        var requestedShortcut: ShortcutInfoCompat? = null
+        mockStatic(ShortcutManagerCompat::class.java).use { shortcuts ->
+            shortcuts.`when`<Boolean> {
+                ShortcutManagerCompat.requestPinShortcut(any(), any(ShortcutInfoCompat::class.java), isNull())
+            }.thenAnswer { invocation ->
+                requestedShortcut = invocation.getArgument(1)
+                true
+            }
+
+            createShortcut(host, makingShortcut = false)
+
+            assertNotNull(requestedShortcut)
+            val shortcut = requestedShortcut!!
+            assertEquals("host-${host.id}", shortcut.id)
+            assertEquals("Mac", shortcut.shortLabel)
+            assertEquals(Intent.ACTION_VIEW, shortcut.intent.action)
+            assertEquals(host.getUri(), shortcut.intent.data)
+            assertEquals(MainActivity::class.java.name, shortcut.intent.component?.className)
+            assertFalse(activity.isFinishing)
+        }
+    }
+
+    @Test
+    fun unsupportedLauncherReportsErrorWithoutClosingActivity() {
+        mockStatic(ShortcutManagerCompat::class.java).use {
+            createShortcut(Host(id = 2, nickname = "Mac", hostname = "example.org"), makingShortcut = false)
+
+            assertFalse(activity.isFinishing)
+            assertEquals(activity.getString(R.string.shortcut_create_failed), ShadowToast.getTextOfLatestToast())
+        }
+    }
+
+    @Test
+    fun launcherPinFailureReportsErrorWithoutClosingActivity() {
+        mockStatic(ShortcutManagerCompat::class.java).use { shortcuts ->
+            shortcuts.`when`<Boolean> {
+                ShortcutManagerCompat.requestPinShortcut(any(), any(ShortcutInfoCompat::class.java), isNull())
+            }.thenThrow(IllegalStateException("Shortcut service unavailable"))
+
+            createShortcut(Host(id = 2, nickname = "Mac", hostname = "example.org"), makingShortcut = false)
+
+            assertFalse(activity.isFinishing)
+            assertEquals(activity.getString(R.string.shortcut_create_failed), ShadowToast.getTextOfLatestToast())
+        }
+    }
+
+    private fun createShortcut(host: Host, makingShortcut: Boolean = true) {
+        activity.makingShortcut = makingShortcut
         val method = MainActivity::class.java.getDeclaredMethod(
-            "createShortcutAndFinish",
+            "createHostShortcut",
             Host::class.java,
             String::class.java,
             IconStyle::class.java,

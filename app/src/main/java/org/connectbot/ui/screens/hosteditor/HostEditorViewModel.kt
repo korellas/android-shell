@@ -35,6 +35,7 @@ import org.connectbot.data.HostRepository
 import org.connectbot.data.ProfileRepository
 import org.connectbot.data.PubkeyRepository
 import org.connectbot.data.entity.Host
+import org.connectbot.data.entity.Identity
 import org.connectbot.data.entity.Profile
 import org.connectbot.data.entity.Pubkey
 import org.connectbot.di.CoroutineDispatchers
@@ -53,6 +54,8 @@ data class HostEditorUiState(
     val color: String = "gray",
     val pubkeyId: Long = -1L,
     val availablePubkeys: List<Pubkey> = emptyList(),
+    val identityId: Long? = null,
+    val availableIdentities: List<Identity> = emptyList(),
     val profileId: Long? = 1L,
     val availableProfiles: List<Profile> = emptyList(),
     val useAuthAgent: String = "no",
@@ -111,6 +114,19 @@ class HostEditorViewModel @Inject constructor(
         observePubkeys()
         observeJumpHosts()
         observeProfiles()
+        viewModelScope.launch {
+            repository.observeIdentities().collect { identities ->
+                _uiState.update { state ->
+                    val identity = identities.find { it.id == state.identityId }
+                    state.copy(
+                        availableIdentities = identities,
+                        identityId = state.identityId?.takeIf { identity != null },
+                        username = identity?.username ?: state.username,
+                        pubkeyId = identity?.pubkeyId ?: state.pubkeyId,
+                    )
+                }
+            }
+        }
         if (hostId != -1L) {
             loadHost()
             viewModelScope.launch {
@@ -167,15 +183,17 @@ class HostEditorViewModel @Inject constructor(
                 val host = repository.findHostById(hostId)
                 if (host != null) {
                     val hasPassword = securePasswordStorage.hasPassword(hostId)
+                    val identity = _uiState.value.availableIdentities.find { it.id == host.identityId }
                     _uiState.update {
                         it.copy(
                             nickname = host.nickname,
                             protocol = host.protocol,
-                            username = host.username,
+                            username = identity?.username ?: host.username,
                             hostname = host.hostname,
                             port = host.port.toString(),
                             color = host.color ?: "gray",
-                            pubkeyId = host.pubkeyId,
+                            pubkeyId = identity?.pubkeyId ?: host.pubkeyId,
+                            identityId = host.identityId,
                             profileId = host.profileId,
                             useAuthAgent = host.useAuthAgent ?: "no",
                             compression = host.compression,
@@ -391,6 +409,8 @@ class HostEditorViewModel @Inject constructor(
             val host = Host(
                 id = existingHost?.id ?: 0L,
                 nickname = state.nickname,
+                favorite = existingHost?.favorite ?: false,
+                identityId = if (state.protocol == "ssh" || state.protocol == "mosh") state.identityId else null,
                 protocol = state.protocol,
                 username = state.username,
                 hostname = state.hostname,
@@ -421,7 +441,9 @@ class HostEditorViewModel @Inject constructor(
 
             // Handle password storage for SSH and Mosh
             if (state.protocol == "ssh" || state.protocol == "mosh") {
-                if (state.password.isNotEmpty()) {
+                if (state.identityId != null) {
+                    securePasswordStorage.deletePassword(savedHost.id)
+                } else if (state.password.isNotEmpty()) {
                     // Save or update the password
                     securePasswordStorage.savePassword(savedHost.id, state.password)
                 } else if (!state.hasExistingPassword) {
@@ -438,6 +460,20 @@ class HostEditorViewModel @Inject constructor(
             return false
         } finally {
             _uiState.update { it.copy(isSaving = false) }
+        }
+    }
+
+    fun updateIdentity(id: Long?) {
+        _uiState.update { state ->
+            val identity = state.availableIdentities.find { it.id == id }
+            state.copy(
+                identityId = id,
+                username = identity?.username ?: state.username,
+                pubkeyId = identity?.pubkeyId ?: state.pubkeyId,
+                password = "",
+                hasExistingPassword = false,
+                hasUnsavedChanges = true,
+            )
         }
     }
 }

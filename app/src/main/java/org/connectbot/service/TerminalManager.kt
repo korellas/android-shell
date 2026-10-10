@@ -435,12 +435,6 @@ class TerminalManager :
             connectivityMonitor.incRef()
         }
 
-        // Foreground state is independent of alert preferences and notification permission.
-        // Android 8 and 16 ActiveServices.setServiceForegroundInnerLocked establishes it
-        // before posting the notification; Android controls whether that notification is visible.
-        // https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/services/core/java/com/android/server/am/ActiveServices.java
-        connectionNotifier.showRunningNotification(this, notificationSessions())
-
         // also update database with new connected time
         touchHost(host)
 
@@ -529,7 +523,6 @@ class TerminalManager :
      * Called by child bridge when somehow it's been disconnected.
      */
     override fun onDisconnected(bridge: TerminalBridge) {
-        var shouldHideRunningNotification = false
         Timber.d("Bridge Disconnected. Removing it.")
         endedSessionAttention[bridge.host.id] = bridge.sessionAttention
 
@@ -544,10 +537,6 @@ class TerminalManager :
                 connectivityMonitor.decRef()
             }
 
-            if (_bridges.isEmpty() && pendingReconnect.isEmpty()) {
-                shouldHideRunningNotification = true
-            }
-
             // pass notification back up to gui
             disconnectListener?.onDisconnected(bridge)
             _bridgesFlow.value = _bridges.toList()
@@ -559,10 +548,6 @@ class TerminalManager :
         }
 
         notifyHostStatusChanged()
-
-        if (shouldHideRunningNotification) {
-            connectionNotifier.hideRunningNotification(this)
-        }
     }
 
     fun isKeyLoaded(nickname: String): Boolean = loadedKeypairs.containsKey(nickname)
@@ -1131,7 +1116,13 @@ class TerminalManager :
 
     private fun notifyHostStatusChanged() {
         if (::connectionNotifier.isInitialized) {
-            connectionNotifier.updateSessions(this, notificationSessions())
+            val sessions = notificationSessions()
+            connectionNotifier.updateSessions(this, sessions)
+            if (sessions.any { it.connected }) {
+                connectionNotifier.showRunningNotification(this, sessions)
+            } else {
+                connectionNotifier.hideRunningNotification(this)
+            }
         }
         scope.launch {
             _hostStatusChanged.emit(Unit)
