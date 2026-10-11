@@ -6,10 +6,12 @@ Install the Flutter SDK matching the pinned revision in
 [CI](../.github/workflows/ci-build.yml). From the repository root:
 
 ```sh
-./scripts/build-flutter-android.sh debug
+./scripts/build-flutter.sh debug
 ```
 
 This builds the Flutter AAR before the OSS host APK, so Dart edits are included. The script handles the versioning plugin's Git worktree limitation without modifying its configuration. The debug APK is produced under `app/build/outputs/apk/oss/debug/`.
+
+The paired command also builds the generated iOS runner for iPhone and iPad without signing, under `flutter_ui/build/ios/iphoneos/Runner.app`. Signing and iOS engine integration are required for device use. For an Android-only build, use `./scripts/build-flutter-android.sh debug`.
 
 Use `release` to build the release AAR and host variant. Distribution still requires the existing release signing configuration.
 
