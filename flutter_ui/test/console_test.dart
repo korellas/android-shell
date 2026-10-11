@@ -278,9 +278,27 @@ void main() {
         ],
         'preferences': {'titlebarhide': false},
       };
-      await tester.pumpWidget(
-        MaterialApp(home: ConsolePage(engine: engine, sessionId: 101)),
-      );
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'snapshot') return engine.state;
+            if (call.method == 'session.disconnect') {
+              engine.state['sessions'] = engine
+                  .list('sessions')
+                  .where((s) => s['id'] != call.arguments['id'])
+                  .toList();
+            }
+            return null;
+          });
+      await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
+      await tester.pumpAndSettle();
+      tester
+          .state<NavigatorState>(find.byType(Navigator))
+          .push(
+            MaterialPageRoute<void>(
+              builder: (_) => ConsolePage(engine: engine, sessionId: 101),
+            ),
+          );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Research · 101'));
       await tester.pumpAndSettle();
@@ -292,8 +310,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('연결 끊기'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('확인'));
-      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(ConsolePage), findsNothing);
+      expect(find.text('다시 연결'), findsNothing);
+      expect(engine.list('sessions').map((s) => s['id']), [101]);
+      expect(calls.where((c) => c.method == 'connect'), isEmpty);
       expect(
         calls.singleWhere((c) => c.method == 'session.disconnect').arguments,
         {'id': 102},
@@ -302,6 +323,33 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
       engine.dispose();
+    },
+  );
+
+  testWidgets(
+    'disconnecting the last session returns to connections immediately',
+    (tester) async {
+      await tester.pumpWidget(const AndroidShellApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Research'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('터미널 메뉴'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('연결 끊기'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('다시 연결'), findsNothing);
+      expect(find.text('세션이 끝났어요'), findsNothing);
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(ConsolePage), findsNothing);
+      expect(find.text('다시 연결'), findsNothing);
+      expect(find.text('세션이 끝났어요'), findsNothing);
+      expect(find.text('Research'), findsOneWidget);
+      expect(connected, isFalse);
+      expect(calls.where((c) => c.method == 'connect'), hasLength(1));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
     },
   );
 

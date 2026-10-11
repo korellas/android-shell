@@ -155,22 +155,21 @@ class _ConsolePageState extends State<ConsolePage> {
   bool get authenticationPending =>
       engine.list('prompts').any((prompt) => prompt['sessionId'] == id);
 
-  Future<void> leave() async {
+  Future<void> leave({bool disconnect = false}) async {
     if (leaving) return;
     leaving = true;
     try {
-      if (authenticationPending) {
+      if ((disconnect && session.isNotEmpty) || authenticationPending) {
         await engine.invoke('session.disconnect', {'id': id});
       }
       if (mounted) Navigator.pop(context);
     } catch (error) {
+      leaving = false;
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('$error')));
       }
-    } finally {
-      leaving = false;
     }
   }
 
@@ -238,9 +237,7 @@ class _ConsolePageState extends State<ConsolePage> {
       return;
     }
     if (action == 'disconnect') {
-      if (await confirm(context, '연결 종료', '이 세션을 종료할까요?') && mounted) {
-        await command('session.disconnect');
-      }
+      await leave(disconnect: true);
       return;
     }
     if (action == 'reconnect') {
@@ -464,7 +461,9 @@ class _ConsolePageState extends State<ConsolePage> {
                 ),
               if (row(session['automation'])['running'] == true)
                 const LinearProgressIndicator(),
-              if (session.isEmpty)
+              if (session.isEmpty && leaving)
+                const Expanded(child: SizedBox.shrink())
+              else if (session.isEmpty)
                 Expanded(
                   child: Center(
                     child: Column(
