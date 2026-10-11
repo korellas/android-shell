@@ -16,6 +16,7 @@ local.properties
 
 # Android Studio
 .gradle/
+.kotlin/
 build/
 
 # Android gradle native build

@@ -39,11 +39,11 @@ import kotlinx.coroutines.launch
 import org.connectbot.R
 import org.connectbot.data.entity.Host
 import org.connectbot.di.CoroutineDispatchers
-import org.connectbot.ui.MainActivity
 import timber.log.Timber
 import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
+import org.connectbot.flutter.FlutterShellActivity as MainActivity
 
 /** Immutable connection data; notification work never accesses a live transport. */
 data class NotificationSession(

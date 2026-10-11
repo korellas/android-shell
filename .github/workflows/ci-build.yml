@@ -14,6 +14,10 @@ on:
       SONAR_TOKEN:
         required: false
 
+env:
+  FLUTTER_REVISION: 2c9eb20739dfec95e2c74bd3dfa4601b0a8a36aa
+  FLUTTER_VERSION: 3.41.5
+
 jobs:
   check-inputs:
     name: Check workflow inputs
@@ -67,6 +71,24 @@ jobs:
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           packages: 'cmdline-tools;latest platform-tools'
+
+      - name: Set up Flutter
+        run: |
+          flutter_sdk="$RUNNER_TEMP/flutter-sdk"
+          git init "$flutter_sdk"
+          git -C "$flutter_sdk" remote add origin https://github.com/flutter/flutter.git
+          git -C "$flutter_sdk" fetch --depth 1 origin "$FLUTTER_REVISION" "refs/tags/$FLUTTER_VERSION:refs/tags/$FLUTTER_VERSION"
+          git -C "$flutter_sdk" checkout --detach "$FLUTTER_REVISION"
+          echo "$flutter_sdk/bin" >> "$GITHUB_PATH"
+          "$flutter_sdk/bin/flutter" --version
+
+      - name: Build Flutter module
+        working-directory: flutter_ui
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+          flutter build aar --no-profile
 
       - name: Run checks and unit coverage
         # Aggregate Kover verification has no rules but compiles both release variants.
@@ -145,6 +167,22 @@ jobs:
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           packages: 'cmdline-tools;latest platform-tools'
+
+      - name: Set up Flutter
+        run: |
+          flutter_sdk="$RUNNER_TEMP/flutter-sdk"
+          git init "$flutter_sdk"
+          git -C "$flutter_sdk" remote add origin https://github.com/flutter/flutter.git
+          git -C "$flutter_sdk" fetch --depth 1 origin "$FLUTTER_REVISION" "refs/tags/$FLUTTER_VERSION:refs/tags/$FLUTTER_VERSION"
+          git -C "$flutter_sdk" checkout --detach "$FLUTTER_REVISION"
+          echo "$flutter_sdk/bin" >> "$GITHUB_PATH"
+          "$flutter_sdk/bin/flutter" --version
+
+      - name: Build Flutter module
+        working-directory: flutter_ui
+        run: |
+          flutter pub get
+          flutter build aar --no-debug --no-profile
 
       - name: Build release APK and bundle
         env:
@@ -244,6 +282,22 @@ jobs:
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           packages: 'cmdline-tools;latest platform-tools'
+
+      - name: Set up Flutter
+        run: |
+          flutter_sdk="$RUNNER_TEMP/flutter-sdk"
+          git init "$flutter_sdk"
+          git -C "$flutter_sdk" remote add origin https://github.com/flutter/flutter.git
+          git -C "$flutter_sdk" fetch --depth 1 origin "$FLUTTER_REVISION" "refs/tags/$FLUTTER_VERSION:refs/tags/$FLUTTER_VERSION"
+          git -C "$flutter_sdk" checkout --detach "$FLUTTER_REVISION"
+          echo "$flutter_sdk/bin" >> "$GITHUB_PATH"
+          "$flutter_sdk/bin/flutter" --version
+
+      - name: Build Flutter module
+        working-directory: flutter_ui
+        run: |
+          flutter pub get
+          flutter build aar --no-release --no-profile
 
       - name: Enable KVM for emulator
         run: |

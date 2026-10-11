@@ -21,9 +21,12 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.After
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,6 +50,28 @@ class HostConfigJsonTest {
             assertThat(host.favorite).isTrue()
         } finally {
             destination.close()
+        }
+    }
+
+    @Test
+    fun importRequiresWorkerThreadWhenMainThreadQueriesAreDisabled() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val strictDatabase = Room.inMemoryDatabaseBuilder(context, ConnectBotDatabase::class.java).build()
+        database.hostDao().insert(org.connectbot.data.entity.Host(nickname = "thread-check", hostname = "127.0.0.1"))
+        val json = HostConfigJson.exportToJson(context, database).first
+        try {
+            val failure = assertThrows(IllegalStateException::class.java) {
+                HostConfigJson.importFromJson(context, strictDatabase, json)
+            }
+            assertThat(failure.message).contains("main thread")
+            val counts = withContext(Dispatchers.IO) {
+                HostConfigJson.importFromJson(context, strictDatabase, json)
+            }
+            assertThat(counts.hostsImported).isEqualTo(1)
+            val nickname = withContext(Dispatchers.IO) { strictDatabase.hostDao().getAll().single().nickname }
+            assertThat(nickname).isEqualTo("thread-check")
+        } finally {
+            strictDatabase.close()
         }
     }
 

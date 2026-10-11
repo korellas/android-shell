@@ -316,7 +316,7 @@ internal fun shouldPreserveSoftwareKeyboardForBridgeChange(
     showSoftwareKeyboard &&
     !hasHardwareKeyboard
 
-private fun Modifier.horizontalSwipeNavigation(
+internal fun Modifier.horizontalSwipeNavigation(
     bridgeId: Long,
     selectionActive: Boolean,
     onSwipe: (Int) -> Unit,

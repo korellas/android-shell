@@ -35,6 +35,8 @@ subprojects {
 
 allprojects {
     repositories {
+        maven { url = uri(rootProject.file("flutter_ui/build/host/outputs/repo")) }
+        maven { url = uri("https://storage.googleapis.com/download.flutter.io") }
         mavenLocal()
         google()
         mavenCentral()

@@ -123,7 +123,7 @@ android {
     dynamicFeatures += setOf(":mosh")
 
     defaultConfig {
-        applicationId = "dev.korellas.androidshell"
+        applicationId = "dev.korellas.androidshell.flutter"
 
         minSdk =
             libs.versions.minSdk
@@ -141,7 +141,7 @@ android {
             debugSymbolLevel = "full"
         }
 
-        testApplicationId = "dev.korellas.androidshell.tests"
+        testApplicationId = "dev.korellas.androidshell.flutter.tests"
         testInstrumentationRunner = "org.connectbot.HiltTestRunner"
 
         // The following argument makes the Android Test Orchestrator run its
@@ -490,6 +490,8 @@ tasks
     }
 
 dependencies {
+    debugImplementation(libs.flutter.debug)
+    releaseImplementation(libs.flutter.release)
     implementation(libs.sshlib)
     implementation(project(":termlib"))
     implementation(libs.androidx.media3.common.ktx)
