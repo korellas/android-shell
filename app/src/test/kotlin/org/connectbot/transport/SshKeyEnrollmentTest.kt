@@ -72,8 +72,8 @@ class SshKeyEnrollmentTest {
     private fun install(home: File, publicKey: String = key, extraPrelude: String = ""): Pair<Int, String> {
         // Isolate the remote user's home without changing the machine's HOME.
         val command = "cd() { command cd '${home.path}'; }\n" + extraPrelude + SshKeyEnrollment.installScript
-        val process = ProcessBuilder("sh", "-c", command).redirectErrorStream(true).start()
-        process.outputStream.use { it.write((publicKey + "\n").toByteArray()) }
+        val input = temporary.newFile().apply { writeText(publicKey + "\n") }
+        val process = ProcessBuilder("sh", "-c", command).redirectInput(input).redirectErrorStream(true).start()
         val output = process.inputStream.bufferedReader().readText()
         return process.waitFor() to output
     }
