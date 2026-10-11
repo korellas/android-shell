@@ -18,7 +18,10 @@
 package org.connectbot.transport
 
 import com.trilead.ssh2.ChannelCondition
+import com.trilead.ssh2.Connection
+import com.trilead.ssh2.ConnectionInfo
 import com.trilead.ssh2.Session
+import org.connectbot.data.entity.Host
 import org.connectbot.service.DisconnectAction
 import org.connectbot.service.DisconnectPolicy
 import org.connectbot.service.DisconnectReason
@@ -26,11 +29,14 @@ import org.connectbot.service.TerminalBridge
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyInt
 import org.mockito.ArgumentMatchers.anyLong
 import org.mockito.ArgumentMatchers.eq
 import org.mockito.Mockito.doNothing
+import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.mockConstruction
 import org.mockito.Mockito.mockingDetails
 import org.mockito.Mockito.never
 import org.mockito.Mockito.spy
@@ -40,6 +46,20 @@ import org.mockito.Mockito.`when`
 import java.io.ByteArrayInputStream
 
 class SSHDisconnectTest {
+
+    @Test
+    fun cancellingLoginClosesConnectionInsteadOfLeavingReconnectSession() {
+        val bridge = mock(TerminalBridge::class.java)
+        val ssh = spy(SSH(Host(hostname = "example.test", username = "alice"), bridge, null))
+        doReturn(AuthenticationOutcome.Cancelled).`when`(ssh).authenticate()
+        mockConstruction(Connection::class.java) { connection, _ ->
+            `when`(connection.connect(any(), any())).thenReturn(ConnectionInfo())
+        }.use { connections ->
+            ssh.connect()
+            verify(bridge).dispatchDisconnect(DisconnectReason.USER_REQUESTED)
+            verify(connections.constructed().single()).close()
+        }
+    }
 
     @Test
     fun read_withFinalStdoutAndEof_returnsOutputBeforeDisconnecting() {

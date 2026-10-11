@@ -270,14 +270,21 @@ class _ShellHomeState extends State<ShellHome> {
     if (id == null) _intentSession = null;
     if (id != null && id != _intentSession) {
       _intentSession = id;
-      final setup = _setupHostId == id;
+      final selected = engine
+          .list('sessions')
+          .where((s) => s['id'] == id)
+          .firstOrNull;
+      final setup = _setupHostId != null && _setupHostId == selected?['hostId'];
       _setupHostId = null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           Navigator.of(context).push(
             MaterialPageRoute<void>(
-              builder: (_) =>
-                  ConsolePage(engine: engine, hostId: id, startKeySetup: setup),
+              builder: (_) => ConsolePage(
+                engine: engine,
+                sessionId: id,
+                startKeySetup: setup,
+              ),
             ),
           );
           unawaited(engine.invoke('session.consumeSelection'));
@@ -348,7 +355,7 @@ class _ShellHomeState extends State<ShellHome> {
       _answered.add(p['token'] as String);
       if (mounted) {
         await runEngine(context, engine, 'prompt.respond', {
-          'hostId': p['hostId'],
+          'sessionId': p['sessionId'],
           'token': p['token'],
           'value': value,
         });
@@ -359,7 +366,7 @@ class _ShellHomeState extends State<ShellHome> {
     }
   }
 
-  Future<void> _connect(EngineRecord host) async {
+  Future<void> _connect(EngineRecord host, {bool newSession = false}) async {
     if (engine.state['entryAction'] ==
         'android.intent.action.CREATE_SHORTCUT') {
       await runEngine(context, engine, 'shortcut', {
@@ -369,7 +376,10 @@ class _ShellHomeState extends State<ShellHome> {
       return;
     }
     // Native selectedSession is the single owner of navigation after connection.
-    await runEngine(context, engine, 'connect', {'id': host['id']});
+    await runEngine(context, engine, 'connect', {
+      'id': host['id'],
+      if (newSession) 'newSession': true,
+    });
   }
 
   Future<void> _import() async {
@@ -457,6 +467,8 @@ class _ShellHomeState extends State<ShellHome> {
           if (host['protocol'] == 'ssh') ('forget', '저장된 서버 키 삭제'),
         ]);
         if (selected != null && mounted) await _hostMenu(host, selected);
+      case 'newSession':
+        await _connect(host, newSession: true);
       case 'favorite':
         await runEngine(context, engine, 'host.favorite', {'id': host['id']});
       case 'edit':
@@ -502,7 +514,7 @@ class _ShellHomeState extends State<ShellHome> {
       case 'disconnect':
         if (await confirm(context, '연결 끊기', '${host['nickname']} 연결을 종료할까요?') &&
             mounted) {
-          await runEngine(context, engine, 'session.disconnect', {
+          await runEngine(context, engine, 'host.disconnect', {
             'id': host['id'],
           });
         }
@@ -697,6 +709,13 @@ class _ShellHomeState extends State<ShellHome> {
                               tooltip: '${host['nickname']} 옵션',
                               onSelected: (action) => _hostMenu(host, action),
                               itemBuilder: (_) => [
+                                PopupMenuItem(
+                                  value: 'newSession',
+                                  child: hostMenuLabel(
+                                    Icons.add_box_outlined,
+                                    '새 세션으로 연결',
+                                  ),
+                                ),
                                 PopupMenuItem(
                                   value: 'favorite',
                                   child: hostMenuLabel(

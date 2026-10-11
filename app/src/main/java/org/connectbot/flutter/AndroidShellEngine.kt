@@ -76,7 +76,7 @@ internal class AndroidShellEngine(
     private val prompts = mutableMapOf<Long, PendingPrompt>()
     internal val terminalViews = mutableMapOf<Int, NativeTerminalView>()
     internal var activeOwner: String? = null
-    internal var activeHostId: Long? = null
+    internal var activeSessionId: Long? = null
     private var pendingIntent: Intent? = null
     private var selectedSession: Long? = null
     private var disposed = false
@@ -116,9 +116,9 @@ internal class AndroidShellEngine(
     }
     internal fun switchSession(owner: String, id: Long, direction: Int) {
         val sessions = manager?.bridgesFlow?.value.orEmpty()
-        val current = sessions.indexOfFirst { it.host.id == id }
+        val current = sessions.indexOfFirst { it.sessionId == id }
         if (current < 0 || sessions.isEmpty()) return
-        val target = sessions[(current + direction).coerceIn(0, sessions.lastIndex)].host.id
+        val target = sessions[(current + direction).coerceIn(0, sessions.lastIndex)].sessionId
         sink?.success(mapOf("type" to "switchSession", "owner" to owner, "id" to target))
     }
     internal fun notify(message: String) {
@@ -148,20 +148,20 @@ internal class AndroidShellEngine(
             }
             launch { service.pendingStartupKeyPrompts.collect { changed() } }
             service.bridgesFlow.collect { bridges ->
-                val ids = bridges.map { it.host.id }.toSet()
+                val ids = bridges.map { it.sessionId }.toSet()
                 sessionJobs.keys.filter { it !in ids }.forEach {
                     sessionJobs.remove(it)?.cancel()
                     prompts.remove(it)
                 }
                 for (bridge in bridges) {
-                    if (sessionJobs.containsKey(bridge.host.id)) continue
-                    sessionJobs[bridge.host.id] = launch {
+                    if (sessionJobs.containsKey(bridge.sessionId)) continue
+                    sessionJobs[bridge.sessionId] = launch {
                         launch {
                             bridge.promptManager.promptState.collect { request ->
                                 if (request == null) {
-                                    prompts.remove(bridge.host.id)
+                                    prompts.remove(bridge.sessionId)
                                 } else {
-                                    prompts[bridge.host.id] = PendingPrompt(UUID.randomUUID().toString(), request)
+                                    prompts[bridge.sessionId] = PendingPrompt(UUID.randomUUID().toString(), request)
                                 }
                                 changed()
                             }
@@ -212,7 +212,7 @@ internal class AndroidShellEngine(
                     } else {
                         null
                     }
-                    if (bridge != null) selectedSession = bridge.host.id
+                    if (bridge != null) selectedSession = bridge.sessionId
                 }
                 changed()
             } catch (e: Exception) {
@@ -264,7 +264,7 @@ internal class AndroidShellEngine(
         }
     }
 
-    internal fun bridge(id: Long): TerminalBridge = manager?.bridgesFlow?.value?.find { it.host.id == id }
+    internal fun bridge(id: Long): TerminalBridge = manager?.bridgesFlow?.value?.find { it.sessionId == id }
         ?: error("연결된 세션이 없습니다.")
 
     private suspend fun execute(method: String, args: Wire): Any? {
@@ -278,11 +278,11 @@ internal class AndroidShellEngine(
                     activity.finish()
                     return null
                 }
-                val bridge = if (id != null) manager!!.openConnectionForHostId(id) else manager!!.openConnection(Uri.parse(args.text("uri")))
+                val bridge = if (id != null) manager!!.openConnectionForHostId(id, args.flag("newSession")) else manager!!.openConnection(Uri.parse(args.text("uri")), args.flag("newSession"))
                 requireNotNull(bridge) { "호스트를 찾을 수 없습니다." }
-                selectedSession = bridge.host.id
+                selectedSession = bridge.sessionId
                 changed()
-                bridge.host.id
+                bridge.sessionId
             }
 
             "session.consumeSelection" -> {
@@ -301,6 +301,11 @@ internal class AndroidShellEngine(
                 null
             }
 
+            "host.disconnect" -> {
+                manager!!.disconnectHost(args.number("id"))
+                null
+            }
+
             "session.disconnectAll" -> {
                 manager!!.disconnectAll(args.flag("excludeLocal"))
                 null
@@ -312,7 +317,7 @@ internal class AndroidShellEngine(
             }
 
             "session.key" -> {
-                val view = terminalViews.values.lastOrNull { it.hostId == args.number("id") && it.routeOwner == activeOwner }
+                val view = terminalViews.values.lastOrNull { it.sessionId == args.number("id") && it.routeOwner == activeOwner }
                 if (view != null) view.dispatchKey(args.number("key").toInt()) else bridge(args.number("id")).keyHandler.sendPressedKey(args.number("key").toInt())
                 null
             }
@@ -344,17 +349,17 @@ internal class AndroidShellEngine(
             "session.visibility" -> {
                 if (args.flag("visible")) {
                     activeOwner = args.text("owner")
-                    activeHostId = args.number("id")
+                    activeSessionId = args.number("id")
                 } else if (activeOwner == args.text("owner")) {
                     activeOwner = null
-                    activeHostId = null
+                    activeSessionId = null
                 }
                 terminalViews.values.toList().forEach { it.updateVisibility() }
                 activity.applyWindowOptions()
                 null
             }
 
-            "session.view" -> terminalViews.values.lastOrNull { it.hostId == args.number("id") && it.routeOwner == activeOwner }?.command(args.text("action"), args)
+            "session.view" -> terminalViews.values.lastOrNull { it.sessionId == args.number("id") && it.routeOwner == activeOwner }?.command(args.text("action"), args)
 
             "prompt.respond" -> respond(args)
 
@@ -364,7 +369,7 @@ internal class AndroidShellEngine(
                 require(host.jumpHostId != host.id || host.id == 0L) { "자기 자신을 점프 호스트로 지정할 수 없습니다." }
                 val saved = hosts.saveHost(host)
                 withContext(activity.dispatchers.io) { activity.passwords.updateHostPassword(saved, args) }
-                manager!!.bridgesFlow.value.find { it.host.id == saved.id }?.let { manager!!.updateHostConfiguration(it, saved) }
+                manager!!.bridgesFlow.value.filter { it.host.id == saved.id }.forEach { manager!!.updateHostConfiguration(it, saved) }
                 changed()
                 saved.toWire()
             }
@@ -469,7 +474,7 @@ internal class AndroidShellEngine(
             }
 
             "forward.toggle" -> {
-                val bridge = bridge(args.number("hostId"))
+                val bridge = manager!!.bridgesFlow.value.find { it.host.id == args.number("hostId") } ?: error("연결된 세션이 없습니다.")
                 val forward = requireNotNull(bridge.transport?.getPortForwards()?.find { it.id == args.number("id") })
                 check(if (args.flag("enabled")) bridge.enablePortForward(forward) else bridge.disablePortForward(forward)) { "포워딩을 변경할 수 없습니다." }
                 changed()
@@ -569,11 +574,17 @@ internal class AndroidShellEngine(
     }
 
     private suspend fun respond(args: Wire): Any? {
-        val id = args.number("hostId")
+        val id = args.number("sessionId")
         val pending = prompts[id] ?: return false
         require(pending.token == args.text("token")) { "만료된 인증 요청입니다." }
         val bridge = bridge(id)
         require(bridge.promptManager.promptState.value === pending.request) { "만료된 인증 요청입니다." }
+        if (pending.request is PromptRequest.StringPrompt && args["value"] == null) {
+            bridge.dispatchDisconnect(DisconnectReason.USER_REQUESTED)
+            prompts.remove(id)
+            changed()
+            return true
+        }
         val response = when (val request = pending.request) {
             is PromptRequest.StringPrompt -> PromptResponse.StringResponse(args["value"] as? String)
 
@@ -620,15 +631,15 @@ internal class AndroidShellEngine(
             "knownHosts" to database.knownHostDao().getAll().map { mapOf("id" to it.id, "hostId" to it.hostId, "hostname" to it.hostname, "port" to it.port, "algorithm" to it.hostKeyAlgo, "key" to android.util.Base64.encodeToString(it.hostKey, android.util.Base64.NO_WRAP)) },
             "sessions" to service.bridgesFlow.value.map { bridge ->
                 mapOf(
-                    "id" to bridge.host.id, "nickname" to bridge.host.nickname, "protocol" to bridge.host.protocol, "open" to bridge.isSessionOpen,
-                    "composeMode" to (terminalViews.values.lastOrNull { it.hostId == bridge.host.id && it.routeOwner == activeOwner }?.composeMode == true),
+                    "id" to bridge.sessionId, "hostId" to bridge.host.id, "uri" to bridge.host.getUri().toString(), "nickname" to (if (service.bridgesFlow.value.count { it.host.id == bridge.host.id } > 1) "${bridge.host.nickname} · ${bridge.sessionId}" else bridge.host.nickname), "protocol" to bridge.host.protocol, "open" to bridge.isSessionOpen,
+                    "composeMode" to (terminalViews.values.lastOrNull { it.sessionId == bridge.sessionId && it.routeOwner == activeOwner }?.composeMode == true),
                     "awaitingClose" to bridge.isAwaitingClose(), "canForward" to bridge.canFowardPorts(), "canEnroll" to ((bridge.transport as? org.connectbot.transport.SSH)?.canEnrollKey == true),
                     "modifiers" to bridge.keyHandler.modifierState.value.let { mapOf("ctrl" to it.ctrlState.name, "alt" to it.altState.name, "shift" to it.shiftState.name) }, "automation" to bridge.automationState.value.let { mapOf("running" to it.running, "error" to it.error, "step" to it.step) },
                     "banners" to bridge.authBanners.value.map { mapOf("id" to it.id, "sourceName" to it.sourceName, "message" to it.message, "urls" to it.urls) },
                 )
             },
             "selectedSession" to selectedSession,
-            "prompts" to prompts.map { (id, prompt) -> prompt.request.toWire() + mapOf("hostId" to id, "token" to prompt.token, "nativePresentation" to (selectedSession == id || (activeOwner != null && activeHostId == id))) },
+            "prompts" to prompts.map { (id, prompt) -> prompt.request.toWire() + mapOf("sessionId" to id, "token" to prompt.token, "nativePresentation" to (selectedSession == id || (activeOwner != null && activeSessionId == id))) },
             "startupKeys" to service.pendingStartupKeyPrompts.value.map { it.toWire(false) },
             "preferences" to (activity.settings.uiState.value.toWire() + mapOf("defaultProfileId" to (activity.settings.uiState.value.defaultProfileId.takeIf { it > 0 } ?: profiles.getDefault().id))),
             "keyState" to activity.keyList.uiState.value.let { mapOf("error" to it.error, "pendingNickname" to it.pendingNicknameConfirmation?.nickname, "importPassword" to it.pendingImport?.let { pending -> mapOf("nickname" to pending.nickname, "type" to pending.keyType) }, "biometricUnlock" to it.biometricKeyToUnlock?.id, "nicknameError" to it.importNicknameError) },

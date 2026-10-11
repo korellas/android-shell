@@ -933,7 +933,13 @@ open class SSH :
         try {
             val outcome = authenticate()
             if (connected && outcome != AuthenticationOutcome.Authenticated) {
-                onDisconnect(if (outcome == AuthenticationOutcome.ConnectionFailed) DisconnectReason.IO_ERROR else DisconnectReason.AUTH_FAIL)
+                onDisconnect(
+                    when (outcome) {
+                        AuthenticationOutcome.Cancelled -> DisconnectReason.USER_REQUESTED
+                        AuthenticationOutcome.ConnectionFailed -> DisconnectReason.IO_ERROR
+                        else -> DisconnectReason.AUTH_FAIL
+                    },
+                )
                 close()
             }
         } catch (e: Exception) {

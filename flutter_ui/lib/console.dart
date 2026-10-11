@@ -24,12 +24,12 @@ import 'management.dart';
 
 class ConsolePage extends StatefulWidget {
   final AndroidEngine engine;
-  final int hostId;
+  final int sessionId;
   final bool startKeySetup;
   const ConsolePage({
     super.key,
     required this.engine,
-    required this.hostId,
+    required this.sessionId,
     this.startKeySetup = false,
   });
   @override
@@ -38,6 +38,12 @@ class ConsolePage extends StatefulWidget {
 
 class _ConsolePageState extends State<ConsolePage> {
   late int id;
+  EngineRecord connectionTarget = {};
+  void rememberSession() {
+    final current = session;
+    if (current.isNotEmpty) connectionTarget = current;
+  }
+
   final routeOwner = UniqueKey().toString();
   bool? visible;
   bool setupOpened = false;
@@ -74,6 +80,7 @@ class _ConsolePageState extends State<ConsolePage> {
 
   void select(int target) {
     setState(() => id = target);
+    rememberSession();
     engine.query('session.visibility', {
       'id': id,
       'owner': routeOwner,
@@ -85,7 +92,8 @@ class _ConsolePageState extends State<ConsolePage> {
   @override
   void initState() {
     super.initState();
-    id = widget.hostId;
+    id = widget.sessionId;
+    rememberSession();
     interaction();
     engine.addListener(changed);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -107,6 +115,7 @@ class _ConsolePageState extends State<ConsolePage> {
 
   void changed() {
     if (!mounted) return;
+    rememberSession();
     if (widget.startKeySetup && !setupOpened && session['canEnroll'] == true) {
       setupOpened = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -212,7 +221,13 @@ class _ConsolePageState extends State<ConsolePage> {
       return;
     }
     if (action == 'reconnect') {
-      await command('connect');
+      final hostId = connectionTarget['hostId'];
+      final uri = connectionTarget['uri'];
+      if (hostId is int && hostId > 0) {
+        await runEngine(context, engine, 'connect', {'id': hostId});
+      } else if (uri is String) {
+        await runEngine(context, engine, 'connect', {'uri': uri});
+      }
       return;
     }
     if (action == 'cancelAutomation') {
@@ -251,7 +266,10 @@ class _ConsolePageState extends State<ConsolePage> {
       }
       return;
     }
-    final host = engine.list('hosts').where((h) => h['id'] == id).firstOrNull;
+    final host = engine
+        .list('hosts')
+        .where((h) => h['id'] == connectionTarget['hostId'])
+        .firstOrNull;
     if (host == null || !mounted) return;
     if (action == 'forwards') {
       await Navigator.push(
@@ -440,7 +458,7 @@ class _ConsolePageState extends State<ConsolePage> {
                   child: AndroidView(
                     key: ValueKey(id),
                     viewType: 'dev.korellas.androidshell/terminal',
-                    creationParams: {'hostId': id, 'owner': routeOwner},
+                    creationParams: {'sessionId': id, 'owner': routeOwner},
                     creationParamsCodec: const StandardMessageCodec(),
                   ),
                 ),

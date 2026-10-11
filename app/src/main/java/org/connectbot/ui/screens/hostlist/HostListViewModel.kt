@@ -198,7 +198,7 @@ class HostListViewModel @Inject constructor(
             host.id to getConnectionState(host)
         }
         val reasons = hosts.mapNotNull { host ->
-            val bridge = terminalManager?.bridgesFlow?.value?.find { it.host.id == host.id }
+            val bridge = terminalManager?.bridgesFlow?.value?.filter { it.host.id == host.id }?.let { matches -> matches.lastOrNull { !it.disconnected } ?: matches.lastOrNull() }
             val reason = if (bridge?.isInGracePeriod() == true) {
                 DisconnectReason.NETWORK_LOST
             } else {
@@ -212,7 +212,7 @@ class HostListViewModel @Inject constructor(
     private fun getConnectionState(host: Host): ConnectionState {
         val manager = terminalManager ?: return ConnectionState.UNKNOWN
 
-        val bridge = manager.bridgesFlow.value.find { it.host.id == host.id }
+        val bridge = manager.bridgesFlow.value.filter { it.host.id == host.id }.let { matches -> matches.lastOrNull { !it.disconnected } ?: matches.lastOrNull() }
         val attention = manager.getSessionAttention(host.id)
         if (bridge != null) {
             if (bridge.isInGracePeriod()) return ConnectionState.DISCONNECTED

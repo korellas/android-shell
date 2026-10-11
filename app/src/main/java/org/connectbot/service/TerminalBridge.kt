@@ -134,6 +134,7 @@ internal class AuthBannerQueue {
  */
 @Suppress("DEPRECATION") // for ClipboardManager
 class TerminalBridge {
+    val sessionId: Long = nextSessionId.incrementAndGet()
     private val scope: CoroutineScope
 
     private sealed class TransportOperation {
@@ -894,7 +895,7 @@ class TerminalBridge {
         cancelAutomation()
         // We don't need to do this multiple times.
         synchronized(this) {
-            if (disconnected && reason != DisconnectReason.USER_REQUESTED) {
+            if (disconnected && (reason != DisconnectReason.USER_REQUESTED || awaitingClose)) {
                 return
             }
 
@@ -1341,6 +1342,7 @@ class TerminalBridge {
     }
 
     companion object {
+        private val nextSessionId = java.util.concurrent.atomic.AtomicLong()
         const val TAG = "CB.TerminalBridge"
 
         private const val DEFAULT_FONT_SIZE_SP = 10

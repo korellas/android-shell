@@ -92,16 +92,14 @@ class TerminalManager :
     private val _bridgesFlow = MutableStateFlow<List<TerminalBridge>>(emptyList())
     val bridgesFlow: StateFlow<List<TerminalBridge>> = _bridgesFlow.asStateFlow()
 
-    private val hostBridgeMap: MutableMap<Host, WeakReference<TerminalBridge>> = HashMap()
-    private val nicknameBridgeMap: MutableMap<String, WeakReference<TerminalBridge>> = HashMap()
-
     private val _disconnected = ArrayList<Host>()
     private val _disconnectedFlow = MutableStateFlow<List<Host>>(emptyList())
     val disconnectedFlow: StateFlow<List<Host>> = _disconnectedFlow.asStateFlow()
 
     private val endedSessionAttention = ConcurrentHashMap<Long, SessionAttention>()
 
-    fun getSessionAttention(hostId: Long): SessionAttentionState? = bridgesFlow.value.find { it.host.id == hostId }?.sessionAttention?.snapshot()
+    fun getSessionAttention(hostId: Long): SessionAttentionState? = bridgesFlow.value.lastOrNull { it.host.id == hostId && !it.disconnected }?.sessionAttention?.snapshot()
+        ?: bridgesFlow.value.lastOrNull { it.host.id == hostId }?.sessionAttention?.snapshot()
         ?: endedSessionAttention[hostId]?.snapshot()
 
     private var disconnectListener: BridgeDisconnectedListener? = null
@@ -410,10 +408,12 @@ class TerminalManager :
     /**
      * Open a new SSH session using the given parameters.
      */
-    private fun openConnection(host: Host): TerminalBridge {
-        // throw exception if terminal already open
-        if (getConnectedBridge(host) != null) {
-            throw IllegalArgumentException("Connection already open for that nickname")
+    private fun openConnection(host: Host, newSession: Boolean = false): TerminalBridge {
+        if (!newSession) {
+            getConnectedBridge(host)?.let { existing ->
+                if (existing.disconnected && !existing.connecting) requestReconnect(existing)
+                return existing
+            }
         }
 
         endedSessionAttention.remove(host.id)
@@ -423,9 +423,6 @@ class TerminalManager :
 
         synchronized(_bridges) {
             _bridges.add(bridge)
-            val wr = WeakReference(bridge)
-            hostBridgeMap[bridge.host] = wr
-            nicknameBridgeMap[bridge.host.nickname] = wr
             _bridgesFlow.value = _bridges.toList()
         }
 
@@ -459,7 +456,7 @@ class TerminalManager :
      * Open a new connection by reading parameters from the given URI. Follows
      * format specified by an individual transport.
      */
-    suspend fun openConnection(uri: Uri): TerminalBridge {
+    suspend fun openConnection(uri: Uri, newSession: Boolean = false): TerminalBridge {
         Timber.d("openConnection: uri=$uri, scheme=${uri.scheme}, fragment=${uri.fragment}")
         val scheme = uri.scheme
             ?: throw IllegalArgumentException("URI must contain a scheme (e.g., 'ssh://', 'telnet://'). URI: $uri")
@@ -475,7 +472,7 @@ class TerminalManager :
             host
         }
 
-        return openConnection(finalHost)
+        return openConnection(finalHost, newSession)
     }
 
     /**
@@ -485,9 +482,9 @@ class TerminalManager :
      * @param hostId the database ID of the host to connect to
      * @return TerminalBridge for the connection, or null if host not found
      */
-    suspend fun openConnectionForHostId(hostId: Long): TerminalBridge? {
+    suspend fun openConnectionForHostId(hostId: Long, newSession: Boolean = false): TerminalBridge? {
         val host = hostRepository.findHostById(hostId) ?: return null
-        return openConnection(host)
+        return openConnection(host, newSession)
     }
 
     /**
@@ -507,21 +504,14 @@ class TerminalManager :
      * @return TerminalBridge that uses the Host
      */
     fun getConnectedBridge(host: Host): TerminalBridge? {
-        val wr = hostBridgeMap[host]
-        return wr?.get()
+        val matches = bridgesFlow.value.filter { it.host.id == host.id && !it.isAwaitingClose() }
+        return matches.lastOrNull { !it.disconnected } ?: matches.lastOrNull()
     }
 
     internal fun updateHostConfiguration(bridge: TerminalBridge, host: Host) {
         synchronized(_bridges) {
-            hostBridgeMap.entries.removeAll { it.value.get() === bridge }
-            nicknameBridgeMap.entries.removeAll { it.value.get() === bridge }
             bridge.host = host
             bridge.transport?.setHost(host)
-            if (bridge in _bridges) {
-                val reference = WeakReference(bridge)
-                hostBridgeMap[host] = reference
-                nicknameBridgeMap[host.nickname] = reference
-            }
         }
         notifyHostStatusChanged()
     }
@@ -533,8 +523,9 @@ class TerminalManager :
      * @return TerminalBridge that matches nickname
      */
     fun getConnectedBridge(nickname: String?): TerminalBridge? {
-        val wr = nicknameBridgeMap[nickname ?: return null]
-        return wr?.get()
+        if (nickname == null) return null
+        val matches = bridgesFlow.value.filter { it.host.nickname == nickname && !it.isAwaitingClose() }
+        return matches.lastOrNull { !it.disconnected } ?: matches.lastOrNull()
     }
 
     /**
@@ -547,9 +538,6 @@ class TerminalManager :
         synchronized(_bridges) {
             // remove this bridge from our list
             _bridges.remove(bridge)
-
-            hostBridgeMap.remove(bridge.host)
-            nicknameBridgeMap.remove(bridge.host.nickname)
 
             if (bridge.isUsingNetwork()) {
                 connectivityMonitor.decRef()

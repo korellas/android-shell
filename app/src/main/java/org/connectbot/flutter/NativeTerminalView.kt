@@ -68,6 +68,7 @@ import io.flutter.plugin.platform.PlatformViewFactory
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.connectbot.service.DisconnectReason
 import org.connectbot.terminal.ComposeController
 import org.connectbot.terminal.ImeShortcutInputMode
 import org.connectbot.terminal.SelectionController
@@ -85,7 +86,7 @@ import org.connectbot.util.rememberTerminalTypefaceFromStoredValue
 internal class NativeTerminalFactory(private val engine: AndroidShellEngine) : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
         check(engine.ready) { "앱 잠금을 먼저 해제하세요." }
-        val id = ((args as Map<*, *>)["hostId"] as Number).toLong()
+        val id = ((args as Map<*, *>)["sessionId"] as Number).toLong()
         return NativeTerminalView(engine, id, viewId, (args["owner"] as String))
     }
 }
@@ -94,8 +95,8 @@ internal class NativeTerminalFactory(private val engine: AndroidShellEngine) : P
 internal class NativeTerminalView(private val engine: AndroidShellEngine, private val id: Long, private val viewId: Int, val routeOwner: String) :
     PlatformView,
     DefaultLifecycleObserver {
-    val hostId: Long get() = id
-    private var active by mutableStateOf(engine.activeOwner == routeOwner && engine.activeHostId == id)
+    val sessionId: Long get() = id
+    private var active by mutableStateOf(engine.activeOwner == routeOwner && engine.activeSessionId == id)
     private val activity = engine.activity
     private val bridge = engine.bridge(id)
     private var selection by mutableStateOf<SelectionController?>(null)
@@ -232,7 +233,7 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                         InlinePrompt(
                             promptRequest = prompt,
                             onResponse = bridge.promptManager::respond,
-                            onCancel = bridge.promptManager::cancelPrompt,
+                            onCancel = { bridge.dispatchDisconnect(DisconnectReason.USER_REQUESTED) },
                             onDismiss = { focus.requestFocus() },
                             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = if (showExtraKeyboard) settings.terminalBarLayout.height.dp else 0.dp),
                         )
@@ -291,7 +292,7 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
     }
     fun updateVisibility() {
         val wasActive = active
-        active = engine.ready && engine.activeOwner == routeOwner && engine.activeHostId == id
+        active = engine.ready && engine.activeOwner == routeOwner && engine.activeSessionId == id
         view.visibility = if (locked || !active) View.INVISIBLE else View.VISIBLE
         if (active && !wasActive) {
             markVisible()

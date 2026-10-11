@@ -26,9 +26,11 @@ void main() {
   const channel = MethodChannel('dev.korellas.androidshell/engine');
   int? selectedSession;
   bool connected = false;
+  late List<MethodCall> calls;
   setUp(() {
     selectedSession = null;
     connected = false;
+    calls = [];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('dev.korellas.androidshell/events'),
@@ -49,10 +51,11 @@ void main() {
         });
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
+          calls.add(call);
           if (call.method == 'connect') {
             connected = true;
-            selectedSession = 7;
-            return 7;
+            selectedSession = 101;
+            return 101;
           }
           if (call.method == 'session.consumeSelection') selectedSession = null;
           if (call.method == 'snapshot') {
@@ -69,12 +72,18 @@ void main() {
               ],
               'selectedSession': selectedSession,
               'sessions': [
-                if (connected) {'id': 7, 'nickname': 'Research', 'open': true},
+                if (connected)
+                  {
+                    'id': 101,
+                    'hostId': 7,
+                    'nickname': 'Research',
+                    'open': true,
+                  },
               ],
               'prompts': [
                 if (connected)
                   {
-                    'hostId': 7,
+                    'sessionId': 101,
                     'token': 'password-request',
                     'type': 'string',
                     'password': true,
@@ -100,6 +109,90 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, null);
   });
+
+  testWidgets('host menu requests a new session without duplicating the host', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Research 옵션'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('새 세션으로 연결'));
+    await tester.pumpAndSettle();
+    final connect = calls.singleWhere((c) => c.method == 'connect');
+    expect(connect.arguments, {'id': 7, 'newSession': true});
+    expect(tester.widget<ConsolePage>(find.byType(ConsolePage)).sessionId, 101);
+    expect(calls.where((c) => c.method == 'host.duplicate'), isEmpty);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'reconnecting uses saved host identity rather than session identity',
+    (tester) async {
+      final engine = AndroidEngine();
+      engine.state = {
+        'ready': true,
+        'sessions': [
+          {'id': 101, 'hostId': 7, 'nickname': 'Research', 'open': false},
+        ],
+        'preferences': {'titlebarhide': false},
+      };
+      await tester.pumpWidget(
+        MaterialApp(home: ConsolePage(engine: engine, sessionId: 101)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('터미널 메뉴'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('다시 연결'));
+      await tester.pumpAndSettle();
+      expect(calls.singleWhere((c) => c.method == 'connect').arguments, {
+        'id': 7,
+      });
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+      engine.dispose();
+    },
+  );
+
+  testWidgets(
+    'switching and closing same-host sessions targets selected session only',
+    (tester) async {
+      final engine = AndroidEngine();
+      engine.state = {
+        'ready': true,
+        'sessions': [
+          {'id': 101, 'hostId': 7, 'nickname': 'Research · 101', 'open': true},
+          {'id': 102, 'hostId': 7, 'nickname': 'Research · 102', 'open': true},
+        ],
+        'preferences': {'titlebarhide': false},
+      };
+      await tester.pumpWidget(
+        MaterialApp(home: ConsolePage(engine: engine, sessionId: 101)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Research · 101'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Research · 102'));
+      await tester.pumpAndSettle();
+      final consoleView = tester.widget<AndroidView>(find.byType(AndroidView));
+      expect((consoleView.creationParams as Map)['sessionId'], 102);
+      await tester.tap(find.byTooltip('터미널 메뉴'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('연결 끊기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('확인'));
+      await tester.pumpAndSettle();
+      expect(
+        calls.singleWhere((c) => c.method == 'session.disconnect').arguments,
+        {'id': 102},
+      );
+      expect(calls.where((c) => c.method == 'host.disconnect'), isEmpty);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+      engine.dispose();
+    },
+  );
 
   testWidgets('console menu keeps advanced actions in a secondary menu', (
     tester,
@@ -170,7 +263,7 @@ void main() {
         },
       };
       await tester.pumpWidget(
-        MaterialApp(home: ConsolePage(engine: engine, hostId: 7)),
+        MaterialApp(home: ConsolePage(engine: engine, sessionId: 7)),
       );
       await tester.pumpAndSettle();
       final rect = tester.getRect(find.byType(AndroidView));
@@ -207,7 +300,7 @@ void main() {
           },
         };
         await tester.pumpWidget(
-          MaterialApp(home: ConsolePage(engine: engine, hostId: 7)),
+          MaterialApp(home: ConsolePage(engine: engine, sessionId: 7)),
         );
         await tester.pumpAndSettle();
         final viewport = tester.getRect(find.byType(AndroidView));
@@ -242,7 +335,7 @@ void main() {
       },
     };
     await tester.pumpWidget(
-      MaterialApp(home: ConsolePage(engine: engine, hostId: 7)),
+      MaterialApp(home: ConsolePage(engine: engine, sessionId: 7)),
     );
     await tester.pumpAndSettle();
     final rect = tester.getRect(find.byType(AndroidView));
