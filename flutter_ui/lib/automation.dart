@@ -120,7 +120,7 @@ class _AutomationPageState extends State<AutomationPage> {
           Padding(padding: const EdgeInsets.all(16), child: Text(error!)),
         const Padding(
           padding: EdgeInsets.all(16),
-          child: Text('접속 후 순서대로 실행됩니다. 끌어서 순서를 바꿀 수 있습니다.'),
+          child: Text('접속 후 순서대로 실행돼요. 끌어서 순서를 바꿀 수 있어요.'),
         ),
         Expanded(
           child: ReorderableListView.builder(
@@ -249,7 +249,7 @@ class _AutomationStepPageState extends State<AutomationStepPage> {
               minLines: 3,
               decoration: const InputDecoration(
                 labelText: '텍스트',
-                helperText: '입력한 줄바꿈을 그대로 사용합니다.',
+                helperText: '입력한 줄바꿈을 그대로 사용해요.',
               ),
               onChanged: (v) => draft['text'] = v,
             ),

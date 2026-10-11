@@ -153,18 +153,26 @@ Future<String?> askText(
   String initial = '',
   bool password = false,
   bool multiline = false,
+  TextInputType? keyboardType,
+  String? Function(String?)? validator,
 }) async {
   final controller = TextEditingController(text: initial);
+  final form = GlobalKey<FormState>();
   final result = await showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(title),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        obscureText: password,
-        maxLines: multiline ? 8 : 1,
-        minLines: multiline ? 3 : 1,
+      content: Form(
+        key: form,
+        child: TextFormField(
+          keyboardType: keyboardType,
+          validator: validator,
+          controller: controller,
+          autofocus: true,
+          obscureText: password,
+          maxLines: multiline ? 8 : 1,
+          minLines: multiline ? 3 : 1,
+        ),
       ),
       actions: [
         TextButton(
@@ -172,7 +180,11 @@ Future<String?> askText(
           child: const Text('취소'),
         ),
         FilledButton(
-          onPressed: () => Navigator.pop(context, controller.text),
+          onPressed: () {
+            if (form.currentState!.validate()) {
+              Navigator.pop(context, controller.text);
+            }
+          },
           child: const Text('확인'),
         ),
       ],
@@ -185,8 +197,9 @@ Future<String?> askText(
 Future<bool> confirm(
   BuildContext context,
   String title,
-  String message,
-) async =>
+  String message, {
+  String action = '확인',
+}) async =>
     await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -199,12 +212,25 @@ Future<bool> confirm(
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('확인'),
+            child: Text(action),
           ),
         ],
       ),
     ) ??
     false;
+
+String hostAddress(EngineRecord host) {
+  final protocol = '${host['protocol'] ?? ''}';
+  if (protocol == 'local') return '로컬 셸';
+  final port = host['port'];
+  final standard = switch (protocol) {
+    'ssh' || 'mosh' => 22,
+    'telnet' => 23,
+    _ => null,
+  };
+  final suffix = port == null || port == standard ? '' : ':$port';
+  return '$protocol · ${host['hostname'] ?? ''}$suffix';
+}
 
 class ShellHome extends StatefulWidget {
   final AndroidEngine engine;
@@ -311,7 +337,7 @@ class _ShellHomeState extends State<ShellHome> {
           '${p['keyType']} ${p['keySize']}\nSHA256: ${p['sha256']}\nMD5: ${p['md5']}\n\n${p['randomArt']}\n${p['bubblebabble']}',
         );
       } else if (p['type'] == 'biometric') {
-        value = await confirm(context, '생체인증', '${p['nickname']} 키로 인증합니다.');
+        value = await confirm(context, '생체인증', '${p['nickname']} 키로 인증해요.');
       } else {
         value = await confirm(
           context,
@@ -462,7 +488,12 @@ class _ShellHomeState extends State<ShellHome> {
           'color': host['color'],
         });
       case 'forget':
-        if (await confirm(context, '서버 키 삭제', '다음 연결에서 이 서버의 키를 다시 확인합니다.') &&
+        if (await confirm(
+              context,
+              '서버 키를 지울까요?',
+              '다음에 연결할 때 서버 키를 다시 확인해요.',
+              action: '지우기',
+            ) &&
             mounted) {
           await runEngine(context, engine, 'host.forgetKeys', {
             'id': host['id'],
@@ -599,8 +630,24 @@ class _ShellHomeState extends State<ShellHome> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('호스트가 구성되지 않음'),
-                  TextButton(
+                  Icon(
+                    Icons.dns_outlined,
+                    size: 40,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '저장된 호스트가 없어요',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(24, 8, 24, 16),
+                    child: Text(
+                      '서버를 추가하거나 메뉴에서 빠른 연결을 써 보세요.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  FilledButton.tonal(
                     onPressed: () => _page(
                       RecordEditor(engine: engine, kind: RecordKind.host),
                     ),
@@ -609,15 +656,17 @@ class _ShellHomeState extends State<ShellHome> {
                 ],
               ),
             )
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
+          : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 104),
               itemCount: hosts.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final host = hosts[index];
                 return Column(
                   children: [
                     ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
+                      ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 4,
@@ -634,15 +683,13 @@ class _ShellHomeState extends State<ShellHome> {
                             child: Text(
                               '${host['nickname']}',
                               style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      subtitle: Text(
-                        '${host['protocol']}://${host['hostname']}:${host['port']}',
-                      ),
+                      subtitle: Text(hostAddress(host)),
                       onTap: () => _connect(host),
                       trailing: shortcut
                           ? null
@@ -687,7 +734,6 @@ class _ShellHomeState extends State<ShellHome> {
                               ],
                             ),
                     ),
-                    const Divider(height: 1),
                   ],
                 );
               },

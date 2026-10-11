@@ -64,6 +64,12 @@ private val lightScheme = lightColorScheme(
 )
 
 private val darkScheme = darkColorScheme(
+    surfaceContainerLowest = Color(0xFF111214),
+    surfaceContainerLow = Color(0xFF222427),
+    surfaceContainer = Color(0xFF26282C),
+    surfaceContainerHigh = Color(0xFF2A2D31),
+    surfaceContainerHighest = Color(0xFF36383C),
+    outlineVariant = Color(0xFF2E3135),
     primary = md_theme_dark_primary,
     onPrimary = md_theme_dark_onPrimary,
     primaryContainer = md_theme_dark_primaryContainer,

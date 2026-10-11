@@ -147,6 +147,8 @@ void main() {
     await tester.tap(find.text('키보드').first);
     await tester.pumpAndSettle();
     expect(find.text('카메라 버튼 동작'), findsNothing);
+    await tester.ensureVisible(find.text('하드웨어 키보드'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('하드웨어 키보드'));
     await tester.pumpAndSettle();
     expect(find.text('카메라 버튼 동작'), findsOneWidget);
@@ -155,7 +157,7 @@ void main() {
     await tester.pumpWidget(const AndroidShellApp());
     await tester.pumpAndSettle();
     expect(find.text('Research'), findsOneWidget);
-    expect(find.text('ssh://example.test:22'), findsOneWidget);
+    expect(find.text('ssh · example.test'), findsOneWidget);
   });
   testWidgets(
     'home keeps saved connections central without a management drawer',

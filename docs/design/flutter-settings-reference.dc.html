@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=block"><style>body{margin:0;background:#f0eee9}a{color:#1a1a1a}a:hover{color:#2a78d6}</style></helmet>
+<div style="font-family:Roboto,'Noto Sans KR',system-ui,sans-serif;color:#1a1a1a;padding:40px 44px 80px;display:flex;flex-direction:column;gap:44px">
+  <div style="display:flex;flex-direction:column;gap:8px;max-width:900px">
+    <div style="font-size:12px;font-weight:500;color:rgba(0,0,0,.5);letter-spacing:.02em">korellas/android-shell · main@f3c5c34 · flutter_ui/lib</div>
+    <div style="font-size:28px;line-height:36px;font-weight:500">Flutter 설정 점검 — 지금 vs 고치면</div>
+    <div style="font-size:14px;line-height:21px;color:rgba(0,0,0,.65);text-wrap:pretty">왼쪽은 지금 코드가 그리는 화면을 커버 화면 412dp 기준으로 다시 그린 거예요(기기 스크린샷과 같은 색·여백). 빨간 점선이 문제가 있는 곳이고, 오른쪽이 1b/1c 디자인대로 고친 모습이에요. 밑에 settings.dart 등에서 고칠 코드를 붙였어요. 번호는 Settings Redesign의 4c 번호예요.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;padding-top:6px">
+      <sc-for list="{{ toc }}" as="t" hint-placeholder-count="12"><a href="{{ t.href }}" style="font-size:12px;padding:4px 10px;border-radius:12px;background:rgba(0,0,0,.06);text-decoration:none">{{ t.label }}</a></sc-for>
+    </div>
+  </div>
+
+  <sc-for list="{{ examples }}" as="ex" hint-placeholder-count="3">
+    <div id="{{ ex.id }}" style="display:flex;flex-direction:column;gap:14px;scroll-margin-top:16px">
+      <div style="display:flex;flex-direction:column;gap:6px;max-width:880px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px">{{ ex.no }}</span>
+          <span style="font-size:18px;line-height:24px;font-weight:500">{{ ex.title }}</span>
+          <div style="display:flex;gap:4px"><sc-for list="{{ ex.refs }}" as="n"><span style="width:20px;height:20px;border-radius:10px;background:#E8483B;color:#fff;font:600 11px/20px Roboto,sans-serif;text-align:center">{{ n }}</span></sc-for></div>
+        </div>
+        <div style="font-size:13.5px;line-height:20px;color:rgba(0,0,0,.65);text-wrap:pretty">{{ ex.why }}</div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">
+        <sc-for list="{{ ex.panes }}" as="pn">
+          <div style="display:flex;flex-direction:column;gap:8px;width:412px;max-width:100%">
+            <div style="display:flex;align-items:baseline;gap:8px;font-size:12px;color:rgba(0,0,0,.6)"><span style="font-weight:600;color:{{ pn.lc }}">{{ pn.label }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px">{{ pn.src }}</span></div>
+            <div style="background:{{ pn.bg }};color:{{ pn.on }};border-radius:20px;overflow:hidden;position:relative;padding-bottom:{{ pn.pb }}px;box-shadow:0 1px 3px rgba(0,0,0,.12)">
+              <sc-for list="{{ pn.rows }}" as="r" hint-placeholder-count="6">
+                <div style="background:{{ r.bg }};border-radius:{{ r.rad }};margin:{{ r.mx }};outline:{{ r.ol }};outline-offset:-2px;overflow:hidden">
+                  <sc-if value="{{ r.sep }}"><div style="height:1px;background:{{ r.line }};margin:0 16px"></div></sc-if>
+
+                  <sc-if value="{{ r.is_appbar }}">
+                    <div style="height:{{ r.hgt }}px;display:flex;align-items:center;gap:2px;padding:0 4px;background:{{ r.abg }}">
+                      <sc-for list="{{ r.lead }}" as="i"><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;outline:{{ i.ol }};outline-offset:-4px;border-radius:24px"><span style="font-family:'Material Symbols Outlined';font-size:24px;line-height:1">{{ i.ic }}</span></div></sc-for>
+                      <div style="flex:1;min-width:0;display:flex;align-items:center;gap:2px;font-size:{{ r.fs }}px;line-height:28px;padding-left:{{ r.tp }}px;font-weight:{{ r.fw }}"><span>{{ r.t }}</span><sc-if value="{{ r.drop }}"><span style="font-family:'Material Symbols Outlined';font-size:20px;line-height:1">arrow_drop_down</span></sc-if></div>
+                      <sc-for list="{{ r.acts }}" as="i">
+                        <sc-if value="{{ i.ic }}"><div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;outline:{{ i.ol }};outline-offset:-4px;border-radius:24px"><span style="font-family:'Material Symbols Outlined';font-size:24px;line-height:1">{{ i.ic }}</span></div></sc-if>
+                        <sc-if value="{{ i.txt }}"><div style="height:40px;padding:0 12px;display:flex;align-items:center;font-size:14px;font-weight:500;color:{{ r.p }}">{{ i.txt }}</div></sc-if>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_title }}"><div style="font-size:22px;line-height:28px;padding:16px">{{ r.t }}</div></sc-if>
+                  <sc-if value="{{ r.is_h }}"><div style="font-size:13px;line-height:18px;font-weight:500;color:{{ r.p }};padding:20px 16px 8px">{{ r.t }}</div></sc-if>
+                  <sc-if value="{{ r.is_note }}"><div style="font-size:12px;line-height:17px;color:{{ r.s }};padding:10px 16px 2px;text-wrap:pretty">{{ r.t }}</div></sc-if>
+                  <sc-if value="{{ r.is_div }}"><div style="height:1px;background:{{ r.line }};margin:8px 0"></div></sc-if>
+                  <sc-if value="{{ r.is_gap }}"><div style="height:{{ r.gh }}px"></div></sc-if>
+
+                  <sc-if value="{{ r.is_sw }}">
+                    <div style="display:flex;align-items:center;gap:16px;padding:{{ r.pad }};min-height:{{ r.mh }}px;box-sizing:border-box">
+                      <sc-if value="{{ r.indent }}"><div style="width:2px;align-self:stretch;background:{{ r.line }};border-radius:1px;margin-left:12px"></div></sc-if>
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;line-height:22px">{{ r.t }}</div><sc-if value="{{ r.sub }}"><div style="font-size:13px;line-height:18px;color:{{ r.s }};text-wrap:pretty">{{ r.sub }}</div></sc-if></div>
+                      <div style="width:52px;height:32px;box-sizing:border-box;border-radius:16px;border:2px solid {{ r.trkBd }};background:{{ r.trk }};display:flex;align-items:center;justify-content:{{ r.jc }};padding:0 {{ r.thPad }}px;flex:none"><div style="width:{{ r.th }}px;height:{{ r.th }}px;border-radius:50%;background:{{ r.thBg }}"></div></div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_dd }}">
+                    <div style="padding:{{ r.ddPad }}">
+                      <div style="border-bottom:1px solid {{ r.outline }};padding:6px 0 8px;display:flex;align-items:flex-end;gap:8px">
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;line-height:16px;color:{{ r.s }}">{{ r.label }}</div><div style="font-size:16px;line-height:22px">{{ r.value }}</div></div>
+                        <span style="font-family:'Material Symbols Outlined';font-size:24px;line-height:1;color:{{ r.s }}">arrow_drop_down</span>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_nav }}">
+                    <div style="display:flex;align-items:center;gap:16px;padding:{{ r.pad }};min-height:{{ r.mh }}px;box-sizing:border-box">
+                      <sc-if value="{{ r.lic }}"><span style="font-family:'Material Symbols Outlined';font-size:24px;line-height:1;color:{{ r.s }}">{{ r.lic }}</span></sc-if>
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;line-height:22px">{{ r.t }}</div><sc-if value="{{ r.sub }}"><div style="font-size:13px;line-height:18px;color:{{ r.s }};text-wrap:pretty">{{ r.sub }}</div></sc-if></div>
+                      <div style="display:flex;gap:3px"><sc-for list="{{ r.sws }}" as="w"><div style="width:14px;height:14px;border-radius:7px;background:{{ w }}"></div></sc-for></div>
+                      <span style="font-family:'Material Symbols Outlined';font-size:24px;line-height:1;color:{{ r.s }}">{{ r.ic }}</span>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_seg }}">
+                    <div style="display:flex;flex-direction:column;gap:12px;padding:14px 16px 16px">
+                      <div style="display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;line-height:22px">{{ r.t }}</div><sc-if value="{{ r.sub }}"><div style="font-size:13px;line-height:18px;color:{{ r.s }};text-wrap:pretty">{{ r.sub }}</div></sc-if></div>
+                      <div style="display:flex;border:1px solid {{ r.outline }};border-radius:20px;overflow:hidden;height:40px">
+                        <sc-for list="{{ r.opts }}" as="o"><div style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;font-size:13.5px;font-weight:500;background:{{ o.bg }};color:{{ o.fg }};border-left:{{ o.bl }};white-space:nowrap"><sc-if value="{{ o.sel }}"><span style="font-family:'Material Symbols Outlined';font-size:18px;line-height:1">check</span></sc-if>{{ o.label }}</div></sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_chips }}">
+                    <div style="padding:16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+                      <sc-for list="{{ r.opts }}" as="o"><div style="height:36px;min-width:44px;padding:0 10px;box-sizing:border-box;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:4px;font-size:14px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.fg }};font-family:{{ o.ff }}">{{ o.label }}<sc-if value="{{ o.x }}"><span style="font-family:'Material Symbols Outlined';font-size:18px;line-height:1;color:{{ r.s }}">close</span></sc-if></div></sc-for>
+                      <sc-if value="{{ r.unit }}"><span style="font-size:13px;color:{{ r.s }};margin-left:4px">{{ r.unit }}</span></sc-if>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_step }}">
+                    <div style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;line-height:22px">{{ r.t }}</div><div style="font-size:13px;line-height:18px;color:{{ r.s }}">{{ r.sub }}</div></div>
+                      <div style="width:40px;height:40px;border-radius:20px;border:1px solid {{ r.outline }};box-sizing:border-box;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Outlined';font-size:20px;line-height:1">remove</span></div>
+                      <div style="min-width:72px;text-align:center;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums">{{ r.value }}</div>
+                      <div style="width:40px;height:40px;border-radius:20px;border:1px solid {{ r.outline }};box-sizing:border-box;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Outlined';font-size:20px;line-height:1">add</span></div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_slider }}">
+                    <div style="display:flex;flex-direction:column;gap:4px;padding:{{ r.pad }}">
+                      <sc-if value="{{ r.t }}"><div style="font-size:16px;line-height:22px">{{ r.t }}</div></sc-if>
+                      <div style="display:flex;align-items:center;gap:14px">
+                        <sc-if value="{{ r.icons }}"><span style="font-family:'Material Symbols Outlined';font-size:22px;line-height:1;color:{{ r.s }}">volume_down</span></sc-if>
+                        <div style="flex:1;height:32px;position:relative">
+                          <div style="position:absolute;left:0;right:0;top:{{ r.trkTop }}px;height:{{ r.trkH }}px;border-radius:4px;background:{{ r.trkOff }}"></div>
+                          <div style="position:absolute;left:0;top:{{ r.trkTop }}px;height:{{ r.trkH }}px;border-radius:4px;background:{{ r.p }};width:{{ r.pct }}%"></div>
+                          <div style="position:absolute;top:{{ r.thTop }}px;left:{{ r.pct }}%;width:{{ r.thW }}px;height:{{ r.thH }}px;margin-left:{{ r.thML }}px;border-radius:{{ r.thR }}px;background:{{ r.p }}"></div>
+                        </div>
+                        <sc-if value="{{ r.vlabel }}"><span style="font-size:13px;color:{{ r.s }};min-width:34px;text-align:right">{{ r.vlabel }}</span></sc-if>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_cat }}">
+                    <div style="display:flex;align-items:center;gap:16px;padding:{{ r.cpad }};margin:0 12px;border-radius:28px;background:{{ r.selBg }}">
+                      <div style="width:{{ r.avS }}px;height:{{ r.avS }}px;flex:none;border-radius:50%;background:{{ r.avBg }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Outlined';font-size:22px;line-height:1;color:{{ r.avFg }}">{{ r.ic }}</span></div>
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;line-height:22px;color:{{ r.tc }}">{{ r.t }}</div><sc-if value="{{ r.sub }}"><div style="font-size:13px;line-height:18px;color:{{ r.s }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sub }}</div></sc-if></div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_bar }}">
+                    <div style="display:flex;flex-direction:column;gap:6px;padding:{{ r.bpad }};background:{{ r.wrapBg }};border-radius:{{ r.brad }}">
+                      <div style="background:{{ r.barBg }};padding:4px;display:flex;gap:3px;align-items:center;border-radius:{{ r.ibrad }}">
+                        <sc-for list="{{ r.left }}" as="k"><div style="flex:none;height:28px;width:{{ k.w }}px;border-radius:6px;background:{{ k.bg }};color:{{ k.fg }};font-family:{{ k.ff }};font-size:{{ k.fs }}px;font-weight:500;display:flex;align-items:center;justify-content:center">{{ k.l }}</div></sc-for>
+                        <div style="width:1px;height:18px;background:{{ r.line }};flex:none"></div>
+                        <div style="flex:1;min-width:0;display:flex;gap:3px;overflow:hidden"><sc-for list="{{ r.mid }}" as="k"><div style="flex:none;height:28px;width:{{ k.w }}px;border-radius:6px;background:{{ k.bg }};color:{{ k.fg }};font-family:{{ k.ff }};font-size:{{ k.fs }}px;font-weight:500;display:flex;align-items:center;justify-content:center">{{ k.l }}</div></sc-for></div>
+                        <sc-for list="{{ r.right }}" as="k"><div style="flex:none;height:28px;width:{{ k.w }}px;border-radius:6px;background:{{ k.bg }};color:{{ k.fg }};font-family:{{ k.ff }};font-size:{{ k.fs }}px;font-weight:500;display:flex;align-items:center;justify-content:center;outline:{{ k.ol }};outline-offset:1px">{{ k.l }}</div></sc-for>
+                      </div>
+                      <sc-if value="{{ r.cap }}"><div style="font-size:12.5px;line-height:18px;color:{{ r.s }};padding:0 6px;text-wrap:pretty">{{ r.cap }}</div></sc-if>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_term }}">
+                    <div style="background:{{ r.tbg }};color:{{ r.tfg }};padding:{{ r.tpad }}px;margin:{{ r.tm }};border-radius:{{ r.trad }};border:{{ r.tbd }};font-family:'JetBrains Mono',monospace;font-size:12px;line-height:17px;min-height:{{ r.tmh }}px;box-sizing:border-box">
+                      <sc-for list="{{ r.lines }}" as="l"><div style="white-space:pre;overflow:hidden">{{ l }}</div></sc-for>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_chip }}">
+                    <div style="background:#000;padding:4px 10px 10px">
+                      <div style="display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px 0 10px;border-radius:16px;background:#2A2D31;color:#E2E2E5;font-size:12.5px;font-weight:500"><span style="width:8px;height:8px;border-radius:4px;background:#40C4FF"></span>{{ r.t }}<span style="color:#C3C6CF;font-weight:400">{{ r.sub }}</span></div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_dlg }}">
+                    <div style="background:rgba(0,0,0,.55);padding:28px 20px">
+                      <div style="background:{{ r.dbg }};border-radius:28px;padding:24px;display:flex;flex-direction:column;gap:16px">
+                        <div style="font-size:22px;line-height:28px">{{ r.t }}</div>
+                        <sc-if value="{{ r.field }}"><div style="border-bottom:2px solid {{ r.p }};padding:4px 0 6px;font-size:16px">{{ r.field }}<span style="display:inline-block;width:2px;height:18px;background:{{ r.p }};vertical-align:-3px;margin-left:1px"></span></div></sc-if>
+                        <sc-if value="{{ r.msg }}"><div style="font-size:14px;line-height:20px;color:{{ r.s }};text-wrap:pretty">{{ r.msg }}</div></sc-if>
+                        <div style="display:flex;justify-content:flex-end;gap:8px">
+                          <sc-for list="{{ r.acts }}" as="a"><div style="height:40px;padding:0 16px;border-radius:20px;display:flex;align-items:center;font-size:14px;font-weight:500;background:{{ a.bg }};color:{{ a.fg }}">{{ a.t }}</div></sc-for>
+                        </div>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_grid }}">
+                    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:12px 0 4px">
+                      <sc-for list="{{ r.items }}" as="s">
+                        <div style="border-radius:16px;overflow:hidden;background:#222427;border:2px solid {{ s.bd }};display:flex;flex-direction:column">
+                          <div style="background:{{ s.bg }};color:{{ s.fg }};padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:15px"><div style="white-space:pre"><span style="color:{{ s.green }}">~</span> $ ls</div><div style="white-space:pre"><span style="color:{{ s.blue }}">src</span>  <span style="color:{{ s.yellow }}">build</span>  <span style="color:{{ s.red }}">.env</span></div></div>
+                          <div style="display:flex;align-items:center;gap:6px;padding:10px 12px"><div style="flex:1;min-width:0;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.name }}</div><sc-if value="{{ s.sel }}"><span style="font-family:'Material Symbols Outlined';font-size:18px;line-height:1;color:#40C4FF">check_circle</span></sc-if></div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_host }}">
+                    <div style="display:flex;align-items:center;gap:16px;padding:{{ r.hpad }};min-height:64px;box-sizing:border-box;background:{{ r.hbg }};border-radius:{{ r.hrad }}">
+                      <div style="width:40px;height:40px;flex:none;border-radius:20px;background:{{ r.av }};border:3px solid {{ r.st }};box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#fff"><span style="font-family:'Material Symbols Outlined';font-size:22px;line-height:1">computer</span></div>
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div style="font-size:16px;line-height:22px;font-weight:{{ r.nw }}">{{ r.t }}</div><div style="font-size:13px;line-height:18px;color:{{ r.s }}">{{ r.sub }}</div></div>
+                      <span style="font-family:'Material Symbols Outlined';font-size:24px;line-height:1;color:{{ r.s }}">more_vert</span>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_empty }}">
+                    <div style="padding:{{ r.epad }};display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+                      <sc-if value="{{ r.ic }}"><span style="font-family:'Material Symbols Outlined';font-size:40px;line-height:1;color:{{ r.s }}">{{ r.ic }}</span></sc-if>
+                      <div style="font-size:16px;line-height:22px">{{ r.t }}</div>
+                      <sc-if value="{{ r.sub }}"><div style="font-size:13px;line-height:18px;color:{{ r.s }};text-wrap:pretty">{{ r.sub }}</div></sc-if>
+                      <div style="height:40px;padding:0 20px;border-radius:20px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;background:{{ r.bbg }};color:{{ r.bfg }}">{{ r.btn }}</div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_keyrow }}">
+                    <div style="display:flex;align-items:center;gap:12px;padding:8px 12px 8px 8px">
+                      <span style="font-family:'Material Symbols Outlined';font-size:20px;line-height:1;color:{{ r.s }}">drag_indicator</span>
+                      <div style="min-width:52px;height:30px;padding:0 6px;box-sizing:border-box;border-radius:6px;background:#2A2D31;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500">{{ r.label }}</div>
+                      <div style="flex:1;min-width:0;font-size:14px;color:{{ r.s }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.t }}</div>
+                      <div style="width:52px;height:32px;box-sizing:border-box;border-radius:16px;border:2px solid {{ r.trkBd }};background:{{ r.trk }};display:flex;align-items:center;justify-content:{{ r.jc }};padding:0 {{ r.thPad }}px;flex:none"><div style="width:{{ r.th }}px;height:{{ r.th }}px;border-radius:50%;background:{{ r.thBg }}"></div></div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.is_btn }}"><div style="padding:12px 4px 4px;display:flex"><div style="height:40px;padding:0 12px;border-radius:20px;display:flex;align-items:center;font-size:14px;font-weight:500;color:{{ r.p }}">{{ r.t }}</div></div></sc-if>
+
+                  <sc-if value="{{ r.is_snack }}"><div style="margin:12px;background:{{ r.sbg }};color:{{ r.sfg }};border-radius:4px;padding:14px 16px;font-size:14px;line-height:20px;box-shadow:0 2px 6px rgba(0,0,0,.3)">{{ r.t }}</div></sc-if>
+                </div>
+              </sc-for>
+              <sc-for list="{{ pn.guides }}" as="g">
+                <div style="position:absolute;top:0;bottom:0;left:{{ g.x }}px;border-left:1px dashed {{ g.c }};pointer-events:none"><div style="position:absolute;top:{{ g.ty }}px;left:4px;font:600 10.5px/14px Roboto,sans-serif;color:{{ g.c }};white-space:nowrap;background:rgba(0,0,0,.6);padding:1px 4px;border-radius:3px">{{ g.label }}</div></div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+        <div style="display:flex;flex-direction:column;gap:8px;width:420px;max-width:100%">
+          <div style="font-size:12px;font-weight:600;color:#2a5a9a">고칠 코드</div>
+          <div style="font:11.5px/18px 'JetBrains Mono',monospace;color:#1f3b63;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:12px 14px;white-space:pre-wrap;word-break:break-word">{{ ex.fix }}</div>
+          <sc-if value="{{ ex.tip }}"><div style="font-size:12.5px;line-height:19px;color:rgba(0,0,0,.6);text-wrap:pretty">{{ ex.tip }}</div></sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TH = {
+  F: { bg: '#1D1D20', on: '#E3E2E6', s: '#C4C6D0', line: '#45464F', p: '#A9C5FF', outline: '#8E9099', card: 'transparent', trkOff: '#36343B', thOn: '#1F3A86', selBg: '#3E4759', avBg: '#2D4FA8', avFg: '#DAE2FF', dbg: '#2B2930', bar: '#1F1F23', key: '#2B2A2F', fnBg: '#3E4759', fnFg: '#DAE2FF', segOn: '#3E4759', segOnFg: '#DAE2FF', snBg: '#E3E2E6', snFg: '#2F3033' },
+  D: { bg: '#1A1C1E', on: '#E2E2E5', s: '#C3C6CF', line: '#2E3135', p: '#40C4FF', outline: '#8D9199', card: '#222427', trkOff: '#36383C', thOn: '#003547', selBg: '#004D71', avBg: '#2A2D31', avFg: '#40C4FF', dbg: '#26282C', bar: '#111214', key: 'rgba(255,255,255,.08)', fnBg: 'rgba(64,196,255,.18)', fnFg: '#B3E5FC', segOn: '#004D71', segOnFg: '#B3E5FC', snBg: '#E2E2E5', snFg: '#1A1C1E' },
+};
+const KINDS = ['appbar','title','h','note','div','gap','sw','dd','nav','seg','chips','step','slider','cat','bar','term','chip','dlg','grid','host','empty','keyrow','btn','snack'];
+const BLEED = ['appbar','bar','term','chip','dlg','host','empty','div','gap','snack','cat','title'];
+const sw = (t, on, sub, x = {}) => ({ k: 'sw', t, on, sub, ...x });
+const dd = (label, value, x = {}) => ({ k: 'dd', label, value, ...x });
+const nav = (t, sub, x = {}) => ({ k: 'nav', t, sub, ...x });
+const h = t => ({ k: 'h', t });
+const note = t => ({ k: 'note', t });
+const seg = (t, opts, sel, sub, x = {}) => ({ k: 'seg', t, opts, sel, sub, ...x });
+const ab = (t, x = {}) => ({ k: 'appbar', t, ...x });
+const G = (...rows) => rows.map((r, i) => ({ ...r, card: true, first: i === 0, last: i === rows.length - 1 }));
+const bad = r => ({ ...r, bad: true });
+const neu = r => ({ ...r, good: true });
+const ic = (l, w) => ({ l, w, icon: true });
+const kk = (l, w = 40) => ({ l, w });
+const SCH = [
+  ['Default', '#000000', '#cccccc', '#cc0000', '#00cc00', '#cccc00', '#0000cc'],
+  ['Solarized Dark', '#002b36', '#839496', '#dc322f', '#859900', '#b58900', '#268bd2'],
+  ['Dracula', '#282a36', '#f8f8f2', '#ff5555', '#50fa7b', '#f1fa8c', '#bd93f9'],
+  ['Nord', '#2e3440', '#e5e9f0', '#bf616a', '#a3be8c', '#ebcb8b', '#81a1c1'],
+  ['Gruvbox Dark', '#282828', '#ebdbb2', '#cc241d', '#98971a', '#d79921', '#458588'],
+  ['Monokai', '#272822', '#f8f8f2', '#f92672', '#a6e22e', '#f4bf75', '#66d9ef'],
+];
+const nativeBar = (T, x = {}) => ({
+  k: 'bar', bpad: '0', ibrad: '0',
+  left: [kk('Esc'), kk('⇥', 34), kk('Ctrl')],
+  mid: [kk('Alt'), ic('keyboard_arrow_up', 32), ic('keyboard_arrow_down', 32), ic('keyboard_arrow_left', 32), ic('keyboard_arrow_right', 32), kk('Home', 44), kk('End'), kk('PgUp', 44), kk('PgDn', 44)],
+  right: [ic('keyboard', 36), { l: 'Fn', w: 36, fn: true }],
+  ...x,
+});
+
+const EX = [
+  {
+    id: 'e1', title: '동작과 다른 라벨 세 개', refs: [1, 3, 4],
+    why: '이름만 보고 켜면 기대와 다른 일이 생겨요. keepalive는 화면 켜짐 유지인데 ‘연결·알림’에 있고, 진동은 방향키에만 오는데 ‘특수키 진동’이고, 제목 줄은 3초 뒤 자동으로 숨는데 그냥 ‘숨기기’예요.',
+    before: { src: "settings.dart — 'connection' · 'gesture' · 'display'", rows: [
+      ab('연결·알림', { lead: ['arrow_back'] }),
+      bad(sw('네트워크 연결 유지', true)), sw('Wi-Fi 절전 방지', true),
+      { k: 'div' }, ab('제스처', { lead: ['arrow_back'] }),
+      sw('볼륨 버튼으로 글자 크기 조절', true), bad(sw('특수키 진동', false)),
+      { k: 'div' }, ab('화면', { lead: ['arrow_back'] }),
+      sw('터미널 전체 화면', true), bad(sw('터미널 제목 줄 숨기기', false)),
+    ] },
+    after: { src: '화면 › 콘솔 화면 · 키보드 › 고급', rows: [
+      ab('화면', { lead: ['arrow_back'] }),
+      h('콘솔 화면'),
+      ...G(sw('전체 화면', true, '콘솔에서 상태 표시줄 숨기기'), neu(sw('제목 표시줄 자동 숨기기', false, '콘솔을 탭하면 다시 나타나요')), neu(sw('화면 켜짐 유지', true, '콘솔을 보는 동안 화면이 꺼지지 않아요'))),
+      { k: 'gap', gh: 8 }, ab('키보드 › 고급', { lead: ['arrow_back'] }),
+      ...G(sw('볼륨 키로 글꼴 크기 조절', true, '호스트별 설정에서도 바꿀 수 있어요'), neu(sw('방향키 진동', false, '느린 연결에서 입력됐는지 손으로 알 수 있어요'))),
+    ] },
+    fix: `// settings.dart — toggle()에 subtitle 인자 추가
+Widget toggle(BuildContext c, String key, String label,
+    {String? sub, bool enabled = true}) => SwitchListTile(
+  title: Text(label),
+  subtitle: sub == null ? null : Text(sub),
+  ...);
+
+// 'display'
+toggle(context, 'keepalive', '화면 켜짐 유지',
+    sub: '콘솔을 보는 동안 화면이 꺼지지 않아요'),
+toggle(context, 'titlebarhide', '제목 표시줄 자동 숨기기',
+    sub: '콘솔을 탭하면 다시 나타나요'),
+
+// 'keyboard' 고급으로 이동
+toggle(context, 'bumpyarrows', '방향키 진동', ...),
+
+// console.dart 추가 기능 메뉴
+'제목 표시줄 항상 표시' / '제목 표시줄 자동 숨기기'`,
+    tip: 'keepalive를 ‘연결·알림’에서 빼면 그 카테고리는 진짜 연결·알림만 남아요(예시 7).',
+  },
+  {
+    id: 'e2', title: '눌러도 아무 일 없는 스위치', refs: [2],
+    why: '지난번에 한/A 키는 빼기로 했고, 네이티브 특수키 바는 실제로 그 키를 그리지 않아요. 그런데 설정에는 ‘입력 모드 전환 버튼’이 켜진 채로 남아 있어요. 켜든 끄든 바는 똑같아요.',
+    before: { src: "settings.dart:187 · TerminalKeyboard.kt", rows: [
+      ab('키보드', { lead: ['arrow_back'] }),
+      sw('특수키 항상 표시', true), bad(sw('입력 모드 전환 버튼', true)),
+      dd('단축키 입력 시 키보드 모드', '영문 키보드 요청'),
+      { k: 'gap', gh: 8 },
+      nativeBar('F', { cap: '‘입력 모드 전환 버튼’을 켜도 꺼도 이 바는 그대로예요. showImeToggleKey를 받기만 하고 쓰지 않아요.', bpad: '0 0 12px' }),
+    ] },
+    after: { src: '키보드 — 특수키 바 · 한글 입력', rows: [
+      ab('키보드', { lead: ['arrow_back'] }),
+      h('특수키 바'),
+      ...G(sw('항상 표시', true, '키보드를 내려도 특수키 바를 남겨 둬요'), nav('특수키 구성', 'Esc · ⇥ · Ctrl 고정 + 10개 · Fn 오른쪽', {})),
+      h('한글 입력'),
+      ...G(nav('한글 입력 중 Ctrl·Alt', 'ASCII 키보드로 전환 (권장)', { ic: 'expand_more' })),
+      note('조합 모드는 콘솔 메뉴 › 조합 모드에서 켜고 꺼요.'),
+    ] },
+    fix: `// settings.dart:187 — 삭제
+- toggle(context, 'imeTogglekey', '입력 모드 전환 버튼'),
+
+// TerminalKeyboard.kt — 그리지 않는 파라미터 정리
+- showImeToggleKey: Boolean = true,
+// (isComposeModeActive는 예시 10의 상태 칩에 씀)`,
+    tip: '저장된 imeTogglekey 값은 그대로 둬도 돼요. 읽는 곳이 없어요.',
+  },
+  {
+    id: 'e3', title: '드롭다운과 스위치의 시작점이 4dp 어긋남', refs: [5],
+    why: 'choice()는 Padding.all(12), SwitchListTile은 좌우 16이에요. 그래서 ‘앱 테마’ 라벨과 ‘터미널 전체 화면’의 시작점이 다르고, 오른쪽 끝(▾와 스위치)도 맞지 않아요. 기기 스크린샷에서도 보여요.',
+    before: { src: 'settings.dart — choice() vs toggle()', guides: [{ x: 12, c: '#FF8A80', label: '12' }, { x: 16, c: '#80D8FF', label: '16' }], rows: [
+      ab('화면', { lead: ['arrow_back'] }),
+      bad(dd('앱 테마', '시스템 설정')), bad(dd('화면 방향', '기기 설정')),
+      sw('터미널 전체 화면', true), sw('터미널 제목 줄 숨기기', false),
+      bad(dd('기본 폰트', 'Default (Monospace)')),
+    ] },
+    after: { src: '모든 줄 16dp · 드롭다운 대신 ListTile + 시트', guides: [{ x: 32, c: '#80D8FF', label: '16 (카드 안)' }], rows: [
+      ab('화면', { lead: ['arrow_back'] }),
+      h('모양'),
+      ...G(nav('앱 테마', '시스템', { ic: 'expand_more' }), nav('글꼴', '시스템 기본값', { ic: 'expand_more' })),
+      h('콘솔 화면'),
+      ...G(nav('화면 방향', '기기 설정 따름', { ic: 'expand_more' }), sw('전체 화면', true), sw('제목 표시줄 자동 숨기기', false)),
+    ] },
+    fix: `// 가장 작은 수정: 패딩만 맞추기
+Widget choice(...) => Padding(
+  padding: const EdgeInsets.fromLTRB(16, 8, 24, 8),
+  child: DropdownButtonFormField<Object>(...));
+
+// 권장: 값 고르는 줄도 ListTile로
+Widget pick(BuildContext c, String key, String label,
+    List<(Object?, String)> values) => ListTile(
+  title: Text(label),
+  subtitle: Text(labelOf(values, prefs[key])),
+  trailing: const Icon(Icons.expand_more),
+  onTap: () => showChoiceSheet(c, label, values, key));`,
+    tip: '권장안으로 가면 밑줄 친 입력칸이 없어져서, 설정 화면이 입력 폼처럼 보이지 않아요.',
+  },
+  {
+    id: 'e4', title: '카테고리 목록 — 진한 아이콘 원, 요약 없음', refs: [6, 7],
+    why: 'CircleAvatar 기본값이 primaryContainer라 꽉 찬 파란 원 6개가 화면에서 제일 강해요. 선택 표시는 오히려 약해 보여요. 1b/1c의 핵심이던 요약 줄(현재 값)도 없어서, 들어가 봐야 상태를 알 수 있어요.',
+    before: { src: 'settings.dart — categories()', pb: 12, rows: [
+      ab('설정', { lead: ['arrow_back'] }),
+      ...[['palette', '화면'], ['keyboard', '키보드'], ['swipe', '제스처'], ['terminal', '터미널'], ['notifications', '연결·알림'], ['lock', '보안·백업']].map(([i, t], n) => ({ k: 'cat', ic: i, t, sel: n === 0, bad: n < 2 })),
+    ] },
+    after: { src: '톤 낮춘 아이콘 + 요약 한 줄', pb: 12, rows: [
+      ab('설정', { lead: ['arrow_back'] }),
+      ...[['palette', '화면', '시스템 · Default · 여백 4dp'], ['keyboard', '키보드', '고정 3개 + 10개 · Fn 오른쪽 · 28dp'], ['swipe', '제스처', '1개 켜짐'], ['terminal', '터미널', '스크롤 1,000줄 · TERM 1개'], ['notifications', '연결·알림', '연결 알림 켜짐 · 벨 켜짐'], ['lock', '보안·백업', '실행 시 인증 켜짐']].map(([i, t, sub], n) => ({ k: 'cat', ic: i, t, sub, sel: n === 0 })),
+      { k: 'note', t: 'Android Shell 1.0 · ConnectBot 기반' },
+    ] },
+    fix: `ListTile(
+  selected: selected == id,
+  selectedTileColor: cs.primaryContainer,
+  shape: const StadiumBorder(),
+  leading: CircleAvatar(
+    radius: 20,
+    backgroundColor: cs.surfaceContainerHigh,
+    foregroundColor: cs.primary,
+    child: Icon(icon, size: 22)),
+  title: Text(title(id)),
+  subtitle: Text(summary(id),
+      maxLines: 1, overflow: TextOverflow.ellipsis),
+  ...)
+
+String summary(String id) => switch (id) {
+  'display' => '\${themeLabel} · \${schemeName} · 여백 \${p['terminalMargin']}dp',
+  'keyboard' => '고정 3개 + \${visible}개 · Fn 오른쪽 · \${h}dp',
+  ... };`,
+    tip: '좁은 화면에서는 선택 표시가 없으니(selected = null) 요약 줄이 있어야 목록만 보고도 상태를 알 수 있어요.',
+  },
+  {
+    id: 'e5', title: '화면 카테고리 — 평면 목록 → 섹션 + 미리보기', refs: [8, 9, 10, 12],
+    why: '지금은 일곱 줄이 같은 무게로 나열되고, 설명은 하나도 없어요. 테마는 드롭다운, 글꼴은 ‘Default (Monospace)’ 영문, 여백은 다른 카테고리(터미널)에 있어요. 디자인은 미리보기, 모양, 터미널 여백, 콘솔 화면으로 나눴어요.',
+    before: { src: "settings.dart — fields('display')", rows: [
+      ab('화면', { lead: ['arrow_back'] }),
+      bad(dd('앱 테마', '시스템 설정')), dd('화면 방향', '기기 설정'),
+      sw('터미널 전체 화면', true), sw('터미널 제목 줄 숨기기', false),
+      bad(dd('기본 폰트', 'Default (Monospace)')),
+      nav('폰트 관리', '', { pad: '0 24px 0 16px' }), bad(nav('색상 테마', '', { pad: '0 24px 0 16px' })),
+    ] },
+    after: { src: '1b 화면 상세', rows: [
+      ab('화면', { lead: ['arrow_back'] }),
+      { k: 'term', lines: ['user@fold:~/shell (main)$ make apk', 'BUILD SUCCESSFUL in 41s', '$ vim 한글.md'], tbg: '#000', tfg: '#cccccc', tpad: 4, tm: '4px 16px 0', trad: '16px', tbd: '1px solid #2E3135' },
+      h('모양'),
+      ...G(neu(seg('테마', ['시스템', '라이트', '다크'], 0)), nav('색상 테마', 'Default', { sws: ['#cc0000', '#00cc00', '#cccc00', '#0000cc'] }), nav('글꼴', '시스템 기본값', { ic: 'expand_more' }), nav('글꼴 파일 가져오기', '기기에 있는 TTF·OTF 파일', { ic: 'upload_file' })),
+      h('터미널 여백'),
+      ...G(neu({ k: 'chips', opts: [0, 2, 4, 8, 12, 16, 24].map(String), sel: '4', unit: 'dp' })),
+      h('콘솔 화면'),
+      ...G(nav('화면 방향', '기기 설정 따름', { ic: 'expand_more' }), sw('전체 화면', true, '콘솔에서 상태 표시줄 숨기기'), sw('제목 표시줄 자동 숨기기', false, '콘솔을 탭하면 다시 나타나요'), sw('화면 켜짐 유지', true, '콘솔을 보는 동안 화면이 꺼지지 않아요')),
+    ] },
+    fix: `'display' => [
+  TerminalPreview(prefs: p),            // 여백·색상·글꼴 실시간
+  section('모양', [
+    SegmentedButton<String>(
+      segments: const [
+        ButtonSegment(value: 'SYSTEM', label: Text('시스템')),
+        ButtonSegment(value: 'LIGHT', label: Text('라이트')),
+        ButtonSegment(value: 'DARK', label: Text('다크'))],
+      selected: {p['themeMode'] ?? 'SYSTEM'},
+      onSelectionChanged: (s) => update(c, 'themeMode', s.first)),
+    nav('색상 테마', schemeName, trailing: Swatches(...)),
+    pick(c, 'fontFamily', '글꼴', fontOptions(engine)),
+    ListTile(title: Text('글꼴 파일 가져오기'), ...),
+  ]),
+  section('터미널 여백', [MarginChips(...)]),
+  section('콘솔 화면', [pick(c, 'rotation', '화면 방향', ...),
+    toggle(...fullscreen), toggle(...titlebarhide),
+    toggle(...keepalive)]),
+]
+
+Widget section(String t, List<Widget> rows) => Column(
+  crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Padding(padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
+    child: Text(t, style: tt.labelLarge!.copyWith(color: cs.primary))),
+  Card.filled(color: cs.surfaceContainerLow,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    margin: EdgeInsets.symmetric(horizontal: 16),
+    child: Column(children: divided(rows))),
+]);`,
+    tip: "fontOptions()의 첫 항목 'Default (Monospace)'는 '시스템 기본값'으로 바꿔요. ‘폰트 관리’ 하위 화면은 ‘글꼴 파일 가져오기’ 한 줄로 충분하고, 가져온 목록은 글꼴 선택 시트 안에 보여 주면 돼요.",
+  },
+  {
+    id: 'e6', title: '터미널 — 숫자 입력 대화상자 → 스테퍼·칩', refs: [9, 12],
+    why: '스크롤 기록과 좌우 여백은 탭하면 숫자 입력 창이 떠요. 스크롤 기록은 아무 문자열이나 그대로 저장되고(검증 없음), 여백은 미리보기도 없어요.',
+    before: { src: "settings.dart — fields('terminal') · askText()", rows: [
+      ab('터미널', { lead: ['arrow_back'] }),
+      nav('터미널 프로필', '', { pad: '0 24px 0 16px' }), dd('기본 터미널 프로필', '기본'),
+      bad(nav('스크롤 기록 행 수', '1000', { ic: '', pad: '8px 24px 8px 16px' })), bad(nav('터미널 좌우 여백', '4', { ic: '', pad: '8px 24px 8px 16px' })),
+      { k: 'dlg', t: '터미널 좌우 여백', field: '4', acts: [{ t: '취소' }, { t: '확인', filled: true }] },
+    ] },
+    after: { src: '1b 터미널 상세 (여백은 화면으로)', rows: [
+      ab('터미널', { lead: ['arrow_back'] }),
+      { k: 'gap', gh: 4 },
+      ...G(neu({ k: 'step', t: '스크롤 버퍼', sub: '세션마다 기억할 줄 수', value: '1,000줄' }), { k: 'chips', opts: [{ label: 'xterm-kitty', x: true, mono: true }, { label: '+ 추가', add: true }] }),
+      h('프로필'),
+      ...G(nav('기본 프로필', '기본', { ic: 'expand_more' }), nav('터미널 프로필 관리', '2개', {})),
+    ] },
+    fix: `const steps = [140, 500, 1000, 2000, 5000, 10000, 20000];
+Row(children: [
+  Expanded(child: ListTile(title: Text('스크롤 버퍼'),
+      subtitle: Text('세션마다 기억할 줄 수'))),
+  IconButton.outlined(icon: Icon(Icons.remove),
+      onPressed: i > 0 ? () => update(c, 'scrollback', '\${steps[i-1]}') : null),
+  SizedBox(width: 72, child: Text('\${fmt(steps[i])}줄', textAlign: TextAlign.center)),
+  IconButton.outlined(icon: Icon(Icons.add), ...),
+]),
+
+// 사용자 지정 TERM — ExpansionTile 대신 칩
+Wrap(spacing: 8, children: [
+  for (final t in types) InputChip(label: Text(t),
+      onDeleted: () => runEngine(c, engine, 'terminalType.delete', {'name': t})),
+  ActionChip(avatar: Icon(Icons.add), label: Text('추가'), ...),
+]),`,
+    tip: "scrollback은 지금 문자열로 저장되니(update(context, 'scrollback', value)) 스테퍼로 바꾸면 잘못된 값이 들어갈 일이 없어요. 기존에 이상한 값이 저장돼 있으면 가장 가까운 단계로 맞춰요.",
+  },
+  {
+    id: 'e7', title: '연결·알림 — 토글 아홉 개 → 두 묶음', refs: [11],
+    why: '알림 토글이 연결 알림, 벨 알림, 연결 종료 알림으로 셋이고, 벨 음량은 벨 소리 바로 아래가 아니라 맨 끝에 붙어요. 어느 게 어느 걸 끄는지 헷갈려요.',
+    before: { src: "settings.dart — fields('connection')", rows: [
+      ab('연결·알림', { lead: ['arrow_back'] }),
+      sw('네트워크 연결 유지', true), sw('Wi-Fi 절전 방지', true), bad(sw('백그라운드 연결 알림', true)),
+      nav('Android 알림 설정', '알림 허용됨', { ic: 'open_in_new', pad: '8px 24px 8px 16px' }),
+      { k: 'div' },
+      sw('터미널 벨 소리', true), sw('터미널 벨 진동', true), bad(sw('터미널 벨 알림', false)), bad(sw('연결 종료 알림', true)),
+      bad({ k: 'slider', t: '벨 음량', pct: 25, pad: '8px 16px 12px' }),
+    ] },
+    after: { src: '1b 연결·알림 상세', rows: [
+      ab('연결·알림', { lead: ['arrow_back'] }),
+      h('알림'),
+      ...G(neu(sw('연결 알림', true, '벨과 연결 끊김을 알려요')), nav('알림 채널 관리', 'Android 설정에서 종류별로 조정', { ic: 'open_in_new' }), sw('Wi-Fi 연결 유지', true, '세션이 열려 있는 동안 Wi-Fi 절전 방지')),
+      h('터미널 벨'),
+      ...G(sw('벨 소리', true, '터미널이 경고하면 소리 재생'), neu({ k: 'slider', pct: 25, icons: true, vlabel: '25%', pad: '0 16px 14px' }), sw('벨 진동', true, '터미널이 경고하면 진동')),
+      note('상단의 ‘연결 중’ 상태 알림은 연결 알림과 별개로 Android가 관리해요.'),
+    ] },
+    fix: `'connection' => [
+  section('알림', [
+    toggle(c, 'connectionAlerts', '연결 알림',
+        sub: '벨과 연결 끊김을 알려요'),
+    // bellNotification · connectionLostNotification은
+    // 연결 알림을 켜면 함께 켜고, 세부 조정은 Android 채널에서
+    ListTile(title: Text('알림 채널 관리'), ...open_in_new),
+    toggle(c, 'wifilock', 'Wi-Fi 연결 유지', ...),
+  ]),
+  section('터미널 벨', [
+    toggle(c, 'bell', '벨 소리', ...),
+    if (p['bell'] == true) VolumeSlider(...),   // 바로 아래
+    toggle(c, 'bellVibrate', '벨 진동', ...),
+  ]),
+]`,
+    tip: '알림 채널을 ‘벨’과 ‘연결 끊김’으로 나눠 두면 앱 안 토글은 하나로 충분해요. 네이티브 쪽 채널 ID가 이미 나뉘어 있는지 확인해 주세요.',
+  },
+  {
+    id: 'e8', title: '특수키 구성 — 미리보기·안내 없음, 저장 버튼', refs: [13],
+    why: '높이 드롭다운은 패딩 없이 화면 가장자리에 붙어 있어요. 바가 어떻게 바뀌는지 미리보기가 없고, Esc·⇥·Ctrl이 고정이라는 안내도 없어요. 순서 변경은 길게 누르기라 알려 주지 않으면 찾기 어려워요.',
+    before: { src: 'settings.dart — TerminalBarPage', rows: [
+      ab('특수키 구성', { lead: ['arrow_back'], acts: [{ txt: '저장' }] }),
+      bad(dd('키 높이', '보통', { ddPad: '0' })),
+      sw('기능키 묶어서 표시', true),
+      ...['Alt', '↑', '↓', '←', '→', 'Home', 'End', 'PgUp'].map(l => sw(l, true, null, { pad: '0 24px 0 16px' })),
+    ] },
+    after: { src: '1b 키보드 › 특수키 바', rows: [
+      ab('특수키 바', { lead: ['arrow_back'] }),
+      { ...nativeBar('D'), bpad: '8px', wrapBg: '#0E0F10', brad: '16px', ibrad: '6px', mx: '4px 16px 0', cap: 'Esc · ⇥ · Ctrl은 왼쪽, 키보드 · Fn은 오른쪽에 고정돼요.' },
+      h('높이'),
+      { ...seg('', ['작게 26', '기본 28', '크게 36'], 1), bare: true },
+      h('스크롤 영역 키 — 길게 눌러 순서 바꾸기'),
+      ...G(...[['Alt', 'Alt 수정자'], ['↑', '위쪽 화살표'], ['↓', '아래쪽 화살표'], ['Home', '줄 처음'], ['Ins', '삽입']].map(([label, t]) => ({ k: 'keyrow', label, t, on: label !== 'Ins' }))),
+      h('옵션'),
+      ...G(sw('F1–F12를 Fn 키로 묶기', true, '오른쪽 끝 Fn을 누르면 스크롤 영역이 F키로 바뀌어요')),
+      { k: 'btn', t: '기본값으로 되돌리기' },
+    ] },
+    fix: `Scaffold(
+  appBar: AppBar(title: Text('특수키 바')),   // 저장 버튼 없이 즉시 반영
+  body: ListView(padding: EdgeInsets.all(16), children: [
+    TerminalBarPreview(order, hidden, height, group),
+    sectionLabel('높이'),
+    SegmentedButton<int>(segments: const [
+      ButtonSegment(value: 26, label: Text('작게 26')),
+      ButtonSegment(value: 28, label: Text('기본 28')),
+      ButtonSegment(value: 36, label: Text('크게 36'))], ...),
+    sectionLabel('스크롤 영역 키 — 길게 눌러 순서 바꾸기'),
+    ReorderableListView(shrinkWrap: true, buildDefaultDragHandles: false,
+      children: [for (k in order) ListTile(
+        leading: ReorderableDragStartListener(index: i,
+            child: Icon(Icons.drag_indicator)),
+        title: Text(name(k)), trailing: Switch(...))]),
+    toggle(... '기능키를 Fn 키로 묶기' ...),
+    TextButton(onPressed: reset, child: Text('기본값으로 되돌리기')),
+  ]));`,
+    tip: '네이티브 바의 기본 높이가 28(LocalKeyHeight)이니, 디자인의 ‘기본 30’은 28로 맞췄어요.',
+  },
+  {
+    id: 'e9', title: '색상 테마 — 이름만 있는 목록', refs: [14],
+    why: '어떤 색인지 들어가 봐야 알 수 있어요. 지금 쓰는 테마가 뭔지도 표시되지 않고, 설명(description)은 대부분 비어 있어 빈 줄이 생겨요.',
+    before: { src: 'management.dart — SchemesPage', pb: 8, rows: [
+      ab('색상 테마', { lead: ['arrow_back'], acts: [{ ic: 'file_open' }] }),
+      ...SCH.map(s => nav(s[0], ' ', { ic: 'more_vert', pad: '8px 16px', bad: s[0] === 'Default' })),
+    ] },
+    after: { src: '1b 화면 › 색상 테마', pb: 16, rows: [
+      ab('색상 테마', { lead: ['arrow_back'], acts: [{ ic: 'file_open' }] }),
+      { k: 'grid', items: SCH },
+      ...G(nav('팔레트 직접 편집', '16색과 기본 글자·배경색', {})),
+    ] },
+    fix: `GridView.count(
+  crossAxisCount: wide ? 3 : 2, mainAxisSpacing: 12, crossAxisSpacing: 12,
+  children: [for (final s in engine.list('schemes'))
+    SchemeCard(scheme: s,
+      selected: s['id'] == p['colorScheme'],
+      onTap: () => update(c, 'colorScheme', s['id']),
+      onLongPress: () => showSchemeMenu(s))]),  // 복제·내보내기·이름 변경·삭제
+
+// SchemeCard: 위 = bg/fg + 빨·초·노·파 "~ $ ls" 미리보기
+//            아래 = 이름 + 선택 시 check_circle, 테두리 cs.primary`,
+    tip: "카드에 그릴 색은 scheme.palette를 테마마다 불러와야 해요. 목록을 줄 때 bg·fg·1~4번 색을 같이 넘겨 주면 쿼리를 한 번만 하면 돼요.",
+  },
+  {
+    id: 'e10', title: '콘솔 상단 — 뒤로 버튼 위치, 세션 선택, 조합 모드 표시', refs: [15],
+    why: '뒤로 버튼이 actions에 있어 오른쪽 메뉴 버튼 옆에 붙어 있어요. 제목을 누르면 다른 세션으로 바꿀 수 있는데 그걸 알려 주는 표시가 없어요. 조합 모드가 켜졌는지도 보이지 않아요(3d).',
+    before: { src: 'console.dart — ConsolePage AppBar(toolbarHeight: 36)', rows: [
+      bad(ab('home-server', { hgt: 36, fs: 14, fw: 500, tp: 8, acts: [{ ic: 'arrow_back', ol: '2px dashed #FF6B5E' }, { ic: 'more_vert' }] })),
+      { k: 'term', lines: ['user@home:~$ uptime', ' 13:20  up 41 days,  load: 0.12 0.08 0.05', 'user@home:~$ git commit -m "설정 정리"', '', '', ''], tbg: '#000', tfg: '#cccccc', tpad: 10, tm: '0', trad: '0', tbd: 'none' },
+      nativeBar('F'),
+    ] },
+    after: { src: 'leading 뒤로 · 제목 ▾ · 조합 모드 칩', rows: [
+      neu(ab('home-server', { hgt: 36, fs: 14, fw: 500, tp: 0, drop: true, lead: ['arrow_back'], acts: [{ ic: 'more_vert' }] })),
+      { k: 'term', lines: ['user@home:~$ uptime', ' 13:20  up 41 days,  load: 0.12 0.08 0.05', 'user@home:~$ git commit -m "설정 정리"', '', ''], tbg: '#000', tfg: '#cccccc', tpad: 10, tm: '0', trad: '0', tbd: 'none' },
+      neu({ k: 'chip', t: '조합 모드', sub: 'Enter로 보내기' }),
+      nativeBar('D'),
+    ] },
+    fix: `AppBar(
+  toolbarHeight: 36,
+  leading: const BackButton(),        // actions에서 이동
+  titleSpacing: 0,
+  title: InkWell(onTap: pickSession, child: Row(
+    mainAxisSize: MainAxisSize.min, children: [
+      Text(nickname, style: tt.labelLarge),
+      if (engine.list('sessions').length > 1)
+        const Icon(Icons.arrow_drop_down, size: 20),
+    ])),
+  actions: [popup()]),
+
+// 터미널 위 Stack — 네이티브가 compose 상태를 이벤트로 넘겨 주면
+if (session['composeMode'] == true)
+  Positioned(left: 10, bottom: 10, child: ComposeChip())`,
+    tip: 'TerminalKeyboard.kt의 isComposeModeActive를 세션 상태(session.composeMode)로 Flutter에 넘겨야 칩을 그릴 수 있어요.',
+  },
+  {
+    id: 'e11', title: '홈 — 구분선 이중, 빈 화면 문구', refs: [16],
+    why: 'separatorBuilder의 8dp 간격과 항목마다 붙은 Divider가 겹쳐서, 줄 사이가 넓은데 선도 있어요. 빈 화면의 ‘호스트가 구성되지 않음’은 번역투이고 버튼도 약해요.',
+    before: { src: 'main.dart — ShellHome', rows: [
+      ab('Android Shell', { tp: 12, acts: [{ ic: 'more_vert' }] }),
+      { k: 'gap', gh: 16 },
+      { k: 'host', t: 'home-server', sub: 'ssh://home.lan:22', av: '#4CAF50', st: '#4CAF50', nw: 700 },
+      bad({ k: 'div', dm: '0' }), { k: 'gap', gh: 8 },
+      { k: 'host', t: 'nas', sub: 'ssh://nas.lan:22', av: '#9E9E9E', st: 'transparent', nw: 700 },
+      bad({ k: 'div', dm: '0' }), { k: 'gap', gh: 8 },
+      { k: 'div' },
+      bad({ k: 'empty', t: '호스트가 구성되지 않음', btn: '호스트 추가', flat: true, epad: '24px 24px 28px' }),
+    ] },
+    after: { src: '간격 하나 · 빈 화면 다시 쓰기', rows: [
+      ab('Android Shell', { tp: 12, acts: [{ ic: 'more_vert' }] }),
+      { k: 'gap', gh: 8 },
+      { k: 'host', t: 'home-server', sub: 'ssh · home.lan', av: '#4CAF50', st: '#4CAF50', nw: 500, hpad: '8px 16px', card: true },
+      { k: 'host', t: 'nas', sub: 'ssh · nas.lan', av: '#9E9E9E', st: 'transparent', nw: 500, hpad: '8px 16px' },
+      { k: 'gap', gh: 12 }, { k: 'div' },
+      neu({ k: 'empty', ic: 'dns', t: '저장된 호스트가 없어요', sub: 'SSH · Mosh · Telnet 서버를 추가하거나, 메뉴에서 빠른 연결을 써 보세요.', btn: '호스트 추가', epad: '28px 24px 32px' }),
+    ] },
+    fix: `ListView.builder(          // separated → builder, Divider 제거
+  padding: EdgeInsets.fromLTRB(8, 8, 8, 104),
+  itemBuilder: (c, i) => ListTile(
+    shape: const StadiumBorder(),
+    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    ...)),
+
+// 빈 화면
+Column(mainAxisSize: MainAxisSize.min, children: [
+  Icon(Icons.dns_outlined, size: 40, color: cs.onSurfaceVariant),
+  Text('저장된 호스트가 없어요', style: tt.titleMedium),
+  Text('SSH · Mosh · Telnet 서버를 추가하거나, 메뉴에서 빠른 연결을 써 보세요.',
+      textAlign: TextAlign.center),
+  FilledButton.tonal(onPressed: add, child: Text('호스트 추가')),
+])`,
+    tip: '주소는 ssh://host:22 대신 ‘ssh · host’로 줄이고, 포트가 기본값이 아닐 때만 :포트를 붙이면 한 줄에 더 잘 들어가요.',
+  },
+  {
+    id: 'e12', title: '어투 — 합니다체와 해요체가 섞임', refs: [17],
+    why: 'management.dart는 ‘…해요’인데 settings·console·main은 ‘…합니다’, ‘…되었습니다’예요. 한 흐름 안에서 바로 이어 보이는 경우도 있어요(호스트 메뉴 → 서버 키 삭제 확인).',
+    before: { src: 'main.dart · console.dart · settings.dart', rows: [
+      { k: 'dlg', t: '서버 키 삭제', msg: '다음 연결에서 이 서버의 키를 다시 확인합니다.', acts: [{ t: '취소' }, { t: '확인', filled: true }], bad: true },
+      bad({ k: 'snack', t: '행 x 열 형식으로 입력하세요.' }),
+      bad(nav('Android 알림 설정', 'Android에서 알림 허용이 필요합니다.', { ic: 'open_in_new', pad: '8px 24px 8px 16px' })),
+      bad({ k: 'empty', t: '세션이 종료되었습니다.', btn: '닫기', flat: true, epad: '20px 24px 24px' }),
+    ] },
+    after: { src: '해요체 · 버튼은 동작 이름', rows: [
+      { k: 'dlg', t: '서버 키를 지울까요?', msg: '다음에 연결할 때 서버 키를 다시 확인해요.', acts: [{ t: '취소' }, { t: '지우기', filled: true }] },
+      neu({ k: 'snack', t: '‘24x80’처럼 행x열로 입력해 주세요.' }),
+      neu(nav('알림 채널 관리', 'Android 설정에서 알림을 허용해 주세요', { ic: 'open_in_new' })),
+      neu({ k: 'empty', t: '세션이 끝났어요', btn: '다시 연결', epad: '20px 24px 24px' }),
+    ] },
+    fix: `// flutter_ui/lib 전체 — '니다' 검색해서 바꾸기
+'다음 연결에서 이 서버의 키를 다시 확인합니다.'
+  → '다음에 연결할 때 서버 키를 다시 확인해요.'
+'Android에서 알림 허용이 필요합니다.'
+  → 'Android 설정에서 알림을 허용해 주세요'
+'세션이 종료되었습니다.'   → '세션이 끝났어요'
+'행 x 열 형식으로 입력하세요.' → '‘24x80’처럼 행x열로 입력해 주세요.'
+'연결된 서버에 공개키를 등록하고 … 확인합니다.'
+  → '… 키 로그인이 되는지 확인해요.'
+'… 다음 입력에 적용됩니다.' (도움말) → '… 다음 입력에 적용돼요.'
+
+// 확인 대화상자 버튼: '확인' 대신 동작 이름
+confirm(c, '서버 키를 지울까요?', ..., action: '지우기')`,
+    tip: '‘세션이 끝났어요’ 화면에는 ‘다시 연결’ 버튼을 두면 메뉴를 열 필요가 없어요(지금은 메뉴 › 다시 연결).',
+  },
+];
+
+class Component extends DCLogic {
+  norm(rows, T, isD) {
+    return rows.map(r0 => {
+      const r = { ...r0 };
+      KINDS.forEach(k => { r['is_' + k] = r.k === k; });
+      Object.assign(r, { c: T.on, s: T.s, p: T.p, line: T.line, outline: T.outline });
+      r.sub = r.sub || '';
+      r.bg = r.card ? T.card : 'transparent';
+      r.rad = r.card ? `${r.first ? 20 : 0}px ${r.first ? 20 : 0}px ${r.last ? 20 : 0}px ${r.last ? 20 : 0}px` : '0';
+      r.sep = !!(r.card && !r.first);
+      r.mx = r.mx || ((isD && !BLEED.includes(r.k)) || r.bare ? '0 16px' : '0');
+      r.ol = r.bad ? '2px dashed #FF6B5E' : r.good ? '2px solid rgba(64,196,255,.6)' : 'none';
+      const listPad = isD ? '14px 16px' : '8px 24px 8px 16px';
+      if (r.k === 'sw' || r.k === 'keyrow') {
+        r.pad = r.pad || listPad; r.mh = isD ? 0 : 56;
+        Object.assign(r, r.on
+          ? { trk: T.p, trkBd: T.p, th: 24, thBg: T.thOn, jc: 'flex-end', thPad: 2 }
+          : { trk: T.trkOff, trkBd: T.outline, th: 16, thBg: T.outline, jc: 'flex-start', thPad: 6 });
+      }
+      if (r.k === 'nav') { r.pad = r.pad || listPad; r.mh = isD ? 0 : 56; r.ic = r.ic ?? 'chevron_right'; r.sws = r.sws || []; r.lic = r.lic || ''; }
+      if (r.k === 'dd') r.ddPad = r.ddPad || '12px';
+      if (r.k === 'seg') r.opts = r.opts.map((label, i) => ({ label, sel: i === r.sel, bg: i === r.sel ? T.segOn : 'transparent', fg: i === r.sel ? T.segOnFg : T.on, bl: i ? `1px solid ${T.outline}` : 'none' }));
+      if (r.k === 'chips') {
+        r.unit = r.unit || '';
+        r.opts = r.opts.map(o => {
+          const x = typeof o === 'string' ? { label: o } : o;
+          const sel = x.label === r.sel || x.add;
+          return { label: x.label, x: !!x.x, ff: x.mono ? "'JetBrains Mono',monospace" : 'inherit', bd: sel ? '#004D71' : T.outline, bg: sel ? '#004D71' : 'transparent', fg: sel ? '#B3E5FC' : T.on };
+        });
+      }
+      if (r.k === 'slider') {
+        r.t = r.t || ''; r.vlabel = r.vlabel || ''; r.icons = !!r.icons; r.pad = r.pad || '0 16px';
+        Object.assign(r, isD
+          ? { trkTop: 12, trkH: 8, trkOff: '#004D71', thTop: 4, thW: 4, thH: 24, thML: -2, thR: 2 }
+          : { trkTop: 14, trkH: 4, trkOff: '#3E4759', thTop: 6, thW: 20, thH: 20, thML: -10, thR: 10 });
+      }
+      if (r.k === 'cat') {
+        Object.assign(r, { avS: 40, avBg: T.avBg, avFg: T.avFg, selBg: r.sel ? T.selBg : 'transparent', tc: !isD && r.sel ? T.p : T.on, cpad: isD ? '12px 16px' : '8px 16px', mx: '2px 0' });
+      }
+      if (r.k === 'appbar') {
+        r.hgt = r.hgt || 64; r.fs = r.fs || 22; r.fw = r.fw || 400; r.tp = r.tp ?? (r.lead ? 4 : 12); r.drop = !!r.drop; r.abg = r.hgt === 36 ? (isD ? '#111214' : '#1D1D20') : 'transparent';
+        r.lead = (r.lead || []).map(x => typeof x === 'string' ? { ic: x, ol: 'none' } : x);
+        r.acts = (r.acts || []).map(a => ({ ic: a.ic || '', txt: a.txt || '', ol: a.ol || 'none' }));
+      }
+      if (r.k === 'bar') {
+        const key = x => ({ l: x.l, w: x.w, fs: x.icon ? 18 : 12, ff: x.icon ? "'Material Symbols Outlined'" : 'Roboto,sans-serif', bg: x.fn ? T.fnBg : T.key, fg: x.fn ? T.fnFg : T.on, ol: 'none' });
+        r.left = r.left.map(key); r.mid = r.mid.map(key); r.right = r.right.map(key);
+        r.barBg = T.bar; r.wrapBg = r.wrapBg || 'transparent'; r.brad = r.brad || '0'; r.cap = r.cap || ''; r.line = isD ? '#43474E' : T.line;
+        r.mx = r0.mx || '0';
+      }
+      if (r.k === 'term') r.tmh = r.tmh || 0;
+      if (r.k === 'dlg') {
+        r.field = r.field || ''; r.msg = r.msg || ''; r.dbg = T.dbg;
+        r.acts = r.acts.map(a => ({ t: a.t, bg: a.filled ? T.p : 'transparent', fg: a.filled ? (isD ? '#003547' : '#0A2F6B') : T.p }));
+      }
+      if (r.k === 'grid') r.items = r.items.map(([name, bg, fg, red, green, yellow, blue], i) => ({ name, bg, fg, red, green, yellow, blue, sel: i === 0, bd: i === 0 ? '#40C4FF' : 'transparent' }));
+      if (r.k === 'host') { r.hpad = r.hpad || '4px 16px'; r.hbg = r.card ? '#004D71' : 'transparent'; r.hrad = r.card ? '32px' : '0'; r.bg = 'transparent'; r.sep = false; r.rad = '0'; r.mx = isD ? '0 8px' : '0'; }
+      if (r.k === 'empty') { r.ic = r.ic || ''; Object.assign(r, r.flat ? { bbg: 'transparent', bfg: T.p } : { bbg: '#004D71', bfg: '#B3E5FC' }); }
+      if (r.k === 'snack') { r.sbg = T.snBg; r.sfg = T.snFg; }
+      return r;
+    });
+  }
+  renderVals() {
+    const pane = (p, which) => {
+      const isD = which === 'D', T = TH[which];
+      return { label: isD ? '고치면' : '지금', lc: isD ? '#1E6B2E' : '#A8261B', src: p.src, bg: T.bg, on: T.on, pb: p.pb ?? 16, rows: this.norm(p.rows, T, isD), guides: (p.guides || []).map((g, i) => ({ ...g, ty: 70 + i * 20 })) };
+    };
+    const examples = EX.map((e, i) => ({
+      id: e.id, no: String(i + 1).padStart(2, '0'), title: e.title, refs: e.refs, why: e.why, fix: e.fix, tip: e.tip || '',
+      panes: [pane(e.before, 'F'), pane(e.after, 'D')],
+    }));
+    const toc = EX.map((e, i) => ({ href: '#' + e.id, label: `${String(i + 1).padStart(2, '0')} ${e.title.split(' — ')[0]}` }));
+    return { examples, toc };
+  }
+}
+</script>
+</body>
+</html>

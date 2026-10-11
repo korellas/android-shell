@@ -37,6 +37,10 @@ import androidx.compose.foundation.layout.imeAnimationTarget
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -96,6 +100,7 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
     private val bridge = engine.bridge(id)
     private var selection by mutableStateOf<SelectionController?>(null)
     private var compose by mutableStateOf<ComposeController?>(null)
+    val composeMode: Boolean get() = compose?.isComposeModeActive == true
     private var sizeOverride by mutableStateOf<Pair<Int, Int>?>(null)
     private var overrideSize by mutableStateOf(false)
     private var showKeyboard by mutableStateOf(activity.resources.configuration.keyboard == Configuration.KEYBOARD_NOKEYS)
@@ -121,7 +126,7 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
             val delKey by bridge.delKeyModeFlow.collectAsState()
             val settings by activity.settings.uiState.collectAsState()
             val typeface = rememberTerminalTypefaceFromStoredValue(bridge.fontFamily)
-            ConnectBotTheme(themeMode = settings.themeMode) {
+            ConnectBotTheme(themeMode = settings.themeMode, dynamicColor = false) {
                 val imeInsets = if (settings.fullscreen) {
                     WindowInsets.imeAnimationTarget
                 } else {
@@ -188,6 +193,15 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                         onPageGesture = if (settings.pgupdngesture) { key -> bridge.keyHandler.sendPressedKey(key) } else null,
                     )
 
+                    if (composeMode && active && !locked && prompt == null) {
+                        Surface(
+                            modifier = Modifier.align(Alignment.BottomStart).padding(start = 10.dp, bottom = (if (showExtraKeyboard) settings.terminalBarLayout.height else 0).dp + 12.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                        ) {
+                            Text("조합 모드 · Enter로 보내기", modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                     if (active && !locked) {
                         AnimatedVisibility(
                             visible = showExtraKeyboard,
@@ -234,6 +248,7 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                     }
                 }
             }
+            LaunchedEffect(composeMode) { engine.changed() }
             LaunchedEffect(settings.alwaysvisible) { keyboardInteraction() }
             LaunchedEffect(settings.imeShortcutInputMode) { compose?.syncImeShortcutInputMode(settings.imeShortcutInputMode) }
             LaunchedEffect(showKeyboard) { if (showKeyboard) focus.requestFocus() }

@@ -598,7 +598,7 @@ internal class AndroidShellEngine(
         return mapOf(
             "ready" to true, "authenticated" to true,
             "entryAction" to activity.intent.action,
-            "themeColors" to mapOf("light" to org.connectbot.ui.theme.connectBotColorScheme(activity, false).toWire(), "dark" to org.connectbot.ui.theme.connectBotColorScheme(activity, true).toWire()),
+            "themeColors" to mapOf("light" to org.connectbot.ui.theme.connectBotColorScheme(activity, false, dynamicColor = false).toWire(), "dark" to org.connectbot.ui.theme.connectBotColorScheme(activity, true, dynamicColor = false).toWire()),
             "autoHideDelayMs" to org.connectbot.ui.screens.console.AUTO_HIDE_DELAY_MS,
             "shortcutStyles" to org.connectbot.util.IconStyle.entries.map { mapOf("name" to it.name) },
             "defaults" to mapOf("host" to Host().toWire(), "profile" to Profile(name = "").toWire()),
@@ -613,11 +613,15 @@ internal class AndroidShellEngine(
             "identities" to hosts.getIdentities().map { mapOf("id" to it.id, "name" to it.name, "username" to it.username, "pubkeyId" to it.pubkeyId, "hasPassword" to withContext(activity.dispatchers.io) { activity.passwords.hasIdentityPassword(it.id) }) },
             "profiles" to profiles.getAll().map { it.toWire() },
             "keys" to keys.getAll().map { it.toWire(service.isKeyLoaded(it.nickname)) },
-            "schemes" to colors.getAllSchemes().map { mapOf("id" to it.id, "name" to it.name, "description" to it.description) },
+            "schemes" to colors.getAllSchemes().map { scheme ->
+                val defaults = colors.getSchemeDefaults(scheme.id)
+                mapOf("id" to scheme.id, "name" to scheme.name, "description" to scheme.description, "palette" to colors.getSchemeColors(scheme.id).toList(), "foreground" to defaults.first, "background" to defaults.second)
+            },
             "knownHosts" to database.knownHostDao().getAll().map { mapOf("id" to it.id, "hostId" to it.hostId, "hostname" to it.hostname, "port" to it.port, "algorithm" to it.hostKeyAlgo, "key" to android.util.Base64.encodeToString(it.hostKey, android.util.Base64.NO_WRAP)) },
             "sessions" to service.bridgesFlow.value.map { bridge ->
                 mapOf(
                     "id" to bridge.host.id, "nickname" to bridge.host.nickname, "protocol" to bridge.host.protocol, "open" to bridge.isSessionOpen,
+                    "composeMode" to (terminalViews.values.lastOrNull { it.hostId == bridge.host.id && it.routeOwner == activeOwner }?.composeMode == true),
                     "awaitingClose" to bridge.isAwaitingClose(), "canForward" to bridge.canFowardPorts(), "canEnroll" to ((bridge.transport as? org.connectbot.transport.SSH)?.canEnrollKey == true),
                     "modifiers" to bridge.keyHandler.modifierState.value.let { mapOf("ctrl" to it.ctrlState.name, "alt" to it.altState.name, "shift" to it.shiftState.name) }, "automation" to bridge.automationState.value.let { mapOf("running" to it.running, "error" to it.error, "step" to it.step) },
                     "banners" to bridge.authBanners.value.map { mapOf("id" to it.id, "sourceName" to it.sourceName, "message" to it.message, "urls" to it.urls) },

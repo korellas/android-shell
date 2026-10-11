@@ -220,7 +220,7 @@ class _RecordEditorState extends State<RecordEditor> {
     if (widget.kind == RecordKind.host)
       const Padding(
         padding: EdgeInsets.only(bottom: 8),
-        child: Text('로그인 비밀번호를 안전하게 저장하여 자동 인증을 사용합니다'),
+        child: Text('로그인 비밀번호를 안전하게 저장해 자동으로 인증해요'),
       ),
     if (draft['hasPassword'] == true)
       Align(
@@ -709,7 +709,10 @@ class _RecordEditorState extends State<RecordEditor> {
 
 List<(Object?, String)> fontOptions(AndroidEngine engine) => [
   for (final font in rows(engine.preferences['fonts']))
-    (font['value'] as String, '${font['label']}'),
+    (
+      font['value'] as String,
+      font['value'] == 'SYSTEM_DEFAULT' ? '시스템 기본값' : '${font['label']}',
+    ),
   for (final font in (engine.preferences['customFonts'] as List? ?? []))
     ('custom:$font', '$font'),
   for (final font in rows(engine.preferences['localFonts']))

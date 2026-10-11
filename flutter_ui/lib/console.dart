@@ -173,9 +173,9 @@ class _ConsolePageState extends State<ConsolePage> {
           (parts.length != 2 ||
               int.tryParse(parts.first.trim()) == null ||
               int.tryParse(parts.last.trim()) == null)) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('행 x 열 형식으로 입력하세요.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('‘24x80’처럼 행x열로 입력해 주세요.')),
+        );
         return;
       }
       await command('session.view', {
@@ -295,7 +295,7 @@ class _ConsolePageState extends State<ConsolePage> {
     if (action == 'more') {
       final selected = await askAction(context, '추가 기능', [
         ('editPaste', '텍스트 편집 후 붙여넣기'),
-        ('compose', '입력 작성 모드'),
+        ('compose', session['composeMode'] == true ? '조합 모드 끄기' : '조합 모드 켜기'),
         ('urls', '링크 찾기'),
         if (session['open'] == true) ('resize', '터미널 크기 지정'),
         if (session['canForward'] == true && session['open'] == true)
@@ -310,8 +310,8 @@ class _ConsolePageState extends State<ConsolePage> {
         (
           'titlebarhide',
           engine.preferences['titlebarhide'] == true
-              ? '제목 줄 항상 표시'
-              : '제목 줄 자동 숨기기',
+              ? '제목 표시줄 항상 표시'
+              : '제목 표시줄 자동 숨기기',
         ),
       ]);
       if (selected != null && mounted) await selectMenuAction(selected);
@@ -364,22 +364,31 @@ class _ConsolePageState extends State<ConsolePage> {
               toolbarHeight: 36,
               primary: prefs['fullscreen'] != true,
               automaticallyImplyLeading: false,
-              titleSpacing: 8,
+              leading: IconButton(
+                tooltip: '뒤로',
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
+              titleSpacing: 0,
               title: InkWell(
                 onTap: pickSession,
-                child: Text(
-                  '${session['nickname'] ?? '터미널'}',
-                  style: Theme.of(context).textTheme.labelLarge,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '${session['nickname'] ?? '터미널'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                    ),
+                    if (engine.list('sessions').length > 1)
+                      const Icon(Icons.arrow_drop_down, size: 20),
+                  ],
                 ),
               ),
-              actions: [
-                IconButton(
-                  tooltip: '뒤로',
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                popup(),
-              ],
+              actions: [popup()],
             ),
       body: SafeArea(
         maintainBottomViewPadding: true,
@@ -409,7 +418,21 @@ class _ConsolePageState extends State<ConsolePage> {
             if (row(session['automation'])['running'] == true)
               const LinearProgressIndicator(),
             if (session.isEmpty)
-              const Expanded(child: Center(child: Text('세션이 종료되었습니다.')))
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('세션이 끝났어요'),
+                      const SizedBox(height: 12),
+                      FilledButton.tonal(
+                        onPressed: () => menu('reconnect'),
+                        child: const Text('다시 연결'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
             else
               Expanded(
                 child: Listener(
@@ -463,7 +486,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const Text('연결된 서버에 공개키를 등록하고 별도의 SSH 연결로 키 로그인을 확인합니다.'),
+            const Text('연결된 서버에 공개키를 등록하고 별도의 SSH 연결로 키 로그인이 되는지 확인해요.'),
             DropdownButtonFormField<int>(
               initialValue: keyId,
               decoration: const InputDecoration(labelText: '등록할 키'),
@@ -493,7 +516,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               ),
             if (state['busy'] == true) const LinearProgressIndicator(),
             Text(switch (state['stage']) {
-              'SUCCESS' => '공개키 등록과 키 로그인 검증을 완료했습니다.',
+              'SUCCESS' => '공개키 등록과 키 로그인 검증을 완료했어요.',
               'REGISTERING' => '서버에 공개키 등록 중…',
               'VERIFYING' => '키 로그인 확인 중…',
               'APPLYING' => '호스트에 키 적용 중…',

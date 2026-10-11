@@ -19,6 +19,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'engine.dart';
 import 'editors.dart';
+import 'settings_widgets.dart';
 import 'main.dart';
 export 'automation.dart';
 export 'settings.dart';
@@ -584,7 +585,8 @@ class KnownHostsPage extends StatelessWidget {
                   if (await confirm(
                         context,
                         '신뢰 삭제',
-                        '다음 연결에서 서버 키를 다시 확인합니다.',
+                        '다음에 연결할 때 서버 키를 다시 확인해요.',
+                        action: '지우기',
                       ) &&
                       context.mounted) {
                     await runEngine(context, engine, 'knownHost.delete', {
@@ -637,79 +639,223 @@ class SchemesPage extends StatelessWidget {
         },
         child: const Icon(Icons.add),
       ),
-      body: ListView(
-        children: [
-          for (final scheme in engine.list('schemes'))
-            ListTile(
-              title: Text('${scheme['name']}'),
-              subtitle: Text('${scheme['description'] ?? ''}'),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => PalettePage(engine: engine, scheme: scheme),
-                ),
-              ),
-              trailing: PopupMenuButton<String>(
-                onSelected: (action) async {
-                  if (action == 'duplicate' || action == 'rename') {
-                    final name = await askText(
-                      context,
-                      '테마 이름',
-                      initial:
-                          '${scheme['name']}${action == 'duplicate' ? ' copy' : ''}',
-                    );
-                    if (name != null && context.mounted) {
-                      await runEngine(context, engine, 'scheme.$action', {
-                        'id': scheme['id'],
-                        'name': name,
-                      });
-                    }
-                  }
-                  if (action == 'delete' &&
-                      context.mounted &&
-                      await confirm(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+          final count = constraints.maxWidth < 360 || scale > 1.4
+              ? 1
+              : constraints.maxWidth > 900
+              ? 3
+              : 2;
+          final selectedId = defaultProfile(engine)['colorSchemeId'];
+          return GridView.count(
+            crossAxisCount: count,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            mainAxisExtent: 128 + scale * 64,
+            children: [
+              for (final scheme in engine.list('schemes'))
+                Semantics(
+                  selected: scheme['id'] == selectedId,
+                  child: Card.filled(
+                    margin: EdgeInsets.zero,
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: scheme['id'] == selectedId
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.outlineVariant,
+                        width: scheme['id'] == selectedId ? 2 : 1,
+                      ),
+                    ),
+                    child: InkWell(
+                      onTap: () => runEngine(
                         context,
-                        '테마 삭제',
-                        '${scheme['name']} 테마를 삭제할까요?',
-                      ) &&
-                      context.mounted) {
-                    await runEngine(context, engine, 'scheme.delete', {
-                      'id': scheme['id'],
-                    });
-                  }
-                  if (action == 'export' && context.mounted) {
-                    final text = await runEngine(
-                      context,
-                      engine,
-                      'scheme.export',
-                      {'id': scheme['id']},
-                    );
-                    if (text == null || !context.mounted) return;
-                    final uri = await runEngine(
-                      context,
-                      engine,
-                      'document.create',
-                      {'name': '${scheme['name']}.json'},
-                    );
-                    if (uri != null && context.mounted) {
-                      await runEngine(context, engine, 'document.write', {
-                        'uri': uri,
-                        'text': text,
-                      });
-                    }
-                  }
-                },
-                itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'duplicate', child: Text('복제')),
-                  const PopupMenuItem(value: 'export', child: Text('내보내기')),
-                  if ((scheme['id'] as int) >= 0) ...[
-                    const PopupMenuItem(value: 'rename', child: Text('이름 변경')),
-                    const PopupMenuItem(value: 'delete', child: Text('삭제')),
-                  ],
-                ],
-              ),
-            ),
-        ],
+                        engine,
+                        'settings.update',
+                        {'key': 'colorScheme', 'value': scheme['id']},
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: Container(
+                              color: paletteColor(scheme, 'background'),
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    r'~ $ ls',
+                                    style: TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 12,
+                                      color: paletteColor(scheme, 'foreground'),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      for (final color
+                                          in (scheme['palette'] as List? ?? [])
+                                              .skip(1)
+                                              .take(4))
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: 4,
+                                          ),
+                                          child: Container(
+                                            width: 14,
+                                            height: 14,
+                                            decoration: BoxDecoration(
+                                              color: Color(
+                                                (color as num).toInt(),
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(7),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${scheme['name']}',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall,
+                                  ),
+                                ),
+                                if (scheme['id'] == selectedId)
+                                  Icon(
+                                    Icons.check_circle,
+                                    size: 20,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                PopupMenuButton<String>(
+                                  tooltip: '${scheme['name']} 옵션',
+                                  onSelected: (action) async {
+                                    if (action == 'edit') {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => PalettePage(
+                                            engine: engine,
+                                            scheme: scheme,
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    if (action == 'duplicate' ||
+                                        action == 'rename') {
+                                      final name = await askText(
+                                        context,
+                                        '테마 이름',
+                                        initial:
+                                            '${scheme['name']}${action == 'duplicate' ? ' copy' : ''}',
+                                      );
+                                      if (name != null && context.mounted) {
+                                        await runEngine(
+                                          context,
+                                          engine,
+                                          'scheme.$action',
+                                          {'id': scheme['id'], 'name': name},
+                                        );
+                                      }
+                                    }
+                                    if (action == 'delete' &&
+                                        context.mounted &&
+                                        await confirm(
+                                          context,
+                                          '테마 삭제',
+                                          '${scheme['name']} 테마를 삭제할까요?',
+                                        ) &&
+                                        context.mounted) {
+                                      await runEngine(
+                                        context,
+                                        engine,
+                                        'scheme.delete',
+                                        {'id': scheme['id']},
+                                      );
+                                    }
+                                    if (action == 'export' && context.mounted) {
+                                      final text = await runEngine(
+                                        context,
+                                        engine,
+                                        'scheme.export',
+                                        {'id': scheme['id']},
+                                      );
+                                      if (text == null || !context.mounted) {
+                                        return;
+                                      }
+                                      final uri = await runEngine(
+                                        context,
+                                        engine,
+                                        'document.create',
+                                        {'name': '${scheme['name']}.json'},
+                                      );
+                                      if (uri != null && context.mounted) {
+                                        await runEngine(
+                                          context,
+                                          engine,
+                                          'document.write',
+                                          {'uri': uri, 'text': text},
+                                        );
+                                      }
+                                    }
+                                  },
+                                  itemBuilder: (_) => [
+                                    const PopupMenuItem(
+                                      value: 'edit',
+                                      child: Text('팔레트 편집'),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'duplicate',
+                                      child: Text('복제'),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'export',
+                                      child: Text('내보내기'),
+                                    ),
+                                    if ((scheme['id'] as int) >= 0) ...[
+                                      const PopupMenuItem(
+                                        value: 'rename',
+                                        child: Text('이름 변경'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('삭제'),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     ),
   );
@@ -773,7 +919,7 @@ class _PalettePageState extends State<PalettePage> {
         padding: const EdgeInsets.all(16),
         children: [
           if (error != null) Text(error!),
-          if (!editable) const Text('기본 테마를 수정하려면 먼저 복제하세요.'),
+          if (!editable) const Text('기본 테마를 수정하려면 먼저 복제해 주세요.'),
           for (final field in ['foreground', 'background'])
             DropdownButtonFormField<int>(
               key: ValueKey('$field:${palette[field]}'),
@@ -829,7 +975,7 @@ class _PalettePageState extends State<PalettePage> {
                           );
                           if (value == null || value < 0 || value > 0xffffff) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('RGB 색상을 입력하세요.')),
+                              const SnackBar(content: Text('RGB 색상을 입력해 주세요.')),
                             );
                             return;
                           }

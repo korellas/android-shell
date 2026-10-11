@@ -28,3 +28,7 @@ advanced authentication, profile overrides, and diagnostic logs are collapsed.
 SSH-only controls are shown for SSH and Mosh connections. This organization is a
 baseline for further design work; it does not establish visual parity with the
 native UI.
+
+The settings layout follows the [Flutter design guide](../docs/design/flutter-settings.html),
+based on the supplied review examples. Its rendered previews use sample data;
+they are separate from device captures.
