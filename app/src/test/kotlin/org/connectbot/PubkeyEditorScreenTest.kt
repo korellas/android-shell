@@ -67,7 +67,7 @@ class PubkeyEditorScreenTest {
         }
 
         composeTestRule
-            .onNodeWithText("Pubkeys")
+            .onNodeWithText(composeTestRule.activity.getString(R.string.title_pubkey_list))
             .assertIsDisplayed()
     }
 

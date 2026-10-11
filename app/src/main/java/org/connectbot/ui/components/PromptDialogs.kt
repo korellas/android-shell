@@ -19,9 +19,10 @@ package org.connectbot.ui.components
 
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -51,24 +52,26 @@ fun BiometricPromptHandler(
     val subtitle = stringResource(R.string.pubkey_biometric_prompt_subtitle, prompt.keyNickname)
     val negativeButtonText = stringResource(R.string.delete_neg)
 
-    LaunchedEffect(prompt, title, subtitle, negativeButtonText) {
+    DisposableEffect(prompt, title, subtitle, negativeButtonText) {
         if (activity == null) {
             Timber.e("Cannot show BiometricPrompt: FragmentActivity not found")
             currentOnResponse(PromptResponse.BiometricResponse(false))
-            return@LaunchedEffect
+            return@DisposableEffect onDispose {}
         }
+
+        var active = true
 
         val executor = ContextCompat.getMainExecutor(context)
 
         val callback = object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 Timber.d("Biometric authentication succeeded")
-                currentOnResponse(PromptResponse.BiometricResponse(true))
+                if (active) currentOnResponse(PromptResponse.BiometricResponse(true, result.cryptoObject))
             }
 
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 Timber.e("Biometric authentication error: $errorCode - $errString")
-                currentOnResponse(PromptResponse.BiometricResponse(false))
+                if (active) currentOnResponse(PromptResponse.BiometricResponse(false))
             }
 
             override fun onAuthenticationFailed() {
@@ -83,9 +86,18 @@ fun BiometricPromptHandler(
             .setTitle(title)
             .setSubtitle(subtitle)
             .setNegativeButtonText(negativeButtonText)
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
             .build()
 
-        biometricPrompt.authenticate(promptInfo)
+        if (prompt.cryptoObject != null) {
+            biometricPrompt.authenticate(promptInfo, prompt.cryptoObject)
+        } else {
+            biometricPrompt.authenticate(promptInfo)
+        }
+        onDispose {
+            active = false
+            biometricPrompt.cancelAuthentication()
+        }
     }
 }
 

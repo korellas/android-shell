@@ -58,16 +58,21 @@ fun EditorScaffold(
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
     saveModifier: Modifier = Modifier,
+    onNavigateWithinEditor: (() -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     var showDiscardDialog by remember { mutableStateOf(false) }
     val requestBack = {
         if (!isSaving) {
-            if (confirmDiscard) showDiscardDialog = true else onNavigateBack()
+            when {
+                onNavigateWithinEditor != null -> onNavigateWithinEditor()
+                confirmDiscard -> showDiscardDialog = true
+                else -> onNavigateBack()
+            }
         }
     }
 
-    BackHandler(enabled = confirmDiscard || isSaving) { requestBack() }
+    BackHandler(enabled = onNavigateWithinEditor != null || confirmDiscard || isSaving) { requestBack() }
 
     Scaffold(
         modifier = modifier,

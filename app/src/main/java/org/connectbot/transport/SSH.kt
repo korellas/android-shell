@@ -31,6 +31,7 @@ import com.trilead.ssh2.InteractiveCallback
 import com.trilead.ssh2.IpVersion
 import com.trilead.ssh2.KnownHosts
 import com.trilead.ssh2.LocalPortForwarder
+import com.trilead.ssh2.ServerHostKeyVerifier
 import com.trilead.ssh2.Session
 import com.trilead.ssh2.UserAuthBannerCallback
 import com.trilead.ssh2.crypto.PEMDecoder
@@ -100,6 +101,8 @@ open class SSH :
     @Volatile
     protected var sessionOpen = false
 
+    private var authenticatedUsername: String? = null
+
     protected var connection: Connection? = null
     private val jumpConnections: MutableList<Connection> = mutableListOf()
     protected var session: Session? = null
@@ -127,6 +130,58 @@ open class SSH :
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun setConnectionForTesting(connection: Connection?) {
         this.connection = connection
+    }
+
+    internal val canEnrollKey: Boolean
+        get() = authenticated && connected && connection != null
+
+    internal val keyEnrollmentUsername: String
+        get() = authenticatedUsername ?: host?.username.orEmpty()
+
+    internal fun registerPublicKey(pubkey: Pubkey): KeyRegistration {
+        val active = connection?.takeIf { it.isAuthenticationComplete }
+            ?: throw IOException("Log in to this server before registering a key.")
+        val publicKey = if (pubkey.type == "IMPORTED") {
+            getAuthenticationKey(pubkey)?.public ?: throw IOException("Could not unlock the selected key.")
+        } else {
+            PubkeyUtils.decodePublic(pubkey.publicKey, pubkey.type)
+        }
+        return SshKeyEnrollment.install(active, publicKey)
+    }
+
+    internal fun verifyPublicKey(pubkey: Pubkey): KeyLoginVerification {
+        val configured = host ?: throw IOException("Missing host configuration")
+        val active = connection?.takeIf { it.isAuthenticationComplete }
+            ?: throw IOException("The original SSH connection is no longer authenticated.")
+        val info = active.connectionInfo
+        val pinnedKey = info.serverHostKey?.copyOf() ?: throw IOException("Missing authenticated server key")
+        val pinnedAlgorithm = info.serverHostKeyAlgorithm ?: throw IOException("Missing server key algorithm")
+        val username = keyEnrollmentUsername
+        if (username.isBlank()) throw IOException("Missing authenticated username")
+        val jump = synchronized(jumpConnections) { jumpConnections.lastOrNull() }
+        if (configured.jumpHostId != null && jump == null) throw IOException("The SSH jump connection is no longer available.")
+        Connection(configured.hostname, configured.port).use { verification ->
+            jump?.let { verification.setProxyData(JumpHostProxyData(it)) }
+            verification.setServerHostKeyAlgorithms(arrayOf(pinnedAlgorithm))
+            verification.connect(
+                ServerHostKeyVerifier { _, _, algorithm, key -> algorithm == pinnedAlgorithm && key.contentEquals(pinnedKey) },
+                15_000,
+                30_000,
+                parseIpVersion(configured.ipVersion, configured.hostname),
+            )
+            val pair = getAuthenticationKey(pubkey) ?: throw IOException("Could not unlock the selected key.")
+            val identity = createAuthenticationIdentity(verification, pubkey.nickname, pair, pubkey)
+                ?: throw IOException("Could not prepare the selected key.")
+            if (!identity.confirm()) throw AuthenticationCancelledException()
+            if (!identity.prepare() || !verification.probePublicKey(username, pair.public)) return KeyLoginVerification.REJECTED
+            val accepted = identity.signatureProxy?.let { verification.authenticateWithPublicKey(username, it) }
+                ?: verification.authenticateWithPublicKey(username, pair)
+            return when {
+                accepted -> KeyLoginVerification.VERIFIED
+                verification.isAuthenticationPartialSuccess -> KeyLoginVerification.ADDITIONAL_AUTH_REQUIRED
+                else -> KeyLoginVerification.REJECTED
+            }
+        }
     }
 
     private fun registerUserAuthBanner(connection: Connection, sourceName: String) {
@@ -469,7 +524,9 @@ open class SSH :
                     bridge?.outputLine(manager?.res?.getString(message))
                 },
                 onFailure = { e -> Timber.e(e, "Connection failed during authentication for %s", sourceName) },
-            ).authenticate()
+            ).authenticate().also { outcome ->
+                if (!isJump && outcome == AuthenticationOutcome.Authenticated) authenticatedUsername = authHost.username
+            }
         } finally {
             bridge?.dismissAuthBannersFrom(sourceName)
         }
@@ -498,6 +555,18 @@ open class SSH :
             isAvailable,
             confirm = { pubkey?.confirmation != true || promptForPubkeyUse(nickname) },
             prepare = { preparePublicKeyAuthentication(jc, pair, pubkey?.storageType) },
+            signatureProxy = if (pubkey?.storageType == KeyStorageType.ANDROID_KEYSTORE &&
+                pubkey.keystoreAlias?.let { manager?.biometricKeyManager?.isAuthPerUse(it) } == true
+            ) {
+                val alias = requireNotNull(pubkey.keystoreAlias)
+                BiometricSshSigner(
+                    pair.public,
+                    createCryptoObject = { algorithm -> requireNotNull(manager).biometricKeyManager.getCryptoObject(alias, algorithm) },
+                    authenticate = { crypto -> bridge?.requestBiometricAuth(nickname, alias, crypto) == true },
+                )
+            } else {
+                null
+            },
         )
     } catch (e: IOException) {
         Timber.w(e, "Unable to encode public key '%s'", nickname)
@@ -525,6 +594,12 @@ open class SSH :
                 Timber.e(message)
                 bridge?.outputLine(message)
                 return null
+            }
+
+            val keyManager = manager?.biometricKeyManager
+            if (keyManager?.isAuthPerUse(keystoreAlias) == true) {
+                val publicKey = keyManager.getPublicKey(keystoreAlias) ?: return null
+                return KeyPair(publicKey, keyManager.getPrivateKey(keystoreAlias))
             }
 
             bridge?.outputLine(manager?.res?.getString(R.string.terminal_auth_biometric, pubkey.nickname))

@@ -122,7 +122,7 @@ class HostListScreenTest {
     @Test
     fun hostListScreen_menuOpensOnClick() {
         val moreOptions = composeTestRule.activity.getString(R.string.button_more_options)
-        val managePubkeys = composeTestRule.activity.getString(R.string.list_menu_pubkeys)
+        val managePubkeys = composeTestRule.activity.getString(R.string.login_title)
 
         composeTestRule.setContent {
             ConnectBotTheme {
@@ -252,7 +252,7 @@ class HostListScreenTest {
         assertTrue(profilesCalled)
 
         openTopMenu()
-        composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.list_menu_pubkeys)).performClick()
+        composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.login_title)).performClick()
         assertTrue(pubkeysCalled)
 
         openTopMenu()
@@ -470,10 +470,10 @@ class HostListScreenTest {
     }
 
     @Test
-    fun hostListOffersAuthenticationIdentities() {
+    fun hostListOffersOneLoginEntry() {
         setHostListContent()
         openTopMenu()
-        composeTestRule.onNodeWithText("Authentication identities").assertIsDisplayed()
+        composeTestRule.onNodeWithText(composeTestRule.activity.getString(R.string.login_title)).assertIsDisplayed()
     }
 
     private fun openHostMenu(host: Host) {
