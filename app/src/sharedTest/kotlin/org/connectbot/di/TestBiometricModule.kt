@@ -48,6 +48,7 @@ object TestBiometricModule {
         override fun getPrivateKey(alias: String): PrivateKey = throw UnsupportedOperationException()
         override fun getPublicKey(alias: String): PublicKey? = null
         override fun keyExists(alias: String) = false
+        override fun isAuthPerUse(alias: String) = false
         override fun deleteKey(alias: String) {}
         override fun sign(signature: Signature, data: ByteArray): ByteArray = throw UnsupportedOperationException()
     }

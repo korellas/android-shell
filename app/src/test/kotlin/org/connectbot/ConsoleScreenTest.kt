@@ -183,7 +183,16 @@ class ConsoleScreenTest {
             }
             NavHost(navController, startDestination = "start") {
                 composable("start") {}
-                composable("console/{hostId}", arguments = listOf(navArgument("hostId") { type = NavType.LongType })) {}
+                composable(
+                    "console/{hostId}?keySetup={keySetup}",
+                    arguments = listOf(
+                        navArgument("hostId") { type = NavType.LongType },
+                        navArgument("keySetup") {
+                            type = NavType.BoolType
+                            defaultValue = false
+                        },
+                    ),
+                ) {}
             }
         }
         composeTestRule.runOnIdle {

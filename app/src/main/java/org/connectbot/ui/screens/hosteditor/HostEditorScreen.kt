@@ -18,15 +18,21 @@
 package org.connectbot.ui.screens.hosteditor
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -35,6 +41,10 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenu
@@ -43,6 +53,8 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -51,10 +63,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -63,11 +77,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import kotlinx.coroutines.launch
@@ -98,6 +116,8 @@ fun HostEditorScreen(
     viewModel: HostEditorViewModel = hiltViewModel(),
     onNavigateToKnownHosts: (Long) -> Unit = {},
     onNavigateToIdentities: () -> Unit = {},
+    onNavigateToLogin: () -> Unit = {},
+    onNavigateToKeySetup: (Long) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -107,6 +127,8 @@ fun HostEditorScreen(
         onNavigateBack = onNavigateBack,
         onNavigateToKnownHosts = onNavigateToKnownHosts,
         onNavigateToIdentities = onNavigateToIdentities,
+        onNavigateToLogin = onNavigateToLogin,
+        onNavigateToKeySetup = onNavigateToKeySetup,
         onIdentityChange = viewModel::updateIdentity,
         onNicknameChange = viewModel::updateNickname,
         onNicknameFocusChange = viewModel::onNicknameFocusChanged,
@@ -174,6 +196,8 @@ fun HostEditorScreenContent(
     onNavigateToKnownHosts: (Long) -> Unit = {},
     onNavigateToIdentities: () -> Unit = {},
     onIdentityChange: (Long?) -> Unit = {},
+    onNavigateToLogin: () -> Unit = {},
+    onNavigateToKeySetup: (Long) -> Unit = {},
 ) {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -183,425 +207,489 @@ fun HostEditorScreenContent(
     var showProtocolMenu by remember { mutableStateOf(false) }
     var showIdentityMenu by remember { mutableStateOf(false) }
     var showAdvancedOptions by rememberSaveable(hostId) { mutableStateOf(false) }
+    var category by rememberSaveable(hostId) { mutableStateOf<String?>(if (hostId == -1L) HostEditorCategory.CONNECTION.name else null) }
     val protocols = listOf("ssh", "mosh", "telnet", "local")
     val canSave = (uiState.protocol == "local" || uiState.hostname.isNotBlank()) &&
         (uiState.protocol != "mosh" || uiState.isMoshNetworkTimeoutValid)
+    val editorTitle = stringResource(if (hostId == -1L) R.string.hostpref_add_host else R.string.hostpref_setting_title)
 
-    EditorScaffold(
-        title = stringResource(if (hostId == -1L) R.string.hostpref_add_host else R.string.hostpref_setting_title),
-        saveContentDescription = stringResource(if (hostId == -1L) R.string.hostpref_add_host else R.string.hostpref_save_host),
-        saveVisible = uiState.hasUnsavedChanges && canSave,
-        confirmDiscard = uiState.hasUnsavedChanges,
-        isSaving = uiState.isSaving,
-        onNavigateBack = onNavigateBack,
-        onSave = {
-            coroutineScope.launch {
-                if (onSaveHost()) onNavigateBack()
-            }
-        },
-        snackbarHostState = snackbarHostState,
-        saveModifier = Modifier.testTag("add_host_button"),
-        modifier = modifier,
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
-        ) {
-            OutlinedTextField(
-                value = uiState.nickname,
-                onValueChange = onNicknameChange,
-                label = { Text(stringResource(R.string.hostpref_nickname_title)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { onNicknameFocusChange(it.isFocused) },
-                singleLine = true,
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-            // Protocol selector
-            ExposedDropdownMenuBox(
-                expanded = showProtocolMenu,
-                onExpandedChange = { showProtocolMenu = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-            ) {
-                OutlinedTextField(
-                    value = uiState.protocol,
-                    onValueChange = {},
-                    label = { Text(stringResource(R.string.protocol_spinner_label)) },
-                    readOnly = true,
-                    singleLine = true,
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = showProtocolMenu)
-                    },
-                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                    modifier = Modifier
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                        .fillMaxWidth(),
-                )
-
-                ExposedDropdownMenu(
-                    expanded = showProtocolMenu,
-                    onDismissRequest = { showProtocolMenu = false },
-                ) {
-                    protocols.forEach { protocol ->
-                        DropdownMenuItem(
-                            text = { Text(protocol) },
-                            onClick = {
-                                onProtocolChange(protocol)
-                                showProtocolMenu = false
-                            },
-                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
-                        )
-                    }
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val wide = maxWidth >= 600.dp
+        val selectedCategory = category?.let { HostEditorCategory.valueOf(it) } ?: if (wide) HostEditorCategory.CONNECTION else null
+        EditorScaffold(
+            title = if (!wide && selectedCategory != null) stringResource(selectedCategory.title) else editorTitle,
+            saveContentDescription = stringResource(if (hostId == -1L) R.string.hostpref_add_host else R.string.hostpref_save_host),
+            saveVisible = uiState.hasUnsavedChanges && canSave,
+            confirmDiscard = uiState.hasUnsavedChanges,
+            isSaving = uiState.isSaving,
+            onNavigateBack = onNavigateBack,
+            onNavigateWithinEditor = if (!wide && category != null) ({ category = null }) else null,
+            onSave = {
+                coroutineScope.launch {
+                    if (onSaveHost()) onNavigateBack()
                 }
-            }
-
-            // Only show username, hostname, and port for non-local protocols
-            if (uiState.protocol != "local") {
-                // Show username field for SSH and Mosh protocols
-                if (uiState.protocol == "ssh" || uiState.protocol == "mosh") {
-                    ExposedDropdownMenuBox(expanded = showIdentityMenu, onExpandedChange = { showIdentityMenu = it }, modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = uiState.availableIdentities.find { it.id == uiState.identityId }?.name ?: stringResource(R.string.identity_per_host),
-                            onValueChange = {},
-                            readOnly = true,
-                            singleLine = true,
-                            label = { Text(stringResource(R.string.identities_title)) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(showIdentityMenu) },
-                            modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth().padding(top = 8.dp),
-                        )
-                        ExposedDropdownMenu(expanded = showIdentityMenu, onDismissRequest = { showIdentityMenu = false }) {
-                            DropdownMenuItem(text = { Text(stringResource(R.string.identity_per_host)) }, onClick = {
-                                onIdentityChange(null)
-                                showIdentityMenu = false
-                            })
-                            uiState.availableIdentities.forEach { identity ->
-                                DropdownMenuItem(text = { Text(identity.name) }, onClick = {
-                                    onIdentityChange(identity.id)
-                                    showIdentityMenu = false
-                                })
-                            }
+            },
+            snackbarHostState = snackbarHostState,
+            saveModifier = Modifier.testTag("add_host_button"),
+        ) { padding ->
+            Row(Modifier.padding(padding).fillMaxSize()) {
+                if (wide || selectedCategory == null) {
+                    Column(
+                        modifier = (if (wide) Modifier.width(280.dp) else Modifier.fillMaxWidth())
+                            .fillMaxHeight().verticalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                    ) {
+                        if (uiState.nickname.isNotBlank()) {
+                            Text(uiState.nickname, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(16.dp))
                         }
-                    }
-                    TextButton(onClick = onNavigateToIdentities) { Text(stringResource(R.string.identity_manage)) }
-                    OutlinedTextField(
-                        value = uiState.username,
-                        enabled = uiState.identityId == null,
-                        onValueChange = onUsernameChange,
-                        label = { Text(stringResource(R.string.hostpref_username_title)) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        singleLine = true,
-                    )
-                }
-
-                OutlinedTextField(
-                    value = uiState.hostname,
-                    onValueChange = onHostnameChange,
-                    label = { Text(stringResource(R.string.hostpref_hostname_title)) },
-                    isError = uiState.hostname.isBlank(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    singleLine = true,
-                )
-
-                OutlinedTextField(
-                    value = uiState.port,
-                    onValueChange = onPortChange,
-                    label = { Text(stringResource(R.string.hostpref_port_title)) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    singleLine = true,
-                )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showAdvancedOptions = !showAdvancedOptions }
-                        .padding(vertical = 8.dp),
-                ) {
-                    Text(
-                        text = stringResource(
-                            if (showAdvancedOptions) R.string.host_editor_hide_advanced else R.string.host_editor_show_advanced,
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Icon(
-                        if (showAdvancedOptions) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = stringResource(
-                            if (showAdvancedOptions) R.string.button_collapse else R.string.expand,
-                        ),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-
-                if (showAdvancedOptions) {
-                    // IP version selector (disabled for literal IP addresses)
-                    IpVersionSelector(
-                        ipVersion = uiState.ipVersion,
-                        hostname = uiState.hostname,
-                        onIpVersionSelect = onIpVersionChange,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-
-                    // Mosh-specific fields
-                    if (uiState.protocol == "mosh") {
-                        OutlinedTextField(
-                            value = uiState.moshServer,
-                            onValueChange = onMoshServerChange,
-                            label = { Text(stringResource(R.string.hostpref_mosh_server_title)) },
-                            supportingText = { Text(stringResource(R.string.hostpref_mosh_server_summary)) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            singleLine = true,
-                        )
-
-                        OutlinedTextField(
-                            value = uiState.moshPort,
-                            onValueChange = onMoshPortChange,
-                            label = { Text(stringResource(R.string.hostpref_mosh_port_title)) },
-                            supportingText = { Text(stringResource(R.string.hostpref_mosh_port_summary)) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            singleLine = true,
-                        )
-
-                        OutlinedTextField(
-                            value = uiState.moshNetworkTimeout,
-                            onValueChange = onMoshNetworkTimeoutChange,
-                            label = { Text(stringResource(R.string.hostpref_mosh_network_timeout_title)) },
-                            isError = !uiState.isMoshNetworkTimeoutValid,
-                            supportingText = {
-                                Text(
-                                    stringResource(
-                                        if (uiState.isMoshNetworkTimeoutValid) {
-                                            R.string.hostpref_mosh_network_timeout_summary
-                                        } else {
-                                            R.string.hostpref_mosh_network_timeout_error
-                                        },
-                                    ),
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                            singleLine = true,
-                        )
-
-                        OutlinedTextField(
-                            value = uiState.locale,
-                            onValueChange = onLocaleChange,
-                            label = { Text(stringResource(R.string.hostpref_locale_title)) },
-                            supportingText = { Text(stringResource(R.string.hostpref_locale_summary)) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            singleLine = true,
-                        )
-                    }
-
-                    // Save password section (SSH and Mosh)
-                    if ((uiState.protocol == "ssh" || uiState.protocol == "mosh") && uiState.identityId == null) {
-                        OutlinedTextField(
-                            value = uiState.password,
-                            onValueChange = onPasswordChange,
-                            label = {
-                                Text(
-                                    if (uiState.hasExistingPassword && uiState.password.isEmpty()) {
-                                        stringResource(R.string.hostpref_password_unchanged)
-                                    } else {
-                                        stringResource(R.string.hostpref_password_title)
+                        HostEditorCategory.entries.forEach { entry ->
+                            val selected = wide && selectedCategory == entry
+                            Surface(
+                                onClick = { category = entry.name },
+                                shape = RoundedCornerShape(28.dp),
+                                color = if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent,
+                                modifier = Modifier.fillMaxWidth().semantics { this.selected = selected }.testTag("host_category_" + entry.tag),
+                            ) {
+                                ListItem(
+                                    headlineContent = { Text(stringResource(entry.title)) },
+                                    supportingContent = { Text(hostCategorySummary(entry, uiState), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                    leadingContent = {
+                                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                                            Icon(entry.icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(9.dp).size(22.dp))
+                                        }
                                     },
+                                    colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                                 )
-                            },
-                            supportingText = {
-                                Text(stringResource(R.string.hostpref_save_password_summary))
-                            },
-                            visualTransformation = PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            singleLine = true,
-                        )
-
-                        if (uiState.hasExistingPassword) {
-                            TextButton(
-                                onClick = onClearPassword,
-                                modifier = Modifier.padding(top = 4.dp),
-                            ) {
-                                Text(stringResource(R.string.hostpref_clear_password))
-                            }
-                        }
-
-                        if (hostId != -1L) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onNavigateToKnownHosts(hostId) }
-                                    .padding(vertical = 8.dp)
-                                    .testTag("known_host_keys_preference"),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = stringResource(R.string.hostpref_known_hosts_title),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.hostpref_known_hosts_summary),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
                             }
                         }
                     }
                 }
-            }
+                if (selectedCategory != null) {
+                    if (wide) VerticalDivider()
+                    key(selectedCategory) {
+                        Column(
+                            modifier = Modifier.weight(1f).fillMaxHeight()
+                                .verticalScroll(rememberScrollState()).testTag("host_editor_details")
+                                .padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 88.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            if (wide) {
+                                Text(stringResource(selectedCategory.title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+                            }
+                            when (selectedCategory) {
+                                HostEditorCategory.CONNECTION -> {
+                                    HostEditorGroup {
+                                        OutlinedTextField(
+                                            value = uiState.nickname,
+                                            onValueChange = onNicknameChange,
+                                            label = { Text(stringResource(R.string.hostpref_nickname_title)) },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .onFocusChanged { onNicknameFocusChange(it.isFocused) },
+                                            singleLine = true,
+                                        )
+                                        // Protocol selector
+                                        ExposedDropdownMenuBox(
+                                            expanded = showProtocolMenu,
+                                            onExpandedChange = { showProtocolMenu = it },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 8.dp),
+                                        ) {
+                                            OutlinedTextField(
+                                                value = uiState.protocol,
+                                                onValueChange = {},
+                                                label = { Text(stringResource(R.string.protocol_spinner_label)) },
+                                                readOnly = true,
+                                                singleLine = true,
+                                                trailingIcon = {
+                                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = showProtocolMenu)
+                                                },
+                                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                                                modifier = Modifier
+                                                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                                                    .fillMaxWidth(),
+                                            )
 
-            // Color selector
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-            ColorSelector(
-                selectedColor = uiState.color,
-                onColorSelect = onColorChange,
-            )
+                                            ExposedDropdownMenu(
+                                                expanded = showProtocolMenu,
+                                                onDismissRequest = { showProtocolMenu = false },
+                                            ) {
+                                                protocols.forEach { protocol ->
+                                                    DropdownMenuItem(
+                                                        text = { Text(protocol) },
+                                                        onClick = {
+                                                            onProtocolChange(protocol)
+                                                            showProtocolMenu = false
+                                                        },
+                                                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        if (uiState.protocol != "local") {
+                                            OutlinedTextField(
+                                                value = uiState.hostname,
+                                                onValueChange = onHostnameChange,
+                                                label = { Text(stringResource(R.string.hostpref_hostname_title)) },
+                                                isError = uiState.hostname.isBlank(),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(top = 8.dp),
+                                                singleLine = true,
+                                            )
 
-            // Pubkey selector
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-            if (uiState.identityId == null) {
-                PubkeySelector(
-                    pubkeyId = uiState.pubkeyId,
-                    availablePubkeys = uiState.availablePubkeys,
-                    onPubkeySelect = onPubkeyChange,
-                )
-            }
+                                            OutlinedTextField(
+                                                value = uiState.port,
+                                                onValueChange = onPortChange,
+                                                label = { Text(stringResource(R.string.hostpref_port_title)) },
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(top = 8.dp),
+                                                singleLine = true,
+                                            )
+                                        }
+                                    }
+                                    if (uiState.protocol != "local") {
+                                        HostEditorGroup {
+                                            TextButton(onClick = { showAdvancedOptions = !showAdvancedOptions }, modifier = Modifier.fillMaxWidth()) {
+                                                Text(stringResource(if (showAdvancedOptions) R.string.host_editor_hide_advanced else R.string.host_editor_show_advanced))
+                                                Spacer(Modifier.width(4.dp))
+                                                Icon(if (showAdvancedOptions) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null)
+                                            }
+                                            if (showAdvancedOptions) {
+                                                // IP version selector (disabled for literal IP addresses)
+                                                IpVersionSelector(
+                                                    ipVersion = uiState.ipVersion,
+                                                    hostname = uiState.hostname,
+                                                    onIpVersionSelect = onIpVersionChange,
+                                                    modifier = Modifier.padding(top = 8.dp),
+                                                )
 
-            // Profile selector
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-            ProfileSelector(
-                profileId = uiState.profileId,
-                availableProfiles = uiState.availableProfiles,
-                onProfileSelect = onProfileChange,
-                onEditProfile = onNavigateToProfile,
-            )
+                                                // Mosh-specific fields
+                                                if (uiState.protocol == "mosh") {
+                                                    OutlinedTextField(
+                                                        value = uiState.moshServer,
+                                                        onValueChange = onMoshServerChange,
+                                                        label = { Text(stringResource(R.string.hostpref_mosh_server_title)) },
+                                                        supportingText = { Text(stringResource(R.string.hostpref_mosh_server_summary)) },
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(top = 8.dp),
+                                                        singleLine = true,
+                                                    )
 
-            // Jump host selector (for SSH and Mosh protocols)
-            if (uiState.protocol == "ssh" || uiState.protocol == "mosh") {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-                JumpHostSelector(
-                    jumpHostId = uiState.jumpHostId,
-                    availableJumpHosts = uiState.availableJumpHosts,
-                    onJumpHostSelect = onJumpHostChange,
-                )
-            }
+                                                    OutlinedTextField(
+                                                        value = uiState.moshPort,
+                                                        onValueChange = onMoshPortChange,
+                                                        label = { Text(stringResource(R.string.hostpref_mosh_port_title)) },
+                                                        supportingText = { Text(stringResource(R.string.hostpref_mosh_port_summary)) },
+                                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(top = 8.dp),
+                                                        singleLine = true,
+                                                    )
 
-            // SSH Auth agent
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-            SwitchPreference(
-                title = stringResource(R.string.hostpref_authagent_title),
-                checked = uiState.useAuthAgent != "no",
-                onCheckedChange = { checked ->
-                    onUseAuthAgentChange(if (checked) "yes" else "no")
-                },
-            )
+                                                    OutlinedTextField(
+                                                        value = uiState.moshNetworkTimeout,
+                                                        onValueChange = onMoshNetworkTimeoutChange,
+                                                        label = { Text(stringResource(R.string.hostpref_mosh_network_timeout_title)) },
+                                                        isError = !uiState.isMoshNetworkTimeoutValid,
+                                                        supportingText = {
+                                                            Text(
+                                                                stringResource(
+                                                                    if (uiState.isMoshNetworkTimeoutValid) {
+                                                                        R.string.hostpref_mosh_network_timeout_summary
+                                                                    } else {
+                                                                        R.string.hostpref_mosh_network_timeout_error
+                                                                    },
+                                                                ),
+                                                            )
+                                                        },
+                                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                                        singleLine = true,
+                                                    )
 
-            if (uiState.useAuthAgent != "no") {
-                SwitchPreference(
-                    title = stringResource(R.string.hostpref_authagent_with_confirmation),
-                    checked = uiState.useAuthAgent == "confirm",
-                    onCheckedChange = { checked ->
-                        onUseAuthAgentChange(if (checked) "confirm" else "yes")
-                    },
-                )
-            }
+                                                    OutlinedTextField(
+                                                        value = uiState.locale,
+                                                        onValueChange = onLocaleChange,
+                                                        label = { Text(stringResource(R.string.hostpref_locale_title)) },
+                                                        supportingText = { Text(stringResource(R.string.hostpref_locale_summary)) },
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(top = 8.dp),
+                                                        singleLine = true,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (uiState.protocol == "ssh" || uiState.protocol == "mosh") {
+                                        HostEditorGroup {
+                                            JumpHostSelector(uiState.jumpHostId, uiState.availableJumpHosts, onJumpHostChange)
+                                        }
+                                    }
+                                }
 
-            // Compression
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-            SwitchPreference(
-                title = stringResource(R.string.hostpref_compression_title),
-                summary = stringResource(R.string.hostpref_compression_summary),
-                checked = uiState.compression,
-                onCheckedChange = onCompressionChange,
-            )
+                                HostEditorCategory.AUTHENTICATION -> {
+                                    if (uiState.protocol == "ssh") {
+                                        HostEditorGroup {
+                                            TextButton(onClick = {
+                                                coroutineScope.launch {
+                                                    if (!uiState.hasUnsavedChanges || onSaveHost()) onNavigateToKeySetup(hostId)
+                                                }
+                                            }, enabled = hostId > 0 && !uiState.isSaving) { Text(stringResource(R.string.login_register_key)) }
+                                            if (hostId <= 0) Text(stringResource(R.string.login_save_host_first), style = MaterialTheme.typography.bodySmall)
+                                            TextButton(onClick = {
+                                                coroutineScope.launch {
+                                                    if (!uiState.hasUnsavedChanges || onSaveHost()) onNavigateToLogin()
+                                                }
+                                            }, enabled = hostId > 0 && !uiState.isSaving) { Text(stringResource(R.string.login_title)) }
+                                        }
+                                    }
+                                    HostEditorGroup {
+                                        // Show username field for SSH and Mosh protocols
+                                        if (uiState.protocol == "ssh" || uiState.protocol == "mosh") {
+                                            ExposedDropdownMenuBox(expanded = showIdentityMenu, onExpandedChange = { showIdentityMenu = it }, modifier = Modifier.fillMaxWidth()) {
+                                                OutlinedTextField(
+                                                    value = uiState.availableIdentities.find { it.id == uiState.identityId }?.name ?: stringResource(R.string.identity_per_host),
+                                                    onValueChange = {},
+                                                    readOnly = true,
+                                                    singleLine = true,
+                                                    label = { Text(stringResource(R.string.identities_title)) },
+                                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(showIdentityMenu) },
+                                                    modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth().padding(top = 8.dp),
+                                                )
+                                                ExposedDropdownMenu(expanded = showIdentityMenu, onDismissRequest = { showIdentityMenu = false }) {
+                                                    DropdownMenuItem(text = { Text(stringResource(R.string.identity_per_host)) }, onClick = {
+                                                        onIdentityChange(null)
+                                                        showIdentityMenu = false
+                                                    })
+                                                    uiState.availableIdentities.forEach { identity ->
+                                                        DropdownMenuItem(text = { Text(identity.name) }, onClick = {
+                                                            onIdentityChange(identity.id)
+                                                            showIdentityMenu = false
+                                                        })
+                                                    }
+                                                }
+                                            }
+                                            TextButton(onClick = onNavigateToIdentities) { Text(stringResource(R.string.identity_manage)) }
+                                            OutlinedTextField(
+                                                value = uiState.username,
+                                                enabled = uiState.identityId == null,
+                                                onValueChange = onUsernameChange,
+                                                label = { Text(stringResource(R.string.hostpref_username_title)) },
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(top = 8.dp),
+                                                singleLine = true,
+                                            )
+                                        }
+                                        // Pubkey selector
+                                        if (uiState.identityId == null) {
+                                            PubkeySelector(
+                                                pubkeyId = uiState.pubkeyId,
+                                                availablePubkeys = uiState.availablePubkeys,
+                                                onPubkeySelect = onPubkeyChange,
+                                            )
+                                        }
+                                    }
+                                    // Save password section (SSH and Mosh)
+                                    if ((uiState.protocol == "ssh" || uiState.protocol == "mosh") && uiState.identityId == null) {
+                                        HostEditorGroup {
+                                            OutlinedTextField(
+                                                value = uiState.password,
+                                                onValueChange = onPasswordChange,
+                                                label = {
+                                                    Text(
+                                                        if (uiState.hasExistingPassword && uiState.password.isEmpty()) {
+                                                            stringResource(R.string.hostpref_password_unchanged)
+                                                        } else {
+                                                            stringResource(R.string.hostpref_password_title)
+                                                        },
+                                                    )
+                                                },
+                                                supportingText = {
+                                                    Text(stringResource(R.string.hostpref_save_password_summary))
+                                                },
+                                                visualTransformation = PasswordVisualTransformation(),
+                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(top = 8.dp),
+                                                singleLine = true,
+                                            )
 
-            // Want session
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-            SwitchPreference(
-                title = stringResource(R.string.hostpref_wantsession_title),
-                summary = stringResource(R.string.hostpref_wantsession_summary),
-                checked = uiState.wantSession,
-                onCheckedChange = onWantSessionChange,
-            )
+                                            if (uiState.hasExistingPassword) {
+                                                TextButton(
+                                                    onClick = onClearPassword,
+                                                    modifier = Modifier.padding(top = 4.dp),
+                                                ) {
+                                                    Text(stringResource(R.string.hostpref_clear_password))
+                                                }
+                                            }
 
-            // Stay connected
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-            SwitchPreference(
-                title = stringResource(R.string.hostpref_stayconnected_title),
-                summary = stringResource(R.string.hostpref_stayconnected_summary),
-                checked = uiState.stayConnected,
-                onCheckedChange = onStayConnectedChange,
-            )
+                                            if (hostId != -1L) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable { onNavigateToKnownHosts(hostId) }
+                                                        .padding(vertical = 8.dp)
+                                                        .testTag("known_host_keys_preference"),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                ) {
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text(
+                                                            text = stringResource(R.string.hostpref_known_hosts_title),
+                                                            style = MaterialTheme.typography.bodyLarge,
+                                                        )
+                                                        Text(
+                                                            text = stringResource(R.string.hostpref_known_hosts_summary),
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        )
+                                                    }
+                                                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                                                }
+                                            }
+                                        }
+                                    }
+                                    HostEditorGroup {
+                                        // SSH Auth agent
+                                        SwitchPreference(
+                                            title = stringResource(R.string.hostpref_authagent_title),
+                                            checked = uiState.useAuthAgent != "no",
+                                            onCheckedChange = { checked ->
+                                                onUseAuthAgentChange(if (checked) "yes" else "no")
+                                            },
+                                        )
 
-            // Quick disconnect
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-            SwitchPreference(
-                title = stringResource(R.string.hostpref_quickdisconnect_title),
-                summary = stringResource(R.string.hostpref_quickdisconnect_summary),
-                checked = uiState.quickDisconnect,
-                onCheckedChange = onQuickDisconnectChange,
-            )
+                                        if (uiState.useAuthAgent != "no") {
+                                            SwitchPreference(
+                                                title = stringResource(R.string.hostpref_authagent_with_confirmation),
+                                                checked = uiState.useAuthAgent == "confirm",
+                                                onCheckedChange = { checked ->
+                                                    onUseAuthAgentChange(if (checked) "confirm" else "yes")
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
 
-            // Post-login automation
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-            Surface(
-                onClick = onEditAutomation,
-                enabled = hostId != -1L,
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.surface,
-                contentColor = if (hostId == -1L) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            ) {
-                Row(
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.hostpref_postlogin_title), style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            if (hostId == -1L) {
-                                stringResource(R.string.automation_save_host)
-                            } else {
-                                pluralStringResource(R.plurals.automation_count, uiState.automationCount, uiState.automationCount)
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                                HostEditorCategory.APPEARANCE -> {
+                                    HostEditorGroup { ColorSelector(uiState.color, onColorChange) }
+                                    HostEditorGroup {
+                                        // Profile selector
+                                        ProfileSelector(
+                                            profileId = uiState.profileId,
+                                            availableProfiles = uiState.availableProfiles,
+                                            onProfileSelect = onProfileChange,
+                                            onEditProfile = onNavigateToProfile,
+                                        )
+                                    }
+                                }
+
+                                HostEditorCategory.SESSION -> {
+                                    HostEditorGroup {
+                                        // Compression
+                                        SwitchPreference(
+                                            title = stringResource(R.string.hostpref_compression_title),
+                                            summary = stringResource(R.string.hostpref_compression_summary),
+                                            checked = uiState.compression,
+                                            onCheckedChange = onCompressionChange,
+                                        )
+
+                                        // Want session
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                        SwitchPreference(
+                                            title = stringResource(R.string.hostpref_wantsession_title),
+                                            summary = stringResource(R.string.hostpref_wantsession_summary),
+                                            checked = uiState.wantSession,
+                                            onCheckedChange = onWantSessionChange,
+                                        )
+
+                                        // Stay connected
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                        SwitchPreference(
+                                            title = stringResource(R.string.hostpref_stayconnected_title),
+                                            summary = stringResource(R.string.hostpref_stayconnected_summary),
+                                            checked = uiState.stayConnected,
+                                            onCheckedChange = onStayConnectedChange,
+                                        )
+
+                                        // Quick disconnect
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                        SwitchPreference(
+                                            title = stringResource(R.string.hostpref_quickdisconnect_title),
+                                            summary = stringResource(R.string.hostpref_quickdisconnect_summary),
+                                            checked = uiState.quickDisconnect,
+                                            onCheckedChange = onQuickDisconnectChange,
+                                        )
+                                    }
+                                    HostEditorGroup {
+                                        // Post-login automation
+                                        Surface(
+                                            onClick = onEditAutomation,
+                                            enabled = hostId != -1L,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = MaterialTheme.shapes.small,
+                                            color = androidx.compose.ui.graphics.Color.Transparent,
+                                            contentColor = if (hostId == -1L) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(stringResource(R.string.hostpref_postlogin_title), style = MaterialTheme.typography.bodyLarge)
+                                                    Text(
+                                                        if (hostId == -1L) {
+                                                            stringResource(R.string.automation_save_host)
+                                                        } else {
+                                                            pluralStringResource(R.plurals.automation_count, uiState.automationCount, uiState.automationCount)
+                                                        },
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
+                                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
                 }
             }
         }
     }
-
     if (uiState.isMoshInstalling) {
-        MoshInstallProgressDialog(
-            onDismissRequest = onCancelMoshInstall,
-        )
+        MoshInstallProgressDialog(onDismissRequest = onCancelMoshInstall)
+    }
+}
+
+private enum class HostEditorCategory(val tag: String, val title: Int, val icon: ImageVector) {
+    CONNECTION("connection", R.string.host_editor_connection, Icons.Default.Terminal),
+    AUTHENTICATION("authentication", R.string.host_editor_authentication, Icons.Default.Key),
+    APPEARANCE("appearance", R.string.host_editor_appearance, Icons.Default.Palette),
+    SESSION("session", R.string.host_editor_session, Icons.Default.Tune),
+}
+
+@Composable
+private fun hostCategorySummary(category: HostEditorCategory, state: HostEditorUiState): String = when (category) {
+    HostEditorCategory.CONNECTION -> if (state.protocol == "local") state.protocol else state.hostname.takeIf { it.isNotBlank() }?.let { it + ":" + state.port + " · " + state.protocol } ?: stringResource(R.string.host_editor_connection_summary)
+    HostEditorCategory.AUTHENTICATION -> state.availableIdentities.find { it.id == state.identityId }?.name ?: state.username.ifBlank { stringResource(R.string.host_editor_authentication_summary) }
+    HostEditorCategory.APPEARANCE -> state.availableProfiles.find { it.id == state.profileId }?.name ?: stringResource(R.string.hostpref_profile_none)
+    HostEditorCategory.SESSION -> pluralStringResource(R.plurals.automation_count, state.automationCount, state.automationCount) + if (state.stayConnected) " · " + stringResource(R.string.hostpref_stayconnected_title) else ""
+}
+
+@Composable
+private fun HostEditorGroup(content: @Composable () -> Unit) {
+    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
     }
 }
 

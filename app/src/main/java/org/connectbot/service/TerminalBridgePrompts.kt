@@ -17,6 +17,7 @@
 
 package org.connectbot.service
 
+import androidx.biometric.BiometricPrompt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
@@ -85,10 +86,11 @@ fun TerminalBridge.requestStringPrompt(
 fun TerminalBridge.requestBiometricAuth(
     keyNickname: String,
     keystoreAlias: String,
+    cryptoObject: BiometricPrompt.CryptoObject? = null,
 ): Boolean {
     return try {
         runBlocking {
-            promptManager.requestBiometricAuth(keyNickname, keystoreAlias)
+            promptManager.requestBiometricAuth(keyNickname, keystoreAlias, cryptoObject)
         }
     } catch (e: CancellationException) {
         // Prompt was cancelled due to connection loss - throw IOException to propagate error

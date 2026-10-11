@@ -346,13 +346,6 @@ fun HostListScreenContent(
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.identities_title)) },
-                                onClick = {
-                                    showMenu = false
-                                    onNavigateToIdentities()
-                                },
-                            )
-                            DropdownMenuItem(
                                 text = {
                                     Text(
                                         stringResource(
@@ -384,7 +377,7 @@ fun HostListScreenContent(
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.list_menu_pubkeys)) },
+                                text = { Text(stringResource(R.string.login_title)) },
                                 onClick = {
                                     showMenu = false
                                     onNavigateToPubkeys()

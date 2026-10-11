@@ -52,6 +52,7 @@ import org.connectbot.util.LanguageDownloadState
 import org.connectbot.util.LanguagePackManager
 import org.connectbot.util.LocalFontProvider
 import org.connectbot.util.PreferenceConstants
+import org.connectbot.util.TerminalBarLayout
 import org.connectbot.util.TerminalFontProvider
 import org.connectbot.util.ThemeMode
 import org.connectbot.util.isNotificationPermissionGranted
@@ -106,6 +107,7 @@ data class SettingsUiState(
     val installedLanguages: Set<String> = emptySet(),
     val defaultProfileId: Long = 0L,
     val availableProfiles: List<Profile> = emptyList(),
+    val terminalBarLayout: TerminalBarLayout = TerminalBarLayout(),
 )
 
 @HiltViewModel
@@ -149,6 +151,8 @@ class SettingsViewModel @Inject constructor(
             _uiState.update { it.copy(availableProfiles = profiles) }
         }
     }
+
+    fun refreshProfiles() = loadProfiles()
 
     private fun refreshInstalledLanguages() {
         viewModelScope.launch {
@@ -246,6 +250,7 @@ class SettingsViewModel @Inject constructor(
             themeMode = ThemeMode.fromString(prefs.getString(PreferenceConstants.THEME_MODE, null)),
             language = currentLanguage,
             defaultProfileId = prefs.getLong("defaultProfileId", 0L),
+            terminalBarLayout = TerminalBarLayout.load(prefs),
         )
     }
 
@@ -457,6 +462,22 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             prefs.edit { putLong("defaultProfileId", profileId) }
             _uiState.update { it.copy(defaultProfileId = profileId) }
+        }
+    }
+
+    fun updateTerminalBarLayout(layout: TerminalBarLayout) {
+        viewModelScope.launch {
+            layout.save(prefs)
+            _uiState.update { it.copy(terminalBarLayout = layout) }
+        }
+    }
+
+    fun updateColorScheme(schemeId: Long) {
+        val targetId = _uiState.value.defaultProfileId.takeIf { it != 0L }
+        viewModelScope.launch {
+            val profile = targetId?.let { profileRepository.getById(it) } ?: profileRepository.getDefault()
+            profileRepository.save(profile.copy(colorSchemeId = schemeId))
+            loadProfiles()
         }
     }
 

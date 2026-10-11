@@ -45,6 +45,10 @@ object PreferenceConstants {
 
     const val KEYMODE: String = "keymode"
     const val KEY_ALWAYS_VISIBLE: String = "alwaysvisible"
+    const val TERMINAL_BAR_HEIGHT: String = "terminalBarHeight"
+    const val TERMINAL_BAR_ORDER: String = "terminalBarOrder"
+    const val TERMINAL_BAR_HIDDEN: String = "terminalBarHidden"
+    const val TERMINAL_BAR_FN: String = "terminalBarFn"
     const val IME_TOGGLE_KEY: String = "imetogglekey"
     const val IME_SHORTCUT_INPUT_MODE: String = "imeShortcutInputMode"
 
