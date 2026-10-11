@@ -97,7 +97,12 @@
 			</intent-filter>
 		</activity>
 
-		<activity android:name=".ui.MainActivity" android:exported="false" />
+		<activity
+			android:name=".ui.MainActivity"
+			android:exported="false"
+			android:launchMode="singleTop"
+			android:resizeableActivity="true"
+			android:windowSoftInputMode="adjustResize" />
 		<meta-data android:name="flutterEmbedding" android:value="2" />
 
 		<receiver
