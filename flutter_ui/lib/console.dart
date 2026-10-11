@@ -151,6 +151,29 @@ class _ConsolePageState extends State<ConsolePage> {
       engine.list('sessions').where((s) => s['id'] == id).firstOrNull ?? {};
   Future<dynamic> command(String method, [EngineRecord args = const {}]) =>
       runEngine(context, engine, method, {'id': id, ...args});
+  bool leaving = false;
+  bool get authenticationPending =>
+      engine.list('prompts').any((prompt) => prompt['sessionId'] == id);
+
+  Future<void> leave() async {
+    if (leaving) return;
+    leaving = true;
+    try {
+      if (authenticationPending) {
+        await engine.invoke('session.disconnect', {'id': id});
+      }
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$error')));
+      }
+    } finally {
+      leaving = false;
+    }
+  }
+
   Future<void> menu(String action) async {
     if ([
       'keyboard',
@@ -283,7 +306,8 @@ class _ConsolePageState extends State<ConsolePage> {
       await Navigator.push(
         context,
         MaterialPageRoute<void>(
-          builder: (_) => EnrollmentPage(engine: engine, host: host),
+          builder: (_) =>
+              EnrollmentPage(engine: engine, host: host, sessionId: id),
         ),
       );
     }
@@ -373,97 +397,103 @@ class _ConsolePageState extends State<ConsolePage> {
   @override
   Widget build(BuildContext context) {
     final prefs = engine.preferences;
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      primary: prefs['fullscreen'] != true,
-      appBar: titleHidden && prefs['titlebarhide'] == true
-          ? null
-          : AppBar(
-              toolbarHeight: 36,
-              primary: prefs['fullscreen'] != true,
-              automaticallyImplyLeading: false,
-              leading: IconButton(
-                tooltip: '뒤로',
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.pop(context),
-              ),
-              titleSpacing: 0,
-              title: InkWell(
-                onTap: pickSession,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        '${session['nickname'] ?? '터미널'}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                    ),
-                    if (engine.list('sessions').length > 1)
-                      const Icon(Icons.arrow_drop_down, size: 20),
-                  ],
+    return PopScope(
+      canPop: !authenticationPending,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(leave());
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        primary: prefs['fullscreen'] != true,
+        appBar: titleHidden && prefs['titlebarhide'] == true
+            ? null
+            : AppBar(
+                toolbarHeight: 36,
+                primary: prefs['fullscreen'] != true,
+                automaticallyImplyLeading: false,
+                leading: IconButton(
+                  tooltip: '뒤로',
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: leave,
                 ),
-              ),
-              actions: [popup()],
-            ),
-      body: SafeArea(
-        maintainBottomViewPadding: true,
-        top: prefs['fullscreen'] != true,
-        bottom: prefs['fullscreen'] != true,
-        left: prefs['fullscreen'] != true,
-        right: prefs['fullscreen'] != true,
-        child: Column(
-          children: [
-            for (final banner in rows(session['banners']))
-              ExpansionTile(
-                title: Text('${banner['sourceName']}'),
-                trailing: IconButton(
-                  tooltip: '배너 닫기',
-                  icon: const Icon(Icons.close),
-                  onPressed: () => command('session.dismissBanner', {
-                    'bannerId': banner['id'],
-                  }),
-                ),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: SelectableText('${banner['message']}'),
-                  ),
-                ],
-              ),
-            if (row(session['automation'])['running'] == true)
-              const LinearProgressIndicator(),
-            if (session.isEmpty)
-              Expanded(
-                child: Center(
-                  child: Column(
+                titleSpacing: 0,
+                title: InkWell(
+                  onTap: pickSession,
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('세션이 끝났어요'),
-                      const SizedBox(height: 12),
-                      FilledButton.tonal(
-                        onPressed: () => menu('reconnect'),
-                        child: const Text('다시 연결'),
+                      Flexible(
+                        child: Text(
+                          '${session['nickname'] ?? '터미널'}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
                       ),
+                      if (engine.list('sessions').length > 1)
+                        const Icon(Icons.arrow_drop_down, size: 20),
                     ],
                   ),
                 ),
-              )
-            else
-              Expanded(
-                child: Listener(
-                  onPointerDown: (_) => interaction(),
-                  child: AndroidView(
-                    key: ValueKey(id),
-                    viewType: 'dev.korellas.androidshell/terminal',
-                    creationParams: {'sessionId': id, 'owner': routeOwner},
-                    creationParamsCodec: const StandardMessageCodec(),
+                actions: [popup()],
+              ),
+        body: SafeArea(
+          maintainBottomViewPadding: true,
+          top: prefs['fullscreen'] != true,
+          bottom: prefs['fullscreen'] != true,
+          left: prefs['fullscreen'] != true,
+          right: prefs['fullscreen'] != true,
+          child: Column(
+            children: [
+              for (final banner in rows(session['banners']))
+                ExpansionTile(
+                  title: Text('${banner['sourceName']}'),
+                  trailing: IconButton(
+                    tooltip: '배너 닫기',
+                    icon: const Icon(Icons.close),
+                    onPressed: () => command('session.dismissBanner', {
+                      'bannerId': banner['id'],
+                    }),
+                  ),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SelectableText('${banner['message']}'),
+                    ),
+                  ],
+                ),
+              if (row(session['automation'])['running'] == true)
+                const LinearProgressIndicator(),
+              if (session.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('세션이 끝났어요'),
+                        const SizedBox(height: 12),
+                        FilledButton.tonal(
+                          onPressed: () => menu('reconnect'),
+                          child: const Text('다시 연결'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: Listener(
+                    onPointerDown: (_) => interaction(),
+                    child: AndroidView(
+                      key: ValueKey(id),
+                      viewType: 'dev.korellas.androidshell/terminal',
+                      creationParams: {'sessionId': id, 'owner': routeOwner},
+                      creationParamsCodec: const StandardMessageCodec(),
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -473,7 +503,13 @@ class _ConsolePageState extends State<ConsolePage> {
 class EnrollmentPage extends StatefulWidget {
   final AndroidEngine engine;
   final EngineRecord host;
-  const EnrollmentPage({super.key, required this.engine, required this.host});
+  final int sessionId;
+  const EnrollmentPage({
+    super.key,
+    required this.engine,
+    required this.host,
+    required this.sessionId,
+  });
   @override
   State<EnrollmentPage> createState() => _EnrollmentPageState();
 }
@@ -484,7 +520,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   @override
   void initState() {
     super.initState();
-    name = '${widget.host['nickname']} key';
+    name = '${widget.host['nickname']} SSH 키';
     widget.engine.invoke('key.enrollmentBegin', {'name': name});
   }
 
@@ -545,7 +581,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               onPressed: state['busy'] == true || state['stage'] == 'SUCCESS'
                   ? null
                   : () => runEngine(context, widget.engine, 'key.enroll', {
-                      'hostId': widget.host['id'],
+                      'sessionId': widget.sessionId,
                       'keyId': keyId,
                       'name': name,
                     }),

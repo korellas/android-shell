@@ -171,7 +171,7 @@ internal suspend fun AndroidShellEngine.keyOperation(method: String, args: Wire)
             activity.enrollment.selectKey(args.optionalId("keyId"))
             activity.enrollment.updateName(args.text("name"))
             require(activity.enrollment.uiState.value.canSubmit) { "등록할 키를 확인하세요." }
-            activity.enrollment.enroll(bridge(args.number("hostId")))
+            activity.enrollment.enroll(bridge(args.number("sessionId")))
             null
         }
 

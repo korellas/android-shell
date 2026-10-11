@@ -58,6 +58,7 @@ void main() {
             return 101;
           }
           if (call.method == 'session.consumeSelection') selectedSession = null;
+          if (call.method == 'session.disconnect') connected = false;
           if (call.method == 'snapshot') {
             return {
               'ready': true,
@@ -109,6 +110,116 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, null);
   });
+
+  for (final toolbar in [false, true]) {
+    testWidgets(
+      'authentication back cancels only its session (toolbar=$toolbar)',
+      (tester) async {
+        await tester.pumpWidget(const AndroidShellApp());
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Research'));
+        await tester.pumpAndSettle();
+        if (toolbar) {
+          await tester.tap(find.byTooltip('뒤로'));
+        } else {
+          await tester.binding.handlePopRoute();
+        }
+        await tester.pumpAndSettle();
+        expect(
+          calls
+              .where((c) => c.method == 'session.disconnect')
+              .map((c) => c.arguments),
+          [
+            {'id': 101},
+          ],
+        );
+        expect(find.byType(ConsolePage), findsNothing);
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
+  testWidgets(
+    'key registration uses the selected session and a readable key name',
+    (tester) async {
+      final engine = AndroidEngine();
+      engine.state = {
+        'ready': true,
+        'hosts': [
+          {'id': 7, 'nickname': 'mac'},
+        ],
+        'sessions': [
+          {
+            'id': 101,
+            'hostId': 7,
+            'nickname': 'mac · 101',
+            'open': true,
+            'canEnroll': true,
+          },
+          {
+            'id': 102,
+            'hostId': 7,
+            'nickname': 'mac · 102',
+            'open': true,
+            'canEnroll': true,
+          },
+        ],
+        'enrollment': {'biometricAvailable': true},
+        'preferences': {'titlebarhide': false},
+      };
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ConsolePage(
+            engine: engine,
+            sessionId: 102,
+            startKeySetup: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('mac SSH 키'), findsOneWidget);
+      await tester.tap(find.text('등록 및 검증'));
+      await tester.pumpAndSettle();
+      expect(calls.singleWhere((c) => c.method == 'key.enroll').arguments, {
+        'sessionId': 102,
+        'keyId': null,
+        'name': 'mac SSH 키',
+      });
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+      engine.dispose();
+    },
+  );
+
+  testWidgets(
+    'text prompt survives dismissal animation without disposed controller',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => askText(context, '인증', password: true),
+                child: const Text('열기'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('열기'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), 'test-only');
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets('host menu requests a new session without duplicating the host', (
     tester,

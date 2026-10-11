@@ -297,7 +297,9 @@ internal class AndroidShellEngine(
             }
 
             "session.disconnect" -> {
-                bridge(args.number("id")).dispatchDisconnect(DisconnectReason.USER_REQUESTED)
+                val id = args.number("id")
+                bridge(id).dispatchDisconnect(DisconnectReason.USER_REQUESTED)
+                prompts.remove(id)
                 null
             }
 

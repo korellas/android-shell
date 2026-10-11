@@ -156,7 +156,7 @@ Future<String?> askText(
   TextInputType? keyboardType,
   String? Function(String?)? validator,
 }) async {
-  final controller = TextEditingController(text: initial);
+  var value = initial;
   final form = GlobalKey<FormState>();
   final result = await showDialog<String>(
     context: context,
@@ -167,7 +167,8 @@ Future<String?> askText(
         child: TextFormField(
           keyboardType: keyboardType,
           validator: validator,
-          controller: controller,
+          initialValue: initial,
+          onChanged: (text) => value = text,
           autofocus: true,
           obscureText: password,
           maxLines: multiline ? 8 : 1,
@@ -182,7 +183,7 @@ Future<String?> askText(
         FilledButton(
           onPressed: () {
             if (form.currentState!.validate()) {
-              Navigator.pop(context, controller.text);
+              Navigator.pop(context, value);
             }
           },
           child: const Text('확인'),
@@ -190,7 +191,6 @@ Future<String?> askText(
       ],
     ),
   );
-  controller.dispose();
   return result;
 }
 
@@ -334,7 +334,11 @@ class _ShellHomeState extends State<ShellHome> {
       if (p['type'] == 'string') {
         value = await askText(
           context,
-          '${p['instructions'] ?? p['hint'] ?? '인증'}',
+          [
+            p['instructions'],
+            p['hint'],
+            '인증',
+          ].whereType<String>().firstWhere((text) => text.trim().isNotEmpty),
           password: p['password'] == true,
         );
       } else if (p['type'] == 'hostKey') {
