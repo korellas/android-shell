@@ -90,6 +90,12 @@ private val darkScheme = darkColorScheme(
     inversePrimary = md_theme_dark_inversePrimary,
 )
 
+internal fun connectBotColorScheme(context: android.content.Context, darkTheme: Boolean, dynamicColor: Boolean = true): ColorScheme = when {
+    dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    darkTheme -> darkScheme
+    else -> lightScheme
+}
+
 @Composable
 fun ConnectBotTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -102,16 +108,7 @@ fun ConnectBotTheme(
         ThemeMode.DARK -> true
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> darkScheme
-
-        else -> lightScheme
-    }
+    val colorScheme = connectBotColorScheme(LocalContext.current, darkTheme, dynamicColor)
 
     val view = LocalView.current
     if (!view.isInEditMode) {

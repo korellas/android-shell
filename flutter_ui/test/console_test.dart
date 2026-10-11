@@ -1,0 +1,258 @@
+/*
+ * ConnectBot: simple, powerful, open-source SSH client for Android
+ * Copyright 2026 Kenny Root
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import 'package:android_shell_ui/console.dart';
+import 'package:android_shell_ui/engine.dart';
+import 'package:android_shell_ui/main.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  const channel = MethodChannel('dev.korellas.androidshell/engine');
+  int? selectedSession;
+  bool connected = false;
+  setUp(() {
+    selectedSession = null;
+    connected = false;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('dev.korellas.androidshell/events'),
+          (_) async => null,
+        );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.getData') {
+            return {'text': 'Clipboard text'};
+          }
+          return null;
+        });
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform_views, (call) async {
+          if (call.method == 'create') return 0;
+          if (call.method == 'resize') return call.arguments;
+          return null;
+        });
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'connect') {
+            connected = true;
+            selectedSession = 7;
+            return 7;
+          }
+          if (call.method == 'session.consumeSelection') selectedSession = null;
+          if (call.method == 'snapshot') {
+            return {
+              'ready': true,
+              'hosts': [
+                {
+                  'id': 7,
+                  'nickname': 'Research',
+                  'protocol': 'ssh',
+                  'hostname': 'example.test',
+                  'port': 22,
+                },
+              ],
+              'selectedSession': selectedSession,
+              'sessions': [
+                if (connected) {'id': 7, 'nickname': 'Research', 'open': true},
+              ],
+              'prompts': [
+                if (connected)
+                  {
+                    'hostId': 7,
+                    'token': 'password-request',
+                    'type': 'string',
+                    'password': true,
+                    'hint': 'Password',
+                    'nativePresentation': true,
+                  },
+              ],
+              'preferences': {
+                'fullscreen': true,
+                'alwaysvisible': true,
+                'titlebarhide': false,
+              },
+            };
+          }
+          return null;
+        });
+  });
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform_views, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null);
+  });
+
+  testWidgets('console menu keeps advanced actions in a secondary menu', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Research'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('터미널 메뉴'));
+    await tester.pumpAndSettle();
+    expect(find.text('붙여넣기'), findsOneWidget);
+    expect(find.text('텍스트 입력'), findsOneWidget);
+    expect(find.text('터미널 크기 지정'), findsNothing);
+    await tester.tap(find.text('추가 기능'));
+    await tester.pumpAndSettle();
+    expect(find.text('터미널 크기 지정'), findsOneWidget);
+    await tester.tap(find.text('텍스트 편집 후 붙여넣기'));
+    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('Clipboard text'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
+  testWidgets('connection opens console without a modal authentication popup', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Research'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConsolePage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    expect(find.byType(AlertDialog), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('native console authentication is not duplicated by Flutter', (
+    tester,
+  ) async {
+    connected = true;
+    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'fullscreen console uses the cutout area and native terminal controls',
+    (tester) async {
+      tester.view.padding = const FakeViewPadding(top: 60, bottom: 30);
+      addTearDown(tester.view.resetPadding);
+      final engine = AndroidEngine();
+      engine.state = {
+        'ready': true,
+        'sessions': [
+          {'id': 7, 'nickname': 'Research', 'open': true},
+        ],
+        'preferences': {
+          'fullscreen': true,
+          'alwaysvisible': true,
+          'titlebarhide': false,
+        },
+      };
+      await tester.pumpWidget(
+        MaterialApp(home: ConsolePage(engine: engine, hostId: 7)),
+      );
+      await tester.pumpAndSettle();
+      final rect = tester.getRect(find.byType(AndroidView));
+      expect(rect.top, 36);
+      expect(
+        rect.bottom,
+        tester.view.physicalSize.height / tester.view.devicePixelRatio,
+      );
+      expect(find.byType(SingleChildScrollView), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+      engine.dispose();
+    },
+  );
+  for (final fullscreen in [true, false]) {
+    testWidgets(
+      'native terminal keeps a stable viewport during IME animation (fullscreen=$fullscreen)',
+      (tester) async {
+        tester.view.viewPadding = const FakeViewPadding(top: 60, bottom: 30);
+        tester.view.padding = const FakeViewPadding(top: 60, bottom: 30);
+        addTearDown(tester.view.resetViewPadding);
+        addTearDown(tester.view.resetPadding);
+        addTearDown(tester.view.resetViewInsets);
+        final engine = AndroidEngine();
+        engine.state = {
+          'ready': true,
+          'sessions': [
+            {'id': 7, 'nickname': 'Research', 'open': true},
+          ],
+          'preferences': {
+            'fullscreen': fullscreen,
+            'alwaysvisible': true,
+            'titlebarhide': false,
+          },
+        };
+        await tester.pumpWidget(
+          MaterialApp(home: ConsolePage(engine: engine, hostId: 7)),
+        );
+        await tester.pumpAndSettle();
+        final viewport = tester.getRect(find.byType(AndroidView));
+        tester.view.padding = const FakeViewPadding(top: 60);
+        for (final inset in [100.0, 200.0, 300.0, 200.0, 100.0, 0.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          await tester.pump();
+          expect(tester.getRect(find.byType(AndroidView)), viewport);
+        }
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+        engine.dispose();
+      },
+    );
+  }
+
+  testWidgets('windowed console retains system bar insets', (tester) async {
+    tester.view.viewPadding = const FakeViewPadding(top: 60, bottom: 30);
+    addTearDown(tester.view.resetViewPadding);
+    tester.view.padding = const FakeViewPadding(top: 60, bottom: 30);
+    addTearDown(tester.view.resetPadding);
+    final engine = AndroidEngine();
+    engine.state = {
+      'ready': true,
+      'sessions': [
+        {'id': 7, 'nickname': 'Research', 'open': true},
+      ],
+      'preferences': {
+        'fullscreen': false,
+        'alwaysvisible': true,
+        'titlebarhide': false,
+      },
+    };
+    await tester.pumpWidget(
+      MaterialApp(home: ConsolePage(engine: engine, hostId: 7)),
+    );
+    await tester.pumpAndSettle();
+    final rect = tester.getRect(find.byType(AndroidView));
+    expect(rect.top, 36 + 60 / tester.view.devicePixelRatio);
+    expect(
+      rect.bottom,
+      (tester.view.physicalSize.height - 30) / tester.view.devicePixelRatio,
+    );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+    engine.dispose();
+  });
+}
