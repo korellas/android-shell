@@ -96,6 +96,36 @@ class TerminalManagerForegroundTest {
     }
 
     @Test
+    fun closingSessionCannotBeQueuedForReconnect() = runTest(dispatcher) {
+        val host = Host(id = 42L, nickname = "cancelled")
+        `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)
+        mockBridges().use {
+            val bridge = manager.openConnectionForHostId(host.id)!!
+            `when`(bridge.isAwaitingClose()).thenReturn(true)
+            manager.requestReconnect(bridge)
+            org.mockito.Mockito.verify(bridge, org.mockito.Mockito.times(1)).startConnection()
+        }
+    }
+
+    @Test
+    fun closingSessionIsNotRestartedByNetworkRestore() = runTest(dispatcher) {
+        val host = Host(id = 42L, nickname = "cancelled")
+        `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)
+        mockBridges().use {
+            val bridge = manager.openConnectionForHostId(host.id)!!
+            val field = TerminalManager::class.java.getDeclaredField("pendingReconnect").apply { isAccessible = true }
+
+            @Suppress("UNCHECKED_CAST")
+            val pending = field.get(manager) as MutableList<WeakReference<TerminalBridge>>
+            pending.add(WeakReference(bridge))
+            `when`(bridge.isAwaitingClose()).thenReturn(true)
+            TerminalManager::class.java.getDeclaredMethod("reconnectPending").apply { isAccessible = true }.invoke(manager)
+            org.mockito.Mockito.verify(bridge, org.mockito.Mockito.times(1)).startConnection()
+            assertTrue(pending.isEmpty())
+        }
+    }
+
+    @Test
     fun sameHostCanOpenIndependentSessionsAndCloseOne() = runTest(dispatcher) {
         val host = Host(id = 42L, nickname = "shared")
         `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)
@@ -231,6 +261,7 @@ class TerminalManagerForegroundTest {
             pending.add(WeakReference(bridge))
             manager.onDisconnected(bridge)
             advanceUntilIdle()
+            assertTrue(pending.isEmpty())
             assertTrue(shadowOf(manager).isForegroundStopped)
             assertTrue(manager.getSystemService(NotificationManager::class.java).activeNotifications.isEmpty())
         }

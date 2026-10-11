@@ -142,6 +142,95 @@ void main() {
     );
   }
 
+  for (final open in [false, true]) {
+    for (final toolbar in [false, true]) {
+      testWidgets(
+        'back without a prompt cancels only unfinished connections (open=$open toolbar=$toolbar)',
+        (tester) async {
+          final engine = AndroidEngine();
+          engine.state = {
+            'ready': true,
+            'hosts': [
+              {'id': 7, 'nickname': 'Research'},
+            ],
+            'sessions': [
+              {'id': 101, 'hostId': 7, 'nickname': 'Research', 'open': open},
+            ],
+            'prompts': [],
+            'preferences': {'titlebarhide': false},
+          };
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(channel, (call) async {
+                calls.add(call);
+                if (call.method == 'snapshot') return engine.state;
+                if (call.method == 'session.disconnect') {
+                  engine.state['sessions'] = [];
+                }
+                if (call.method == 'connect') {
+                  engine.state['sessions'] = [
+                    {
+                      'id': 102,
+                      'hostId': 7,
+                      'nickname': 'Research',
+                      'open': true,
+                    },
+                  ];
+                  engine.state['selectedSession'] = 102;
+                  return 102;
+                }
+                if (call.method == 'session.consumeSelection') {
+                  engine.state['selectedSession'] = null;
+                }
+                return null;
+              });
+          await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
+          await tester.pumpAndSettle();
+          tester
+              .state<NavigatorState>(find.byType(Navigator))
+              .push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ConsolePage(engine: engine, sessionId: 101),
+                ),
+              );
+          await tester.pumpAndSettle();
+          if (toolbar) {
+            await tester.tap(find.byTooltip('뒤로'));
+          } else {
+            await tester.binding.handlePopRoute();
+          }
+          await tester.pumpAndSettle();
+          expect(find.byType(ConsolePage), findsNothing);
+          expect(find.byType(AlertDialog), findsNothing);
+          final disconnects = calls
+              .where((c) => c.method == 'session.disconnect')
+              .toList();
+          if (open) {
+            expect(disconnects, isEmpty);
+            expect(engine.list('sessions').single['id'], 101);
+          } else {
+            expect(disconnects.map((c) => c.arguments), [
+              {'id': 101},
+            ]);
+            expect(engine.list('sessions'), isEmpty);
+            await tester.tap(find.text('Research'));
+            await tester.pumpAndSettle();
+            expect(
+              tester.widget<ConsolePage>(find.byType(ConsolePage)).sessionId,
+              102,
+            );
+            expect(calls.singleWhere((c) => c.method == 'connect').arguments, {
+              'id': 7,
+            });
+          }
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+          engine.dispose();
+        },
+      );
+    }
+  }
+
   testWidgets(
     'key registration uses the selected session and a readable key name',
     (tester) async {

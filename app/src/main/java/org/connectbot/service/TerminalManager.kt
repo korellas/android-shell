@@ -532,6 +532,9 @@ class TerminalManager :
      * Called by child bridge when somehow it's been disconnected.
      */
     override fun onDisconnected(bridge: TerminalBridge) {
+        synchronized(pendingReconnect) {
+            pendingReconnect.removeAll { it.get() == null || it.get() === bridge }
+        }
         Timber.d("Bridge Disconnected. Removing it.")
         endedSessionAttention[bridge.host.id] = bridge.sessionAttention
 
@@ -1098,6 +1101,7 @@ class TerminalManager :
      */
     fun requestReconnect(bridge: TerminalBridge) {
         synchronized(pendingReconnect) {
+            if (bridge.isAwaitingClose()) return
             pendingReconnect.add(WeakReference(bridge))
             if (!bridge.isUsingNetwork() ||
                 connectivityMonitor.getCurrentNetworkInfo()?.isConnected == true
@@ -1115,6 +1119,7 @@ class TerminalManager :
         synchronized(pendingReconnect) {
             for (ref in pendingReconnect) {
                 val bridge = ref.get() ?: continue
+                if (bridge.isAwaitingClose()) continue
                 bridge.startConnection()
             }
             pendingReconnect.clear()

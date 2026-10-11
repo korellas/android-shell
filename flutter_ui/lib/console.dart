@@ -154,12 +154,16 @@ class _ConsolePageState extends State<ConsolePage> {
   bool leaving = false;
   bool get authenticationPending =>
       engine.list('prompts').any((prompt) => prompt['sessionId'] == id);
+  bool get unfinishedConnection =>
+      session.isNotEmpty && session['open'] != true;
 
   Future<void> leave({bool disconnect = false}) async {
     if (leaving) return;
     leaving = true;
     try {
-      if ((disconnect && session.isNotEmpty) || authenticationPending) {
+      if ((disconnect && session.isNotEmpty) ||
+          unfinishedConnection ||
+          authenticationPending) {
         await engine.invoke('session.disconnect', {'id': id});
       }
       if (mounted) Navigator.pop(context);
@@ -395,7 +399,7 @@ class _ConsolePageState extends State<ConsolePage> {
   Widget build(BuildContext context) {
     final prefs = engine.preferences;
     return PopScope(
-      canPop: !authenticationPending,
+      canPop: !unfinishedConnection && !authenticationPending,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(leave());
       },
