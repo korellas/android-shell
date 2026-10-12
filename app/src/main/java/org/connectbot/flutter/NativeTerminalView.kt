@@ -107,6 +107,7 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
     val composeMode: Boolean get() = compose?.isComposeModeActive == true
     private var sizeOverride by mutableStateOf<Pair<Int, Int>?>(null)
     private var overrideSize by mutableStateOf(false)
+    private var sessionOpen by mutableStateOf(bridge.isSessionOpen)
     private var showKeyboard by mutableStateOf(activity.resources.configuration.keyboard == Configuration.KEYBOARD_NOKEYS)
     private var imeVisible by mutableStateOf(false)
     private var showExtraKeyboard by mutableStateOf(true)
@@ -135,18 +136,14 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
             val typeface = rememberTerminalTypefaceFromStoredValue(profileFont ?: settings.fontFamily)
             val customColors = remember(appearance) {
                 val (fg, bg, cursor) = appearance
-                if ((bg == 0xff0e1216.toInt() && cursor == 0xff6fd8c4.toInt()) || (bg == 0xfff6f5f0.toInt() && cursor == 0xff0b7566.toInt())) {
-                    null
-                } else {
-                    val background = Color(bg)
-                    val foreground = Color(fg)
-                    connectBotColorScheme(activity, background.red + background.green + background.blue < 1.5f, false).copy(
-                        primary = Color(cursor), onPrimary = background, primaryContainer = lerp(background, Color(cursor), .18f), onPrimaryContainer = Color(cursor),
-                        background = background, surface = background, onSurface = foreground, onBackground = foreground,
-                        surfaceContainerLow = lerp(background, foreground, .04f), surfaceContainer = lerp(background, foreground, .04f),
-                        surfaceContainerHigh = lerp(background, foreground, .08f), surfaceContainerHighest = lerp(background, foreground, .13f), outlineVariant = lerp(background, foreground, .15f),
-                    )
-                }
+                val background = Color(bg)
+                val foreground = Color(fg)
+                connectBotColorScheme(activity, background.red + background.green + background.blue < 1.5f, false).copy(
+                    primary = Color(cursor), onPrimary = background, primaryContainer = lerp(background, Color(cursor), .18f), onPrimaryContainer = Color(cursor),
+                    background = background, surface = background, onSurface = foreground, onBackground = foreground,
+                    surfaceContainerLow = lerp(background, foreground, .04f), surfaceContainer = lerp(background, foreground, .04f),
+                    surfaceContainerHigh = lerp(background, foreground, .08f), surfaceContainerHighest = lerp(background, foreground, .13f), outlineVariant = lerp(background, foreground, .15f),
+                )
             }
             ConnectBotTheme(themeMode = settings.themeMode, dynamicColor = false, overrideColorScheme = customColors) {
                 val imeInsets = if (settings.fullscreen) {
@@ -178,8 +175,8 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                         ),
                         typeface = typeface,
                         initialFontSize = fontSize.sp,
-                        keyboardEnabled = !locked && active,
-                        showSoftKeyboard = showKeyboard && !locked && active,
+                        keyboardEnabled = !locked && active && sessionOpen,
+                        showSoftKeyboard = showKeyboard && !locked && active && sessionOpen,
                         focusRequester = focus,
                         forcedSize = if (overrideSize) {
                             sizeOverride
@@ -225,7 +222,7 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                             Text("조합 모드 · Enter로 보내기", modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium)
                         }
                     }
-                    if (active && !locked) {
+                    if (active && !locked && sessionOpen) {
                         AnimatedVisibility(
                             visible = showExtraKeyboard,
                             enter = fadeIn(animationSpec = tween(durationMillis = 100)),
@@ -303,6 +300,10 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
         }
     }
 
+    fun updateConnection() {
+        sessionOpen = bridge.isSessionOpen
+        if (bridge.disconnected) showKeyboard = false
+    }
     fun updateLock(value: Boolean) {
         locked = value
         view.visibility = if (value || !active) View.INVISIBLE else View.VISIBLE

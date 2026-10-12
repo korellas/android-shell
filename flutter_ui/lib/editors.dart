@@ -1007,11 +1007,14 @@ class _RecordEditorState extends State<RecordEditor> {
   }
 
   Future<void> deleteHost() async {
-    if (await confirm(context, '호스트 삭제', '설정과 연결을 삭제할까요?', action: '삭제') &&
-        mounted) {
-      await runEngine(context, engine, 'host.delete', {'id': draft['id']});
-      if (mounted) Navigator.pop(context);
-    }
+    await deleteTildeHost(
+      context,
+      engine,
+      draft,
+      onDeleted: () {
+        if (mounted) Navigator.pop(context);
+      },
+    );
   }
 
   bool get wideEditor => MediaQuery.sizeOf(context).width >= 720;
@@ -1103,9 +1106,15 @@ class _RecordEditorState extends State<RecordEditor> {
     } catch (e) {
       if (mounted) {
         setState(() => error = '$e');
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('저장하지 못했습니다'),
+            action: SnackBarAction(
+              label: '자세히',
+              onPressed: () => showErrorDetails(context, e),
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => saving = false);
@@ -1137,9 +1146,12 @@ class _RecordEditorState extends State<RecordEditor> {
             if (error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child: Text(
-                  error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                child: ListTile(
+                  title: const Text('변경 사항을 저장하지 못했습니다'),
+                  trailing: TextButton(
+                    onPressed: () => showErrorDetails(context, error!),
+                    child: const Text('자세히'),
+                  ),
                 ),
               ),
             if (host) ...hostFields(selected ?? 'connection') else ...fields(),
@@ -1317,7 +1329,14 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
             value: confirmation,
             onChanged: (v) => setState(() => confirmation = v),
           ),
-          if (error != null) Text(error!),
+          if (error != null)
+            ListTile(
+              title: const Text('키를 만들지 못했습니다'),
+              trailing: TextButton(
+                onPressed: () => showErrorDetails(context, error!),
+                child: const Text('자세히'),
+              ),
+            ),
           const SizedBox(height: 24),
           FilledButton(
             onPressed: busy
@@ -1355,9 +1374,7 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
                       }
                     }
                   },
-            child: busy
-                ? const SizedBox(height: 12, child: TildeProgress())
-                : const Text('만들기'),
+            child: busy ? const TildeProgress.circular() : const Text('만들기'),
           ),
         ],
       ),

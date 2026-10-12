@@ -53,7 +53,7 @@ Widget settingsSection(
       child: Text(
         title,
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: Theme.of(context).colorScheme.primary,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     ),
@@ -93,10 +93,12 @@ Color paletteColor(EngineRecord scheme, String role) {
 class TerminalPreview extends StatefulWidget {
   final AndroidEngine engine;
   final EngineRecord overrides;
+  final bool framed;
   const TerminalPreview({
     super.key,
     required this.engine,
     this.overrides = const {},
+    this.framed = true,
   });
   @override
   State<TerminalPreview> createState() => _TerminalPreviewState();
@@ -109,7 +111,9 @@ class _TerminalPreviewState extends State<TerminalPreview> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final p = widget.engine.preferences;
-      final profile = defaultProfile(widget.engine);
+      final profile = widget.overrides['profile'] is Map
+          ? row(widget.overrides['profile'])
+          : defaultProfile(widget.engine);
       final scheme = widget.engine
           .list('schemes')
           .where((s) => s['id'] == profile['colorSchemeId'])
@@ -141,10 +145,12 @@ class _TerminalPreviewState extends State<TerminalPreview> {
         label: '색상 테마·글꼴·여백 미리보기',
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
+            borderRadius: BorderRadius.circular(widget.framed ? 16 : 0),
+            border: widget.framed
+                ? Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  )
+                : null,
           ),
           clipBehavior: Clip.antiAlias,
           child: FutureBuilder<EngineRecord>(
@@ -160,10 +166,15 @@ class _TerminalPreviewState extends State<TerminalPreview> {
                 );
               }
               return SizedBox(
-                height: 100,
-                child: Center(
+                height: widget.framed ? 100 : 30,
+                child: Align(
+                  alignment: widget.framed
+                      ? Alignment.center
+                      : Alignment.centerLeft,
                   child: Text(
-                    snapshot.connectionState == ConnectionState.waiting
+                    widget.overrides['sampleText'] is String
+                        ? widget.overrides['sampleText'] as String
+                        : snapshot.connectionState == ConnectionState.waiting
                         ? '미리보기 불러오는 중…'
                         : '미리보기를 표시할 수 없어요',
                     style: Theme.of(context).textTheme.bodySmall,

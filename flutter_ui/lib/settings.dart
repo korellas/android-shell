@@ -727,11 +727,21 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 title: TerminalPreview(
                   engine: engine,
-                  overrides: {'fontFamily': option.$1, 'sampleText': option.$2},
+                  framed: false,
+                  overrides: {
+                    'fontFamily': option.$1,
+                    'sampleText': '${option.$2} 가나다',
+                    'compact': true,
+                    'backgroundColor': 0,
+                    'foregroundColor': Theme.of(
+                      c,
+                    ).colorScheme.onSurface.toARGB32(),
+                    'profile': {...defaultProfile(engine), 'fontSize': 15},
+                  },
                 ),
                 subtitle: Text(
                   option.$1 == 'JETBRAINS_MONO'
-                      ? '앱에 포함 · 리거처 지원'
+                      ? '앱에 포함'
                       : option.$1.toString().startsWith('local:')
                       ? option.$1.toString().substring(6)
                       : option.$1.toString().startsWith('custom:')
@@ -744,7 +754,12 @@ class _SettingsPageState extends State<SettingsPage> {
                         tooltip: '폰트 삭제',
                         icon: const Icon(Icons.close),
                         onPressed: () async {
-                          if (await confirm(c, '폰트 삭제', '이 폰트 파일을 삭제할까요?') &&
+                          if (await confirm(
+                                c,
+                                '폰트 삭제',
+                                '이 폰트 파일을 삭제할까요?',
+                                action: '폰트 삭제',
+                              ) &&
                               c.mounted) {
                             await runEngine(c, engine, 'font.delete', {
                               'fileName': option.$1.toString().substring(6),
@@ -911,9 +926,15 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('설정을 저장하지 못했습니다'),
+            action: SnackBarAction(
+              label: '자세히',
+              onPressed: () => showErrorDetails(context, e),
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => busy = false);
@@ -1211,9 +1232,12 @@ class _LogsPageState extends State<LogsPage> {
         ),
         if (busy) const TildeProgress(),
         if (error != null)
-          Text(
-            error!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ListTile(
+            title: const Text('로그를 불러오지 못했습니다'),
+            trailing: TextButton(
+              onPressed: () => showErrorDetails(context, error!),
+              child: const Text('자세히'),
+            ),
           ),
         Expanded(
           child: SingleChildScrollView(

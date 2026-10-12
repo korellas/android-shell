@@ -321,7 +321,7 @@ void main() {
   ) async {
     await tester.pumpWidget(const AndroidShellApp());
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Research 옵션'));
+    await tester.longPress(find.text('Research'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('새 세션으로 연결'));
     await tester.pumpAndSettle();
@@ -448,7 +448,7 @@ void main() {
     },
   );
 
-  testWidgets('console menu keeps advanced actions in a secondary menu', (
+  testWidgets('console menu exposes grouped actions in one menu', (
     tester,
   ) async {
     await tester.pumpWidget(const AndroidShellApp());
@@ -459,9 +459,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('붙여넣기'), findsOneWidget);
     expect(find.text('텍스트 입력'), findsOneWidget);
-    expect(find.text('터미널 크기 지정'), findsNothing);
-    await tester.tap(find.text('추가 기능'));
-    await tester.pumpAndSettle();
+    expect(find.text('추가 기능'), findsNothing);
     expect(find.text('터미널 크기 지정'), findsOneWidget);
     await tester.tap(find.text('텍스트 편집 후 붙여넣기'));
     await tester.pumpAndSettle();

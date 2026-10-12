@@ -102,7 +102,7 @@ class SSHDisconnectTest {
     }
 
     @Test
-    fun read_withShellExitStatus_closesTerminalInsteadOfShowingReconnect() {
+    fun read_withShellExitStatus_preservesLastOutput() {
         val session = mock(Session::class.java)
         val bridge = mock(TerminalBridge::class.java)
         `when`(session.exitStatus).thenReturn(0)
@@ -120,7 +120,7 @@ class SSHDisconnectTest {
             .single { it.method.name == "dispatchDisconnect" }
             .getArgument<DisconnectReason>(0)
         assertEquals(
-            DisconnectAction.CloseImmediately,
+            DisconnectAction.ShowReconnectOverlay,
             DisconnectPolicy.decide(reason, quickDisconnect = false, stayConnected = false),
         )
     }

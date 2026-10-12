@@ -32,6 +32,8 @@ class AndroidEngine extends ChangeNotifier {
   String? error;
   EngineRecord? sessionSwitch;
   EngineRecord? textInput;
+  EngineRecord? notification;
+  bool get isDisposed => _closed;
   StreamSubscription<dynamic>? _subscription;
   bool _refreshing = false;
   bool _again = false;
@@ -53,7 +55,7 @@ class AndroidEngine extends ChangeNotifier {
           notifyListeners();
         }
         if (data['type'] == 'message') {
-          error = data['message'] as String?;
+          notification = data;
           notifyListeners();
         }
         refresh();
@@ -92,7 +94,7 @@ class AndroidEngine extends ChangeNotifier {
     try {
       return await channel.invokeMethod<dynamic>(method, args);
     } on PlatformException catch (e) {
-      throw EngineException(e.message ?? e.code);
+      throw EngineException(e.message ?? e.code, details: e.toString());
     }
   }
 
@@ -102,7 +104,7 @@ class AndroidEngine extends ChangeNotifier {
       await refresh();
       return result;
     } on PlatformException catch (e) {
-      throw EngineException(e.message ?? e.code);
+      throw EngineException(e.message ?? e.code, details: e.toString());
     }
   }
 
@@ -116,7 +118,8 @@ class AndroidEngine extends ChangeNotifier {
 
 class EngineException implements Exception {
   final String message;
-  const EngineException(this.message);
+  final String? details;
+  const EngineException(this.message, {this.details});
   @override
   String toString() => message;
 }

@@ -22,6 +22,7 @@ import 'tilde_controls.dart';
 import 'tilde_design.dart';
 import 'package:flutter/material.dart';
 import 'engine.dart';
+import 'main.dart' show showErrorDetails;
 
 class AutomationPage extends StatefulWidget {
   final AndroidEngine engine;
@@ -223,9 +224,12 @@ class _AutomationPageState extends State<AutomationPage> {
             if (error != null)
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(
-                  error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                child: ListTile(
+                  title: const Text('자동 실행 작업을 완료하지 못했습니다'),
+                  trailing: TextButton(
+                    onPressed: () => showErrorDetails(context, error!),
+                    child: const Text('자세히'),
+                  ),
                 ),
               ),
             Padding(
@@ -251,7 +255,7 @@ class _AutomationPageState extends State<AutomationPage> {
             if (trialSession != null)
               ListTile(
                 leading: progress['running'] == true
-                    ? const SizedBox(width: 24, child: TildeProgress())
+                    ? const TildeProgress.circular()
                     : const Icon(Icons.terminal),
                 title: Text(
                   progress['running'] == true
