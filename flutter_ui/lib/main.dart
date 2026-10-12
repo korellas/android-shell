@@ -560,8 +560,6 @@ class _ShellHomeState extends State<ShellHome> {
       case 'settings':
         await engine.refresh();
         if (mounted) _page(SettingsPage(engine: engine));
-      case 'login':
-        _page(LoginPage(engine: engine, onSetup: _setupHost));
       case 'disconnect':
         if (await confirm(
               context,
@@ -720,7 +718,6 @@ class _ShellHomeState extends State<ShellHome> {
                   ),
                 ),
                 const PopupMenuItem(value: 'settings', child: Text('설정')),
-                const PopupMenuItem(value: 'login', child: Text('로그인·SSH 키')),
                 const PopupMenuItem(
                   value: 'disconnect',
                   child: Text('연결 모두 끊기'),

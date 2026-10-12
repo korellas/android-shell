@@ -507,7 +507,6 @@ class _RecordEditorState extends State<RecordEditor> {
       ]),
       section('키 설정', [
         text('nickname', '키 이름', required: true),
-        toggle('confirmation', '사용할 때마다 확인'),
         if (draft['biometric'] == true)
           const ListTile(
             leading: Icon(Icons.fingerprint),
@@ -1247,7 +1246,7 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
   final form = GlobalKey<FormState>();
   String name = '', type = 'ED25519', password = '';
   int? bits;
-  bool biometric = false, startup = false, confirmation = false, busy = false;
+  bool biometric = false, startup = false, busy = false;
   String? error;
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1324,11 +1323,6 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
               onChanged: (v) => setState(() => startup = v),
             ),
           ],
-          SwitchListTile(
-            title: const Text('사용할 때마다 확인'),
-            value: confirmation,
-            onChanged: (v) => setState(() => confirmation = v),
-          ),
           if (error != null)
             ListTile(
               title: const Text('키를 만들지 못했습니다'),
@@ -1355,7 +1349,6 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
                             if (bits != null) 'bits': bits,
                             'biometric': biometric,
                             'startup': startup,
-                            'confirmation': confirmation,
                             'password': password,
                           });
                       if (context.mounted) {

@@ -108,7 +108,10 @@ internal class AndroidShellEngine(
     }
 
     internal fun changed() {
-        terminalViews.values.toList().forEach { it.updateLock(!ready); it.updateConnection() }
+        terminalViews.values.toList().forEach {
+            it.updateLock(!ready)
+            it.updateConnection()
+        }
         activity.applyWindowOptions()
         if (!disposed) sink?.success(mapOf("type" to "changed"))
     }

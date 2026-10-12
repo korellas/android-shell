@@ -182,14 +182,18 @@ void main() {
       expect(find.byTooltip('호스트 추가'), findsOneWidget);
       await tester.tap(find.byTooltip('메뉴'));
       await tester.pumpAndSettle();
-      expect(find.text('로그인·SSH 키'), findsOneWidget);
+      expect(find.text('로그인·SSH 키'), findsNothing);
       expect(find.text('신뢰한 서버 키'), findsNothing);
       expect(find.text('색상 테마'), findsNothing);
-      await tester.tap(find.text('로그인·SSH 키'));
+      await tester.tap(find.text('설정'));
       await tester.pumpAndSettle();
-      expect(find.text('지문 로그인 설정'), findsOneWidget);
-      expect(find.text('SSH 키 관리'), findsOneWidget);
-      expect(find.text('공용 로그인 계정'), findsOneWidget);
+      await reveal(tester, find.text('보안·백업'), sidebar: true);
+      await tester.tap(find.text('보안·백업'));
+      await tester.pumpAndSettle();
+      await reveal(tester, find.text('SSH 키'));
+      await tester.tap(find.text('SSH 키'));
+      await tester.pumpAndSettle();
+      expect(find.text('SSH 키'), findsWidgets);
     },
   );
   testWidgets('automation and server trust stay inside the host editor', (

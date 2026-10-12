@@ -839,6 +839,11 @@ class TerminalManager :
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_DISCONNECT_ALL) {
+            disconnectAll(excludeLocal = false)
+            stopNow()
+            return START_NOT_STICKY
+        }
         /*
          * We want this service to continue running until it is explicitly
          * stopped, so return sticky.
@@ -1150,6 +1155,7 @@ class TerminalManager :
 
     companion object {
         const val TAG = "CB.TerminalManager"
+        const val ACTION_DISCONNECT_ALL = "org.connectbot.action.DISCONNECT"
 
         const val VIBRATE_DURATION: Long = 30
 

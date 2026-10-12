@@ -553,7 +553,6 @@ open class SSH :
             nickname,
             pair,
             isAvailable,
-            confirm = { pubkey?.confirmation != true || promptForPubkeyUse(nickname) },
             prepare = { preparePublicKeyAuthentication(jc, pair, pubkey?.storageType) },
             signatureProxy = if (pubkey?.storageType == KeyStorageType.ANDROID_KEYSTORE &&
                 pubkey.keystoreAlias?.let { manager?.biometricKeyManager?.isAuthPerUse(it) } == true

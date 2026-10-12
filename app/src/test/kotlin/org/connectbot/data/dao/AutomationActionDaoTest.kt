@@ -149,6 +149,7 @@ class AutomationActionDaoTest {
             db.close()
         }
     }
+
     @Test
     fun undoHostDeletionRestoresRelatedRecordsAndPassword() = runTest {
         val db = database()
@@ -196,5 +197,4 @@ class AutomationActionDaoTest {
             db.close()
         }
     }
-
 }

@@ -158,18 +158,54 @@ class _ConsolePageState extends State<ConsolePage> {
   Future<dynamic> command(String method, [EngineRecord args = const {}]) =>
       runEngine(actionsContext, engine, method, {'id': id, ...args});
   bool leaving = false;
-  bool get authenticationPending =>
-      engine.list('prompts').any((prompt) => prompt['sessionId'] == id);
-  bool get unfinishedConnection =>
-      session.isNotEmpty && session['open'] != true;
+  bool exitPromptOpen = false;
+
+  Future<void> requestLeave() async {
+    if (leaving || exitPromptOpen) return;
+    if (session.isEmpty || session['ended'] == true) {
+      await leave(disconnect: true);
+      return;
+    }
+    exitPromptOpen = true;
+    final targetId = id;
+    try {
+      final disconnect = await showDialog<bool>(
+        context: actionsContext,
+        builder: (context) => AlertDialog(
+          title: const Text('세션을 유지할까요?'),
+          content: const Text('세션을 유지하면 화면을 나가도 연결이 계속됩니다.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                '세션 종료',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('세션 유지'),
+            ),
+          ],
+        ),
+      );
+      if (disconnect != null && mounted && id == targetId) {
+        await leave(disconnect: disconnect);
+      }
+    } finally {
+      exitPromptOpen = false;
+    }
+  }
 
   Future<void> leave({bool disconnect = false}) async {
     if (leaving) return;
     leaving = true;
     try {
-      if ((disconnect && session.isNotEmpty) ||
-          unfinishedConnection ||
-          authenticationPending) {
+      if (disconnect && session.isNotEmpty) {
         await engine.invoke('session.disconnect', {'id': id});
       }
       if (mounted) Navigator.pop(context);
@@ -472,9 +508,9 @@ class _ConsolePageState extends State<ConsolePage> {
           return AnnotatedRegion<SystemUiOverlayStyle>(
             value: overlays,
             child: PopScope(
-              canPop: !unfinishedConnection && !authenticationPending,
+              canPop: leaving,
               onPopInvokedWithResult: (didPop, _) {
-                if (!didPop) unawaited(leave());
+                if (!didPop) unawaited(requestLeave());
               },
               child: Scaffold(
                 resizeToAvoidBottomInset: false,
@@ -530,7 +566,7 @@ class _ConsolePageState extends State<ConsolePage> {
                             leading: IconButton(
                               tooltip: '뒤로',
                               icon: const Icon(Icons.arrow_back),
-                              onPressed: leave,
+                              onPressed: requestLeave,
                             ),
                             titleSpacing: 0,
                             title: InkWell(
