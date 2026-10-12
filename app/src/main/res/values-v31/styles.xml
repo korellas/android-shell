@@ -1,0 +1,7 @@
+<!-- Copyright 2026 Kenny Root; SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <style name="AppTheme" parent="BaseAppTheme">
+        <item name="android:windowSplashScreenBackground">#0E1216</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+    </style>
+</resources>

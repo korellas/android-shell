@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Android Shell · Flutter 디자인 가이드</title>
+<style>
+:root{color-scheme:dark;--bg:#1a1c1e;--text:#e2e2e5;--muted:#c3c6cf;--card:#222427;--line:#2e3135;--accent:#40c4ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,sans-serif}main{max-width:1180px;margin:auto;padding:40px 24px 80px}h1{font-size:30px;line-height:1.3;font-weight:600}h2{font-size:22px;font-weight:500;margin:40px 0 16px}h3{font-size:18px;font-weight:500}p{max-width:850px;color:var(--muted)}a{color:var(--accent)}nav{display:flex;flex-wrap:wrap;gap:12px}nav a{border:1px solid var(--line);border-radius:24px;padding:8px 16px;text-decoration:none}.principles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px}.card h3{margin:0 0 8px}.card p{margin:0}.screens{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:24px}figure{margin:0}figure img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:20px}figcaption{margin:10px 2px 0;color:var(--muted);font-size:14px}.tablet{margin-top:24px}table{width:100%;border-collapse:collapse;text-align:left}td,th{padding:12px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--accent);font-weight:500}code{font:14px ui-monospace,monospace;overflow-wrap:anywhere}.notice{border-left:3px solid var(--accent);padding:8px 16px;background:var(--card);border-radius:0 12px 12px 0}.table-wrap{overflow:auto}@media(max-width:480px){main{padding:24px 16px 48px}h1{font-size:25px}}@media print{body{background:white;color:black}p,figcaption{color:#333}nav{display:none}}
+</style></head><body><main>
+<p>Android Shell · Flutter UI</p><h1>연결을 중심에 두고, 설정은 쉽게 읽히게</h1>
+<p>사용자가 제공한 「Flutter 점검 예시」의 ‘고치면’을 기준으로 삼습니다. 아래 이미지는 구현한 Flutter 위젯을 예시 데이터와 검토용 글꼴로 렌더링한 시안입니다. 실제 기기 캡처가 아니며, 터미널 미리보기 이미지도 예시입니다.</p>
+<nav aria-label="가이드 목차"><a href="#principles">화면 기준</a><a href="#screens">구현 시안</a><a href="#behavior">설정 보존</a><a href="#owners">구현 기준점</a></nav>
+<h2 id="principles">화면 기준</h2><div class="principles">
+<section class="card"><h3>연결 목록이 홈</h3><p>저장된 호스트를 바로 보여 줍니다. 보조 명령은 호스트 메뉴에서 실행하고, 프로필과 색상·글꼴 관리는 설정에서 찾습니다.</p></section>
+<section class="card"><h3>현재 값이 먼저 보이게</h3><p>설정 목록에 현재 상태를 요약합니다. 선택 항목은 라벨·현재 값·선택 시트로 통일하고, 스위치에는 필요한 짧은 설명을 붙입니다.</p></section>
+<section class="card"><h3>시각적 무게를 구분</h3><p>중립색 아이콘 배경, 낮은 대비의 카드, 얇은 구분선을 사용합니다. 강조색은 선택 상태와 동작에 씁니다. 카드 안의 시작점과 오른쪽 제어 영역을 맞춥니다.</p></section>
+<section class="card"><h3>작은 화면과 큰 글자</h3><p>좁은 화면에서는 목록과 상세를 오가고, 공간이 충분하면 나란히 보여 줍니다. 큰 글자에서는 선택 버튼을 세로로 배치하고 색상 카드를 넓힙니다. 기능을 가리는 잘림은 허용하지 않습니다.</p></section>
+<section class="card"><h3>특수키는 기존 동작 유지</h3><p>고정 키와 스크롤 영역을 구분합니다. 미리보기에서 Fn 동작을 확인할 수 있고, 손잡이로 순서를 바꿉니다. 저장한 키 높이는 유지하며 변경만 즉시 반영합니다.</p></section>
+<section class="card"><h3>문구는 짧고 구체적으로</h3><p>설명은 해요체로 쓰고 버튼에는 실행할 동작을 적습니다. 화면 켜짐 유지·방향키 진동·제목 표시줄 자동 숨기기처럼 실제 동작을 이름에 담습니다.</p></section>
+</div>
+<h2 id="screens">구현 시안</h2><div class="screens">
+<figure><img src="assets/settings.png" alt="현재 값 요약과 중립색 아이콘을 적용한 설정 목록"><figcaption>설정 목록 · 현재 상태 요약</figcaption></figure>
+<figure><img src="assets/display.png" alt="미리보기와 모양, 터미널 여백, 콘솔 화면을 묶은 화면 설정"><figcaption>화면 · 미리보기와 섹션</figcaption></figure>
+<figure><img src="assets/keyboard.png" alt="특수키와 한글 입력, 고급 설정을 구분한 키보드 설정"><figcaption>키보드 · 고급 항목을 구분</figcaption></figure>
+<figure><img src="assets/terminal.png" alt="사용자 지정 값이 유지되는 스크롤 버퍼와 프로필, TERM 설정"><figcaption>터미널 · 사용자 지정 값 보존</figcaption></figure>
+<figure><img src="assets/connection.png" alt="알림 종류와 터미널 벨을 구분한 연결 알림 설정"><figcaption>연결·알림 · 개별 알림 선택 유지</figcaption></figure>
+<figure><img src="assets/bar.png" alt="미리보기와 즉시 반영하는 높이 선택, 순서 변경 손잡이가 있는 특수키 구성"><figcaption>특수키 바 · 즉시 반영과 순서 변경</figcaption></figure>
+<figure><img src="assets/schemes.png" alt="실제 팔레트를 보여 주고 선택 상태가 표시되는 색상 테마 카드"><figcaption>색상 테마 · 선택과 팔레트 편집을 구분</figcaption></figure>
+</div><figure class="tablet"><img src="assets/tablet.png" alt="설정 목록과 상세가 나란히 보이는 넓은 화면"><figcaption>넓은 화면 · 목록과 상세</figcaption></figure>
+<h2 id="behavior">디자인을 바꿔도 보존할 동작</h2>
+<div class="notice"><p>스크롤 기록과 여백은 화면을 여는 것만으로 값이 바뀌지 않습니다. 제안된 단계에 없는 값도 그대로 표시합니다. 숫자 검증은 입력창과 기존 엔진에서 수행합니다.</p><p>연결 알림을 켜거나 꺼도 벨·연결 끊김의 개별 선택은 유지합니다. 접힌 ‘알림 종류’에서 각각 조정할 수 있습니다.</p><p>특수키 변경이 실패하면 저장된 구성을 유지하고 오류를 보여 줍니다. 초기화는 확인을 거쳐 기존 엔진의 기본값을 사용합니다.</p></div>
+<p>색상 테마 선택은 기본 터미널 프로필을 변경합니다. 별도 프로필을 쓰는 호스트 설정을 덮어쓰지 않습니다. 팔레트 편집·복제·가져오기·내보내기·이름 변경·삭제는 테마 메뉴에서 접근합니다. 글꼴 파일 관리와 Google Fonts 추가도 유지합니다.</p>
+<h2 id="owners">구현 기준점</h2><div class="table-wrap"><table><thead><tr><th>기준</th><th>소스</th></tr></thead><tbody>
+<tr><td>공통 색상과 표면 역할</td><td><a href="../../app/src/main/java/org/connectbot/ui/theme/Theme.kt">ConnectBotTheme</a> · <a href="../../app/src/main/java/org/connectbot/ui/theme/Color.kt">공통 색상</a></td></tr>
+<tr><td>섹션·간격·미리보기</td><td><a href="../../flutter_ui/lib/settings_widgets.dart">settingsSection · TerminalPreview · TerminalBarPreview</a></td></tr>
+<tr><td>설정 배치·선택·특수키 저장</td><td><a href="../../flutter_ui/lib/settings.dart">SettingsPage · TerminalBarPage</a></td></tr>
+<tr><td>특수키 기본값·허용 높이·순서</td><td><a href="../../app/src/main/java/org/connectbot/util/TerminalBarLayout.kt">TerminalBarLayout</a></td></tr>
+<tr><td>팔레트 선택과 편집</td><td><a href="../../flutter_ui/lib/management.dart">SchemesPage · PalettePage</a></td></tr>
+<tr><td>콘솔 입력·인증·조합모드</td><td><a href="../../app/src/main/java/org/connectbot/flutter/NativeTerminalView.kt">NativeTerminalView</a> · <a href="../../flutter_ui/lib/console.dart">ConsolePage</a></td></tr>
+<tr><td>제공된 점검 원본</td><td><a href="flutter-settings-reference.dc.html">Flutter 점검 예시 (.dc 형식 원본)</a> · 원본의 ‘현재’ 화면과 코드 제안은 참고 자료이며 위의 설정 보존 원칙을 우선합니다.</td></tr>
+</tbody></table></div>
+</main></body></html>

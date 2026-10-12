@@ -323,6 +323,7 @@ fun Terminal(
     maxFontSize: TextUnit = 30.sp,
     backgroundColor: Color = Color.Black,
     foregroundColor: Color = Color.White,
+    cursorColor: Color = Color.Unspecified,
     selectionBackgroundColor: Color = Color.Unspecified,
     selectionForegroundColor: Color = Color.Unspecified,
     keyboardEnabled: Boolean = false,
@@ -356,6 +357,7 @@ fun Terminal(
         maxFontSize = maxFontSize,
         backgroundColor = backgroundColor,
         foregroundColor = foregroundColor,
+        cursorColor = cursorColor,
         keyboardEnabled = keyboardEnabled,
         showSoftKeyboard = showSoftKeyboard,
         focusRequester = focusRequester,
@@ -395,6 +397,7 @@ internal fun TerminalWithAccessibility(
     maxFontSize: TextUnit = 30.sp,
     backgroundColor: Color = Color.Black,
     foregroundColor: Color = Color.White,
+    cursorColor: Color = Color.Unspecified,
     keyboardEnabled: Boolean = false,
     showSoftKeyboard: Boolean = true,
     focusRequester: FocusRequester = remember { FocusRequester() },
@@ -1630,6 +1633,9 @@ internal fun TerminalWithAccessibility(
                                     snapshot.cursorShape,
                                     textPaint.resolvedRtl(screenState, snapshot.cursorRow, cursorCol, baseCharWidth),
                                 ),
+                                cursorColor,
+                                if (cursorLine.cells.flags(cursorCol) and 32 != 0) cursorLine.cells.background(cursorCol) else cursorLine.cells.foreground(cursorCol),
+                                if (cursorLine.cells.flags(cursorCol) and 32 != 0) cursorLine.cells.foreground(cursorCol) else cursorLine.cells.background(cursorCol),
                             )
                         }
                         terminalInversion.draw(drawContext.canvas.nativeCanvas) {
@@ -2388,6 +2394,7 @@ private fun TerminalPreview(
     modifier: Modifier = Modifier,
     backgroundColor: Color = Color.Black,
     foregroundColor: Color = Color.White,
+    cursorColor: Color = Color.Unspecified,
 ) {
     val previewLines = listOf(
         "$ echo hello",

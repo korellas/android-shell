@@ -516,7 +516,7 @@ private fun ConsoleTerminalPage(
                         bridge.promptManager.respond(response)
                     },
                     onCancel = {
-                        bridge.promptManager.cancelPrompt()
+                        bridge.dispatchDisconnect(org.connectbot.service.DisconnectReason.USER_REQUESTED)
                     },
                     onDismiss = {
                         termFocusRequester.requestFocus()

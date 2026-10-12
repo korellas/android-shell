@@ -131,4 +131,14 @@ class SettingsViewModelThemeTest {
         assertEquals(-4L, viewModel.uiState.value.availableProfiles.first { it.id == 1L }.colorSchemeId)
         assertEquals(-5L, viewModel.uiState.value.availableProfiles.first { it.id == 2L }.colorSchemeId)
     }
+
+    @Test
+    fun bellSelectionUpdatesBothSoundAndVibrationTogether() = runTest {
+        for (mode in 0..3) {
+            viewModel.updateBellMode(mode)
+            advanceUntilIdle()
+            assertEquals(mode == 1 || mode == 3, viewModel.uiState.value.bell)
+            assertEquals(mode == 2 || mode == 3, viewModel.uiState.value.bellVibrate)
+        }
+    }
 }

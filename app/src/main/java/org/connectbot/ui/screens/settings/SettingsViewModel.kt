@@ -92,7 +92,7 @@ data class SettingsUiState(
     val bellVibrate: Boolean = true,
     val bellNotification: Boolean = true,
     val connectionLostNotification: Boolean = true,
-    val fontFamily: String = "SYSTEM_DEFAULT",
+    val fontFamily: String = PreferenceConstants.FONT_FAMILY_DEFAULT,
     val customFonts: List<String> = emptyList(),
     val customTerminalTypes: List<String> = emptyList(),
     val localFonts: List<Pair<String, String>> = emptyList(),
@@ -243,7 +243,7 @@ class SettingsViewModel @Inject constructor(
             bellVibrate = prefs.getBoolean(PreferenceConstants.BELL_VIBRATE, true),
             bellNotification = prefs.getBoolean(PreferenceConstants.BELL_NOTIFICATION, true),
             connectionLostNotification = prefs.getBoolean(PreferenceConstants.CONNECTION_LOST_NOTIFICATION, true),
-            fontFamily = prefs.getString(PreferenceConstants.FONT_FAMILY, "SYSTEM_DEFAULT") ?: "SYSTEM_DEFAULT",
+            fontFamily = prefs.getString(PreferenceConstants.FONT_FAMILY, PreferenceConstants.FONT_FAMILY_DEFAULT) ?: PreferenceConstants.FONT_FAMILY_DEFAULT,
             customFonts = customFonts,
             customTerminalTypes = customTerminalTypes,
             localFonts = localFonts,
@@ -324,6 +324,14 @@ class SettingsViewModel @Inject constructor(
 
     fun updateKeepAlive(value: Boolean) {
         updateBooleanPref(PreferenceConstants.KEEP_ALIVE, value) { copy(keepalive = value) }
+    }
+
+    fun updateBellMode(mode: Int) {
+        require(mode in 0..3)
+        val sound = mode == 1 || mode == 3
+        val vibration = mode == 2 || mode == 3
+        prefs.edit().putBoolean(PreferenceConstants.BELL, sound).putBoolean(PreferenceConstants.BELL_VIBRATE, vibration).apply()
+        _uiState.update { it.copy(bell = sound, bellVibrate = vibration) }
     }
 
     fun updateBell(value: Boolean) {
@@ -569,7 +577,7 @@ class SettingsViewModel @Inject constructor(
 
                 // If the removed font was the selected font, reset to system default
                 if (_uiState.value.fontFamily == "custom:$fontName") {
-                    updateFontFamily("SYSTEM_DEFAULT")
+                    updateFontFamily(PreferenceConstants.FONT_FAMILY_DEFAULT)
                 }
             }
         }
@@ -617,7 +625,7 @@ class SettingsViewModel @Inject constructor(
 
                 // If the removed font was the selected font, reset to system default
                 if (_uiState.value.fontFamily == "${LocalFontProvider.LOCAL_PREFIX}$fileName") {
-                    updateFontFamily("SYSTEM_DEFAULT")
+                    updateFontFamily(PreferenceConstants.FONT_FAMILY_DEFAULT)
                 }
             }
         }

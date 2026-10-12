@@ -64,6 +64,12 @@ private val lightScheme = lightColorScheme(
 )
 
 private val darkScheme = darkColorScheme(
+    surfaceContainerLowest = Color(0xFF0E1216),
+    surfaceContainerLow = Color(0xFF151A1F),
+    surfaceContainer = Color(0xFF151A1F),
+    surfaceContainerHigh = Color(0xFF1B2229),
+    surfaceContainerHighest = Color(0xFF242D35),
+    outlineVariant = Color(0xFF232B33),
     primary = md_theme_dark_primary,
     onPrimary = md_theme_dark_onPrimary,
     primaryContainer = md_theme_dark_primaryContainer,
@@ -101,6 +107,7 @@ fun ConnectBotTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
+    overrideColorScheme: ColorScheme? = null,
     content: @Composable () -> Unit,
 ) {
     val darkTheme = when (themeMode) {
@@ -108,7 +115,7 @@ fun ConnectBotTheme(
         ThemeMode.DARK -> true
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
-    val colorScheme = connectBotColorScheme(LocalContext.current, darkTheme, dynamicColor)
+    val colorScheme = overrideColorScheme ?: connectBotColorScheme(LocalContext.current, darkTheme, dynamicColor)
 
     val view = LocalView.current
     if (!view.isInEditMode) {

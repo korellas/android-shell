@@ -37,6 +37,10 @@ import androidx.compose.foundation.layout.imeAnimationTarget
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -46,6 +50,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -64,6 +70,7 @@ import io.flutter.plugin.platform.PlatformViewFactory
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.connectbot.service.DisconnectReason
 import org.connectbot.terminal.ComposeController
 import org.connectbot.terminal.ImeShortcutInputMode
 import org.connectbot.terminal.SelectionController
@@ -76,12 +83,13 @@ import org.connectbot.ui.screens.console.handleConsoleShortcut
 import org.connectbot.ui.screens.console.horizontalSwipeNavigation
 import org.connectbot.ui.screens.console.tmuxWindowCommand
 import org.connectbot.ui.theme.ConnectBotTheme
+import org.connectbot.ui.theme.connectBotColorScheme
 import org.connectbot.util.rememberTerminalTypefaceFromStoredValue
 
 internal class NativeTerminalFactory(private val engine: AndroidShellEngine) : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
         check(engine.ready) { "앱 잠금을 먼저 해제하세요." }
-        val id = ((args as Map<*, *>)["hostId"] as Number).toLong()
+        val id = ((args as Map<*, *>)["sessionId"] as Number).toLong()
         return NativeTerminalView(engine, id, viewId, (args["owner"] as String))
     }
 }
@@ -90,12 +98,13 @@ internal class NativeTerminalFactory(private val engine: AndroidShellEngine) : P
 internal class NativeTerminalView(private val engine: AndroidShellEngine, private val id: Long, private val viewId: Int, val routeOwner: String) :
     PlatformView,
     DefaultLifecycleObserver {
-    val hostId: Long get() = id
-    private var active by mutableStateOf(engine.activeOwner == routeOwner && engine.activeHostId == id)
+    val sessionId: Long get() = id
+    private var active by mutableStateOf(engine.activeOwner == routeOwner && engine.activeSessionId == id)
     private val activity = engine.activity
     private val bridge = engine.bridge(id)
     private var selection by mutableStateOf<SelectionController?>(null)
     private var compose by mutableStateOf<ComposeController?>(null)
+    val composeMode: Boolean get() = compose?.isComposeModeActive == true
     private var sizeOverride by mutableStateOf<Pair<Int, Int>?>(null)
     private var overrideSize by mutableStateOf(false)
     private var showKeyboard by mutableStateOf(activity.resources.configuration.keyboard == Configuration.KEYBOARD_NOKEYS)
@@ -119,9 +128,27 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
             val prompt by bridge.promptManager.promptState.collectAsState()
             val fontSize by bridge.fontSizeFlow.collectAsState()
             val delKey by bridge.delKeyModeFlow.collectAsState()
+            val cursorColor by bridge.cursorColor.collectAsState()
             val settings by activity.settings.uiState.collectAsState()
-            val typeface = rememberTerminalTypefaceFromStoredValue(bridge.fontFamily)
-            ConnectBotTheme(themeMode = settings.themeMode) {
+            val profileFont by bridge.fontFamilyFlow.collectAsState()
+            val appearance by bridge.colorAppearance.collectAsState()
+            val typeface = rememberTerminalTypefaceFromStoredValue(profileFont ?: settings.fontFamily)
+            val customColors = remember(appearance) {
+                val (fg, bg, cursor) = appearance
+                if ((bg == 0xff0e1216.toInt() && cursor == 0xff6fd8c4.toInt()) || (bg == 0xfff6f5f0.toInt() && cursor == 0xff0b7566.toInt())) {
+                    null
+                } else {
+                    val background = Color(bg)
+                    val foreground = Color(fg)
+                    connectBotColorScheme(activity, background.red + background.green + background.blue < 1.5f, false).copy(
+                        primary = Color(cursor), onPrimary = background, primaryContainer = lerp(background, Color(cursor), .18f), onPrimaryContainer = Color(cursor),
+                        background = background, surface = background, onSurface = foreground, onBackground = foreground,
+                        surfaceContainerLow = lerp(background, foreground, .04f), surfaceContainer = lerp(background, foreground, .04f),
+                        surfaceContainerHigh = lerp(background, foreground, .08f), surfaceContainerHighest = lerp(background, foreground, .13f), outlineVariant = lerp(background, foreground, .15f),
+                    )
+                }
+            }
+            ConnectBotTheme(themeMode = settings.themeMode, dynamicColor = false, overrideColorScheme = customColors) {
                 val imeInsets = if (settings.fullscreen) {
                     WindowInsets.imeAnimationTarget
                 } else {
@@ -130,6 +157,7 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                 Box(Modifier.fillMaxSize().windowInsetsPadding(imeInsets)) {
                     Terminal(
                         terminalEmulator = bridge.terminalEmulator,
+                        cursorColor = cursorColor,
                         modifier = Modifier.fillMaxSize().padding(horizontal = settings.terminalMargin.dp).padding(bottom = if (settings.alwaysvisible) settings.terminalBarLayout.height.dp else 0.dp).then(
                             if (settings.swipeSessions || settings.swipeTmux) {
                                 Modifier.horizontalSwipeNavigation(
@@ -188,6 +216,15 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                         onPageGesture = if (settings.pgupdngesture) { key -> bridge.keyHandler.sendPressedKey(key) } else null,
                     )
 
+                    if (composeMode && active && !locked && prompt == null) {
+                        Surface(
+                            modifier = Modifier.align(Alignment.BottomStart).padding(start = 10.dp, bottom = (if (showExtraKeyboard) settings.terminalBarLayout.height else 0).dp + 12.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                        ) {
+                            Text("조합 모드 · Enter로 보내기", modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                     if (active && !locked) {
                         AnimatedVisibility(
                             visible = showExtraKeyboard,
@@ -218,7 +255,7 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                         InlinePrompt(
                             promptRequest = prompt,
                             onResponse = bridge.promptManager::respond,
-                            onCancel = bridge.promptManager::cancelPrompt,
+                            onCancel = { bridge.dispatchDisconnect(DisconnectReason.USER_REQUESTED) },
                             onDismiss = { focus.requestFocus() },
                             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = if (showExtraKeyboard) settings.terminalBarLayout.height.dp else 0.dp),
                         )
@@ -234,6 +271,7 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                     }
                 }
             }
+            LaunchedEffect(composeMode) { engine.changed() }
             LaunchedEffect(settings.alwaysvisible) { keyboardInteraction() }
             LaunchedEffect(settings.imeShortcutInputMode) { compose?.syncImeShortcutInputMode(settings.imeShortcutInputMode) }
             LaunchedEffect(showKeyboard) { if (showKeyboard) focus.requestFocus() }
@@ -276,7 +314,7 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
     }
     fun updateVisibility() {
         val wasActive = active
-        active = engine.ready && engine.activeOwner == routeOwner && engine.activeHostId == id
+        active = engine.ready && engine.activeOwner == routeOwner && engine.activeSessionId == id
         view.visibility = if (locked || !active) View.INVISIBLE else View.VISIBLE
         if (active && !wasActive) {
             markVisible()

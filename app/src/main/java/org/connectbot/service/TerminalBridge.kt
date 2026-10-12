@@ -134,6 +134,7 @@ internal class AuthBannerQueue {
  */
 @Suppress("DEPRECATION") // for ClipboardManager
 class TerminalBridge {
+    val sessionId: Long = nextSessionId.incrementAndGet()
     private val scope: CoroutineScope
 
     private sealed class TransportOperation {
@@ -146,6 +147,7 @@ class TerminalBridge {
     private val transportOperations = Channel<TransportOperation>(Channel.UNLIMITED)
 
     @Volatile private var transportFailure: Exception? = null
+    internal var trialAutomation: List<org.connectbot.data.entity.AutomationAction>? = null
     private var automationJob: Job? = null
 
     @Volatile private var automationRunner: AutomationRunner? = null
@@ -212,7 +214,7 @@ class TerminalBridge {
         mutableAutomationState.value = AutomationState()
         automationJob = scope.launch(dispatchers.io) {
             try {
-                val actions = manager.hostRepository.getAutomation(host.id)
+                val actions = trialAutomation ?: manager.hostRepository.getAutomation(host.id)
                 coroutineScope {
                     val observer = launch {
                         runner.state.collect {
@@ -257,6 +259,11 @@ class TerminalBridge {
         }.await()
     }
 
+    private var paletteObservationJob: Job? = null
+    private val mutableAppearance = MutableStateFlow(Triple(0xffe4e8eb.toInt(), 0xff0e1216.toInt(), 0xff6fd8c4.toInt()))
+    val colorAppearance = mutableAppearance.asStateFlow()
+    private val mutableCursorColor = MutableStateFlow(Color.Unspecified)
+    val cursorColor = mutableCursorColor.asStateFlow()
     private var profileObservationJob: Job? = null
 
     val manager: TerminalManager
@@ -279,7 +286,9 @@ class TerminalBridge {
     private val encoding: String
 
     /** Font family from profile for terminal display */
-    val fontFamily: String?
+    private val mutableFontFamily = MutableStateFlow<String?>(null)
+    val fontFamilyFlow = mutableFontFamily.asStateFlow()
+    val fontFamily: String? get() = mutableFontFamily.value
 
     /** Force size rows from profile (null = auto-size) */
     var profileForceSizeRows: Int? = null
@@ -393,7 +402,7 @@ class TerminalBridge {
 
         // Store encoding and font family from profile for later use
         encoding = profile.encoding
-        fontFamily = profile.fontFamily
+        mutableFontFamily.value = profile.fontFamily
 
         // Store force size from profile
         profileForceSizeRows = profile.forceSizeRows
@@ -417,8 +426,11 @@ class TerminalBridge {
         defaultBg = defaults[1]
 
         // Get actual RGB colors for the default foreground/background indices
-        val defaultFgColor = fullColorPalette[defaultFg]
-        val defaultBgColor = fullColorPalette[defaultBg]
+        val appearance = manager.colorRepository.getSchemeAppearanceBlocking(profile.colorSchemeId)
+        val defaultFgColor = appearance.first
+        val defaultBgColor = appearance.second
+        mutableAppearance.value = appearance
+        mutableCursorColor.value = Color(appearance.third)
 
         // Initialize TerminalEmulator with colors from scheme
         // Note: We pass the actual RGB colors (not indices) wrapped in Color objects
@@ -481,6 +493,7 @@ class TerminalBridge {
         startTransportOperationProcessor()
 
         // Start observing profile changes for live updates
+        observePalette(profile.colorSchemeId)
         startProfileObservation()
     }
 
@@ -600,6 +613,19 @@ class TerminalBridge {
         applyProfileSettings(profile)
     }
 
+    private fun observePalette(schemeId: Long) {
+        paletteObservationJob?.cancel()
+        paletteObservationJob = scope.launch(dispatchers.io) {
+            kotlinx.coroutines.flow.combine(manager.colorRepository.observeSchemeColors(schemeId), manager.colorRepository.observeSchemeAppearance(schemeId)) { palette, appearance -> palette to appearance }
+                .collect { (palette, appearance) ->
+                    fullColorPalette = palette
+                    terminalEmulator.applyColorScheme(palette, appearance.first, appearance.second)
+                    mutableAppearance.value = appearance
+                    mutableCursorColor.value = Color(appearance.third)
+                }
+        }
+    }
+
     /**
      * Apply profile settings to the terminal.
      */
@@ -614,19 +640,9 @@ class TerminalBridge {
             setFontSize(newFontSize.toFloat())
         }
 
-        // Apply color scheme if changed
         if (profile.colorSchemeId != currentColorSchemeId) {
             currentColorSchemeId = profile.colorSchemeId
-            fullColorPalette = manager.colorRepository.getColorsForSchemeBlocking(profile.colorSchemeId)
-            val defaults = manager.colorRepository.getDefaultColorsForSchemeBlocking(profile.colorSchemeId)
-            defaultFg = defaults[0]
-            defaultBg = defaults[1]
-
-            // Apply to terminal emulator
-            val defaultFgColor = fullColorPalette[defaultFg]
-            val defaultBgColor = fullColorPalette[defaultBg]
-            val ansiColors = fullColorPalette.sliceArray(0 until 16)
-            terminalEmulator.applyColorScheme(ansiColors, defaultFgColor, defaultBgColor)
+            observePalette(profile.colorSchemeId)
         }
 
         // Update force size from profile
@@ -636,8 +652,8 @@ class TerminalBridge {
         // Update DEL key mode from profile
         _delKeyModeFlow.value = delKeyModeFromProfile(profile)
 
-        // Note: encoding and fontFamily changes require reconnection to take effect
-        // as they are deeply integrated into the terminal initialization
+        mutableFontFamily.value = profile.fontFamily
+        // Encoding belongs to the transport and takes effect on reconnection.
     }
 
     /**
@@ -894,7 +910,7 @@ class TerminalBridge {
         cancelAutomation()
         // We don't need to do this multiple times.
         synchronized(this) {
-            if (disconnected && reason != DisconnectReason.USER_REQUESTED) {
+            if (disconnected && (reason != DisconnectReason.USER_REQUESTED || awaitingClose)) {
                 return
             }
 
@@ -1341,6 +1357,7 @@ class TerminalBridge {
     }
 
     companion object {
+        private val nextSessionId = java.util.concurrent.atomic.AtomicLong()
         const val TAG = "CB.TerminalBridge"
 
         private const val DEFAULT_FONT_SIZE_SP = 10

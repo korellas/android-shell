@@ -32,6 +32,11 @@ data class ColorSchemeJson(
     val description: String = "",
     val version: Int = 1,
     val colors: Map<Int, String>,
+    val foreground: Int = 7,
+    val background: Int = 0,
+    val foregroundColor: Int? = null,
+    val backgroundColor: Int? = null,
+    val cursorColor: Int? = null,
 ) {
     companion object {
         const val CURRENT_VERSION = 1
@@ -72,7 +77,18 @@ data class ColorSchemeJson(
                 colors[index] = hexColor
             }
 
-            return ColorSchemeJson(name, description, version, colors)
+            fun role(key: String): Int? = if (json.has(key) && !json.isNull(key)) {
+                json.getString(key).let {
+                    require(isValidHexColor(it)) { "Invalid $key color" }
+                    parseHexColor(it)
+                }
+            } else {
+                null
+            }
+            val fg = json.optInt("foreground", 7)
+            val bg = json.optInt("background", 0)
+            require(fg in 0..15 && bg in 0..15) { "Invalid default color index" }
+            return ColorSchemeJson(name, description, version, colors, fg, bg, role("foregroundColor"), role("backgroundColor"), role("cursorColor"))
         }
 
         /**
@@ -93,9 +109,13 @@ data class ColorSchemeJson(
             return ColorSchemeJson(name, description, CURRENT_VERSION, colors)
         }
 
-        /**
-         * Validate if a string is a valid hex color (with or without #).
-         */
+        private fun parseHexColor(hex: String): Int {
+            val value = hex.removePrefix("#")
+            val expanded = if (value.length == 3) value.map { "$it$it" }.joinToString("") else value
+            return 0xff000000.toInt() or expanded.toInt(16)
+        }
+
+        /** Validate a hex color with an optional # prefix. */
         private fun isValidHexColor(hex: String): Boolean {
             val cleaned = hex.removePrefix("#")
             return cleaned.length in listOf(3, 6) &&
@@ -114,6 +134,11 @@ data class ColorSchemeJson(
         json.put("name", name)
         json.put("description", description)
         json.put("version", version)
+        json.put("foreground", foreground)
+        json.put("background", background)
+        for ((key, color) in listOf("foregroundColor" to foregroundColor, "backgroundColor" to backgroundColor, "cursorColor" to cursorColor)) {
+            color?.let { json.put(key, String.format("#%06X", it and 0xffffff)) }
+        }
 
         val colorsJson = JSONObject()
         colors.forEach { (index, hex) ->

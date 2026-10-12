@@ -43,6 +43,12 @@ class EngineWireTest {
         }
     }
 
+    @Test fun localHostEditingDoesNotRequireANetworkPort() {
+        val local = Host.createLocalHost("Local shell").copy(id = 7)
+        assertEquals(local, local.toWire().toHost())
+        assertEquals(0, (local.toWire() + mapOf("port" to 22)).toHost().port)
+    }
+
     @Test fun keySnapshotsContainNoPrivateKeyMaterialOrKeystoreAlias() {
         val secret = byteArrayOf(1, 3, 5, 7)
         val key = Pubkey(

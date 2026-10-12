@@ -1,4 +1,4 @@
-# Android Shell
+# Tilde
 
 A Flutter Android SSH/Mosh terminal client based on [ConnectBot](https://github.com/connectbot/connectbot).
 This is an independent fork, not an official ConnectBot release.
@@ -10,17 +10,17 @@ Open the project in Android Studio and configure the Android SDK, or set
 is configured in [app/build.gradle.kts](app/build.gradle.kts).
 
 Install Flutter matching the revision in [the CI workflow](.github/workflows/ci-build.yml),
-and build the Flutter module and open-source Android host together:
+and build the Android host and unsigned iPad-compatible iOS app together on macOS:
 
 ```sh
-./scripts/build-flutter-android.sh debug
+./scripts/build-flutter.sh debug
 ```
 
 The APK is written to `app/build/outputs/apk/oss/debug/app-oss-debug.apk`.
 
 See [Flutter build and validation](flutter_ui/README.md) for module checks and
-release builds. The Android engine bridge supports Android; iOS integration and
-visual design parity still need work.
+release builds. The engine bridge supports Android; iPad
+device installation and functional verification require a separate iOS engine bridge.
 
 For local native verification:
 
@@ -28,6 +28,13 @@ For local native verification:
 ./gradlew :app:testOssDebugUnitTest :termlib:testDebugUnitTest
 ./gradlew :app:lintOssDebug :termlib:lintDebug spotlessCheck
 ```
+
+## Design
+
+[Tilde design contract](docs/design/tilde-design.md) records the supplied
+[offline screen guide](docs/design/tilde-screen-guide.html), brand, interaction
+rules, and platform-specific interpretation. Existing app and storage identifiers
+are retained when changing the display name.
 
 ## SSH key setup
 

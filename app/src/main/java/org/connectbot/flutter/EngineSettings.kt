@@ -17,21 +17,31 @@
 
 package org.connectbot.flutter
 
+import android.content.ContentResolver
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.withContext
 import org.connectbot.terminal.ImeShortcutInputMode
 import org.connectbot.terminal.VTermKey
 import org.connectbot.ui.screens.settings.SettingsUiState
 import org.connectbot.util.IconStyle
+import org.connectbot.util.LocalFontProvider
 import org.connectbot.util.ShortcutIconGenerator
 import org.connectbot.util.TerminalBarKey
 import org.connectbot.util.TerminalBarLayout
 import org.connectbot.util.TerminalFont
+import org.connectbot.util.TerminalFontProvider
 import org.connectbot.util.ThemeMode
+import java.io.ByteArrayOutputStream
 
 internal fun SettingsUiState.toWire(): Wire = mapOf(
     "authOnLaunch" to authOnLaunch, "canAuthenticate" to canAuthenticate, "memkeys" to memkeys,
@@ -44,9 +54,11 @@ internal fun SettingsUiState.toWire(): Wire = mapOf(
     "camera" to camera, "bumpyarrows" to bumpyarrows, "bell" to bell, "bellVolume" to bellVolume,
     "bellVibrate" to bellVibrate, "bellNotification" to bellNotification, "connectionLostNotification" to connectionLostNotification,
     "fontFamily" to fontFamily, "customFonts" to customFonts, "customTerminalTypes" to customTerminalTypes,
-    "localFonts" to localFonts.map { mapOf("fileName" to it.first, "displayName" to it.second) },
+    "localFonts" to localFonts.map { mapOf("fileName" to it.second, "displayName" to it.first) },
     "fontError" to (fontValidationError ?: fontImportError), "fontBusy" to (fontValidationInProgress || fontImportInProgress || fontDownloadInProgress),
     "themeMode" to themeMode.name, "language" to language, "defaultProfileId" to defaultProfileId,
+    "terminalBarHeights" to TerminalBarLayout.heights,
+    "terminalBarDefaults" to TerminalBarLayout().let { mapOf("height" to it.keyHeight, "order" to it.order.map { key -> key.name }, "hidden" to it.hidden.map { key -> key.name }, "groupFunctionKeys" to it.groupFunctionKeys) },
     "terminalBarHeight" to terminalBarLayout.keyHeight, "terminalBarOrder" to terminalBarLayout.order.map { it.name },
     "terminalBarHidden" to terminalBarLayout.hidden.map { it.name }, "terminalBarFn" to terminalBarLayout.groupFunctionKeys,
     "fonts" to TerminalFont.entries.map { mapOf("value" to it.name, "label" to it.displayName) },
@@ -164,6 +176,12 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
 
                 "language" -> settings.requestLanguage(value as String)
 
+                "colorScheme" -> {
+                    val id = (value as Number).toLong()
+                    require(colors.getAllSchemes().any { it.id == id })
+                    settings.updateColorScheme(id)
+                }
+
                 "defaultProfileId" -> settings.updateDefaultProfile((value as Number).toLong())
 
                 "terminalBar" -> {
@@ -182,6 +200,14 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
             null
         }
 
+        "settings.preview" -> terminalPreview(args)
+
+        "settings.bellMode" -> {
+            settings.updateBellMode(args.number("mode").toInt())
+            changed()
+            null
+        }
+
         "settings.notifications" -> {
             settings.openNotificationSettings()
             null
@@ -189,7 +215,12 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
 
         "font.import" -> {
             val uri = args.optionalText("uri")?.let { Uri.parse(it) } ?: activity.pickDocument(arrayOf("*/*"))
-            if (uri != null) settings.importLocalFont(uri, args.text("name", "Imported font.ttf"))
+            if (uri != null) {
+                val name = args.optionalText("name") ?: withContext(activity.dispatchers.io) {
+                    activity.contentResolver.selectedFontFileName(uri)
+                }
+                settings.importLocalFont(uri, name)
+            }
             null
         }
 
@@ -313,3 +344,55 @@ internal fun androidx.compose.material3.ColorScheme.toWire(): Wire = mapOf(
     "surfaceContainerHigh" to (surfaceContainerHigh.toArgb().toLong() and 0xffffffffL),
     "surfaceContainerHighest" to (surfaceContainerHighest.toArgb().toLong() and 0xffffffffL),
 )
+
+private suspend fun AndroidShellEngine.terminalPreview(args: Wire): Wire {
+    val state = activity.settings.uiState.value
+    val profile = state.defaultProfileId.takeIf { it > 0 }?.let { profiles.getById(it) } ?: profiles.getDefault()
+
+    @Suppress("UNCHECKED_CAST")
+    val previewProfile = args["profile"] as? Wire ?: emptyMap()
+    val previewSchemeId = previewProfile.number("colorSchemeId", profile.colorSchemeId)
+    val previewPalette = colors.getSchemeColors(previewSchemeId)
+    val appearance = colors.getSchemeAppearance(previewSchemeId)
+    val storedFont = args.optionalText("fontFamily") ?: previewProfile.optionalText("fontFamily") ?: profile.fontFamily ?: state.fontFamily
+    return withContext(activity.dispatchers.io) {
+        val typeface = if (LocalFontProvider.isLocalFont(storedFont)) {
+            LocalFontProvider.getLocalFontFileName(storedFont)?.let { LocalFontProvider(activity).getTypeface(it) } ?: Typeface.MONOSPACE
+        } else {
+            TerminalFontProvider(activity, activity.dispatchers.io).loadFontByNameSuspend(TerminalFont.getGoogleFontName(storedFont))
+        }
+        val density = (args["scale"] as? Number)?.toFloat()?.coerceIn(1f, 3f) ?: 1f
+        val widthDp = (args["width"] as? Number)?.toFloat()?.coerceIn(200f, 1000f) ?: 360f
+        val textScale = (args["textScale"] as? Number)?.toFloat()?.coerceIn(1f, 3f) ?: 1f
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.typeface = typeface
+            textSize = previewProfile.number("fontSize", profile.fontSize.toLong()).toFloat().coerceIn(4f, 72f) * textScale * density
+        }
+        val lineHeight = paint.fontSpacing
+        val margin = state.terminalMargin * density
+        val inset = 12f * density
+        val sampleText = args.optionalText("sampleText")
+        val previewLines = sampleText?.let { listOf(it) } ?: listOf("user@shell:~$ ls", "src  build  한글.md", "$ ssh server")
+        val bitmap = createBitmap((widthDp * density).toInt(), (lineHeight * previewLines.size + (margin + inset) * 2).toInt(), Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = Canvas(bitmap)
+            canvas.drawColor((args["backgroundColor"] as? Number)?.toInt() ?: appearance.second)
+            val lines = previewLines
+            lines.forEachIndexed { index, line ->
+                paint.color = if (index == 1) previewPalette[2] else (args["foregroundColor"] as? Number)?.toInt() ?: appearance.first
+                canvas.drawText(line, margin + inset, margin + inset - paint.fontMetrics.top + index * lineHeight, paint)
+            }
+            ByteArrayOutputStream().use { output ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+                mapOf("png" to output.toByteArray(), "width" to bitmap.width / density, "height" to bitmap.height / density)
+            }
+        } finally {
+            bitmap.recycle()
+        }
+    }
+}
+
+internal fun ContentResolver.selectedFontFileName(uri: Uri): String = query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+    val column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+    if (column >= 0 && cursor.moveToFirst()) cursor.getString(column)?.takeIf { it.isNotBlank() } else null
+} ?: "Imported font.ttf"

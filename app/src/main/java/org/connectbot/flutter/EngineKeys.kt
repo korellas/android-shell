@@ -154,7 +154,6 @@ internal suspend fun AndroidShellEngine.keyOperation(method: String, args: Wire)
                 }
             }
             require(!updated.isBiometric || !updated.startup)
-            require(!updated.encrypted || !updated.startup) { "암호화된 키는 시작할 때 자동 해제할 수 없습니다." }
             manager!!.removeKey(key.nickname)
             keys.save(updated)
             changed()
@@ -171,7 +170,7 @@ internal suspend fun AndroidShellEngine.keyOperation(method: String, args: Wire)
             activity.enrollment.selectKey(args.optionalId("keyId"))
             activity.enrollment.updateName(args.text("name"))
             require(activity.enrollment.uiState.value.canSubmit) { "등록할 키를 확인하세요." }
-            activity.enrollment.enroll(bridge(args.number("hostId")))
+            activity.enrollment.enroll(bridge(args.number("sessionId")))
             null
         }
 

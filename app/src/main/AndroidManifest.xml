@@ -49,7 +49,7 @@
 		android:enableOnBackInvokedCallback="true"
 		android:icon="@mipmap/icon"
 		android:killAfterRestore="true"
-		android:label="AndroidShell Flutter"
+		android:label="Tilde"
 		android:memtagMode="${memtagMode}"
 		android:roundIcon="@mipmap/icon_round"
 		android:supportsRtl="true"

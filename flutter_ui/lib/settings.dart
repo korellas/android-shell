@@ -16,11 +16,15 @@
  */
 
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'engine.dart';
+import 'tilde_design.dart';
+import 'tilde_controls.dart';
 import 'main.dart';
 import 'editors.dart';
 import 'management.dart';
+import 'settings_widgets.dart';
 
 class SettingsPage extends StatefulWidget {
   final AndroidEngine engine;
@@ -32,52 +36,169 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   AndroidEngine get engine => widget.engine;
   String? category;
-  Future<void> update(BuildContext context, String key, dynamic value) =>
-      runEngine(context, engine, 'settings.update', {
-        'key': key,
-        'value': value,
-      });
-  Widget toggle(
-    BuildContext context,
-    String key,
-    String label, {
-    bool enabled = true,
-  }) => SwitchListTile(
-    title: Text(label),
-    value: engine.preferences[key] == true,
-    onChanged: enabled ? (value) => update(context, key, value) : null,
-  );
-  Widget choice(
-    BuildContext context,
-    String key,
-    String label,
-    List<(Object?, String)> values,
-  ) {
-    final current = engine.preferences[key];
-    final options = [...values];
-    if (current != null && !options.any((o) => o.$1 == current)) {
-      options.add((current, '$current'));
-    }
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: DropdownButtonFormField<Object>(
-        key: ValueKey('$key:$current'),
-        initialValue: current,
-        isExpanded: true,
-        decoration: InputDecoration(labelText: label),
-        items: [
-          for (final option in options)
-            DropdownMenuItem(
-              value: option.$1,
-              child: Text(option.$2, overflow: TextOverflow.ellipsis),
-            ),
-        ],
-        onChanged: (value) => update(context, key, value),
-      ),
+  Future<void> update(BuildContext c, String key, dynamic value) =>
+      runEngine(c, engine, 'settings.update', {'key': key, 'value': value});
+
+  String buildingCategory = 'display';
+  final searchTargets = <String, (String, String)>{};
+  final rowKeys = <String, GlobalKey>{};
+  String? highlighted;
+  Timer? highlightTimer;
+  @override
+  void dispose() {
+    highlightTimer?.cancel();
+    super.dispose();
+  }
+
+  Widget tracked(String key, String label, Widget child) {
+    searchTargets[key] = (buildingCategory, label);
+    return AnimatedContainer(
+      key: rowKeys.putIfAbsent(key, () => GlobalKey()),
+      duration: const Duration(milliseconds: 240),
+      color: highlighted == key
+          ? Theme.of(context).colorScheme.primaryContainer
+          : null,
+      child: child,
     );
   }
 
-  String title(String category) => switch (category) {
+  Widget toggle(
+    BuildContext c,
+    String key,
+    String label, {
+    String? sub,
+    bool enabled = true,
+    IconData? icon,
+  }) => tracked(
+    key,
+    label,
+    SwitchListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      secondary: icon == null ? null : Icon(icon, size: 24),
+      title: Text(label),
+      subtitle: sub == null ? null : Text(sub),
+      value: engine.preferences[key] == true,
+      onChanged: enabled ? (v) => update(c, key, v) : null,
+    ),
+  );
+  Widget choice(
+    BuildContext c,
+    String key,
+    String label,
+    List<(Object?, String)> values, {
+    VoidCallback? manage,
+    bool forceList = false,
+  }) {
+    final current = engine.preferences[key] ?? values.firstOrNull?.$1;
+    final options = [...values];
+    if (current != null && !options.any((v) => v.$1 == current)) {
+      options.add((current, '$current (현재 값)'));
+    }
+    return tracked(
+      key,
+      label,
+      !forceList && options.length <= 4
+          ? tildeSegments(c, label, options, current, (v) => update(c, key, v))
+          : ListTile(
+              title: Text(label),
+              subtitle: Text(
+                options.where((v) => v.$1 == current).firstOrNull?.$2 ?? '선택',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final result = await pickTildeOption(
+                  c,
+                  label,
+                  options,
+                  current,
+                );
+                if (result != null && c.mounted) {
+                  await update(c, key, result.$1);
+                }
+              },
+            ),
+    );
+  }
+
+  Widget radio(
+    BuildContext c,
+    String key,
+    List<(Object?, String)> options, {
+    required String label,
+    Map<Object?, String> subtitles = const {},
+  }) => tracked(
+    key,
+    label,
+    tildeRadioOptions(
+      c,
+      options,
+      engine.preferences[key] ?? options.first.$1,
+      (v) => update(c, key, v),
+      subtitles: subtitles,
+    ),
+  );
+  Future<void> googleFonts(BuildContext c) async {
+    final values = [
+      for (final font in rows(engine.preferences['fonts']))
+        if (font['value'] != 'SYSTEM_DEFAULT')
+          (font['value'], '${font['label']}'),
+    ];
+    final result = await pickTildeOption(
+      c,
+      'Google Fonts · 고정폭',
+      values,
+      engine.preferences['fontFamily'],
+    );
+    if (result != null && c.mounted) {
+      if (result.$1 == 'JETBRAINS_MONO') {
+        await update(c, 'fontFamily', result.$1);
+      } else {
+        await runEngine(c, engine, 'font.custom', {'name': result.$2});
+      }
+    }
+  }
+
+  Future<void> searchSettings() async {
+    searchTargets.clear();
+    for (final id in [
+      'display',
+      'keyboard',
+      'gesture',
+      'terminal',
+      'connection',
+      'security',
+      'fonts',
+    ]) {
+      fields(context, id);
+    }
+    final options = [
+      for (final e in searchTargets.entries)
+        (e.key, '${e.value.$2} · ${title(e.value.$1)}'),
+    ];
+    final result = await pickTildeOption(context, '설정 검색', options, null);
+    if (result == null || !mounted) return;
+    final key = result.$1 as String;
+    setState(() {
+      category = searchTargets[key]!.$1;
+      highlighted = key;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final c = rowKeys[key]?.currentContext;
+      if (c != null) {
+        Scrollable.ensureVisible(
+          c,
+          duration: const Duration(milliseconds: 240),
+          alignment: .25,
+        );
+      }
+    });
+    highlightTimer?.cancel();
+    highlightTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => highlighted = null);
+    });
+  }
+
+  String title(String id) => switch (id) {
     'display' => '화면',
     'keyboard' => '키보드',
     'gesture' => '제스처',
@@ -87,292 +208,592 @@ class _SettingsPageState extends State<SettingsPage> {
     'fonts' => '폰트 관리',
     _ => '설정',
   };
+  String summary(String id) {
+    final p = engine.preferences;
+    final profile = defaultProfile(engine);
+    final scheme = engine
+        .list('schemes')
+        .where((s) => s['id'] == profile['colorSchemeId'])
+        .firstOrNull;
+    return switch (id) {
+      'display' =>
+        '${switch (p['themeMode']) {
+          'LIGHT' => '밝게',
+          'DARK' => '어둡게',
+          _ => '시스템',
+        }} · ${scheme?['name'] ?? 'Tilde Night'} · ${fontOptions(engine).where((f) => f.$1 == p['fontFamily']).firstOrNull?.$2 ?? '기본 폰트'}',
+      'keyboard' =>
+        '특수키 ${((p['terminalBarOrder'] as List? ?? []).where((k) => !(p['terminalBarHidden'] as List? ?? []).contains(k))).length}개 · ${p['terminalBarHeight'] ?? 28}dp',
+      'gesture' =>
+        '세로 ${p['pgupdngesture'] == true ? '페이지' : '스크롤'} · 가로 ${p['swipeSessions'] == true
+            ? '세션'
+            : p['swipeTmux'] == true
+            ? 'tmux'
+            : '사용 안 함'}',
+      'terminal' =>
+        '스크롤 ${formatCount('${p['scrollback'] ?? ''}')}줄 · ${profile['name'] ?? '기본 프로필'}',
+      'connection' =>
+        '연결 알림 ${p['connectionAlerts'] == true ? '켜짐' : '꺼짐'} · 벨 ${p['bell'] == true ? '켜짐' : '꺼짐'}',
+      'security' => '실행 시 인증 ${p['authOnLaunch'] == true ? '켜짐' : '꺼짐'}',
+      _ => '',
+    };
+  }
+
   Widget categories(String? selected) => ListView(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+    padding: const EdgeInsets.only(bottom: 24),
     children: [
-      for (final (id, icon) in [
-        ('display', Icons.palette_outlined),
-        ('keyboard', Icons.keyboard_outlined),
-        ('gesture', Icons.swipe),
-        ('terminal', Icons.terminal),
-        ('connection', Icons.notifications_outlined),
-        ('security', Icons.lock_outline),
-      ])
-        ListTile(
-          selected: selected == id,
-          selectedTileColor: Theme.of(context).colorScheme.secondaryContainer,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
-          leading: CircleAvatar(child: Icon(icon)),
-          title: Text(title(id)),
-          onTap: () => setState(() => category = id),
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: OutlinedButton.icon(
+          onPressed: searchSettings,
+          icon: const Icon(Icons.search),
+          label: const Text('설정 검색'),
         ),
+      ),
+      settingsSection(context, '앱', [
+        for (final (id, icon) in [
+          ('display', Icons.palette_outlined),
+          ('keyboard', Icons.keyboard_outlined),
+          ('gesture', Icons.swipe),
+          ('terminal', Icons.terminal),
+          ('connection', Icons.notifications_outlined),
+          ('security', Icons.lock_outline),
+        ])
+          ListTile(
+            selected: selected == id,
+            leading: Icon(icon, size: 24),
+            title: Text(title(id)),
+            subtitle: Text(summary(id)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => setState(() => category = id),
+          ),
+      ]),
+      settingsSection(context, '정보', [
+        ListTile(
+          leading: const Icon(Icons.help_outline, size: 24),
+          title: const Text('도움말 및 로그'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(builder: (_) => HelpPage(engine: engine)),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.info_outline, size: 24),
+          title: const Text('Tilde'),
+          subtitle: Text('${engine.state['appVersion'] ?? ''}'),
+        ),
+      ]),
     ],
   );
-  List<Widget> fields(BuildContext context, String category) {
+
+  Future<void> importFont(BuildContext c) async {
+    await runEngine(c, engine, 'font.import');
+  }
+
+  Widget margin(BuildContext c) {
+    final current =
+        (engine.preferences['terminalMargin'] as num?)?.toInt() ?? 0;
+    return tracked(
+      'terminalMargin',
+      '좌우 여백',
+      Column(
+        children: [
+          TildeStepper(
+            title: '좌우 여백',
+            unit: 'dp',
+            value: current,
+            max: 100,
+            onChanged: (v) => update(c, 'terminalMargin', v),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                for (final v in {0, 4, 8, 12, current})
+                  FilterChip(
+                    label: Text('$v'),
+                    selected: current == v,
+                    onSelected: (_) => update(c, 'terminalMargin', v),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget scrollback(BuildContext c) => tracked(
+    'scrollback',
+    '스크롤 기록',
+    TildeStepper(
+      title: '스크롤 기록',
+      unit: '행 · 500씩',
+      value: int.tryParse('${engine.preferences['scrollback'] ?? 140}') ?? 140,
+      step: 500,
+      onChanged: (v) => update(c, 'scrollback', '$v'),
+    ),
+  );
+
+  List<Widget> fields(BuildContext c, String id) {
+    buildingCategory = id;
     final p = engine.preferences;
-    return switch (category) {
-      'security' => [
-        toggle(
-          context,
-          'authOnLaunch',
-          '앱 실행 시 잠금 해제',
-          enabled: p['canAuthenticate'] == true,
-        ),
-        toggle(context, 'memkeys', '해제한 SSH 키를 메모리에 유지'),
-        toggle(context, 'backupkeys', 'SSH 키 백업 허용'),
-      ],
-      'connection' => [
-        toggle(context, 'keepalive', '네트워크 연결 유지'),
-        toggle(context, 'wifilock', 'Wi-Fi 절전 방지'),
-        toggle(context, 'connectionAlerts', '백그라운드 연결 알림'),
-        ListTile(
-          title: const Text('Android 알림 설정'),
-          subtitle: Text(
-            p['notificationsAvailable'] == true
-                ? '알림 허용됨'
-                : 'Android에서 알림 허용이 필요합니다.',
+    final profile = defaultProfile(engine);
+    final scheme = engine
+        .list('schemes')
+        .where((s) => s['id'] == profile['colorSchemeId'])
+        .firstOrNull;
+    Widget group(String title, List<Widget> rows) =>
+        settingsSection(c, title, rows);
+    Widget go(
+      String key,
+      String label,
+      VoidCallback action, {
+      String? sub,
+      IconData? icon,
+      bool enabled = true,
+    }) => tracked(
+      key,
+      label,
+      ListTile(
+        leading: icon == null ? null : Icon(icon, size: 24),
+        title: Text(label),
+        subtitle: sub == null ? null : Text(sub),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: enabled ? action : null,
+      ),
+    );
+    void page(Widget child) =>
+        Navigator.push(c, MaterialPageRoute<void>(builder: (_) => child));
+    switch (id) {
+      case 'display':
+        return [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            child: TerminalPreview(engine: engine),
           ),
-          trailing: const Icon(Icons.open_in_new),
-          onTap: () => runEngine(context, engine, 'settings.notifications'),
-        ),
-        const Divider(),
-        toggle(context, 'bell', '터미널 벨 소리'),
-        toggle(context, 'bellVibrate', '터미널 벨 진동'),
-        toggle(context, 'bellNotification', '터미널 벨 알림'),
-        toggle(context, 'connectionLostNotification', '연결 종료 알림'),
-        if (p['bell'] == true)
-          ListTile(
-            title: const Text('벨 음량'),
-            subtitle: Slider(
-              value: ((p['bellVolume'] as num?)?.toDouble() ?? 0.5).clamp(0, 1),
-              onChanged: (value) => update(context, 'bellVolume', value),
-            ),
-          ),
-      ],
-      'display' => [
-        choice(context, 'themeMode', '앱 테마', [
-          ('SYSTEM', '시스템 설정'),
-          ('LIGHT', '밝게'),
-          ('DARK', '어둡게'),
-        ]),
-        choice(context, 'rotation', '화면 방향', [
-          ('Default', '기기 설정'),
-          ('Force landscape', '가로'),
-          ('Force portrait', '세로'),
-          ('Automatic', '자동 회전'),
-        ]),
-        toggle(context, 'fullscreen', '터미널 전체 화면'),
-        toggle(context, 'titlebarhide', '터미널 제목 줄 숨기기'),
-        choice(context, 'fontFamily', '기본 폰트', fontOptions(engine)),
-        ListTile(
-          title: const Text('폰트 관리'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => setState(() => this.category = 'fonts'),
-        ),
-        ListTile(
-          title: const Text('색상 테마'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute<void>(
-              builder: (_) => SchemesPage(engine: engine),
-            ),
-          ),
-        ),
-      ],
-      'keyboard' => [
-        toggle(context, 'alwaysvisible', '특수키 항상 표시'),
-        toggle(context, 'imeTogglekey', '입력 모드 전환 버튼'),
-        choice(context, 'imeShortcutInputMode', '단축키 입력 시 키보드 모드', [
-          ('FORCE_ASCII', '영문 키보드 요청'),
-          ('TYPE_NULL', '직접 키 입력'),
-          ('DISABLED', '현재 키보드 유지'),
-        ]),
-        choice(context, 'stickymodifiers', 'Ctrl 및 Alt 고정 방식', [
-          ('no', '한 번만 적용'),
-          ('yes', '고정'),
-          ('alt', 'Alt만 고정'),
-        ]),
-        ExpansionTile(
-          title: const Text('하드웨어 키보드'),
-          children: [
-            toggle(context, 'shiftfkeys', 'Shift+숫자를 기능키로 사용'),
-            toggle(context, 'ctrlfkeys', 'Ctrl+숫자를 기능키로 사용'),
-            choice(context, 'keymode', '보조 키 위치', [
-              ('none', '사용 안 함'),
-              ('Use right-side keys', '오른쪽'),
-              ('Use left-side keys', '왼쪽'),
+          group('테마', [
+            choice(c, 'themeMode', '앱 테마', [
+              ('SYSTEM', '시스템'),
+              ('LIGHT', '밝게'),
+              ('DARK', '어둡게'),
             ]),
-            choice(context, 'camera', '카메라 버튼 동작', [
-              ('Ctrl+A then Space', 'Ctrl+A, Space'),
-              ('Ctrl+A', 'Ctrl+A'),
-              ('Esc', 'Escape'),
-              ('Esc+A', 'Escape, A'),
+            go(
+              'schemes',
+              '색상 테마',
+              () => page(SchemesPage(engine: engine)),
+              sub: '${scheme?['name'] ?? 'Tilde Night'}',
+            ),
+          ]),
+          group('글꼴', [
+            choice(c, 'fontFamily', '기본 폰트', fontOptions(engine)),
+            go(
+              'fonts',
+              '폰트 관리',
+              () => setState(() => category = 'fonts'),
+              sub:
+                  '${rows(p['localFonts']).length + (p['customFonts'] as List? ?? []).length + 1}개',
+            ),
+          ]),
+          group('화면 배치', [
+            choice(c, 'rotation', '화면 방향', [
+              ('Default', '기기 설정'),
+              ('Force landscape', '가로'),
+              ('Force portrait', '세로'),
+              ('Automatic', '자동'),
             ]),
-          ],
-        ),
-        ListTile(
-          title: const Text('특수키 구성 및 순서'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute<void>(
-              builder: (_) => TerminalBarPage(engine: engine),
+            toggle(c, 'fullscreen', '터미널 전체 화면', sub: '상태 표시줄을 숨깁니다'),
+            toggle(c, 'titlebarhide', '터미널 제목 줄 숨기기'),
+          ]),
+        ];
+      case 'keyboard':
+        return [
+          group('특수키', [
+            toggle(c, 'alwaysvisible', '특수키 항상 표시'),
+            go(
+              'terminalBar',
+              '특수키 구성',
+              () => page(TerminalBarPage(engine: engine)),
+              sub: '${(p['terminalBarOrder'] as List? ?? []).length}개',
             ),
-          ),
-        ),
-      ],
-      'gesture' => [
-        toggle(context, 'volumefont', '볼륨 버튼으로 글자 크기 조절'),
-        toggle(context, 'pgupdngesture', '세로 제스처로 페이지 이동'),
-        toggle(context, 'swipeSessions', '가로 제스처로 세션 이동'),
-        toggle(context, 'swipeTmux', '가로 제스처로 tmux 창 이동'),
-        if (p['swipeTmux'] == true)
-          toggle(context, 'tmuxCtrlA', 'tmux 접두키로 Ctrl+A 사용'),
-        toggle(context, 'bumpyarrows', '특수키 진동'),
-      ],
-      'terminal' => [
-        ListTile(
-          title: const Text('터미널 프로필'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute<void>(
-              builder: (_) =>
-                  RecordListPage(engine: engine, kind: RecordKind.profile),
-            ),
-          ),
-        ),
-        choice(context, 'defaultProfileId', '기본 터미널 프로필', [
-          for (final profile in engine.list('profiles'))
-            (profile['id'] as int, '${profile['name']}'),
-        ]),
-        ListTile(
-          title: const Text('스크롤 기록 행 수'),
-          subtitle: Text('${p['scrollback'] ?? ''}'),
-          onTap: () async {
-            final value = await askText(
-              context,
-              '스크롤 기록 행 수',
-              initial: '${p['scrollback'] ?? ''}',
-            );
-            if (value != null && context.mounted) {
-              await update(context, 'scrollback', value);
-            }
-          },
-        ),
-        ListTile(
-          title: const Text('터미널 좌우 여백'),
-          subtitle: Text('${p['terminalMargin'] ?? 0}'),
-          onTap: () async {
-            final value = await askText(
-              context,
-              '터미널 좌우 여백',
-              initial: '${p['terminalMargin'] ?? 0}',
-            );
-            if (value != null &&
-                int.tryParse(value) != null &&
-                context.mounted) {
-              await update(context, 'terminalMargin', int.parse(value));
-            }
-          },
-        ),
-        ExpansionTile(
-          title: const Text('고급 터미널 설정'),
-          children: [
-            ListTile(
-              title: const Text('터미널 종류 추가'),
-              leading: const Icon(Icons.add),
-              onTap: () async {
-                final name = await askText(context, '터미널 종류');
-                if (name != null && context.mounted) {
-                  await runEngine(context, engine, 'terminalType.add', {
-                    'name': name,
-                  });
-                }
+            choice(c, 'stickymodifiers', 'Ctrl·Alt 고정 방식', [
+              ('no', '한 번만'),
+              ('yes', '고정'),
+              ('alt', 'Alt만 고정'),
+            ]),
+          ]),
+          group('단축키 입력 시 키보드', [
+            radio(
+              c,
+              'imeShortcutInputMode',
+              [
+                ('FORCE_ASCII', '영문 키보드 요청'),
+                ('TYPE_NULL', '직접 키 입력'),
+                ('DISABLED', '현재 키보드 유지'),
+              ],
+              label: '단축키 입력 시 키보드',
+              subtitles: {
+                'FORCE_ASCII': '대부분 키보드에서 권장',
+                'TYPE_NULL': '자동 완성·한글 조합 끔',
               },
+            ),
+            if (engine.state['koreanKeyboard'] == true)
+              toggle(c, 'imeTogglekey', '입력 모드 전환 버튼'),
+          ]),
+          group(
+            '하드웨어 키보드${engine.state['hardwareKeyboard'] == false ? ' · 연결 안 됨' : ''}',
+            [
+              toggle(c, 'shiftfkeys', 'Shift+숫자를 기능키로', sub: 'Shift+1 → F1'),
+              toggle(c, 'ctrlfkeys', 'Ctrl+숫자를 기능키로'),
+              choice(c, 'keymode', '보조 키 위치', [
+                ('none', '사용 안 함'),
+                ('Use left-side keys', '왼쪽'),
+                ('Use right-side keys', '오른쪽'),
+              ]),
+              choice(c, 'camera', '카메라 버튼', [
+                ('Ctrl+A then Space', 'Ctrl+A, Space'),
+                ('Ctrl+A', 'Ctrl+A'),
+                ('Esc', 'Esc'),
+                ('Esc+A', 'Esc, A'),
+              ], forceList: true),
+            ],
+          ),
+        ];
+      case 'gesture':
+        return [
+          group('터미널 위에서 스와이프', [
+            toggle(
+              c,
+              'pgupdngesture',
+              '세로 · 페이지 이동',
+              sub: 'PgUp / PgDn 전송',
+              icon: Icons.swap_vert,
+            ),
+            toggle(c, 'swipeSessions', '가로 · 세션 이동', icon: Icons.swap_horiz),
+            toggle(
+              c,
+              'swipeTmux',
+              '가로 · tmux 창 이동',
+              sub: '세션 이동보다 먼저 적용',
+              icon: Icons.view_column_outlined,
+            ),
+            if (p['swipeTmux'] == true)
+              choice(c, 'tmuxCtrlA', 'tmux 접두키', [
+                (false, 'Ctrl+B'),
+                (true, 'Ctrl+A'),
+              ]),
+          ]),
+          group('버튼 · 촉감', [
+            toggle(
+              c,
+              'volumefont',
+              '볼륨 버튼으로 글자 크기',
+              icon: Icons.volume_up_outlined,
+            ),
+            toggle(c, 'bumpyarrows', '특수키 진동', icon: Icons.vibration),
+          ]),
+        ];
+      case 'terminal':
+        return [
+          group('프로필', [
+            choice(c, 'defaultProfileId', '기본 터미널 프로필', [
+              for (final profile in engine.list('profiles'))
+                (profile['id'], '${profile['name']}'),
+            ], forceList: true),
+            go(
+              'profiles',
+              '터미널 프로필 관리',
+              () => page(
+                RecordListPage(engine: engine, kind: RecordKind.profile),
+              ),
+              sub: '${engine.list('profiles').length}개',
+            ),
+          ]),
+          group('표시', [scrollback(c), margin(c)]),
+          group('터미널 종류 (TERM)', [
+            ListTile(
+              title: Text(
+                '${profile['emulation'] ?? 'xterm-256color'}',
+                style: const TextStyle(fontFamily: tildeMono),
+              ),
+              trailing: const Text('기본'),
             ),
             for (final type in (p['customTerminalTypes'] as List? ?? []))
               ListTile(
-                title: Text('$type'),
+                title: Text(
+                  '$type',
+                  style: const TextStyle(fontFamily: tildeMono),
+                ),
                 trailing: IconButton(
-                  tooltip: '제거',
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () => runEngine(
-                    context,
-                    engine,
-                    'terminalType.delete',
-                    {'name': type},
+                  tooltip: '터미널 종류 삭제',
+                  icon: const Icon(Icons.close),
+                  onPressed: () => runEngine(c, engine, 'terminalType.delete', {
+                    'name': type,
+                  }),
+                ),
+              ),
+            go('terminalType', '터미널 종류 추가', () async {
+              final name = await askText(c, '터미널 종류');
+              if (name != null && c.mounted) {
+                await runEngine(c, engine, 'terminalType.add', {'name': name});
+              }
+            }, icon: Icons.add),
+          ]),
+        ];
+      case 'connection':
+        return [
+          group('연결', [
+            toggle(
+              c,
+              'keepalive',
+              '연결 중 화면 켜짐 유지',
+              sub: '터미널 화면이 자동으로 꺼지지 않습니다',
+            ),
+            toggle(c, 'wifilock', 'Wi-Fi 절전 방지', sub: '배터리를 더 씁니다'),
+            go(
+              'backgroundNotification',
+              '백그라운드 연결 알림',
+              () => runEngine(c, engine, 'settings.notifications'),
+              sub: '연결 중일 때 상단에 고정',
+              icon: Icons.notifications_active_outlined,
+            ),
+          ]),
+          group('터미널 벨', [
+            tracked(
+              'bellMode',
+              '벨이 울리면',
+              tildeSegments(
+                c,
+                '벨이 울리면',
+                [
+                  (0, '무시'),
+                  (1, '소리'),
+                  (2, '진동'),
+                  if (p['bell'] == true && p['bellVibrate'] == true)
+                    (3, '소리·진동'),
+                ],
+                p['bell'] == true
+                    ? (p['bellVibrate'] == true ? 3 : 1)
+                    : p['bellVibrate'] == true
+                    ? 2
+                    : 0,
+                (v) => runEngine(c, engine, 'settings.bellMode', {'mode': v}),
+              ),
+            ),
+            if (p['bell'] == true)
+              tracked(
+                'bellVolume',
+                '음량',
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('음량'),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Slider(
+                              value:
+                                  ((p['bellVolume'] as num?)?.toDouble() ?? .5)
+                                      .clamp(0, 1),
+                              onChanged: (v) => update(c, 'bellVolume', v),
+                            ),
+                          ),
+                          Text(
+                            '${(((p['bellVolume'] as num?)?.toDouble() ?? .5) * 100).round()}%',
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
-          ],
-        ),
-      ],
-      'fonts' => [
-        if (p['fontBusy'] == true) const LinearProgressIndicator(),
-        if (p['fontError'] != null)
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text('${p['fontError']}'),
-          ),
-        ListTile(
-          title: const Text('폰트 파일 가져오기'),
-          leading: const Icon(Icons.file_open),
-          onTap: () async {
-            final name = await askText(
-              context,
-              '폰트 파일 이름',
-              initial: 'Imported font.ttf',
-            );
-            if (name != null && context.mounted) {
-              await runEngine(context, engine, 'font.import', {'name': name});
-            }
-          },
-        ),
-        for (final font in rows(p['localFonts']))
-          ListTile(
-            title: Text('${font['displayName']}'),
-            subtitle: Text('${font['fileName']}'),
-            trailing: IconButton(
-              tooltip: '폰트 삭제',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () async {
-                if (await confirm(context, '폰트 삭제', '이 폰트 파일을 삭제할까요?') &&
-                    context.mounted) {
-                  await runEngine(context, engine, 'font.delete', {
-                    'fileName': font['fileName'],
-                  });
-                }
-              },
+          ]),
+          group('알림', [
+            if (p['notificationsAvailable'] == false)
+              ListTile(
+                leading: const Icon(Icons.info_outline, color: tildeSand),
+                title: const Text('알림 권한이 필요합니다'),
+                trailing: TextButton(
+                  onPressed: () =>
+                      runEngine(c, engine, 'settings.notifications'),
+                  child: const Text('허용'),
+                ),
+              ),
+            toggle(c, 'connectionAlerts', '연결 알림 사용', sub: '벨·연결 끊김 알림을 허용합니다'),
+            toggle(
+              c,
+              'bellNotification',
+              '백그라운드에서 벨',
+              enabled: p['connectionAlerts'] == true,
             ),
-          ),
-        ListTile(
-          title: const Text('Google Fonts 폰트 추가'),
-          leading: const Icon(Icons.add),
-          onTap: () async {
-            final name = await askText(context, 'Google Fonts 폰트 이름');
-            if (name != null && context.mounted) {
-              await runEngine(context, engine, 'font.custom', {'name': name});
-            }
-          },
-        ),
-        for (final font in (p['customFonts'] as List? ?? []))
-          ListTile(
-            title: Text('$font'),
-            trailing: IconButton(
-              tooltip: '폰트 제거',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => runEngine(context, engine, 'font.customDelete', {
-                'name': font,
-              }),
+            toggle(
+              c,
+              'connectionLostNotification',
+              '연결이 끊기면',
+              enabled: p['connectionAlerts'] == true,
             ),
-          ),
-      ],
-      _ => [],
-    };
+            go(
+              'notifications',
+              'Android 알림 설정',
+              () => runEngine(c, engine, 'settings.notifications'),
+              sub: p['notificationsAvailable'] == false ? '알림 꺼짐' : '알림 허용됨',
+              icon: Icons.open_in_new,
+            ),
+          ]),
+        ];
+      case 'security':
+        return [
+          group('잠금', [
+            toggle(
+              c,
+              'authOnLaunch',
+              '앱 실행 시 잠금 해제',
+              enabled: p['canAuthenticate'] != false,
+              sub: p['canAuthenticate'] == false
+                  ? '화면 잠금을 먼저 설정하세요'
+                  : '지문 또는 화면 잠금',
+            ),
+            toggle(c, 'memkeys', '해제한 SSH 키를 메모리에 유지', sub: '앱을 완전히 닫으면 지워집니다'),
+          ]),
+          group('키와 서버', [
+            go(
+              'keys',
+              'SSH 키',
+              () => page(KeyPage(engine: engine)),
+              sub: '${engine.list('keys').length}개',
+              icon: Icons.key_outlined,
+            ),
+            go(
+              'identities',
+              '공용 로그인 계정',
+              () => page(
+                RecordListPage(engine: engine, kind: RecordKind.identity),
+              ),
+              sub: '${engine.list('identities').length}개',
+              icon: Icons.badge_outlined,
+            ),
+            go(
+              'knownHosts',
+              '신뢰한 서버 키',
+              () => page(KnownHostsPage(engine: engine)),
+              sub: '${engine.list('knownHosts').length}개',
+              icon: Icons.verified_user_outlined,
+            ),
+          ]),
+          group('백업', [
+            toggle(
+              c,
+              'backupkeys',
+              'SSH 키 백업 허용',
+              sub: 'Android 백업에 암호화된 키 포함',
+            ),
+            go(
+              'export',
+              '호스트 내보내기',
+              () => exportTildeHosts(c, engine),
+              sub: 'tilde-hosts.json',
+              icon: Icons.upload_outlined,
+            ),
+            go(
+              'import',
+              '호스트 가져오기',
+              () => importTildeHosts(c, engine),
+              icon: Icons.download_outlined,
+            ),
+          ]),
+        ];
+      case 'fonts':
+        return [
+          group('기본 폰트 선택', [
+            for (final option in fontOptions(engine).where(
+              (f) =>
+                  f.$1 == 'JETBRAINS_MONO' ||
+                  f.$1 == p['fontFamily'] ||
+                  f.$1.toString().startsWith('local:') ||
+                  f.$1.toString().startsWith('custom:'),
+            ))
+              ListTile(
+                leading: Icon(
+                  option.$1 == p['fontFamily']
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: option.$1 == p['fontFamily']
+                      ? Theme.of(c).colorScheme.primary
+                      : null,
+                ),
+                title: TerminalPreview(
+                  engine: engine,
+                  overrides: {'fontFamily': option.$1, 'sampleText': option.$2},
+                ),
+                subtitle: Text(
+                  option.$1 == 'JETBRAINS_MONO'
+                      ? '앱에 포함 · 리거처 지원'
+                      : option.$1.toString().startsWith('local:')
+                      ? option.$1.toString().substring(6)
+                      : option.$1.toString().startsWith('custom:')
+                      ? 'Google Fonts'
+                      : '고정폭 폰트',
+                ),
+                onTap: () => update(c, 'fontFamily', option.$1),
+                trailing: option.$1.toString().startsWith('local:')
+                    ? IconButton(
+                        tooltip: '폰트 삭제',
+                        icon: const Icon(Icons.close),
+                        onPressed: () async {
+                          if (await confirm(c, '폰트 삭제', '이 폰트 파일을 삭제할까요?') &&
+                              c.mounted) {
+                            await runEngine(c, engine, 'font.delete', {
+                              'fileName': option.$1.toString().substring(6),
+                            });
+                          }
+                        },
+                      )
+                    : option.$1.toString().startsWith('custom:')
+                    ? IconButton(
+                        tooltip: '폰트 제거',
+                        icon: const Icon(Icons.close),
+                        onPressed: () => runEngine(
+                          c,
+                          engine,
+                          'font.customDelete',
+                          {'name': option.$2},
+                        ),
+                      )
+                    : null,
+              ),
+            if (p['fontBusy'] == true)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: TildeProgress(label: '폰트 준비 중'),
+              ),
+            if (p['fontError'] != null) settingsNote(c, '${p['fontError']}'),
+          ]),
+          group('추가', [
+            go(
+              'fontImport',
+              '폰트 파일 가져오기',
+              () => importFont(c),
+              enabled: p['fontBusy'] != true,
+              sub: '.ttf · .otf · .ttc',
+              icon: Icons.upload_file,
+            ),
+            go(
+              'fontSearch',
+              'Google Fonts에서 찾기',
+              () => googleFonts(c),
+              enabled: p['fontBusy'] != true,
+              sub: '고정폭 폰트만 보여 줍니다',
+              icon: Icons.travel_explore,
+            ),
+          ]),
+        ];
+      default:
+        return [];
+    }
   }
 
   void back(bool wide) {
@@ -390,7 +811,7 @@ class _SettingsPageState extends State<SettingsPage> {
     listenable: engine,
     builder: (context, _) => LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 600;
+        final wide = constraints.maxWidth >= 720;
         final selected = category ?? (wide ? 'display' : null);
         final detail = ListView(
           key: ValueKey(selected),
@@ -451,6 +872,7 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
   late Set<String> hidden;
   late int height;
   late bool group;
+  bool busy = false;
   @override
   void initState() {
     super.initState();
@@ -461,168 +883,364 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
     group = p['terminalBarFn'] == true;
   }
 
+  Future<void> save({
+    List<String>? nextOrder,
+    Set<String>? nextHidden,
+    int? nextHeight,
+    bool? nextGroup,
+  }) async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      await widget.engine.invoke('settings.update', {
+        'key': 'terminalBar',
+        'value': {
+          'order': nextOrder ?? order,
+          'hidden': (nextHidden ?? hidden).toList(),
+          'height': nextHeight ?? height,
+          'groupFunctionKeys': nextGroup ?? group,
+        },
+      });
+      if (mounted) {
+        setState(() {
+          order = nextOrder ?? order;
+          hidden = nextHidden ?? hidden;
+          height = nextHeight ?? height;
+          group = nextGroup ?? group;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('특수키 구성'),
-      actions: [
-        TextButton(
-          onPressed: () async {
-            await runEngine(context, widget.engine, 'settings.update', {
-              'key': 'terminalBar',
-              'value': {
-                'order': order,
-                'hidden': hidden.toList(),
-                'height': height,
-                'groupFunctionKeys': group,
+  Widget build(BuildContext context) {
+    final p = widget.engine.preferences;
+    final keys = rows(p['barKeys']);
+    final defaults = row(p['terminalBarDefaults']);
+    final heights = (p['terminalBarHeights'] as List? ?? []).cast<int>();
+    return Scaffold(
+      appBar: AppBar(title: const Text('특수키 바')),
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: 24),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            child: TerminalBarPreview(
+              order: order,
+              hidden: hidden,
+              height: height,
+              group: group,
+              keys: keys,
+            ),
+          ),
+          settingsNote(
+            context,
+            'Esc · ⇥ · Ctrl은 왼쪽, 키보드 버튼은 오른쪽에 고정돼요. Fn으로 묶으면 Fn도 오른쪽에 표시돼요.',
+          ),
+          settingsSection(context, '높이', [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SegmentedButton<int>(
+                key: ValueKey(MediaQuery.textScalerOf(context).scale(14) > 22),
+                direction: MediaQuery.textScalerOf(context).scale(14) > 22
+                    ? Axis.vertical
+                    : Axis.horizontal,
+                expandedInsets: MediaQuery.textScalerOf(context).scale(14) > 22
+                    ? null
+                    : EdgeInsets.zero,
+                showSelectedIcon: false,
+                segments: [
+                  for (var i = 0; i < heights.length; i++)
+                    ButtonSegment(
+                      value: heights[i],
+                      label: Text(
+                        '${i == 0
+                            ? '작게'
+                            : i == heights.length - 1
+                            ? '크게'
+                            : '기본'} ${heights[i]}dp',
+                      ),
+                    ),
+                ],
+                selected: {height},
+                onSelectionChanged: busy
+                    ? null
+                    : (s) => save(nextHeight: s.first),
+              ),
+            ),
+          ]),
+          settingsSection(context, '스크롤 영역 키', [
+            settingsNote(context, '손잡이를 길게 눌러 순서를 바꿔요. 변경은 바로 적용돼요.'),
+            ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              itemCount: order.length,
+              onReorder: (oldIndex, newIndex) {
+                if (busy) return;
+                final updated = [...order];
+                if (newIndex > oldIndex) newIndex--;
+                updated.insert(newIndex, updated.removeAt(oldIndex));
+                save(nextOrder: updated);
               },
-            });
-            if (context.mounted) Navigator.pop(context);
-          },
-          child: const Text('저장'),
-        ),
-      ],
-    ),
-    body: Column(
-      children: [
-        DropdownButtonFormField<int>(
-          initialValue: height,
-          decoration: const InputDecoration(labelText: '키 높이'),
-          items: const [
-            DropdownMenuItem(value: 26, child: Text('작게')),
-            DropdownMenuItem(value: 28, child: Text('보통')),
-            DropdownMenuItem(value: 36, child: Text('크게')),
-          ],
-          onChanged: (value) => setState(() => height = value!),
-        ),
-        SwitchListTile(
-          title: const Text('기능키 묶어서 표시'),
-          value: group,
-          onChanged: (value) => setState(() => group = value),
-        ),
-        Expanded(
-          child: ReorderableListView.builder(
-            itemCount: order.length,
-            onReorder: (oldIndex, newIndex) => setState(() {
-              if (newIndex > oldIndex) newIndex--;
-              order.insert(newIndex, order.removeAt(oldIndex));
-            }),
-            itemBuilder: (context, index) {
-              final key = order[index];
-              final label =
-                  rows(
-                    widget.engine.preferences['barKeys'],
-                  ).where((k) => k['name'] == key).firstOrNull?['label'] ??
-                  key;
-              return SwitchListTile(
-                key: ValueKey(key),
-                title: Text('$label'),
-                value: !hidden.contains(key),
-                onChanged: (value) => setState(() {
-                  if (value) {
-                    hidden.remove(key);
-                  } else {
-                    hidden.add(key);
-                  }
-                }),
-              );
-            },
+              itemBuilder: (context, index) {
+                final key = order[index];
+                final label =
+                    keys.where((k) => k['name'] == key).firstOrNull?['label'] ??
+                    key;
+                return ListTile(
+                  key: ValueKey(key),
+                  leading: ReorderableDelayedDragStartListener(
+                    index: index,
+                    enabled: !busy,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.drag_indicator),
+                    ),
+                  ),
+                  title: Text('$label'),
+                  trailing: Switch(
+                    value: !hidden.contains(key),
+                    onChanged: busy
+                        ? null
+                        : (value) {
+                            final updated = {...hidden};
+                            if (value) {
+                              updated.remove(key);
+                            } else {
+                              updated.add(key);
+                            }
+                            save(nextHidden: updated);
+                          },
+                  ),
+                );
+              },
+            ),
+          ]),
+          settingsSection(context, '옵션', [
+            SwitchListTile(
+              title: const Text('F1–F12를 Fn 키로 묶기'),
+              subtitle: const Text('Fn을 누르면 스크롤 영역이 F키로 바뀌어요'),
+              value: group,
+              onChanged: busy ? null : (value) => save(nextGroup: value),
+            ),
+          ]),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextButton(
+              onPressed: busy || defaults.isEmpty
+                  ? null
+                  : () async {
+                      if (await confirm(
+                            context,
+                            '특수키 바를 되돌릴까요?',
+                            '높이와 키 순서·표시를 기본값으로 되돌려요.',
+                            action: '되돌리기',
+                          ) &&
+                          mounted) {
+                        save(
+                          nextOrder: (defaults['order'] as List)
+                              .cast<String>()
+                              .toList(),
+                          nextHidden: (defaults['hidden'] as List)
+                              .cast<String>()
+                              .toSet(),
+                          nextHeight: defaults['height'] as int,
+                          nextGroup: defaults['groupFunctionKeys'] as bool,
+                        );
+                      }
+                    },
+              child: const Text('기본값으로 되돌리기'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class HelpPage extends StatelessWidget {
+  final AndroidEngine engine;
+  const HelpPage({super.key, required this.engine});
+  Future<void> document(
+    BuildContext context,
+    String section,
+    String title,
+  ) async {
+    final value = await runEngine(context, engine, 'help.document', {
+      'section': section,
+    });
+    if (value == null || !context.mounted) return;
+    var text = '$value';
+    if (section == 'license') {
+      text +=
+          '\n\n${await rootBundle.loadString('assets/fonts/Pretendard-LICENSE.txt')}\n\n${await rootBundle.loadString('assets/fonts/JetBrainsMono-OFL.txt')}';
+    }
+    if (!context.mounted) return;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: Text(title)),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: SelectableText(text),
           ),
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('도움말')),
+    body: ListView(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const TildeWordmark(size: 40),
+              const SizedBox(height: 16),
+              Text('${engine.state['appVersion'] ?? ''}'),
+              const Text('ConnectBot 엔진 기반 SSH · Terminal'),
+            ],
+          ),
+        ),
+        settingsSection(context, '도움말', [
+          for (final (section, title, icon) in [
+            ('hints', '사용 팁', Icons.lightbulb_outline),
+            ('license', '라이선스 및 이용 조건', Icons.description_outlined),
+            ('contact', '프로젝트 및 문의', Icons.mail_outline),
+          ])
+            ListTile(
+              leading: Icon(icon),
+              title: Text(title),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => document(context, section, title),
+            ),
+        ]),
+        settingsSection(context, '진단', [
+          ListTile(
+            leading: const Icon(Icons.subject),
+            title: const Text('진단 로그'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push<void>(
+              context,
+              MaterialPageRoute(builder: (_) => LogsPage(engine: engine)),
+            ),
+          ),
+        ]),
       ],
     ),
   );
 }
 
-class HelpPage extends StatefulWidget {
+class LogsPage extends StatefulWidget {
   final AndroidEngine engine;
-  const HelpPage({super.key, required this.engine});
+  const LogsPage({super.key, required this.engine});
   @override
-  State<HelpPage> createState() => _HelpPageState();
+  State<LogsPage> createState() => _LogsPageState();
 }
 
-class _HelpPageState extends State<HelpPage> {
-  String logs = '';
-  bool busy = false;
+class _LogsPageState extends State<LogsPage> {
+  String logs = '', search = '';
+  bool busy = true;
+  String? error;
+  @override
+  void initState() {
+    super.initState();
+    unawaited(load());
+  }
+
+  Future<void> load() async {
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      final result = await widget.engine.query('logs');
+      if (mounted) setState(() => logs = '$result');
+    } catch (e) {
+      if (mounted) setState(() => error = '$e');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('도움말 및 로그')),
-    body: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text('AndroidShell', style: TextStyle(fontSize: 28)),
-        const SizedBox(height: 12),
-        const Text(
-          '호스트를 추가해 SSH, Mosh, Telnet 또는 로컬 터미널에 연결하세요. 터미널을 눌러 키보드를 열 수 있습니다. 특수키의 Ctrl과 Alt는 다음 입력에 적용됩니다. 터미널 메뉴에서 선택, 복사, 붙여넣기, 입력 작성 모드를 사용할 수 있습니다.',
+    appBar: AppBar(
+      title: const Text('진단 로그'),
+      actions: [
+        IconButton(
+          tooltip: '새로고침',
+          onPressed: busy ? null : load,
+          icon: const Icon(Icons.refresh),
         ),
-        const SizedBox(height: 16),
-        for (final (section, title) in [
-          ('hints', '사용 팁'),
-          ('license', '라이선스 및 이용 조건'),
-          ('contact', '프로젝트 및 문의'),
-        ])
-          ListTile(
-            title: Text(title),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              final text = await runEngine(
-                context,
-                widget.engine,
-                'help.document',
-                {'section': section},
-              );
-              if (text != null && context.mounted) {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => Scaffold(
-                      appBar: AppBar(title: Text(title)),
-                      body: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: SelectableText('$text'),
-                      ),
-                    ),
-                  ),
-                );
-              }
-            },
-          ),
-        ExpansionTile(
-          title: const Text('진단 로그'),
-          children: [
-            FilledButton.tonal(
-              onPressed: busy
-                  ? null
-                  : () async {
-                      setState(() => busy = true);
-                      final text = await runEngine(
-                        context,
-                        widget.engine,
-                        'logs',
-                      );
-                      if (mounted) {
-                        setState(() {
-                          logs = text as String? ?? '';
-                          busy = false;
-                        });
-                      }
-                    },
-              child: const Text('진단 로그 불러오기'),
-            ),
-            if (logs.isNotEmpty) ...[
-              SelectableText(logs),
-              TextButton(
-                onPressed: () =>
+        IconButton(
+          tooltip: '로그 공유',
+          onPressed: logs.isEmpty
+              ? null
+              : () =>
                     runEngine(context, widget.engine, 'share', {'text': logs}),
-                child: const Text('로그 공유'),
-              ),
-            ],
-            TextButton(
-              onPressed: () =>
-                  runEngine(context, widget.engine, 'logs.tombstone'),
-              child: const Text('네이티브 크래시 기록 저장'),
+          icon: const Icon(Icons.share_outlined),
+        ),
+      ],
+    ),
+    body: Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              hintText: '로그 검색',
             ),
-          ],
+            onChanged: (value) => setState(() => search = value),
+          ),
+        ),
+        if (busy) const TildeProgress(),
+        if (error != null)
+          Text(
+            error!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: SelectableText(
+                logs
+                    .split('\n')
+                    .where(
+                      (line) =>
+                          line.toLowerCase().contains(search.toLowerCase()),
+                    )
+                    .join('\n'),
+                style: const TextStyle(fontFamily: tildeMono, fontSize: 12),
+              ),
+            ),
+          ),
+        ),
+        SafeArea(
+          top: false,
+          child: TextButton.icon(
+            onPressed: () =>
+                runEngine(context, widget.engine, 'logs.tombstone'),
+            icon: const Icon(Icons.save_alt),
+            label: const Text('네이티브 크래시 기록 저장'),
+          ),
         ),
       ],
     ),

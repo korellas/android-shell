@@ -72,10 +72,100 @@ class TerminalManagerForegroundTest {
     private fun mockBridges(connecting: Boolean = false) = mockConstruction(TerminalBridge::class.java) { bridge, construction ->
         val host = construction.arguments()[1] as Host
         `when`(bridge.host).thenReturn(host)
+        `when`(bridge.sessionId).thenReturn(construction.count.toLong())
         `when`(bridge.notificationSessionId).thenReturn("session-${host.id}")
         `when`(bridge.isSessionOpen).thenReturn(true)
         `when`(bridge.connecting).thenReturn(connecting)
         `when`(bridge.sessionAttention).thenReturn(SessionAttention())
+    }
+
+    @Test
+    fun reconnectImmediatelyAfterCancelDoesNotReuseClosingSession() = runTest(dispatcher) {
+        val host = Host(id = 42L, nickname = "shared")
+        `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)
+        mockBridges().use { construction ->
+            val cancelled = manager.openConnectionForHostId(host.id)!!
+            `when`(cancelled.disconnected).thenReturn(true)
+            `when`(cancelled.isAwaitingClose()).thenReturn(true)
+            val retry = manager.openConnectionForHostId(host.id)!!
+            assertTrue(cancelled !== retry)
+            assertEquals(2, construction.constructed().size)
+            manager.onDisconnected(cancelled)
+            assertTrue(retry === manager.getConnectedBridge(host))
+        }
+    }
+
+    @Test
+    fun closingSessionCannotBeQueuedForReconnect() = runTest(dispatcher) {
+        val host = Host(id = 42L, nickname = "cancelled")
+        `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)
+        mockBridges().use {
+            val bridge = manager.openConnectionForHostId(host.id)!!
+            `when`(bridge.isAwaitingClose()).thenReturn(true)
+            manager.requestReconnect(bridge)
+            org.mockito.Mockito.verify(bridge, org.mockito.Mockito.times(1)).startConnection()
+        }
+    }
+
+    @Test
+    fun closingSessionIsNotRestartedByNetworkRestore() = runTest(dispatcher) {
+        val host = Host(id = 42L, nickname = "cancelled")
+        `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)
+        mockBridges().use {
+            val bridge = manager.openConnectionForHostId(host.id)!!
+            val field = TerminalManager::class.java.getDeclaredField("pendingReconnect").apply { isAccessible = true }
+
+            @Suppress("UNCHECKED_CAST")
+            val pending = field.get(manager) as MutableList<WeakReference<TerminalBridge>>
+            pending.add(WeakReference(bridge))
+            `when`(bridge.isAwaitingClose()).thenReturn(true)
+            TerminalManager::class.java.getDeclaredMethod("reconnectPending").apply { isAccessible = true }.invoke(manager)
+            org.mockito.Mockito.verify(bridge, org.mockito.Mockito.times(1)).startConnection()
+            assertTrue(pending.isEmpty())
+        }
+    }
+
+    @Test
+    fun sameHostCanOpenIndependentSessionsAndCloseOne() = runTest(dispatcher) {
+        val host = Host(id = 42L, nickname = "shared")
+        `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)
+        mockBridges().use {
+            val first = manager.openConnectionForHostId(host.id)!!
+            val second = manager.openConnectionForHostId(host.id, newSession = true)!!
+            assertTrue(first.sessionId != second.sessionId)
+            assertEquals(listOf(first, second), manager.bridgesFlow.value)
+            assertEquals(host, first.host)
+            assertEquals(host, second.host)
+            manager.onDisconnected(second)
+            assertEquals(listOf(first), manager.bridgesFlow.value)
+            assertTrue(first === manager.getConnectedBridge(host))
+            assertTrue(first === manager.getConnectedBridge(host.nickname))
+            assertTrue(first === manager.openConnectionForHostId(host.id))
+        }
+    }
+
+    @Test
+    fun disconnectSavedHostTargetsAllItsSessions() = runTest(dispatcher) {
+        val host = Host(id = 42L, nickname = "shared")
+        `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)
+        mockBridges().use {
+            val first = manager.openConnectionForHostId(host.id)!!
+            val second = manager.openConnectionForHostId(host.id, newSession = true)!!
+            manager.disconnectHost(host.id)
+            org.mockito.Mockito.verify(first).dispatchDisconnect(DisconnectReason.USER_REQUESTED)
+            org.mockito.Mockito.verify(second).dispatchDisconnect(DisconnectReason.USER_REQUESTED)
+        }
+    }
+
+    @Test
+    fun selectingConnectedHostReusesSessionWithoutDuplicateError() = runTest(dispatcher) {
+        val host = Host(id = 42L, nickname = "shared")
+        `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)
+        mockBridges().use { construction ->
+            val first = manager.openConnectionForHostId(host.id)
+            assertTrue(first === manager.openConnectionForHostId(host.id))
+            assertEquals(1, construction.constructed().size)
+        }
     }
 
     @Test
@@ -171,6 +261,7 @@ class TerminalManagerForegroundTest {
             pending.add(WeakReference(bridge))
             manager.onDisconnected(bridge)
             advanceUntilIdle()
+            assertTrue(pending.isEmpty())
             assertTrue(shadowOf(manager).isForegroundStopped)
             assertTrue(manager.getSystemService(NotificationManager::class.java).activeNotifications.isEmpty())
         }

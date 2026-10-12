@@ -19,27 +19,44 @@ package org.connectbot.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import org.connectbot.R
+
+private val tildeFontFamily = FontFamily(Font(R.font.pretendard_regular))
+private val baseTypography = Typography()
 
 val AppTypography = Typography(
+    displayLarge = baseTypography.displayLarge.copy(fontFamily = tildeFontFamily),
+    displayMedium = baseTypography.displayMedium.copy(fontFamily = tildeFontFamily),
+    displaySmall = baseTypography.displaySmall.copy(fontFamily = tildeFontFamily),
+    headlineLarge = baseTypography.headlineLarge.copy(fontFamily = tildeFontFamily),
+    headlineMedium = baseTypography.headlineMedium.copy(fontFamily = tildeFontFamily),
+    headlineSmall = baseTypography.headlineSmall.copy(fontFamily = tildeFontFamily),
+    titleMedium = baseTypography.titleMedium.copy(fontFamily = tildeFontFamily),
+    titleSmall = baseTypography.titleSmall.copy(fontFamily = tildeFontFamily),
+    bodyMedium = baseTypography.bodyMedium.copy(fontFamily = tildeFontFamily),
+    bodySmall = baseTypography.bodySmall.copy(fontFamily = tildeFontFamily),
+    labelLarge = baseTypography.labelLarge.copy(fontFamily = tildeFontFamily),
+    labelMedium = baseTypography.labelMedium.copy(fontFamily = tildeFontFamily),
     bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = tildeFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 24.sp,
         letterSpacing = 0.5.sp,
     ),
     titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = tildeFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 22.sp,
         lineHeight = 28.sp,
         letterSpacing = 0.sp,
     ),
     labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = tildeFontFamily,
         fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
         lineHeight = 16.sp,

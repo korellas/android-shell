@@ -47,6 +47,7 @@ internal data class KeyEnrollmentUiState(
     val selectedKeyId: Long? = null,
     val newKeyName: String = "",
     val stage: EnrollmentStage = EnrollmentStage.IDLE,
+    val hostId: Long? = null,
     val registration: KeyRegistration? = null,
     val verification: KeyLoginVerification? = null,
     val error: String? = null,
@@ -94,6 +95,7 @@ internal class KeyEnrollmentViewModel @Inject constructor(
                 it.copy(
                     newKeyName = defaultName,
                     stage = EnrollmentStage.IDLE,
+                    hostId = null,
                     registration = null,
                     verification = null,
                     error = null,
@@ -108,7 +110,7 @@ internal class KeyEnrollmentViewModel @Inject constructor(
         val transport = bridge.transport as? SSH ?: return
         if (!state.canSubmit || !transport.canEnrollKey || bridge.host.id <= 0) return
         val originalHost = bridge.host
-        _uiState.update { it.copy(stage = EnrollmentStage.REGISTERING, registration = null, verification = null, error = null) }
+        _uiState.update { it.copy(stage = EnrollmentStage.REGISTERING, hostId = originalHost.id, registration = null, verification = null, error = null) }
         viewModelScope.launch {
             try {
                 withContext(dispatchers.io) {

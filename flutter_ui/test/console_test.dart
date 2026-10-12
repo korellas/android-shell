@@ -26,9 +26,11 @@ void main() {
   const channel = MethodChannel('dev.korellas.androidshell/engine');
   int? selectedSession;
   bool connected = false;
+  late List<MethodCall> calls;
   setUp(() {
     selectedSession = null;
     connected = false;
+    calls = [];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('dev.korellas.androidshell/events'),
@@ -49,12 +51,14 @@ void main() {
         });
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
+          calls.add(call);
           if (call.method == 'connect') {
             connected = true;
-            selectedSession = 7;
-            return 7;
+            selectedSession = 101;
+            return 101;
           }
           if (call.method == 'session.consumeSelection') selectedSession = null;
+          if (call.method == 'session.disconnect') connected = false;
           if (call.method == 'snapshot') {
             return {
               'ready': true,
@@ -69,12 +73,18 @@ void main() {
               ],
               'selectedSession': selectedSession,
               'sessions': [
-                if (connected) {'id': 7, 'nickname': 'Research', 'open': true},
+                if (connected)
+                  {
+                    'id': 101,
+                    'hostId': 7,
+                    'nickname': 'Research',
+                    'open': true,
+                  },
               ],
               'prompts': [
                 if (connected)
                   {
-                    'hostId': 7,
+                    'sessionId': 101,
                     'token': 'password-request',
                     'type': 'string',
                     'password': true,
@@ -100,6 +110,343 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, null);
   });
+
+  for (final toolbar in [false, true]) {
+    testWidgets(
+      'authentication back cancels only its session (toolbar=$toolbar)',
+      (tester) async {
+        await tester.pumpWidget(const AndroidShellApp());
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Research'));
+        await tester.pumpAndSettle();
+        if (toolbar) {
+          await tester.tap(find.byTooltip('뒤로'));
+        } else {
+          await tester.binding.handlePopRoute();
+        }
+        await tester.pumpAndSettle();
+        expect(
+          calls
+              .where((c) => c.method == 'session.disconnect')
+              .map((c) => c.arguments),
+          [
+            {'id': 101},
+          ],
+        );
+        expect(find.byType(ConsolePage), findsNothing);
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
+  for (final open in [false, true]) {
+    for (final toolbar in [false, true]) {
+      testWidgets(
+        'back without a prompt cancels only unfinished connections (open=$open toolbar=$toolbar)',
+        (tester) async {
+          final engine = AndroidEngine();
+          engine.state = {
+            'ready': true,
+            'hosts': [
+              {'id': 7, 'nickname': 'Research'},
+            ],
+            'sessions': [
+              {'id': 101, 'hostId': 7, 'nickname': 'Research', 'open': open},
+            ],
+            'prompts': [],
+            'preferences': {'titlebarhide': false},
+          };
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(channel, (call) async {
+                calls.add(call);
+                if (call.method == 'snapshot') return engine.state;
+                if (call.method == 'session.disconnect') {
+                  engine.state['sessions'] = [];
+                }
+                if (call.method == 'connect') {
+                  engine.state['sessions'] = [
+                    {
+                      'id': 102,
+                      'hostId': 7,
+                      'nickname': 'Research',
+                      'open': true,
+                    },
+                  ];
+                  engine.state['selectedSession'] = 102;
+                  return 102;
+                }
+                if (call.method == 'session.consumeSelection') {
+                  engine.state['selectedSession'] = null;
+                }
+                return null;
+              });
+          await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
+          await tester.pumpAndSettle();
+          tester
+              .state<NavigatorState>(find.byType(Navigator))
+              .push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ConsolePage(engine: engine, sessionId: 101),
+                ),
+              );
+          await tester.pumpAndSettle();
+          if (toolbar) {
+            await tester.tap(find.byTooltip('뒤로'));
+          } else {
+            await tester.binding.handlePopRoute();
+          }
+          await tester.pumpAndSettle();
+          expect(find.byType(ConsolePage), findsNothing);
+          expect(find.byType(AlertDialog), findsNothing);
+          final disconnects = calls
+              .where((c) => c.method == 'session.disconnect')
+              .toList();
+          if (open) {
+            expect(disconnects, isEmpty);
+            expect(engine.list('sessions').single['id'], 101);
+          } else {
+            expect(disconnects.map((c) => c.arguments), [
+              {'id': 101},
+            ]);
+            expect(engine.list('sessions'), isEmpty);
+            await tester.tap(find.text('Research'));
+            await tester.pumpAndSettle();
+            expect(
+              tester.widget<ConsolePage>(find.byType(ConsolePage)).sessionId,
+              102,
+            );
+            expect(calls.singleWhere((c) => c.method == 'connect').arguments, {
+              'id': 7,
+            });
+          }
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+          engine.dispose();
+        },
+      );
+    }
+  }
+
+  testWidgets(
+    'key registration uses the selected session and a readable key name',
+    (tester) async {
+      final engine = AndroidEngine();
+      engine.state = {
+        'ready': true,
+        'hosts': [
+          {'id': 7, 'nickname': 'mac'},
+        ],
+        'sessions': [
+          {
+            'id': 101,
+            'hostId': 7,
+            'nickname': 'mac · 101',
+            'open': true,
+            'canEnroll': true,
+          },
+          {
+            'id': 102,
+            'hostId': 7,
+            'nickname': 'mac · 102',
+            'open': true,
+            'canEnroll': true,
+          },
+        ],
+        'enrollment': {'biometricAvailable': true},
+        'preferences': {'titlebarhide': false},
+      };
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'snapshot') return engine.state;
+            return null;
+          });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ConsolePage(
+            engine: engine,
+            sessionId: 102,
+            startKeySetup: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('mac SSH 키'), findsOneWidget);
+      await tester.tap(find.text('등록 및 검증'));
+      await tester.pumpAndSettle();
+      expect(calls.singleWhere((c) => c.method == 'key.enroll').arguments, {
+        'sessionId': 102,
+        'keyId': null,
+        'name': 'mac SSH 키',
+      });
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+      engine.dispose();
+    },
+  );
+
+  testWidgets(
+    'text prompt survives dismissal animation without disposed controller',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => askText(context, '인증', password: true),
+                child: const Text('열기'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('열기'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), 'test-only');
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('host menu requests a new session without duplicating the host', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Research 옵션'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('새 세션으로 연결'));
+    await tester.pumpAndSettle();
+    final connect = calls.singleWhere((c) => c.method == 'connect');
+    expect(connect.arguments, {'id': 7, 'newSession': true});
+    expect(tester.widget<ConsolePage>(find.byType(ConsolePage)).sessionId, 101);
+    expect(calls.where((c) => c.method == 'host.duplicate'), isEmpty);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'reconnecting uses saved host identity rather than session identity',
+    (tester) async {
+      final engine = AndroidEngine();
+      engine.state = {
+        'ready': true,
+        'sessions': [
+          {'id': 101, 'hostId': 7, 'nickname': 'Research', 'open': false},
+        ],
+        'preferences': {'titlebarhide': false},
+      };
+      await tester.pumpWidget(
+        MaterialApp(home: ConsolePage(engine: engine, sessionId: 101)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('터미널 메뉴'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('다시 연결'));
+      await tester.pumpAndSettle();
+      expect(calls.singleWhere((c) => c.method == 'connect').arguments, {
+        'id': 7,
+      });
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+      engine.dispose();
+    },
+  );
+
+  testWidgets(
+    'switching and closing same-host sessions targets selected session only',
+    (tester) async {
+      final engine = AndroidEngine();
+      engine.state = {
+        'ready': true,
+        'sessions': [
+          {'id': 101, 'hostId': 7, 'nickname': 'Research · 101', 'open': true},
+          {'id': 102, 'hostId': 7, 'nickname': 'Research · 102', 'open': true},
+        ],
+        'preferences': {'titlebarhide': false},
+      };
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'snapshot') return engine.state;
+            if (call.method == 'session.disconnect') {
+              engine.state['sessions'] = engine
+                  .list('sessions')
+                  .where((s) => s['id'] != call.arguments['id'])
+                  .toList();
+            }
+            return null;
+          });
+      await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
+      await tester.pumpAndSettle();
+      tester
+          .state<NavigatorState>(find.byType(Navigator))
+          .push(
+            MaterialPageRoute<void>(
+              builder: (_) => ConsolePage(engine: engine, sessionId: 101),
+            ),
+          );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Research · 101'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Research · 102'));
+      await tester.pumpAndSettle();
+      final consoleView = tester.widget<AndroidView>(find.byType(AndroidView));
+      expect((consoleView.creationParams as Map)['sessionId'], 102);
+      await tester.tap(find.byTooltip('터미널 메뉴'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('연결 끊기'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(ConsolePage), findsNothing);
+      expect(find.text('다시 연결'), findsNothing);
+      expect(engine.list('sessions').map((s) => s['id']), [101]);
+      expect(calls.where((c) => c.method == 'connect'), isEmpty);
+      expect(
+        calls.singleWhere((c) => c.method == 'session.disconnect').arguments,
+        {'id': 102},
+      );
+      expect(calls.where((c) => c.method == 'host.disconnect'), isEmpty);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+      engine.dispose();
+    },
+  );
+
+  testWidgets(
+    'disconnecting the last session returns to connections immediately',
+    (tester) async {
+      await tester.pumpWidget(const AndroidShellApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Research'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('터미널 메뉴'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('연결 끊기'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('다시 연결'), findsNothing);
+      expect(find.text('세션이 끝났어요'), findsNothing);
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(ConsolePage), findsNothing);
+      expect(find.text('다시 연결'), findsNothing);
+      expect(find.text('세션이 끝났어요'), findsNothing);
+      expect(find.text('Research'), findsOneWidget);
+      expect(connected, isFalse);
+      expect(calls.where((c) => c.method == 'connect'), hasLength(1));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets('console menu keeps advanced actions in a secondary menu', (
     tester,
@@ -170,7 +517,7 @@ void main() {
         },
       };
       await tester.pumpWidget(
-        MaterialApp(home: ConsolePage(engine: engine, hostId: 7)),
+        MaterialApp(home: ConsolePage(engine: engine, sessionId: 7)),
       );
       await tester.pumpAndSettle();
       final rect = tester.getRect(find.byType(AndroidView));
@@ -207,7 +554,7 @@ void main() {
           },
         };
         await tester.pumpWidget(
-          MaterialApp(home: ConsolePage(engine: engine, hostId: 7)),
+          MaterialApp(home: ConsolePage(engine: engine, sessionId: 7)),
         );
         await tester.pumpAndSettle();
         final viewport = tester.getRect(find.byType(AndroidView));
@@ -242,7 +589,7 @@ void main() {
       },
     };
     await tester.pumpWidget(
-      MaterialApp(home: ConsolePage(engine: engine, hostId: 7)),
+      MaterialApp(home: ConsolePage(engine: engine, sessionId: 7)),
     );
     await tester.pumpAndSettle();
     final rect = tester.getRect(find.byType(AndroidView));

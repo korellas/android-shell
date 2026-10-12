@@ -174,7 +174,7 @@ class FlutterShellActivity : FlutterFragmentActivity() {
     internal fun applyWindowOptions() {
         if (!::engine.isInitialized) return
         val preferences = settings.uiState.value
-        val consoleVisible = engine.ready && engine.activeOwner != null && engine.activeHostId != null
+        val consoleVisible = engine.ready && engine.activeOwner != null && engine.activeSessionId != null
         val controller = androidx.core.view.WindowInsetsControllerCompat(window, window.decorView)
         if (consoleVisible && preferences.fullscreen) {
             controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
@@ -188,7 +188,7 @@ class FlutterShellActivity : FlutterFragmentActivity() {
             org.connectbot.util.PreferenceConstants.ROTATION_AUTO -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
             else -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
-        val live = engine.manager?.bridgesFlow?.value?.find { it.host.id == engine.activeHostId }?.isSessionOpen == true
+        val live = engine.manager?.bridgesFlow?.value?.find { it.sessionId == engine.activeSessionId }?.isSessionOpen == true
         if (consoleVisible && preferences.keepalive && live) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {

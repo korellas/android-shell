@@ -47,12 +47,12 @@ internal fun Wire.toHost(): Host {
     require(protocol in setOf("ssh", "mosh", "telnet", "local")) { "Unsupported protocol" }
     require(data.text("nickname").isNotBlank()) { "호스트 이름을 입력하세요." }
     require(protocol == "local" || data.text("hostname").isNotBlank()) { "서버 주소를 입력하세요." }
-    require(data.number("port") in 1..65535) { "포트는 1–65535 범위여야 합니다." }
+    require(protocol == "local" || data.number("port") in 1..65535) { "포트는 1–65535 범위여야 합니다." }
     require(data.number("moshPort") in 0..65535) { "Mosh 포트 범위를 확인하세요." }
     require(data.optionalId("moshNetworkTimeout") == null || data.number("moshNetworkTimeout") > 0) { "Mosh 타임아웃은 양수여야 합니다." }
     return Host(
         id = data.number("id"), nickname = data.text("nickname"), favorite = data.flag("favorite"), identityId = data.optionalId("identityId"),
-        protocol = protocol, username = data.text("username"), hostname = data.text("hostname"), port = data.number("port").toInt(),
+        protocol = protocol, username = data.text("username"), hostname = data.text("hostname"), port = if (protocol == "local") 0 else data.number("port").toInt(),
         hostKeyAlgo = data.optionalText("hostKeyAlgo"), lastConnect = data.number("lastConnect"), color = data.optionalText("color"),
         useKeys = data.flag("useKeys"), useAuthAgent = data.optionalText("useAuthAgent"), postLogin = data.optionalText("postLogin"),
         pubkeyId = data.number("pubkeyId"), wantSession = data.flag("wantSession"), compression = data.flag("compression"),
@@ -90,5 +90,9 @@ internal fun AutomationAction.toWire(): Wire = mapOf(
 )
 internal fun Pubkey.toWire(loaded: Boolean): Wire = mapOf(
     "id" to id, "nickname" to nickname, "type" to type, "encrypted" to encrypted,
+    "publicKey" to runCatching { if (type == "IMPORTED") null else com.trilead.ssh2.crypto.PublicKeyUtils.toAuthorizedKeysFormat(org.connectbot.util.PubkeyUtils.decodePublic(publicKey, type), nickname) }.getOrNull(),
+    "fingerprint" to runCatching {
+        if (type == "IMPORTED") null else com.trilead.ssh2.crypto.PublicKeyUtils.toAuthorizedKeysFormat(org.connectbot.util.PubkeyUtils.decodePublic(publicKey, type), nickname).split(" ")[1].let { com.trilead.ssh2.crypto.fingerprint.KeyFingerprint.createSHA256Fingerprint(android.util.Base64.decode(it, android.util.Base64.DEFAULT)) }
+    }.getOrNull(),
     "startup" to startup, "confirmation" to confirmation, "createdDate" to createdDate, "biometric" to isBiometric, "allowBackup" to allowBackup, "loaded" to loaded,
 )

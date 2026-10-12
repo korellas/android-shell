@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:android_shell_ui/main.dart';
+import 'package:android_shell_ui/tilde_design.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -102,19 +103,34 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
   });
+  Future<void> reveal(
+    WidgetTester tester,
+    Finder target, {
+    bool sidebar = false,
+  }) async {
+    final scroll = sidebar
+        ? find.byType(Scrollable).first
+        : find.byType(Scrollable).last;
+    for (var i = 0; i < 12 && target.hitTestable().evaluate().isEmpty; i++) {
+      await tester.drag(scroll, const Offset(0, -220));
+      await tester.pumpAndSettle();
+    }
+    expect(target.hitTestable(), findsWidgets);
+  }
+
   testWidgets('home menus keep profile management in settings', (tester) async {
     await tester.pumpWidget(const AndroidShellApp());
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('메뉴'));
     await tester.pumpAndSettle();
-    expect(find.text('터미널 프로필'), findsNothing);
-    expect(find.text('가져오기·내보내기'), findsOneWidget);
+    expect(find.text('터미널 프로필 관리'), findsNothing);
+    expect(find.text('가져오기·내보내기'), findsNothing);
     await tester.tap(find.text('설정'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('터미널').first);
     await tester.pumpAndSettle();
-    expect(find.text('터미널 프로필'), findsOneWidget);
-    await tester.tap(find.text('터미널 프로필'));
+    expect(find.text('터미널 프로필 관리'), findsOneWidget);
+    await tester.tap(find.text('터미널 프로필 관리'));
     await tester.pumpAndSettle();
     expect(find.byType(FloatingActionButton), findsOneWidget);
   });
@@ -135,7 +151,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('복제할 호스트 이름'), findsOneWidget);
   });
-  testWidgets('keyboard settings hide hardware mappings until requested', (
+  testWidgets('keyboard settings show hardware mappings and connection state', (
     tester,
   ) async {
     await tester.pumpWidget(const AndroidShellApp());
@@ -146,16 +162,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('키보드').first);
     await tester.pumpAndSettle();
-    expect(find.text('카메라 버튼 동작'), findsNothing);
-    await tester.tap(find.text('하드웨어 키보드'));
+    await reveal(tester, find.text('카메라 버튼'));
     await tester.pumpAndSettle();
-    expect(find.text('카메라 버튼 동작'), findsOneWidget);
+    expect(find.text('카메라 버튼'), findsOneWidget);
   });
   testWidgets('saved native hosts are available in Flutter', (tester) async {
     await tester.pumpWidget(const AndroidShellApp());
     await tester.pumpAndSettle();
     expect(find.text('Research'), findsOneWidget);
-    expect(find.text('ssh://example.test:22'), findsOneWidget);
+    expect(find.text('ssh · example.test'), findsOneWidget);
   });
   testWidgets(
     'home keeps saved connections central without a management drawer',
@@ -165,7 +180,7 @@ void main() {
       expect(find.byType(Drawer), findsNothing);
       expect(find.byType(SearchBar), findsNothing);
       expect(find.byType(ActionChip), findsNothing);
-      expect(find.text('Android Shell'), findsOneWidget);
+      expect(find.byType(TildeWordmark), findsOneWidget);
       expect(find.byTooltip('호스트 추가'), findsOneWidget);
       await tester.tap(find.byTooltip('메뉴'));
       await tester.pumpAndSettle();
@@ -196,10 +211,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('세션').first);
     await tester.pumpAndSettle();
-    expect(find.text('로그인 후 자동 실행'), findsOneWidget);
+    expect(find.text('자동 실행'), findsOneWidget);
     await tester.tap(find.byTooltip('뒤로').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('인증').first);
     await tester.pumpAndSettle();
     expect(find.text('신뢰한 서버 키'), findsOneWidget);
   });
@@ -224,7 +237,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('화면'), findsOneWidget);
   });
-  testWidgets('host edits survive category changes', (tester) async {
+  testWidgets('dirty host edits require explicit discard on back', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -235,16 +250,22 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('편집'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('연결'));
+    await tester.tap(find.text('연결').last);
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('nickname')), 'Renamed');
+    await tester.enterText(find.byKey(const ValueKey('nickname:0')), 'Renamed');
     await tester.tap(find.byTooltip('뒤로').first);
     await tester.pumpAndSettle();
-    expect(find.text('Renamed'), findsOneWidget);
-    await tester.tap(find.text('연결'));
+    expect(find.text('변경 사항 버리기'), findsOneWidget);
+    await tester.tap(find.text('계속 편집'));
     await tester.pumpAndSettle();
     expect(find.text('Renamed'), findsOneWidget);
-    expect(find.byTooltip('저장'), findsOneWidget);
+    expect(find.text('저장'), findsOneWidget);
+    await tester.tap(find.byTooltip('뒤로').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('버리기'));
+    await tester.pumpAndSettle();
+    expect(find.text('Renamed'), findsNothing);
+    expect(find.text('Research'), findsOneWidget);
   });
   testWidgets(
     'wide host editing keeps categories beside the connection fields',
@@ -261,11 +282,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('인증'), findsOneWidget);
       expect(find.text('세션'), findsOneWidget);
-      expect(find.byKey(const ValueKey('hostname')), findsOneWidget);
+      expect(find.byKey(const ValueKey('hostname:0')), findsOneWidget);
       await tester.tap(find.text('화면·프로필'));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('hostname')), findsNothing);
-      expect(find.text('터미널 프로필 관리'), findsOneWidget);
+      expect(find.byKey(const ValueKey('hostname:0')), findsNothing);
+      expect(find.text('프로필 관리'), findsOneWidget);
     },
   );
   testWidgets('file import refreshes connections and reports completion', (
@@ -275,10 +296,25 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('메뉴'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('가져오기·내보내기'));
+    await tester.tap(find.text('설정'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('보안·백업').first,
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('보안·백업').first);
+    await tester.pumpAndSettle();
+    await reveal(tester, find.text('호스트 가져오기'));
     await tester.tap(find.text('호스트 가져오기'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('뒤로').first);
+    await tester.pumpAndSettle();
+    if (find.text('설정 검색').evaluate().isNotEmpty) {
+      await tester.tap(find.byTooltip('뒤로').first);
+      await tester.pumpAndSettle();
+    }
     expect(find.text('Imported host'), findsOneWidget);
     expect(find.text('호스트 가져오기 완료'), findsOneWidget);
   });
@@ -290,20 +326,32 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('메뉴'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('가져오기·내보내기'));
+    await tester.tap(find.text('설정'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('보안·백업').first,
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('보안·백업').first);
+    await tester.pumpAndSettle();
+    await reveal(tester, find.text('호스트 가져오기'));
     await tester.tap(find.text('호스트 가져오기'));
     await tester.pumpAndSettle();
     expect(find.text('Invalid JSON'), findsOneWidget);
     expect(find.text('Imported host'), findsNothing);
   });
-  testWidgets('Flutter uses the native theme colors', (tester) async {
-    await tester.pumpWidget(const AndroidShellApp());
-    await tester.pumpAndSettle();
-    final context = tester.element(find.text('Research'));
-    expect(Theme.of(context).colorScheme.primary, const Color(0xff123456));
-    expect(Theme.of(context).colorScheme.surface, const Color(0xfffafafa));
-  });
+  testWidgets(
+    'Flutter uses Tilde surfaces when no terminal scheme is selected',
+    (tester) async {
+      await tester.pumpWidget(const AndroidShellApp());
+      await tester.pumpAndSettle();
+      final context = tester.element(find.text('Research'));
+      expect(Theme.of(context).colorScheme.primary, const Color(0xff0b7566));
+      expect(Theme.of(context).colorScheme.surface, const Color(0xfff6f5f0));
+    },
+  );
   testWidgets('connection failure remains visible without opening a console', (
     tester,
   ) async {
