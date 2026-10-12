@@ -20,6 +20,9 @@ internal class TerminalInversion {
     private val mask = Path()
     private val cursor = Path()
     private val bounds = RectF()
+    private val coloredCursor = RectF()
+    private val cursorPaint = Paint()
+    private var hasColoredCursor = false
     private val paint = Paint().apply {
         colorFilter = ColorMatrixColorFilter(
             floatArrayOf(
@@ -31,7 +34,7 @@ internal class TerminalInversion {
         )
     }
 
-    fun reset() = mask.rewind()
+    fun reset() { mask.rewind(); hasColoredCursor = false }
 
     fun selectLine(line: TerminalLine, row: Int, selectionRow: Int, selection: SelectionManager?, shaped: ShapedLine?, charWidth: Float, charHeight: Float) {
         if (selection?.selectionRange == null) return
@@ -57,7 +60,25 @@ internal class TerminalInversion {
         flush()
     }
 
-    fun cursor(rect: RectF) {
+    fun cursor(rect: RectF, color: Color = Color.Unspecified, foreground: Color = Color.White, background: Color = Color.Black) {
+        if (color != Color.Unspecified) {
+            coloredCursor.set(rect)
+            val foregroundLuma = foreground.red * .2126f + foreground.green * .7152f + foreground.blue * .0722f
+            val backgroundLuma = background.red * .2126f + background.green * .7152f + background.blue * .0722f
+            val range = foregroundLuma - backgroundLuma
+            val matrix = FloatArray(20)
+            for ((row, pair) in listOf(color.red to background.red, color.green to background.green, color.blue to background.blue).withIndex()) {
+                val slope = if (kotlin.math.abs(range) < .001f) 0f else (pair.second - pair.first) / range
+                matrix[row * 5] = slope * .2126f
+                matrix[row * 5 + 1] = slope * .7152f
+                matrix[row * 5 + 2] = slope * .0722f
+                matrix[row * 5 + 4] = (pair.first - slope * backgroundLuma) * 255f
+            }
+            matrix[18] = 1f
+            cursorPaint.colorFilter = ColorMatrixColorFilter(matrix)
+            hasColoredCursor = true
+            return
+        }
         cursor.rewind()
         cursor.addRect(rect, Path.Direction.CW)
         // Inverting a selected pixel twice restores its original color.
@@ -68,6 +89,7 @@ internal class TerminalInversion {
     fun draw(canvas: Canvas, content: () -> Unit) {
         if (mask.isEmpty) {
             content()
+            drawColoredCursor(canvas, content)
             return
         }
         val normal = canvas.save()
@@ -87,7 +109,18 @@ internal class TerminalInversion {
         } finally {
             canvas.restoreToCount(inverted)
         }
+        drawColoredCursor(canvas, content)
     }
+    private fun drawColoredCursor(canvas: Canvas, content: () -> Unit) {
+        if (!hasColoredCursor) return
+        val saved = canvas.save()
+        try {
+            canvas.clipRect(coloredCursor)
+            canvas.saveLayer(coloredCursor, cursorPaint)
+            content()
+        } finally { canvas.restoreToCount(saved) }
+    }
+
 }
 
 internal fun cursorLeadColumn(line: TerminalLine, col: Int): Int {

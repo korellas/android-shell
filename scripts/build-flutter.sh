@@ -27,4 +27,5 @@ if [[ "$(uname -s)" != Darwin ]]; then
 fi
 "$port_root/scripts/build-flutter-android.sh" "$port_mode"
 cd "$port_root/flutter_ui"
+python3 "$port_root/branding/ios/apply-branding.py" "$port_root/flutter_ui/.ios"
 flutter build ios "--$port_mode" --no-codesign

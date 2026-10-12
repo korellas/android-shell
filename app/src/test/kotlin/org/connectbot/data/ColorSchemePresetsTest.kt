@@ -1,6 +1,6 @@
 /*
  * ConnectBot: simple, powerful, open-source SSH client for Android
- * Copyright 2025 Kenny Root
+ * Copyright 2025-2026 Kenny Root
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,8 +109,11 @@ class ColorSchemePresetsTest {
     }
 
     @Test
-    fun builtInSchemes_Contains8Schemes() {
-        assertEquals("Should have 8 built-in schemes", 8, ColorSchemePresets.builtInSchemes.size)
+    fun tildeDayDoesNotRenumberExistingPresetIds() {
+        assertEquals(ColorSchemePresets.default, ColorSchemePresets.builtInSchemes[0])
+        assertEquals(ColorSchemePresets.solarizedDark, ColorSchemePresets.builtInSchemes[1])
+        assertEquals(ColorSchemePresets.tomorrowNight, ColorSchemePresets.builtInSchemes[7])
+        assertEquals(ColorSchemePresets.tildeDay, ColorSchemePresets.builtInSchemes.last())
     }
 
     @Test

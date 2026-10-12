@@ -61,9 +61,8 @@ void main() {
     expect(find.text('OpenSSH 비밀키 복사'), findsNothing);
     await tester.tap(find.text('비밀키 복사·저장'));
     await tester.pumpAndSettle();
+    expect(find.text('OpenSSH 비밀키'), findsOneWidget);
     await tester.tap(find.text('복사'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('OpenSSH'));
     await tester.pumpAndSettle();
     expect(copied?.arguments, {
       'id': 2,

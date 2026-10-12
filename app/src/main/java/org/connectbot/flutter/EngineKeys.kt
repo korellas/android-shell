@@ -154,7 +154,6 @@ internal suspend fun AndroidShellEngine.keyOperation(method: String, args: Wire)
                 }
             }
             require(!updated.isBiometric || !updated.startup)
-            require(!updated.encrypted || !updated.startup) { "암호화된 키는 시작할 때 자동 해제할 수 없습니다." }
             manager!!.removeKey(key.nickname)
             keys.save(updated)
             changed()

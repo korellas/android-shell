@@ -54,6 +54,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.connectbot.R
 import org.connectbot.data.ColorSchemeRepository
@@ -88,6 +90,7 @@ class TerminalManager :
     OnSharedPreferenceChangeListener,
     ProviderLoaderListener {
 
+    private val connectionCreationMutex = Mutex()
     private val _bridges = ArrayList<TerminalBridge>()
     private val _bridgesFlow = MutableStateFlow<List<TerminalBridge>>(emptyList())
     val bridgesFlow: StateFlow<List<TerminalBridge>> = _bridgesFlow.asStateFlow()
@@ -408,39 +411,35 @@ class TerminalManager :
     /**
      * Open a new SSH session using the given parameters.
      */
-    private fun openConnection(host: Host, newSession: Boolean = false): TerminalBridge {
-        if (!newSession) {
-            getConnectedBridge(host)?.let { existing ->
-                if (existing.disconnected && !existing.connecting) requestReconnect(existing)
-                return existing
+    private suspend fun openConnection(host: Host, newSession: Boolean = false, automation: List<org.connectbot.data.entity.AutomationAction>? = null): TerminalBridge = withContext(dispatchers.io) {
+        // Serialize creation without holding the collection lock during blocking initialization.
+        connectionCreationMutex.withLock {
+            if (!newSession) {
+                getConnectedBridge(host)?.let { existing ->
+                    if (existing.disconnected && !existing.connecting) requestReconnect(existing)
+                    return@withLock existing
+                }
             }
+
+            endedSessionAttention.remove(host.id)
+            val bridge = TerminalBridge(this@TerminalManager, host, dispatchers)
+            bridge.setOnDisconnectedListener(this@TerminalManager)
+            bridge.trialAutomation = automation
+            bridge.startConnection()
+
+            synchronized(_bridges) {
+                _bridges.add(bridge)
+                _bridgesFlow.value = _bridges.toList()
+            }
+            synchronized(_disconnected) {
+                _disconnected.remove(bridge.host)
+                _disconnectedFlow.value = _disconnected.toList()
+            }
+            if (bridge.isUsingNetwork()) connectivityMonitor.incRef()
+            touchHost(host)
+            notifyHostStatusChanged()
+            bridge
         }
-
-        endedSessionAttention.remove(host.id)
-        val bridge = TerminalBridge(this, host, dispatchers)
-        bridge.setOnDisconnectedListener(this)
-        bridge.startConnection()
-
-        synchronized(_bridges) {
-            _bridges.add(bridge)
-            _bridgesFlow.value = _bridges.toList()
-        }
-
-        synchronized(_disconnected) {
-            _disconnected.remove(bridge.host)
-            _disconnectedFlow.value = _disconnected.toList()
-        }
-
-        if (bridge.isUsingNetwork()) {
-            connectivityMonitor.incRef()
-        }
-
-        // also update database with new connected time
-        touchHost(host)
-
-        notifyHostStatusChanged()
-
-        return bridge
     }
 
     fun getScrollback(): Int {
@@ -482,9 +481,9 @@ class TerminalManager :
      * @param hostId the database ID of the host to connect to
      * @return TerminalBridge for the connection, or null if host not found
      */
-    suspend fun openConnectionForHostId(hostId: Long, newSession: Boolean = false): TerminalBridge? {
+    suspend fun openConnectionForHostId(hostId: Long, newSession: Boolean = false, automation: List<org.connectbot.data.entity.AutomationAction>? = null): TerminalBridge? {
         val host = hostRepository.findHostById(hostId) ?: return null
-        return openConnection(host, newSession)
+        return openConnection(host, newSession, automation)
     }
 
     /**

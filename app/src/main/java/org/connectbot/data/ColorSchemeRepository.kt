@@ -18,6 +18,7 @@
 package org.connectbot.data
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
@@ -57,6 +58,8 @@ class ColorSchemeRepository @Inject constructor(
                     name = preset.name,
                     isBuiltIn = true,
                     description = preset.description,
+                    foreground = preset.defaultFg, background = preset.defaultBg,
+                    foregroundColor = preset.foregroundColor, backgroundColor = preset.backgroundColor, cursorColor = preset.cursorColor,
                 ),
             )
         }
@@ -84,6 +87,8 @@ class ColorSchemeRepository @Inject constructor(
                     name = preset.name,
                     isBuiltIn = true,
                     description = preset.description,
+                    foreground = preset.defaultFg, background = preset.defaultBg,
+                    foregroundColor = preset.foregroundColor, backgroundColor = preset.backgroundColor, cursorColor = preset.cursorColor,
                 ),
             )
         }
@@ -111,6 +116,8 @@ class ColorSchemeRepository @Inject constructor(
                     name = preset.name,
                     isBuiltIn = true,
                     description = preset.description,
+                    foreground = preset.defaultFg, background = preset.defaultBg,
+                    foregroundColor = preset.foregroundColor, backgroundColor = preset.backgroundColor, cursorColor = preset.cursorColor,
                 ),
             )
         }
@@ -130,7 +137,7 @@ class ColorSchemeRepository @Inject constructor(
         flowOf(ColorSchemePresets.builtInSchemes[safeIndex].colors.clone())
     } else {
         colorSchemeDao.observeColors(schemeId).map { paletteEntries ->
-            val colors = ColorSchemePresets.default.colors.clone()
+            val colors = ColorSchemePresets.legacyStoredPalette.clone()
             paletteEntries.forEach { entry ->
                 if (entry.colorIndex in 0..15) {
                     colors[entry.colorIndex] = entry.color
@@ -147,7 +154,7 @@ class ColorSchemeRepository @Inject constructor(
      * @return Flow of Pair of (foreground index, background index)
      */
     fun observeSchemeDefaults(schemeId: Long): Flow<Pair<Int, Int>> = if (schemeId < 0) {
-        val presetIndex = -(schemeId + 1).toInt().coerceIn(0, ColorSchemePresets.builtInSchemes.size - 1)
+        val presetIndex = (-(schemeId + 1)).toInt().coerceIn(0, ColorSchemePresets.builtInSchemes.size - 1)
         val preset = ColorSchemePresets.builtInSchemes[presetIndex]
         flowOf(Pair(preset.defaultFg, preset.defaultBg))
     } else {
@@ -176,7 +183,7 @@ class ColorSchemeRepository @Inject constructor(
 
             // Non-negative ID represents a scheme stored in the database.
             else -> {
-                val colors = ColorSchemePresets.default.colors.clone()
+                val colors = ColorSchemePresets.legacyStoredPalette.clone()
                 colorSchemeDao.getColors(schemeId).map { colors[it.colorIndex] = it.color }
                 colors
             }
@@ -207,6 +214,45 @@ class ColorSchemeRepository @Inject constructor(
                 )
             }
         }
+    }
+
+    suspend fun getSchemeAppearance(schemeId: Long): Triple<Int, Int, Int> = withContext(dispatchers.io) {
+        val scheme = if (schemeId < 0) {
+            val preset = ColorSchemePresets.builtInSchemes[(-(schemeId + 1)).toInt().coerceIn(0, ColorSchemePresets.builtInSchemes.lastIndex)]
+            ColorScheme(
+                name = preset.name,
+                isBuiltIn = true,
+                foreground = preset.defaultFg,
+                background = preset.defaultBg,
+                foregroundColor = preset.foregroundColor,
+                backgroundColor = preset.backgroundColor,
+                cursorColor = preset.cursorColor,
+            )
+        } else {
+            colorSchemeDao.getById(schemeId)
+        }
+        appearance(scheme, getSchemeColors(schemeId))
+    }
+
+    fun observeSchemeAppearance(schemeId: Long): Flow<Triple<Int, Int, Int>> = combine(observeScheme(schemeId), observeSchemeColors(schemeId)) { scheme, palette -> appearance(scheme, palette) }
+
+    private fun appearance(scheme: ColorScheme?, palette: IntArray): Triple<Int, Int, Int> {
+        val fg = scheme?.foregroundColor ?: palette[(scheme?.foreground ?: 7).coerceIn(0, palette.lastIndex)]
+        val bg = scheme?.backgroundColor ?: palette[(scheme?.background ?: 0).coerceIn(0, palette.lastIndex)]
+        return Triple(fg, bg, scheme?.cursorColor ?: fg)
+    }
+
+    suspend fun setSchemeRole(schemeId: Long, role: String, color: Int) = withContext(dispatchers.io) {
+        require(schemeId >= 0)
+        val scheme = requireNotNull(colorSchemeDao.getById(schemeId))
+        colorSchemeDao.update(
+            when (role) {
+                "foreground" -> scheme.copy(foregroundColor = color)
+                "background" -> scheme.copy(backgroundColor = color)
+                "cursor" -> scheme.copy(cursorColor = color)
+                else -> error("Unknown terminal color role")
+            },
+        )
     }
 
     /**
@@ -243,6 +289,8 @@ class ColorSchemeRepository @Inject constructor(
                 scheme.copy(
                     foreground = foregroundColorIndex,
                     background = backgroundColorIndex,
+                    foregroundColor = null,
+                    backgroundColor = null,
                 ),
             )
         }
@@ -266,6 +314,9 @@ class ColorSchemeRepository @Inject constructor(
                     scheme.copy(
                         foreground = HostConstants.DEFAULT_FG_COLOR,
                         background = HostConstants.DEFAULT_BG_COLOR,
+                        foregroundColor = ColorSchemePresets.default.foregroundColor,
+                        backgroundColor = ColorSchemePresets.default.backgroundColor,
+                        cursorColor = ColorSchemePresets.default.cursorColor,
                     ),
                 )
             }
@@ -288,6 +339,7 @@ class ColorSchemeRepository @Inject constructor(
         // Copy colors from the base scheme
         val sourcePalette = getSchemeColors(basedOnSchemeId)
         val sourceDefaults = getSchemeDefaults(basedOnSchemeId)
+        val sourceAppearance = getSchemeAppearance(basedOnSchemeId)
 
         // Create new color scheme in database (ID will be auto-generated)
         val newScheme = ColorScheme(
@@ -297,6 +349,7 @@ class ColorSchemeRepository @Inject constructor(
             isBuiltIn = false,
             foreground = sourceDefaults.first,
             background = sourceDefaults.second,
+            foregroundColor = sourceAppearance.first, backgroundColor = sourceAppearance.second, cursorColor = sourceAppearance.third,
         )
         val newSchemeId = colorSchemeDao.insert(newScheme)
 
@@ -405,12 +458,13 @@ class ColorSchemeRepository @Inject constructor(
             ?: throw IllegalArgumentException("Scheme not found: $schemeId")
 
         val palette = getSchemeColors(schemeId)
+        val appearance = getSchemeAppearance(schemeId)
 
         ColorSchemeJson.fromPalette(
             name = scheme.name,
             description = scheme.description,
             palette = palette,
-        )
+        ).copy(foreground = scheme.foreground, background = scheme.background, foregroundColor = appearance.first, backgroundColor = appearance.second, cursorColor = appearance.third)
     }
 
     /**
@@ -458,6 +512,16 @@ class ColorSchemeRepository @Inject constructor(
             colorSchemeDao.insertOrUpdateColor(colorEntry)
         }
 
+        val imported = requireNotNull(colorSchemeDao.getById(newSchemeId))
+        colorSchemeDao.update(
+            imported.copy(
+                foreground = schemeJson.foreground,
+                background = schemeJson.background,
+                foregroundColor = schemeJson.foregroundColor,
+                backgroundColor = schemeJson.backgroundColor,
+                cursorColor = schemeJson.cursorColor,
+            ),
+        )
         newSchemeId
     }
 
@@ -465,6 +529,8 @@ class ColorSchemeRepository @Inject constructor(
      * Blocking wrapper for getSchemeColors - for use from non-coroutine code.
      * Returns the color palette for a scheme as an IntArray.
      */
+    fun getSchemeAppearanceBlocking(schemeId: Long): Triple<Int, Int, Int> = runBlocking { getSchemeAppearance(schemeId) }
+
     fun getColorsForSchemeBlocking(schemeId: Long): IntArray = runBlocking { getSchemeColors(schemeId) }
 
     /**

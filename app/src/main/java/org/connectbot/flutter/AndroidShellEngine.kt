@@ -237,7 +237,7 @@ internal class AndroidShellEngine(
                     "snapshot" -> snapshot()
 
                     "authenticateApp" -> {
-                        if (activity.authenticate("AndroidShell 잠금 해제", appLock = true) != null) activity.appState.onAuthenticationSuccess()
+                        if (activity.authenticate("Tilde 잠금 해제", appLock = true) != null) activity.appState.onAuthenticationSuccess()
                         changed()
                         authenticated
                     }
@@ -440,22 +440,25 @@ internal class AndroidShellEngine(
             "profile.duplicate" -> profiles.duplicate(args.number("id"), args.text("name")).also { changed() }
 
             "forwards" -> hosts.getPortForwardsForHost(args.number("hostId")).map { forward ->
-                val live = manager!!.bridgesFlow.value.find { it.host.id == forward.hostId }?.transport?.getPortForwards()?.find { it.id == forward.id }
+                val live = manager!!.bridgesFlow.value.find { it.sessionId == args.optionalId("sessionId") && it.host.id == forward.hostId }?.transport?.getPortForwards()?.find { it.id == forward.id }
                 (live ?: forward).toWire()
             }
 
             "forward.save" -> {
                 val forward = args.toForward()
                 val saved = hosts.savePortForward(forward)
-                manager!!.bridgesFlow.value.find { it.host.id == saved.hostId }?.let { bridge ->
-                    val oldForward = bridge.transport?.getPortForwards()?.find { it.id == saved.id }
-                    val wasEnabled = oldForward?.isEnabled() ?: (forward.id == 0L)
-                    oldForward?.let {
-                        bridge.disablePortForward(it)
-                        bridge.removePortForward(it)
+                withContext(activity.dispatchers.io) {
+                    manager!!.bridgesFlow.value.filter { it.host.id == saved.hostId }.forEach { bridge ->
+                        val oldForward = bridge.transport?.getPortForwards()?.find { it.id == saved.id }
+                        val wasEnabled = oldForward?.isEnabled() ?: (args.optionalId("sessionId") == bridge.sessionId && saved.startEnabled)
+                        oldForward?.let {
+                            bridge.disablePortForward(it)
+                            bridge.removePortForward(it)
+                        }
+                        val liveForward = saved.copy()
+                        bridge.addPortForward(liveForward)
+                        if (wasEnabled && bridge.transport?.isConnected() == true) check(bridge.enablePortForward(liveForward)) { "포워딩 활성화에 실패했습니다." }
                     }
-                    bridge.addPortForward(saved)
-                    if (wasEnabled && bridge.transport?.isConnected() == true) check(bridge.enablePortForward(saved)) { "포워딩 활성화에 실패했습니다." }
                 }
                 changed()
                 saved.toWire()
@@ -463,10 +466,12 @@ internal class AndroidShellEngine(
 
             "forward.delete" -> {
                 hosts.getPortForwardById(args.number("id"))?.let { forward ->
-                    manager!!.bridgesFlow.value.find { it.host.id == forward.hostId }?.let { bridge ->
-                        bridge.transport?.getPortForwards()?.find { it.id == forward.id }?.let {
-                            bridge.disablePortForward(it)
-                            bridge.removePortForward(it)
+                    withContext(activity.dispatchers.io) {
+                        manager!!.bridgesFlow.value.filter { it.host.id == forward.hostId }.forEach { bridge ->
+                            bridge.transport?.getPortForwards()?.find { it.id == forward.id }?.let {
+                                bridge.disablePortForward(it)
+                                bridge.removePortForward(it)
+                            }
                         }
                     }
                     hosts.deletePortForward(forward)
@@ -475,15 +480,36 @@ internal class AndroidShellEngine(
                 null
             }
 
+            "forward.start" -> {
+                val forward = requireNotNull(hosts.getPortForwardById(args.number("id")))
+                hosts.savePortForward(forward.copy(startEnabled = args.flag("enabled")))
+                changed()
+                null
+            }
+
             "forward.toggle" -> {
-                val bridge = manager!!.bridgesFlow.value.find { it.host.id == args.number("hostId") } ?: error("연결된 세션이 없습니다.")
+                val bridge = bridge(args.number("sessionId"))
+                require(bridge.host.id == args.number("hostId"))
+                check(bridge.isSessionOpen) { "연결된 세션이 없습니다." }
                 val forward = requireNotNull(bridge.transport?.getPortForwards()?.find { it.id == args.number("id") })
-                check(if (args.flag("enabled")) bridge.enablePortForward(forward) else bridge.disablePortForward(forward)) { "포워딩을 변경할 수 없습니다." }
+                withContext(activity.dispatchers.io) {
+                    check(if (args.flag("enabled")) bridge.enablePortForward(forward) else bridge.disablePortForward(forward)) { "포워딩을 변경할 수 없습니다." }
+                }
                 changed()
                 null
             }
 
             "automation" -> hosts.getAutomation(args.number("hostId")).map { it.toWire() }
+
+            "automation.trial" -> {
+                @Suppress("UNCHECKED_CAST")
+                val actions = (args["actions"] as List<Map<String, Any?>>).mapIndexed { position, data -> data.toAutomation(args.number("hostId"), position) }
+                require(actions.map { it.id }.distinct().size == actions.size)
+                val session = requireNotNull(manager!!.openConnectionForHostId(args.number("hostId"), true, actions))
+                selectedSession = session.sessionId
+                changed()
+                session.sessionId
+            }
 
             "automation.save" -> {
                 @Suppress("UNCHECKED_CAST")
@@ -518,11 +544,20 @@ internal class AndroidShellEngine(
                 null
             }
 
-            "scheme.palette" -> mapOf("colors" to colors.getSchemeColors(args.number("id")).toList(), "foreground" to colors.getSchemeDefaults(args.number("id")).first, "background" to colors.getSchemeDefaults(args.number("id")).second)
+            "scheme.palette" -> {
+                val appearance = colors.getSchemeAppearance(args.number("id"))
+                mapOf("colors" to colors.getSchemeColors(args.number("id")).toList(), "foregroundColor" to appearance.first, "backgroundColor" to appearance.second, "cursorColor" to appearance.third)
+            }
+
+            "scheme.role" -> {
+                colors.setSchemeRole(args.number("id"), args.text("role"), args.number("color").toInt())
+                changed()
+                null
+            }
 
             "scheme.color" -> {
                 require(args.number("id") >= 0)
-                require(args.number("index") in 0..255)
+                require(args.number("index") in 0..15)
                 colors.setColorForScheme(args.number("id"), args.number("index").toInt(), args.number("color").toInt())
                 changed()
                 null
@@ -569,7 +604,7 @@ internal class AndroidShellEngine(
 
             "key.generate", "key.biometricUnlock", "key.delete", "key.load", "key.copy", "key.export", "key.import", "key.importPassword", "key.importName", "key.importCancel", "key.save", "key.enroll", "key.enrollmentBegin", "key.startup" -> keyOperation(method, args)
 
-            "settings.update", "settings.notifications", "font.import", "font.delete", "font.custom", "font.customDelete", "terminalType.add", "terminalType.delete", "document.read", "document.write", "document.pick", "document.create", "help.document", "logs", "logs.clear", "logs.tombstone", "openUrl", "share", "shortcut" -> platformOperation(method, args)
+            "settings.update", "settings.preview", "settings.bellMode", "settings.notifications", "font.import", "font.delete", "font.custom", "font.customDelete", "terminalType.add", "terminalType.delete", "document.read", "document.write", "document.pick", "document.create", "help.document", "logs", "logs.clear", "logs.tombstone", "openUrl", "share", "shortcut" -> platformOperation(method, args)
 
             else -> error("지원하지 않는 엔진 작업: $method")
         }
@@ -610,6 +645,14 @@ internal class AndroidShellEngine(
         val service = manager!!
         return mapOf(
             "ready" to true, "authenticated" to true,
+            "appVersion" to org.connectbot.BuildConfig.VERSION_NAME,
+            "encodings" to withContext(activity.dispatchers.io) { java.nio.charset.Charset.availableCharsets().keys.toList() },
+            "hardwareKeyboard" to withContext(activity.dispatchers.io) { android.view.InputDevice.getDeviceIds().any { android.view.InputDevice.getDevice(it)?.keyboardType == android.view.InputDevice.KEYBOARD_TYPE_ALPHABETIC } },
+            "koreanKeyboard" to withContext(activity.dispatchers.io) {
+                @Suppress("DEPRECATION")
+                val locale = activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java).currentInputMethodSubtype?.locale
+                locale?.startsWith("ko") == true
+            },
             "entryAction" to activity.intent.action,
             "themeColors" to mapOf("light" to org.connectbot.ui.theme.connectBotColorScheme(activity, false, dynamicColor = false).toWire(), "dark" to org.connectbot.ui.theme.connectBotColorScheme(activity, true, dynamicColor = false).toWire()),
             "autoHideDelayMs" to org.connectbot.ui.screens.console.AUTO_HIDE_DELAY_MS,
@@ -625,18 +668,19 @@ internal class AndroidShellEngine(
             },
             "identities" to hosts.getIdentities().map { mapOf("id" to it.id, "name" to it.name, "username" to it.username, "pubkeyId" to it.pubkeyId, "hasPassword" to withContext(activity.dispatchers.io) { activity.passwords.hasIdentityPassword(it.id) }) },
             "profiles" to profiles.getAll().map { it.toWire() },
-            "keys" to keys.getAll().map { it.toWire(service.isKeyLoaded(it.nickname)) },
+            "keys" to withContext(activity.dispatchers.io) { keys.getAll().map { it.toWire(service.isKeyLoaded(it.nickname)) } },
             "schemes" to colors.getAllSchemes().map { scheme ->
                 val defaults = colors.getSchemeDefaults(scheme.id)
-                mapOf("id" to scheme.id, "name" to scheme.name, "description" to scheme.description, "palette" to colors.getSchemeColors(scheme.id).toList(), "foreground" to defaults.first, "background" to defaults.second)
+                val appearance = colors.getSchemeAppearance(scheme.id)
+                mapOf("id" to scheme.id, "name" to scheme.name, "description" to scheme.description, "palette" to colors.getSchemeColors(scheme.id).toList(), "foreground" to defaults.first, "background" to defaults.second, "foregroundColor" to appearance.first, "backgroundColor" to appearance.second, "cursorColor" to appearance.third)
             },
-            "knownHosts" to database.knownHostDao().getAll().map { mapOf("id" to it.id, "hostId" to it.hostId, "hostname" to it.hostname, "port" to it.port, "algorithm" to it.hostKeyAlgo, "key" to android.util.Base64.encodeToString(it.hostKey, android.util.Base64.NO_WRAP)) },
+            "knownHosts" to database.knownHostDao().getAll().map { mapOf("id" to it.id, "hostId" to it.hostId, "hostname" to it.hostname, "port" to it.port, "algorithm" to it.hostKeyAlgo, "fingerprint" to com.trilead.ssh2.crypto.fingerprint.KeyFingerprint.createSHA256Fingerprint(it.hostKey), "key" to android.util.Base64.encodeToString(it.hostKey, android.util.Base64.NO_WRAP)) },
             "sessions" to service.bridgesFlow.value.map { bridge ->
                 mapOf(
-                    "id" to bridge.sessionId, "hostId" to bridge.host.id, "uri" to bridge.host.getUri().toString(), "nickname" to (if (service.bridgesFlow.value.count { it.host.id == bridge.host.id } > 1) "${bridge.host.nickname} · ${bridge.sessionId}" else bridge.host.nickname), "protocol" to bridge.host.protocol, "open" to bridge.isSessionOpen,
+                    "id" to bridge.sessionId, "hostId" to bridge.host.id, "uri" to bridge.host.getUri().toString(), "nickname" to (if (service.bridgesFlow.value.count { it.host.id == bridge.host.id } > 1) "${bridge.host.nickname} · ${bridge.sessionId}" else bridge.host.nickname), "protocol" to bridge.host.protocol, "open" to bridge.isSessionOpen, "connecting" to bridge.connecting,
                     "composeMode" to (terminalViews.values.lastOrNull { it.sessionId == bridge.sessionId && it.routeOwner == activeOwner }?.composeMode == true),
                     "awaitingClose" to bridge.isAwaitingClose(), "canForward" to bridge.canFowardPorts(), "canEnroll" to ((bridge.transport as? org.connectbot.transport.SSH)?.canEnrollKey == true),
-                    "modifiers" to bridge.keyHandler.modifierState.value.let { mapOf("ctrl" to it.ctrlState.name, "alt" to it.altState.name, "shift" to it.shiftState.name) }, "automation" to bridge.automationState.value.let { mapOf("running" to it.running, "error" to it.error, "step" to it.step) },
+                    "modifiers" to bridge.keyHandler.modifierState.value.let { mapOf("ctrl" to it.ctrlState.name, "alt" to it.altState.name, "shift" to it.shiftState.name) }, "automation" to bridge.automationState.value.let { mapOf("running" to it.running, "error" to it.error?.let { message -> activity.getString(message) }, "step" to it.step, "completed" to it.completed, "failedStep" to it.failedStep) },
                     "banners" to bridge.authBanners.value.map { mapOf("id" to it.id, "sourceName" to it.sourceName, "message" to it.message, "urls" to it.urls) },
                 )
             },
@@ -646,7 +690,7 @@ internal class AndroidShellEngine(
             "preferences" to (activity.settings.uiState.value.toWire() + mapOf("defaultProfileId" to (activity.settings.uiState.value.defaultProfileId.takeIf { it > 0 } ?: profiles.getDefault().id))),
             "keyState" to activity.keyList.uiState.value.let { mapOf("error" to it.error, "pendingNickname" to it.pendingNicknameConfirmation?.nickname, "importPassword" to it.pendingImport?.let { pending -> mapOf("nickname" to pending.nickname, "type" to pending.keyType) }, "biometricUnlock" to it.biometricKeyToUnlock?.id, "nicknameError" to it.importNicknameError) },
             "generation" to activity.keyGenerator.uiState.value.let { mapOf("busy" to it.isGenerating, "biometricAvailable" to it.biometricAvailable, "nicknameExists" to it.nicknameExists) },
-            "enrollment" to activity.enrollment.uiState.value.let { mapOf("stage" to it.stage.name, "error" to it.error, "busy" to it.busy, "biometricAvailable" to it.biometricAvailable) },
+            "enrollment" to activity.enrollment.uiState.value.let { mapOf("stage" to it.stage.name, "hostId" to it.hostId, "error" to it.error, "busy" to it.busy, "biometricAvailable" to it.biometricAvailable, "selectedKeyId" to it.selectedKeyId, "registration" to it.registration?.name, "verification" to it.verification?.name) },
         )
     }
 

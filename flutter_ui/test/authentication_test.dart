@@ -90,21 +90,15 @@ void main() {
       await open(tester);
       expect(find.text('공용 로그인 계정'), findsOneWidget);
       expect(find.text('SSH 키 인증 사용'), findsNothing);
-      expect(find.text('비밀번호'), findsOneWidget);
-      expect(find.text('SSH 인증 에이전트 사용'), findsNothing);
-      await tester.tap(find.text('고급 인증 설정'));
+      expect(find.text('비밀번호'), findsWidgets);
+      expect(find.text('SSH 인증 에이전트'), findsOneWidget);
+      await tester.ensureVisible(find.text('매번 확인'));
+      await tester.tap(find.text('매번 확인'));
       await tester.pumpAndSettle();
-      expect(find.text('SSH 인증 에이전트 사용'), findsOneWidget);
-      expect(find.text('확인 필요'), findsNothing);
-      await tester.tap(find.byType(SwitchListTile).first);
+      await tester.ensureVisible(find.text('키 쓰지 않음'));
+      await tester.tap(find.text('키 쓰지 않음'));
       await tester.pumpAndSettle();
-      expect(find.text('확인 필요'), findsOneWidget);
-      await tester.tap(find.text('잠금이 풀린 키들을 사용').first);
-      await tester.pumpAndSettle();
-      expect(find.text('키 사용 안함'), findsOneWidget);
-      await tester.tap(find.text('키 사용 안함'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('저장'));
+      await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
       expect(saved?['pubkeyId'], -2);
     },
@@ -113,18 +107,13 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    await tester.tap(find.text('이 호스트만의 인증정보').first);
+    await tester.tap(find.text('공용 로그인 계정').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Shared').last);
     await tester.pumpAndSettle();
-    final username = tester.widget<TextFormField>(
-      find.byType(TextFormField).first,
-    );
-    expect(username.enabled, false);
-    expect(
-      tester.widget<TextField>(find.byType(TextField).first).controller!.text,
-      'shared-user',
-    );
+    expect(find.byType(TextFormField), findsNothing);
+    expect(find.text('shared-user'), findsWidgets);
+    expect(find.text('Shared 계정을 씁니다'), findsOneWidget);
     expect(find.text('비밀번호'), findsNothing);
     expect(find.text('로그인에 사용할 SSH 키'), findsNothing);
   });
@@ -132,7 +121,7 @@ void main() {
     'existing password stays blank and clear is applied only on save',
     (tester) async {
       await open(tester, hasPassword: true);
-      expect(find.text('비밀번호 (변경 없음)'), findsOneWidget);
+      expect(find.text('비밀번호 (저장됨)'), findsOneWidget);
       final field = tester.widget<TextFormField>(
         find.byType(TextFormField).last,
       );
@@ -144,7 +133,7 @@ void main() {
       await tester.tap(find.text('저장된 비밀번호 삭제'));
       await tester.pumpAndSettle();
       expect(saved, isNull);
-      await tester.tap(find.byTooltip('저장'));
+      await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
       expect(saved?['clearPassword'], true);
     },
@@ -167,7 +156,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('비밀번호 (변경 없음)'), findsOneWidget);
+    expect(find.text('비밀번호 (저장됨)'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.textContaining('이 기기에 암호화'),
       100,

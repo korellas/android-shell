@@ -1,5 +1,5 @@
 name: android_shell_ui
-description: Flutter user interface for the AndroidShell native engines.
+description: Tilde SSH and terminal interface.
 version: 1.0.0+1
 environment:
   sdk: ^3.11.3
@@ -11,7 +11,23 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 flutter:
+  assets:
+    - assets/fonts/Pretendard-LICENSE.txt
+    - assets/fonts/JetBrainsMono-OFL.txt
   uses-material-design: true
+  fonts:
+    - family: Pretendard
+      fonts:
+        - asset: assets/fonts/Pretendard-Regular.ttf
+        - asset: assets/fonts/Pretendard-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Pretendard-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Pretendard-Bold.ttf
+          weight: 700
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Regular.ttf
   module:
     androidX: true
     androidPackage: dev.korellas.android_shell_ui

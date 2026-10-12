@@ -92,8 +92,10 @@ class KeyEnrollmentViewModelTest {
         `when`(ssh.verifyPublicKey(key)).thenReturn(KeyLoginVerification.VERIFIED)
         `when`(hosts.findHostById(host.id)).thenReturn(host.copy(compression = true))
         `when`(hosts.saveHost(any(Host::class.java) ?: host)).thenAnswer { it.getArgument<Host>(0) }
-        viewModel().enroll(bridge)
+        val model = viewModel()
+        model.enroll(bridge)
         advanceUntilIdle()
+        assertEquals(host.id, model.uiState.value.hostId)
         val saved = ArgumentCaptor.forClass(Host::class.java)
         verify(hosts).saveHost(saved.capture() ?: host)
         assertEquals(host.copy(compression = true, identityId = null, pubkeyId = key.id, username = "verified-user"), saved.value)

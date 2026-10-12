@@ -60,7 +60,7 @@ Widget settingsSection(
     Card.filled(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       color: Theme.of(context).colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
@@ -79,6 +79,9 @@ Widget settingsSection(
 );
 
 Color paletteColor(EngineRecord scheme, String role) {
+  if (scheme['${role}Color'] is num) {
+    return Color((scheme['${role}Color'] as num).toInt());
+  }
   final palette = (scheme['palette'] as List? ?? []).cast<num>();
   final index = (scheme[role] as num?)?.toInt();
   if (index != null && index >= 0 && index < palette.length) {
@@ -89,7 +92,12 @@ Color paletteColor(EngineRecord scheme, String role) {
 
 class TerminalPreview extends StatefulWidget {
   final AndroidEngine engine;
-  const TerminalPreview({super.key, required this.engine});
+  final EngineRecord overrides;
+  const TerminalPreview({
+    super.key,
+    required this.engine,
+    this.overrides = const {},
+  });
   @override
   State<TerminalPreview> createState() => _TerminalPreviewState();
 }
@@ -116,6 +124,7 @@ class _TerminalPreviewState extends State<TerminalPreview> {
         profile.toString(),
         scheme.toString(),
         p['terminalMargin'],
+        widget.overrides.toString(),
       );
       if (requestKey != nextKey) {
         requestKey = nextKey;
@@ -124,6 +133,7 @@ class _TerminalPreviewState extends State<TerminalPreview> {
               'width': constraints.maxWidth,
               'scale': density,
               'textScale': scale,
+              ...widget.overrides,
             })
             .then(row);
       }

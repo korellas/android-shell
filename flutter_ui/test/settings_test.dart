@@ -16,6 +16,7 @@
  */
 
 import 'package:android_shell_ui/engine.dart';
+import 'package:android_shell_ui/tilde_design.dart';
 import 'package:android_shell_ui/management.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -155,42 +156,38 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  for (final manageFonts in [false, true]) {
-    testWidgets(
-      'font import opens picker without a name dialog ($manageFonts)',
-      (tester) async {
-        await open(tester);
-        await tester.tap(find.text('화면'));
-        await tester.pumpAndSettle();
-        if (manageFonts) {
-          await tester.tap(find.text('글꼴').first);
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('가져온 글꼴 관리'));
-          await tester.pumpAndSettle();
-        }
-        await tester.ensureVisible(find.text('글꼴 파일 가져오기'));
-        await tester.tap(find.text('글꼴 파일 가져오기'));
-        await tester.pumpAndSettle();
-        expect(changes.map((c) => c.method), ['font.import']);
-        expect(changes.single.arguments, isEmpty);
-        expect(find.byType(AlertDialog), findsNothing);
-      },
-    );
-  }
-  testWidgets('display shows import failure and disables import while busy', (
+  testWidgets('font import opens picker without a name dialog', (tester) async {
+    await open(tester);
+    await tester.tap(find.text('화면'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('폰트 관리'));
+    await tester.tap(find.text('폰트 관리'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('폰트 파일 가져오기'));
+    await tester.tap(find.text('폰트 파일 가져오기'));
+    await tester.pumpAndSettle();
+    expect(changes.map((c) => c.method), ['font.import']);
+    expect(changes.single.arguments, isEmpty);
+    expect(find.byType(AlertDialog), findsNothing);
+  });
+  testWidgets('font import shows failure and is disabled while busy', (
     tester,
   ) async {
     (engine.state['preferences'] as Map)['fontError'] = 'Failed to import font';
     (engine.state['preferences'] as Map)['fontBusy'] = true;
     await open(tester);
     await tester.tap(find.text('화면'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('폰트 관리'));
+    await tester.tap(find.text('폰트 관리'));
     await tester.pump(const Duration(milliseconds: 300));
-    final tile = find.widgetWithText(ListTile, '글꼴 파일 가져오기');
+    final tile = find.widgetWithText(ListTile, '폰트 파일 가져오기');
     expect(tester.widget<ListTile>(tile).onTap, isNull);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
-    await tester.ensureVisible(find.text('Failed to import font'));
+    expect(find.byType(TildeProgress), findsOneWidget);
     expect(find.text('Failed to import font'), findsOneWidget);
     expect(changes, isEmpty);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
   });
   testWidgets('inactive IME toggle is removed from keyboard settings', (
     tester,
@@ -199,17 +196,17 @@ void main() {
     await tester.tap(find.text('키보드'));
     await tester.pumpAndSettle();
     expect(find.text('입력 모드 전환 버튼'), findsNothing);
-    expect(find.text('특수키 바'), findsOneWidget);
+    expect(find.text('특수키 구성'), findsOneWidget);
     expect(engine.preferences['imeTogglekey'], true);
     expect(changes, isEmpty);
   });
-  testWidgets('opening display preserves custom margin and scrollback', (
+  testWidgets('opening terminal preserves custom margin and scrollback', (
     tester,
   ) async {
     await open(tester);
-    await tester.tap(find.text('화면'));
+    await tester.tap(find.text('터미널'));
     await tester.pumpAndSettle();
-    expect(find.text('7dp'), findsOneWidget);
+    expect(find.text('7'), findsWidgets);
     expect(changes, isEmpty);
     expect(engine.preferences['terminalMargin'], 7);
     expect(engine.preferences['scrollback'], '1234');
@@ -220,11 +217,11 @@ void main() {
     await open(tester);
     await tester.tap(find.text('터미널'));
     await tester.pumpAndSettle();
-    expect(find.text('1,234줄'), findsOneWidget);
+    expect(find.text('1234'), findsOneWidget);
     expect(changes, isEmpty);
-    await tester.tap(find.byTooltip('스크롤 버퍼 늘리기'));
+    await tester.tap(find.byTooltip('스크롤 기록 늘리기'));
     await tester.pumpAndSettle();
-    expect(engine.preferences['scrollback'], '2000');
+    expect(engine.preferences['scrollback'], '1734');
   });
   testWidgets('alert master switch preserves individual alert choices', (
     tester,
@@ -232,7 +229,7 @@ void main() {
     await open(tester);
     await tester.tap(find.text('연결·알림'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('연결 알림'));
+    await tester.tap(find.text('연결 알림 사용'));
     await tester.pumpAndSettle();
     expect(changes.single.arguments, {
       'key': 'connectionAlerts',
@@ -284,14 +281,14 @@ void main() {
       await open(tester);
       await tester.tap(find.text('터미널'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('1,234줄'));
+      await tester.tap(find.text('1234'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextFormField), 'bad');
-      await tester.tap(find.text('확인'));
+      await tester.enterText(find.byType(TextField), 'bad');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
       expect(changes, isEmpty);
       expect(engine.preferences['scrollback'], '1234');
-      expect(find.text('0부터 100,000 사이의 줄 수를 입력해 주세요.'), findsOneWidget);
+      expect(find.text('0–100000 사이로 입력하세요'), findsOneWidget);
     },
   );
   for (final width in [320.0, 1000.0]) {
@@ -313,7 +310,18 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.ensureVisible(find.text(category).first);
+        for (
+          var i = 0;
+          i < 12 && find.text(category).first.hitTestable().evaluate().isEmpty;
+          i++
+        ) {
+          await tester.drag(
+            find.byType(Scrollable).first,
+            const Offset(0, -220),
+          );
+          await tester.pumpAndSettle();
+        }
+        expect(find.text(category).first.hitTestable(), findsOneWidget);
         await tester.tap(find.text(category).first);
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);

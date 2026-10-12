@@ -18,6 +18,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'engine.dart';
+import 'tilde_design.dart';
 import 'editors.dart';
 import 'management.dart';
 import 'console.dart';
@@ -44,60 +45,13 @@ class _AndroidShellAppState extends State<AndroidShellApp> {
     super.dispose();
   }
 
-  ThemeData _theme(Brightness brightness) {
-    final colors = row(
-      row(engine.state['themeColors'])[brightness == Brightness.dark
-          ? 'dark'
-          : 'light'],
-    );
-    Color? color(String key) =>
-        colors[key] is num ? Color((colors[key] as num).toInt()) : null;
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme:
-          ColorScheme.fromSeed(
-            seedColor: const Color(0xff03a9f4),
-            brightness: brightness,
-          ).copyWith(
-            primary: color('primary'),
-            onPrimary: color('onPrimary'),
-            primaryContainer: color('primaryContainer'),
-            onPrimaryContainer: color('onPrimaryContainer'),
-            secondary: color('secondary'),
-            onSecondary: color('onSecondary'),
-            secondaryContainer: color('secondaryContainer'),
-            onSecondaryContainer: color('onSecondaryContainer'),
-            tertiary: color('tertiary'),
-            onTertiary: color('onTertiary'),
-            tertiaryContainer: color('tertiaryContainer'),
-            onTertiaryContainer: color('onTertiaryContainer'),
-            error: color('error'),
-            onError: color('onError'),
-            errorContainer: color('errorContainer'),
-            onErrorContainer: color('onErrorContainer'),
-            surface: color('surface'),
-            onSurface: color('onSurface'),
-            onSurfaceVariant: color('onSurfaceVariant'),
-            outline: color('outline'),
-            outlineVariant: color('outlineVariant'),
-            inverseSurface: color('inverseSurface'),
-            onInverseSurface: color('inverseOnSurface'),
-            inversePrimary: color('inversePrimary'),
-            surfaceTint: color('surfaceTint'),
-            surfaceContainerLowest: color('surfaceContainerLowest'),
-            surfaceContainerLow: color('surfaceContainerLow'),
-            surfaceContainer: color('surfaceContainer'),
-            surfaceContainerHigh: color('surfaceContainerHigh'),
-            surfaceContainerHighest: color('surfaceContainerHighest'),
-          ),
-    );
-  }
+  ThemeData _theme(Brightness brightness) => tildeTheme(brightness, engine);
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: engine,
     builder: (context, _) => MaterialApp(
-      title: 'Android Shell',
+      title: 'Tilde',
       debugShowCheckedModeBanner: false,
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),
@@ -129,21 +83,68 @@ Future<dynamic> runEngine(
   }
 }
 
+Future<void> importTildeHosts(
+  BuildContext context,
+  AndroidEngine engine,
+) async {
+  final uri = await runEngine(context, engine, 'document.pick');
+  if (uri == null || !context.mounted) return;
+  final text = await runEngine(context, engine, 'document.read', {'uri': uri});
+  if (text == null || !context.mounted) return;
+  final result = await runEngine(context, engine, 'config.import', {
+    'text': text,
+  });
+  if (result != null && context.mounted) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${row(result)['message']}')));
+  }
+}
+
+Future<void> exportTildeHosts(
+  BuildContext context,
+  AndroidEngine engine,
+) async {
+  final text = await runEngine(context, engine, 'config.export');
+  if (text == null || !context.mounted) return;
+  final uri = await runEngine(context, engine, 'document.create', {
+    'name': 'tilde-hosts.json',
+  });
+  if (uri != null && context.mounted) {
+    await runEngine(context, engine, 'document.write', {
+      'uri': uri,
+      'text': text,
+    });
+  }
+}
+
 Future<String?> askAction(
   BuildContext context,
   String title,
   List<(String, String)> actions,
-) => showDialog<String>(
+) => showModalBottomSheet<String>(
   context: context,
-  builder: (context) => SimpleDialog(
-    title: Text(title),
-    children: [
-      for (final (action, label) in actions)
-        SimpleDialogOption(
-          onPressed: () => Navigator.pop(context, action),
-          child: Text(label),
+  showDragHandle: true,
+  builder: (context) => SafeArea(
+    child: SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+            ),
+            for (final (action, label) in actions)
+              ListTile(
+                title: Text(label),
+                onTap: () => Navigator.pop(context, action),
+              ),
+          ],
         ),
-    ],
+      ),
+    ),
   ),
 );
 
@@ -386,38 +387,6 @@ class _ShellHomeState extends State<ShellHome> {
     });
   }
 
-  Future<void> _import() async {
-    final uri = await runEngine(context, engine, 'document.pick');
-    if (uri == null || !mounted) return;
-    final text = await runEngine(context, engine, 'document.read', {
-      'uri': uri,
-    });
-    if (text != null && mounted) {
-      final result = await runEngine(context, engine, 'config.import', {
-        'text': text,
-      });
-      if (result != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(row(result)['message'] as String)),
-        );
-      }
-    }
-  }
-
-  Future<void> _export() async {
-    final text = await runEngine(context, engine, 'config.export');
-    if (text == null || !mounted) return;
-    final uri = await runEngine(context, engine, 'document.create', {
-      'name': 'android-shell-hosts.json',
-    });
-    if (uri != null && mounted) {
-      await runEngine(context, engine, 'document.write', {
-        'uri': uri,
-        'text': text,
-      });
-    }
-  }
-
   void _page(Widget page) =>
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   Future<void> _setupHost(EngineRecord host) async {
@@ -439,19 +408,10 @@ class _ShellHomeState extends State<ShellHome> {
       case 'sort':
         await runEngine(context, engine, 'host.sort');
       case 'settings':
-        _page(SettingsPage(engine: engine));
+        await engine.refresh();
+        if (mounted) _page(SettingsPage(engine: engine));
       case 'login':
         _page(LoginPage(engine: engine, onSetup: _setupHost));
-      case 'config':
-        final selected = await askAction(context, '가져오기·내보내기', [
-          ('import', '호스트 가져오기'),
-          ('export', '호스트 내보내기'),
-        ]);
-        if (selected != null && mounted) await _homeMenu(selected);
-      case 'export':
-        await _export();
-      case 'import':
-        await _import();
       case 'disconnect':
         if (await confirm(context, '연결 모두 끊기', '모든 연결을 종료할까요?') && mounted) {
           await runEngine(context, engine, 'session.disconnectAll');
@@ -539,62 +499,7 @@ class _ShellHomeState extends State<ShellHome> {
     children: [Icon(icon, size: 24), const SizedBox(width: 12), Text(title)],
   );
 
-  Widget _hostIcon(EngineRecord host) {
-    final status = host['connectionState'] ?? 'UNKNOWN';
-    final statusColor = switch (status) {
-      'CONNECTED' => Colors.green,
-      'DISCONNECTED' => Theme.of(context).colorScheme.onSurfaceVariant,
-      'UNREAD_OUTPUT' => const Color(0xffb26a00),
-      'ERROR' => Theme.of(context).colorScheme.error,
-      _ => Colors.transparent,
-    };
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color((host['iconArgb'] as int?) ?? 0xff9e9e9e),
-              border: Border.all(color: statusColor, width: 3),
-            ),
-            child: Icon(
-              host['protocol'] == 'ssh' || host['protocol'] == 'telnet'
-                  ? Icons.computer
-                  : Icons.link,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          if (status != 'UNKNOWN')
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Theme.of(context).colorScheme.surface,
-                ),
-                child: Icon(
-                  switch (status) {
-                    'CONNECTED' => Icons.check_circle,
-                    'DISCONNECTED' => Icons.link_off,
-                    'UNREAD_OUTPUT' => Icons.info,
-                    _ => Icons.error,
-                  },
-                  size: 16,
-                  color: statusColor,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+  Widget _hostIcon(EngineRecord host) => TildeHostTile(host: host);
 
   @override
   Widget build(BuildContext context) {
@@ -604,7 +509,7 @@ class _ShellHomeState extends State<ShellHome> {
         engine.state['entryAction'] == 'android.intent.action.CREATE_SHORTCUT';
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Android Shell'),
+        title: const TildeWordmark(),
         actions: [
           if (!shortcut)
             PopupMenuButton<String>(
@@ -620,7 +525,6 @@ class _ShellHomeState extends State<ShellHome> {
                 ),
                 const PopupMenuItem(value: 'settings', child: Text('설정')),
                 const PopupMenuItem(value: 'login', child: Text('로그인·SSH 키')),
-                const PopupMenuItem(value: 'config', child: Text('가져오기·내보내기')),
                 const PopupMenuItem(
                   value: 'disconnect',
                   child: Text('연결 모두 끊기'),
@@ -770,7 +674,7 @@ class AppGate extends StatelessWidget {
   const AppGate({super.key, required this.engine});
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Android Shell')),
+    appBar: AppBar(title: const TildeWordmark()),
     body: Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -787,7 +691,10 @@ class AppGate extends StatelessWidget {
               child: const Text('다시 시도'),
             ),
           ] else
-            const CircularProgressIndicator(),
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: TildeProgress(label: 'Tilde 준비 중'),
+            ),
           if (engine.error != null)
             Padding(
               padding: const EdgeInsets.all(16),

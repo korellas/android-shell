@@ -1,6 +1,6 @@
 /*
  * ConnectBot: simple, powerful, open-source SSH client for Android
- * Copyright 2025 Kenny Root
+ * Copyright 2025-2026 Kenny Root
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.connectbot.di.CoroutineDispatchers
@@ -77,7 +78,7 @@ class ColorSchemeRepositoryTest {
         // Check Default scheme exists
         val defaultScheme = schemes.find { it.id == -1L }
         assertNotNull("Should have Default scheme", defaultScheme)
-        assertEquals("Default", defaultScheme?.name)
+        assertEquals("Tilde Night", defaultScheme?.name)
         assertTrue("Default should be built-in", defaultScheme?.isBuiltIn == true)
 
         // Check some preset schemes exist
@@ -196,7 +197,7 @@ class ColorSchemeRepositoryTest {
 
     @Test
     fun schemeNameExists_ExistingBuiltIn_ReturnsTrue() = runBlocking {
-        val exists = repository.schemeNameExists("Default")
+        val exists = repository.schemeNameExists("Tilde Night")
 
         assertTrue("Should find Default scheme", exists)
     }
@@ -289,5 +290,42 @@ class ColorSchemeRepositoryTest {
         val (fgAfter, bgAfter) = repository.getSchemeDefaults(customId)
         assertEquals("FG should be reset to default", HostConstants.DEFAULT_FG_COLOR, fgAfter)
         assertEquals("BG should be reset to default", HostConstants.DEFAULT_BG_COLOR, bgAfter)
+    }
+
+    @Test
+    fun tildeRolesAreIndependentOfAnsiAndSurviveExport() = runBlocking {
+        val id = repository.createCustomScheme("Tilde custom")
+        val before = repository.getSchemeColors(id)
+        val night = repository.getSchemeAppearance(id)
+        assertEquals(0xff0e1216.toInt(), night.second)
+        assertEquals(0xff1b2229.toInt(), before[0])
+        repository.setSchemeRole(id, "cursor", 0xff112233.toInt())
+        repository.setSchemeRole(id, "foreground", 0xffabcdef.toInt())
+        assertTrue(before.contentEquals(repository.getSchemeColors(id)))
+        val copy = repository.importScheme(repository.exportScheme(id).toJson())
+        assertEquals(repository.getSchemeAppearance(id), repository.getSchemeAppearance(copy))
+        assertTrue(before.contentEquals(repository.getSchemeColors(copy)))
+    }
+
+    @Test
+    fun sparseStoredPaletteKeepsLegacyColors() = runBlocking {
+        val id = database.colorSchemeDao().insert(org.connectbot.data.entity.ColorScheme(name = "Legacy partial", isBuiltIn = false))
+        repository.setColorForScheme(id, 1, 0xff123456.toInt())
+        val palette = repository.getSchemeColors(id)
+        assertEquals(0xff000000.toInt(), palette[0])
+        assertEquals(0xff123456.toInt(), palette[1])
+        assertEquals(0xff00cc00.toInt(), palette[2])
+        assertEquals(0xffcccccc.toInt(), palette[7])
+        assertTrue(palette.contentEquals(repository.observeSchemeColors(id).first()))
+    }
+
+    @Test
+    fun legacyJsonRetainsIndexedForegroundAndBackground() = runBlocking {
+        val legacy = ColorSchemeJson.fromPalette("Legacy colors", "", ColorSchemePresets.solarizedDark.colors)
+        val id = repository.importScheme(legacy.toJson())
+        val colors = repository.getSchemeColors(id)
+        assertEquals(Triple(colors[7], colors[0], colors[7]), repository.getSchemeAppearance(id))
+        val copy = repository.createCustomScheme("Copy legacy", basedOnSchemeId = id)
+        assertEquals(repository.getSchemeAppearance(id), repository.getSchemeAppearance(copy))
     }
 }

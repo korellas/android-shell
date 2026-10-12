@@ -43,4 +43,7 @@ data class ColorScheme(
     val description: String = "",
     val foreground: Int = 7,
     val background: Int = 0,
+    @ColumnInfo(name = "foreground_color") val foregroundColor: Int? = null,
+    @ColumnInfo(name = "background_color") val backgroundColor: Int? = null,
+    @ColumnInfo(name = "cursor_color") val cursorColor: Int? = null,
 )

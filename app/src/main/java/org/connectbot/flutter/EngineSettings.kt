@@ -202,6 +202,12 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
 
         "settings.preview" -> terminalPreview(args)
 
+        "settings.bellMode" -> {
+            settings.updateBellMode(args.number("mode").toInt())
+            changed()
+            null
+        }
+
         "settings.notifications" -> {
             settings.openNotificationSettings()
             null
@@ -342,9 +348,13 @@ internal fun androidx.compose.material3.ColorScheme.toWire(): Wire = mapOf(
 private suspend fun AndroidShellEngine.terminalPreview(args: Wire): Wire {
     val state = activity.settings.uiState.value
     val profile = state.defaultProfileId.takeIf { it > 0 }?.let { profiles.getById(it) } ?: profiles.getDefault()
-    val palette = colors.getSchemeColors(profile.colorSchemeId)
-    val (foreground, background) = colors.getSchemeDefaults(profile.colorSchemeId)
-    val storedFont = state.fontFamily
+
+    @Suppress("UNCHECKED_CAST")
+    val previewProfile = args["profile"] as? Wire ?: emptyMap()
+    val previewSchemeId = previewProfile.number("colorSchemeId", profile.colorSchemeId)
+    val previewPalette = colors.getSchemeColors(previewSchemeId)
+    val appearance = colors.getSchemeAppearance(previewSchemeId)
+    val storedFont = args.optionalText("fontFamily") ?: previewProfile.optionalText("fontFamily") ?: profile.fontFamily ?: state.fontFamily
     return withContext(activity.dispatchers.io) {
         val typeface = if (LocalFontProvider.isLocalFont(storedFont)) {
             LocalFontProvider.getLocalFontFileName(storedFont)?.let { LocalFontProvider(activity).getTypeface(it) } ?: Typeface.MONOSPACE
@@ -356,18 +366,20 @@ private suspend fun AndroidShellEngine.terminalPreview(args: Wire): Wire {
         val textScale = (args["textScale"] as? Number)?.toFloat()?.coerceIn(1f, 3f) ?: 1f
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.typeface = typeface
-            textSize = 14f * textScale * density
+            textSize = previewProfile.number("fontSize", profile.fontSize.toLong()).toFloat().coerceIn(4f, 72f) * textScale * density
         }
         val lineHeight = paint.fontSpacing
         val margin = state.terminalMargin * density
         val inset = 12f * density
-        val bitmap = createBitmap((widthDp * density).toInt(), (lineHeight * 3 + (margin + inset) * 2).toInt(), Bitmap.Config.ARGB_8888)
+        val sampleText = args.optionalText("sampleText")
+        val previewLines = sampleText?.let { listOf(it) } ?: listOf("user@shell:~$ ls", "src  build  한글.md", "$ ssh server")
+        val bitmap = createBitmap((widthDp * density).toInt(), (lineHeight * previewLines.size + (margin + inset) * 2).toInt(), Bitmap.Config.ARGB_8888)
         try {
             val canvas = Canvas(bitmap)
-            canvas.drawColor(palette[background])
-            val lines = listOf("user@shell:~$ ls", "src  build  한글.md", "$ ssh server")
+            canvas.drawColor((args["backgroundColor"] as? Number)?.toInt() ?: appearance.second)
+            val lines = previewLines
             lines.forEachIndexed { index, line ->
-                paint.color = palette[if (index == 1) 2 else foreground]
+                paint.color = if (index == 1) previewPalette[2] else (args["foregroundColor"] as? Number)?.toInt() ?: appearance.first
                 canvas.drawText(line, margin + inset, margin + inset - paint.fontMetrics.top + index * lineHeight, paint)
             }
             ByteArrayOutputStream().use { output ->

@@ -50,6 +50,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -81,6 +83,7 @@ import org.connectbot.ui.screens.console.handleConsoleShortcut
 import org.connectbot.ui.screens.console.horizontalSwipeNavigation
 import org.connectbot.ui.screens.console.tmuxWindowCommand
 import org.connectbot.ui.theme.ConnectBotTheme
+import org.connectbot.ui.theme.connectBotColorScheme
 import org.connectbot.util.rememberTerminalTypefaceFromStoredValue
 
 internal class NativeTerminalFactory(private val engine: AndroidShellEngine) : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
@@ -125,9 +128,27 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
             val prompt by bridge.promptManager.promptState.collectAsState()
             val fontSize by bridge.fontSizeFlow.collectAsState()
             val delKey by bridge.delKeyModeFlow.collectAsState()
+            val cursorColor by bridge.cursorColor.collectAsState()
             val settings by activity.settings.uiState.collectAsState()
-            val typeface = rememberTerminalTypefaceFromStoredValue(bridge.fontFamily)
-            ConnectBotTheme(themeMode = settings.themeMode, dynamicColor = false) {
+            val profileFont by bridge.fontFamilyFlow.collectAsState()
+            val appearance by bridge.colorAppearance.collectAsState()
+            val typeface = rememberTerminalTypefaceFromStoredValue(profileFont ?: settings.fontFamily)
+            val customColors = remember(appearance) {
+                val (fg, bg, cursor) = appearance
+                if ((bg == 0xff0e1216.toInt() && cursor == 0xff6fd8c4.toInt()) || (bg == 0xfff6f5f0.toInt() && cursor == 0xff0b7566.toInt())) {
+                    null
+                } else {
+                    val background = Color(bg)
+                    val foreground = Color(fg)
+                    connectBotColorScheme(activity, background.red + background.green + background.blue < 1.5f, false).copy(
+                        primary = Color(cursor), onPrimary = background, primaryContainer = lerp(background, Color(cursor), .18f), onPrimaryContainer = Color(cursor),
+                        background = background, surface = background, onSurface = foreground, onBackground = foreground,
+                        surfaceContainerLow = lerp(background, foreground, .04f), surfaceContainer = lerp(background, foreground, .04f),
+                        surfaceContainerHigh = lerp(background, foreground, .08f), surfaceContainerHighest = lerp(background, foreground, .13f), outlineVariant = lerp(background, foreground, .15f),
+                    )
+                }
+            }
+            ConnectBotTheme(themeMode = settings.themeMode, dynamicColor = false, overrideColorScheme = customColors) {
                 val imeInsets = if (settings.fullscreen) {
                     WindowInsets.imeAnimationTarget
                 } else {
@@ -136,6 +157,7 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                 Box(Modifier.fillMaxSize().windowInsetsPadding(imeInsets)) {
                     Terminal(
                         terminalEmulator = bridge.terminalEmulator,
+                        cursorColor = cursorColor,
                         modifier = Modifier.fillMaxSize().padding(horizontal = settings.terminalMargin.dp).padding(bottom = if (settings.alwaysvisible) settings.terminalBarLayout.height.dp else 0.dp).then(
                             if (settings.swipeSessions || settings.swipeTmux) {
                                 Modifier.horizontalSwipeNavigation(

@@ -23,31 +23,58 @@ package org.connectbot.data
  */
 object ColorSchemePresets {
 
+    // Stored palettes can be sparse; their missing entries retain the pre-Tilde colors.
+    val legacyStoredPalette = intArrayOf(
+        0xff000000.toInt(), 0xffcc0000.toInt(), 0xff00cc00.toInt(), 0xffcccc00.toInt(),
+        0xff0000cc.toInt(), 0xffcc00cc.toInt(), 0xff00cccc.toInt(), 0xffcccccc.toInt(),
+        0xff444444.toInt(), 0xffff4444.toInt(), 0xff44ff44.toInt(), 0xffffff44.toInt(),
+        0xff4444ff.toInt(), 0xffff44ff.toInt(), 0xff44ffff.toInt(), 0xffffffff.toInt(),
+    )
+
     /**
      * Default terminal colors.
      */
     val default = PresetScheme(
-        name = "Default",
-        description = "Default terminal colors",
+        name = "Tilde Night",
+        description = "Tilde dark terminal palette",
         defaultFg = 7,
         defaultBg = 0,
+        foregroundColor = 0xffE4E8EB.toInt(),
+        backgroundColor = 0xff0E1216.toInt(),
+        cursorColor = 0xff6FD8C4.toInt(),
         colors = intArrayOf(
-            0xff000000.toInt(), // black
-            0xffcc0000.toInt(), // red
-            0xff00cc00.toInt(), // green
-            0xffcccc00.toInt(), // brown
-            0xff0000cc.toInt(), // blue
-            0xffcc00cc.toInt(), // purple
-            0xff00cccc.toInt(), // cyan
-            0xffcccccc.toInt(), // light grey
-            0xff444444.toInt(), // dark grey
-            0xffff4444.toInt(), // light red
-            0xff44ff44.toInt(), // light green
-            0xffffff44.toInt(), // yellow
-            0xff4444ff.toInt(), // light blue
-            0xffff44ff.toInt(), // light purple
-            0xff44ffff.toInt(), // light cyan
-            0xffffffff.toInt(), // white
+            0xff1B2229.toInt(),
+            0xffFF8577.toInt(),
+            0xff8FD694.toInt(),
+            0xffEBC37A.toInt(),
+            0xff7FB4F0.toInt(),
+            0xffC9A2F2.toInt(),
+            0xff6FD8C4.toInt(),
+            0xffC5CDD3.toInt(),
+            0xff3A4550.toInt(),
+            0xffFFA59A.toInt(),
+            0xffADE6B0.toInt(),
+            0xffF4D69E.toInt(),
+            0xffA3CAF6.toInt(),
+            0xffDABCF7.toInt(),
+            0xff9BE6D7.toInt(),
+            0xffF2F5F7.toInt(),
+        ),
+    )
+
+    val tildeDay = PresetScheme(
+        name = "Tilde Day",
+        description = "Tilde light terminal palette",
+        defaultFg = 0,
+        defaultBg = 15,
+        foregroundColor = 0xff1B2229.toInt(),
+        backgroundColor = 0xffF6F5F0.toInt(),
+        cursorColor = 0xff0B7566.toInt(),
+        colors = intArrayOf(
+            0xff1B2229.toInt(), 0xffC2362B.toInt(), 0xff357344.toInt(), 0xff8A641F.toInt(),
+            0xff2B659C.toInt(), 0xff7954A8.toInt(), 0xff0B7566.toInt(), 0xffD5D4CB.toInt(),
+            0xff69737B.toInt(), 0xffD64B40.toInt(), 0xff4D925A.toInt(), 0xffAD812C.toInt(),
+            0xff427EBA.toInt(), 0xff9971C7.toInt(), 0xff259483.toInt(), 0xffF6F5F0.toInt(),
         ),
     )
 
@@ -264,6 +291,7 @@ object ColorSchemePresets {
         gruvboxDark,
         monokai,
         tomorrowNight,
+        tildeDay,
     )
 
     /**
@@ -275,6 +303,9 @@ object ColorSchemePresets {
         val defaultFg: Int,
         val defaultBg: Int,
         val colors: IntArray,
+        val foregroundColor: Int? = null,
+        val backgroundColor: Int? = null,
+        val cursorColor: Int? = null,
     ) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -282,6 +313,7 @@ object ColorSchemePresets {
 
             other as PresetScheme
 
+            if (foregroundColor != other.foregroundColor || backgroundColor != other.backgroundColor || cursorColor != other.cursorColor) return false
             if (defaultFg != other.defaultFg) return false
             if (defaultBg != other.defaultBg) return false
             if (name != other.name) return false
@@ -292,7 +324,10 @@ object ColorSchemePresets {
         }
 
         override fun hashCode(): Int {
-            var result = defaultFg
+            var result = foregroundColor ?: 0
+            result = 31 * result + (backgroundColor ?: 0)
+            result = 31 * result + (cursorColor ?: 0)
+            result = 31 * result + defaultFg
             result = 31 * result + defaultBg
             result = 31 * result + name.hashCode()
             result = 31 * result + description.hashCode()

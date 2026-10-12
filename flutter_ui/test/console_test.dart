@@ -259,6 +259,12 @@ void main() {
         'enrollment': {'biometricAvailable': true},
         'preferences': {'titlebarhide': false},
       };
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            if (call.method == 'snapshot') return engine.state;
+            return null;
+          });
       await tester.pumpWidget(
         MaterialApp(
           home: ConsolePage(

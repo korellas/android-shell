@@ -65,6 +65,9 @@ class TerminalFontProvider(
         }
 
         val cacheKey = googleFontName.lowercase()
+        if (googleFontName == "JetBrains Mono") {
+            return@withContext fontCache.getOrPut(cacheKey) { Typeface.createFromAsset(context.assets, "fonts/JetBrainsMono-Regular.ttf") }
+        }
 
         // Return cached font if available
         fontCache[cacheKey]?.let {
