@@ -94,3 +94,5 @@ Google Fonts 선택기는 `TerminalFont`의 지원 고정폭 목록을 검색하
 이 검수는 iOS 엔진 연결을 추가하지 않습니다. iPad unsigned 컴파일, 개발 서명, 설치, 실제 연결 검증은 각각 구분합니다.
 
 후속 검수의 화면 렌더링 예시는 [홈](screenshots/review-home-day.png), [넓은 홈](screenshots/review-home-wide.png), [키보드](screenshots/review-keyboard-day.png), [터미널 설정](screenshots/review-terminal-day.png), [키 목록](screenshots/review-keys-night.png), [키 등록 실패](screenshots/review-enrollment-error.png), [큰 글자](screenshots/review-keys-large-text.png)에 기록합니다. 포함된 폰트와 예시 데이터를 사용한 Flutter 테스트 렌더링이며 실기기 캡처가 아닙니다. 네이티브 폰트 PNG와 콘솔의 실제 출력·IME는 별도로 검증합니다.
+
+인증창은 연결이 열리기 전에도 현재 콘솔에서 표시합니다. 키 암호·키 사용 확인·생체인증·서버 키 확인·비밀번호 요청의 표시를 `isSessionOpen`으로 제한하지 않습니다. 터미널의 입력 뷰도 인증 대기 중 유지하며, 키 거절 후에는 서버가 제공한 다음 인증 방식의 요청을 같은 하단 인증창으로 전달합니다. 네이티브 터미널 배경과 IME·기능키 여백은 실제 세션 배경색을 사용합니다.

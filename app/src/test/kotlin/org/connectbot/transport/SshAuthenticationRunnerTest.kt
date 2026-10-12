@@ -68,6 +68,36 @@ class SshAuthenticationRunnerTest {
         verify(connection, never()).authenticateWithPassword(anyString(), anyString())
     }
 
+    @Test
+    fun rejectedSelectedKeyImmediatelyOffersPassword() {
+        methods = arrayOf("publickey", "password")
+        candidates = listOf(identity("selected", firstKey))
+        `when`(connection.probePublicKey("alice", firstKey.public)).thenReturn(false)
+        `when`(connection.authenticateWithPassword("alice", "entered")).thenReturn(true)
+        assertThat(runner().authenticate()).isEqualTo(AuthenticationOutcome.Authenticated)
+        assertThat(passwordPrompts).isEqualTo(1)
+        val order = inOrder(connection)
+        order.verify(connection).probePublicKey("alice", firstKey.public)
+        order.verify(connection).authenticateWithPassword("alice", "entered")
+    }
+
+    @Test
+    fun rejectedKeySignatureImmediatelyOffersInteractiveChallenge() {
+        methods = arrayOf("publickey", "keyboard-interactive")
+        candidates = listOf(identity("selected", firstKey))
+        `when`(connection.probePublicKey("alice", firstKey.public)).thenReturn(true)
+        `when`(connection.authenticateWithPublicKey("alice", firstKey)).thenReturn(false)
+        `when`(connection.authenticateWithKeyboardInteractive(anyString(), any(InteractiveCallback::class.java))).thenAnswer {
+            it.getArgument<InteractiveCallback>(1).replyToChallenge("", "Password", 1, arrayOf("Password:"), booleanArrayOf(false))
+            true
+        }
+        assertThat(runner().authenticate()).isEqualTo(AuthenticationOutcome.Authenticated)
+        assertThat(interactivePrompts).isEqualTo(1)
+        val order = inOrder(connection)
+        order.verify(connection).authenticateWithPublicKey("alice", firstKey)
+        order.verify(connection).authenticateWithKeyboardInteractive(anyString(), any(InteractiveCallback::class.java))
+    }
+
     private fun runner(): SshAuthenticationRunner {
         `when`(connection.getRemainingAuthMethods("alice")).thenAnswer { methods }
         return SshAuthenticationRunner(

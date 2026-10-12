@@ -28,6 +28,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
@@ -151,9 +152,11 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                 } else {
                     WindowInsets.imeAnimationTarget.exclude(WindowInsets.navigationBars)
                 }
-                Box(Modifier.fillMaxSize().windowInsetsPadding(imeInsets)) {
+                Box(Modifier.fillMaxSize().background(Color(appearance.second)).windowInsetsPadding(imeInsets)) {
                     Terminal(
                         terminalEmulator = bridge.terminalEmulator,
+                        backgroundColor = Color(appearance.second),
+                        foregroundColor = Color(appearance.first),
                         cursorColor = cursorColor,
                         modifier = Modifier.fillMaxSize().padding(horizontal = settings.terminalMargin.dp).padding(bottom = if (settings.alwaysvisible) settings.terminalBarLayout.height.dp else 0.dp).then(
                             if (settings.swipeSessions || settings.swipeTmux) {
@@ -175,8 +178,8 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                         ),
                         typeface = typeface,
                         initialFontSize = fontSize.sp,
-                        keyboardEnabled = !locked && active && sessionOpen,
-                        showSoftKeyboard = showKeyboard && !locked && active && sessionOpen,
+                        keyboardEnabled = !locked && active,
+                        showSoftKeyboard = showKeyboard && !locked && active,
                         focusRequester = focus,
                         forcedSize = if (overrideSize) {
                             sizeOverride
@@ -249,12 +252,14 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                                 onShortcutModifierChange = { compose?.syncImeShortcutInputMode(settings.imeShortcutInputMode) },
                             )
                         }
+                    }
+                    if (active && !locked) {
                         InlinePrompt(
                             promptRequest = prompt,
                             onResponse = bridge.promptManager::respond,
                             onCancel = { bridge.dispatchDisconnect(DisconnectReason.USER_REQUESTED) },
                             onDismiss = { focus.requestFocus() },
-                            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = if (showExtraKeyboard) settings.terminalBarLayout.height.dp else 0.dp),
+                            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = if (sessionOpen && showExtraKeyboard) settings.terminalBarLayout.height.dp else 0.dp),
                         )
                     }
 
