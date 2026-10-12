@@ -23,6 +23,25 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('progress fits a narrow action button without overflow', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(child: SizedBox(width: 24, child: TildeProgress())),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getSize(find.byType(TildeProgress)).width,
+      lessThanOrEqualTo(24),
+    );
+    await tester.pumpWidget(const SizedBox());
+  });
+
   test('custom theme colors survive display name changes', () {
     final engine = AndroidEngine()
       ..state = {

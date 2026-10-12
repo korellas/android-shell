@@ -1,2 +1,0 @@
-<!-- Copyright 2026 Kenny Root; SPDX-License-Identifier: Apache-2.0 -->
-<animated-vector xmlns:android="http://schemas.android.com/apk/res/android" android:drawable="@drawable/tilde_splash_vector"><target android:name="wave" android:animation="@animator/tilde_wave"/><target android:name="slash" android:animation="@animator/tilde_slash"/><target android:name="cursor" android:animation="@animator/tilde_cursor"/></animated-vector>

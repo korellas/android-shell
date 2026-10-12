@@ -6,7 +6,6 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  */
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'engine.dart';
 
@@ -343,84 +342,33 @@ class TildeWordmark extends StatelessWidget {
   );
 }
 
-class TildeProgress extends StatefulWidget {
+class TildeProgress extends StatelessWidget {
   final String? label;
   const TildeProgress({super.key, this.label});
-  @override
-  State<TildeProgress> createState() => _TildeProgressState();
-}
-
-class _TildeProgressState extends State<TildeProgress>
-    with SingleTickerProviderStateMixin {
-  late final controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  )..repeat();
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: widget.label ?? '진행 중',
+    label: label ?? '진행 중',
     value: '진행 중',
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          height: 12,
-          width: 160,
-          child: AnimatedBuilder(
-            animation: controller,
-            builder: (_, _) => CustomPaint(
-              painter: _WavePainter(
-                controller.value,
-                Theme.of(context).colorScheme.primary,
-              ),
-            ),
+          width: 120,
+          height: 2,
+          child: LinearProgressIndicator(
+            minHeight: 2,
+            color: Theme.of(context).colorScheme.primary,
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
           ),
         ),
-        if (widget.label != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(widget.label!),
-          ),
+        if (label != null)
+          Padding(padding: const EdgeInsets.only(top: 8), child: Text(label!)),
       ],
     ),
   );
-}
-
-class _WavePainter extends CustomPainter {
-  final double phase;
-  final Color color;
-  _WavePainter(this.phase, this.color);
-  @override
-  void paint(Canvas c, Size s) {
-    final p = Path();
-    for (var x = 0.0; x <= s.width; x += 2) {
-      final y =
-          s.height / 2 + math.sin((x / s.width * 4 - phase * 2) * math.pi) * 3;
-      if (x == 0) {
-        p.moveTo(x, y);
-      } else {
-        p.lineTo(x, y);
-      }
-    }
-    c.drawPath(
-      p,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..strokeCap = StrokeCap.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_WavePainter old) =>
-      old.phase != phase || old.color != color;
 }
 
 class TildeHostTile extends StatelessWidget {

@@ -258,27 +258,24 @@ void main() {
     expect(find.text('3072'), findsOneWidget);
     expect(find.text('4096'), findsOneWidget);
   });
-  testWidgets(
-    'key generation replaces its button with a wave without overflow',
-    (tester) async {
-      final pending = Completer<dynamic>();
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(AndroidEngine.channel, (call) async {
-            if (call.method == 'key.generate') return pending.future;
-            if (call.method == 'snapshot') return engine.state;
-            return null;
-          });
-      await open(tester, GenerateKeyPage(engine: engine));
-      await tester.enterText(find.byType(TextFormField).first, 'Test key');
-      await tester.tap(find.text('만들기'));
-      await tester.pump();
-      expect(tester.takeException(), isNull);
-      expect(find.byType(TildeProgress), findsOneWidget);
-      await tester.pumpWidget(const SizedBox());
-      pending.complete({'id': 2});
-      await tester.pumpAndSettle();
-    },
-  );
+  testWidgets('key generation shows progress without overflow', (tester) async {
+    final pending = Completer<dynamic>();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(AndroidEngine.channel, (call) async {
+          if (call.method == 'key.generate') return pending.future;
+          if (call.method == 'snapshot') return engine.state;
+          return null;
+        });
+    await open(tester, GenerateKeyPage(engine: engine));
+    await tester.enterText(find.byType(TextFormField).first, 'Test key');
+    await tester.tap(find.text('만들기'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(TildeProgress), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    pending.complete({'id': 2});
+    await tester.pumpAndSettle();
+  });
   testWidgets('background key enrollment cannot clear another hosts password', (
     tester,
   ) async {
