@@ -26,7 +26,7 @@ object DisconnectPolicy {
     ): DisconnectAction {
         if (reason == DisconnectReason.USER_REQUESTED) return DisconnectAction.CloseImmediately
         if (reason == DisconnectReason.SESSION_EXIT) {
-            return if (hasUnreadOutput && !quickDisconnect) {
+            return if (!quickDisconnect) {
                 DisconnectAction.ShowReconnectOverlay
             } else {
                 DisconnectAction.CloseImmediately

@@ -149,4 +149,52 @@ class AutomationActionDaoTest {
             db.close()
         }
     }
+
+    @Test
+    fun undoHostDeletionRestoresRelatedRecordsAndPassword() = runTest {
+        val db = database()
+        val passwords = org.mockito.Mockito.mock(org.connectbot.util.SecurePasswordStorage::class.java)
+        val repo = org.connectbot.data.HostRepository(context, db, db.hostDao(), db.portForwardDao(), db.knownHostDao(), passwords)
+        try {
+            val id = db.hostDao().insert(host("undo"))
+            val original = db.hostDao().getById(id)!!
+            org.mockito.Mockito.`when`(passwords.getPassword(id)).thenReturn("test-only")
+            val forwardId = db.portForwardDao().insert(PortForward(hostId = id, nickname = "web", type = "local", sourcePort = 8080, destAddr = "localhost", destPort = 80))
+            val action = AutomationAction(hostId = id, type = AutomationActionType.ENABLE_FORWARD, forwardId = forwardId)
+            db.automationActionDao().insert(listOf(action))
+            val known = org.connectbot.data.entity.KnownHost(hostId = id, hostname = "example.com", port = 22, hostKeyAlgo = "ssh-ed25519", hostKey = byteArrayOf(1, 2, 3))
+            db.knownHostDao().insert(known)
+            val deleted = repo.deleteHostForUndo(original)
+            assertEquals(null, db.hostDao().getById(id))
+            assertTrue(db.portForwardDao().getByHost(id).isEmpty())
+            assertTrue(db.knownHostDao().getByHostId(id).isEmpty())
+            repo.restoreDeletedHost(deleted)
+            assertEquals(original, db.hostDao().getById(id))
+            assertEquals(forwardId, db.portForwardDao().getByHost(id).single().id)
+            assertEquals(action, db.automationActionDao().getByHost(id).single())
+            assertTrue(db.knownHostDao().getByHostId(id).single().hostKey.contentEquals(known.hostKey))
+            org.mockito.Mockito.verify(passwords).deletePassword(id)
+            org.mockito.Mockito.verify(passwords).savePassword(id, "test-only")
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun undoCollisionCannotOverwriteNewerHost() = runTest {
+        val db = database()
+        val passwords = org.mockito.Mockito.mock(org.connectbot.util.SecurePasswordStorage::class.java)
+        val repo = org.connectbot.data.HostRepository(context, db, db.hostDao(), db.portForwardDao(), db.knownHostDao(), passwords)
+        try {
+            val id = db.hostDao().insert(host("same"))
+            val deleted = repo.deleteHostForUndo(db.hostDao().getById(id)!!)
+            val replacement = host("same").copy(hostname = "new.example.com")
+            val replacementId = db.hostDao().insert(replacement)
+            assertTrue(runCatching { repo.restoreDeletedHost(deleted) }.isFailure)
+            assertEquals("new.example.com", db.hostDao().getById(replacementId)!!.hostname)
+            org.mockito.Mockito.verify(passwords, org.mockito.Mockito.never()).savePassword(id, null)
+        } finally {
+            db.close()
+        }
+    }
 }

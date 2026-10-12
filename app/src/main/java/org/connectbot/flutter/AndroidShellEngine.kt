@@ -79,6 +79,7 @@ internal class AndroidShellEngine(
     internal var activeSessionId: Long? = null
     private var pendingIntent: Intent? = null
     private var selectedSession: Long? = null
+    private val deletedHosts = mutableMapOf<String, HostRepository.DeletedHost>()
     private var disposed = false
 
     init {
@@ -107,7 +108,10 @@ internal class AndroidShellEngine(
     }
 
     internal fun changed() {
-        terminalViews.values.toList().forEach { it.updateLock(!ready) }
+        terminalViews.values.toList().forEach {
+            it.updateLock(!ready)
+            it.updateConnection()
+        }
         activity.applyWindowOptions()
         if (!disposed) sink?.success(mapOf("type" to "changed"))
     }
@@ -121,8 +125,8 @@ internal class AndroidShellEngine(
         val target = sessions[(current + direction).coerceIn(0, sessions.lastIndex)].sessionId
         sink?.success(mapOf("type" to "switchSession", "owner" to owner, "id" to target))
     }
-    internal fun notify(message: String) {
-        if (!disposed) sink?.success(mapOf("type" to "message", "message" to message))
+    internal fun notify(message: String, summary: String = message) {
+        if (!disposed) sink?.success(mapOf("type" to "message", "message" to message, "summary" to summary))
     }
     internal val authenticated get() = !activity.appState.authOnLaunchEnabled || activity.appState.isAuthenticated.value
     internal val ready get() = authenticated && activity.appState.uiState.value is AppUiState.Ready && manager != null
@@ -142,6 +146,13 @@ internal class AndroidShellEngine(
                             is ServiceError.PortForwardLoadFailed -> "${it.hostNickname}: ${it.reason}"
                             is ServiceError.HostSaveFailed -> "${it.hostNickname}: ${it.reason}"
                             is ServiceError.ColorSchemeLoadFailed -> it.reason
+                        },
+                        summary = when (it) {
+                            is ServiceError.KeyLoadFailed -> "${it.keyName} 키를 불러오지 못했습니다"
+                            is ServiceError.ConnectionFailed -> "${it.hostNickname}에 연결하지 못했습니다"
+                            is ServiceError.PortForwardLoadFailed -> "${it.hostNickname}의 포워딩을 준비하지 못했습니다"
+                            is ServiceError.HostSaveFailed -> "${it.hostNickname} 설정을 저장하지 못했습니다"
+                            is ServiceError.ColorSchemeLoadFailed -> "색상 테마를 불러오지 못했습니다"
                         },
                     )
                 }
@@ -167,6 +178,7 @@ internal class AndroidShellEngine(
                             }
                         }
                         launch { bridge.authBanners.collect { changed() } }
+                        launch { bridge.colorAppearance.collect { changed() } }
                         launch { bridge.automationState.collect { changed() } }
                         launch { bridge.progressState.collect { changed() } }
                         launch { bridge.keyHandler.modifierState.collect { changed() } }
@@ -278,7 +290,7 @@ internal class AndroidShellEngine(
                     activity.finish()
                     return null
                 }
-                val bridge = if (id != null) manager!!.openConnectionForHostId(id, args.flag("newSession")) else manager!!.openConnection(Uri.parse(args.text("uri")), args.flag("newSession"))
+                val bridge = if (id != null) manager!!.openConnectionForHostId(id, args.flag("newSession")) else manager!!.openConnection(Uri.parse(args.text("uri")).takeIf { it.scheme != null } ?: requireNotNull(org.connectbot.transport.TransportFactory.getUri("ssh", args.text("uri"))) { "user@host 형식으로 주소를 입력해 주세요." }, args.flag("newSession"))
                 requireNotNull(bridge) { "호스트를 찾을 수 없습니다." }
                 selectedSession = bridge.sessionId
                 changed()
@@ -377,11 +389,30 @@ internal class AndroidShellEngine(
             }
 
             "host.delete" -> {
-                hosts.findHostById(args.number("id"))?.let {
-                    manager!!.disconnectHost(it.id)
-                    hosts.deleteHost(it)
+                val host = hosts.findHostById(args.number("id")) ?: return null
+                manager!!.disconnectHost(host.id)
+                val token = if (args.flag("undo")) {
+                    val deleted = withContext(activity.dispatchers.io) { hosts.deleteHostForUndo(host) }
+                    UUID.randomUUID().toString().also { deletedHosts[it] = deleted }
+                } else {
+                    withContext(activity.dispatchers.io) { hosts.deleteHost(host) }
+                    null
                 }
                 changed()
+                token
+            }
+
+            "host.restore" -> {
+                val token = args.text("token")
+                val deleted = deletedHosts[token] ?: error("되돌릴 수 있는 시간이 지났습니다.")
+                withContext(activity.dispatchers.io) { hosts.restoreDeletedHost(deleted) }
+                deletedHosts.remove(token)
+                changed()
+                null
+            }
+
+            "host.deleteFinish" -> {
+                deletedHosts.remove(args.text("token"))
                 null
             }
 
@@ -679,7 +710,9 @@ internal class AndroidShellEngine(
                 mapOf(
                     "id" to bridge.sessionId, "hostId" to bridge.host.id, "uri" to bridge.host.getUri().toString(), "nickname" to (if (service.bridgesFlow.value.count { it.host.id == bridge.host.id } > 1) "${bridge.host.nickname} · ${bridge.sessionId}" else bridge.host.nickname), "protocol" to bridge.host.protocol, "open" to bridge.isSessionOpen, "connecting" to bridge.connecting,
                     "composeMode" to (terminalViews.values.lastOrNull { it.sessionId == bridge.sessionId && it.routeOwner == activeOwner }?.composeMode == true),
-                    "awaitingClose" to bridge.isAwaitingClose(), "canForward" to bridge.canFowardPorts(), "canEnroll" to ((bridge.transport as? org.connectbot.transport.SSH)?.canEnrollKey == true),
+                    "foregroundColor" to bridge.colorAppearance.value.first, "backgroundColor" to bridge.colorAppearance.value.second, "cursorColor" to bridge.colorAppearance.value.third,
+                    "progress" to bridge.progressState.value?.let { mapOf("state" to it.state.name, "value" to it.progress) },
+                    "ended" to bridge.disconnected, "awaitingClose" to bridge.isAwaitingClose(), "canForward" to bridge.canFowardPorts(), "canEnroll" to ((bridge.transport as? org.connectbot.transport.SSH)?.canEnrollKey == true),
                     "modifiers" to bridge.keyHandler.modifierState.value.let { mapOf("ctrl" to it.ctrlState.name, "alt" to it.altState.name, "shift" to it.shiftState.name) }, "automation" to bridge.automationState.value.let { mapOf("running" to it.running, "error" to it.error?.let { message -> activity.getString(message) }, "step" to it.step, "completed" to it.completed, "failedStep" to it.failedStep) },
                     "banners" to bridge.authBanners.value.map { mapOf("id" to it.id, "sourceName" to it.sourceName, "message" to it.message, "urls" to it.urls) },
                 )
@@ -695,6 +728,7 @@ internal class AndroidShellEngine(
     }
 
     fun dispose() {
+        deletedHosts.clear()
         disposed = true
         methods.setMethodCallHandler(null)
         events.setStreamHandler(null)

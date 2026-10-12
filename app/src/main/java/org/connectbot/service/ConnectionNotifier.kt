@@ -242,10 +242,10 @@ class ConnectionNotifier @Inject constructor(dispatchers: CoroutineDispatchers) 
             result.addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
                 context.getString(R.string.list_host_disconnect),
-                PendingIntent.getActivity(
+                PendingIntent.getService(
                     context,
                     3,
-                    Intent(context, MainActivity::class.java).setAction(MainActivity.DISCONNECT_ACTION),
+                    Intent(context, TerminalManager::class.java).setAction(TerminalManager.ACTION_DISCONNECT_ALL),
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                 ),
             )

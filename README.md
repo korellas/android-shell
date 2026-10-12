@@ -38,9 +38,9 @@ are retained when changing the display name.
 
 ## SSH key setup
 
-Open **Login & SSH keys** from the host list, or **Register a key on this server**
-in a connected SSH terminal. Log in with an existing method, then explicitly
-register a new fingerprint-protected key or an existing SSH key. Registration
+Manage keys under **Settings → Security & backup → SSH keys**. To register a key,
+open **Register a key on this server** in a connected SSH terminal. Log in with
+an existing method, then explicitly register a new fingerprint-protected key or an existing SSH key. Registration
 appends to the account's `~/.ssh/authorized_keys`, preserving existing keys and
 their restrictions. A separate key-only connection must succeed before the
 selected host's login settings change. Password login and shared accounts are

@@ -16,6 +16,7 @@
  */
 
 import 'package:android_shell_ui/engine.dart';
+import 'package:android_shell_ui/editors.dart';
 import 'package:android_shell_ui/management.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -51,6 +52,25 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(AndroidEngine.channel, null);
   });
+  testWidgets('key creation and editing have no use confirmation option', (
+    tester,
+  ) async {
+    await tester.pumpWidget(MaterialApp(home: GenerateKeyPage(engine: engine)));
+    await tester.pumpAndSettle();
+    expect(find.text('사용할 때마다 확인'), findsNothing);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RecordEditor(
+          engine: engine,
+          kind: RecordKind.key,
+          record: {...engine.list('keys').single, 'confirmation': true},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('사용할 때마다 확인'), findsNothing);
+  });
+
   testWidgets('private key formats remain reachable through grouped actions', (
     tester,
   ) async {

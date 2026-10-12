@@ -217,7 +217,7 @@ void main() {
     await open(tester);
     await tester.tap(find.text('터미널'));
     await tester.pumpAndSettle();
-    expect(find.text('1234'), findsOneWidget);
+    expect(find.text('1,234'), findsOneWidget);
     expect(changes, isEmpty);
     await tester.tap(find.byTooltip('스크롤 기록 늘리기'));
     await tester.pumpAndSettle();
@@ -259,7 +259,10 @@ void main() {
     await open(tester, TerminalBarPage(engine: engine));
     await tester.tap(find.text('작게 26dp'));
     await tester.pumpAndSettle();
-    expect(find.text('저장 실패'), findsOneWidget);
+    expect(find.text('설정을 저장하지 못했습니다'), findsOneWidget);
+    await tester.tap(find.text('자세히'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('저장 실패'), findsOneWidget);
     expect(engine.preferences['terminalBarHeight'], 36);
     final selected = tester.widget<SegmentedButton<int>>(
       find.byType(SegmentedButton<int>),
@@ -281,7 +284,7 @@ void main() {
       await open(tester);
       await tester.tap(find.text('터미널'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('1234'));
+      await tester.tap(find.text('1,234'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'bad');
       await tester.testTextInput.receiveAction(TextInputAction.done);

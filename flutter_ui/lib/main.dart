@@ -17,6 +17,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'engine.dart';
 import 'tilde_design.dart';
 import 'editors.dart';
@@ -77,10 +78,111 @@ Future<dynamic> runEngine(
     return await engine.invoke(method, args);
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      showEngineFailure(
+        context,
+        e,
+        summary: method == 'connect'
+            ? '${engine.list('hosts').where((h) => h['id'] == args['id']).firstOrNull?['nickname'] ?? '서버'}에 연결하지 못했습니다'
+            : '작업을 완료하지 못했습니다',
+      );
     }
     return null;
   }
+}
+
+Future<void> showErrorDetails(BuildContext context, Object error) =>
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (c) => SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('오류 상세', style: Theme.of(c).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            SelectableText(
+              error is EngineException
+                  ? error.details ?? error.message
+                  : '$error',
+              style: const TextStyle(
+                fontFamily: tildeMono,
+                fontFamilyFallback: ['Pretendard'],
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+void showEngineFailure(
+  BuildContext context,
+  Object error, {
+  String summary = '작업을 완료하지 못했습니다',
+}) {
+  final colors = Theme.of(context).colorScheme;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      backgroundColor: colors.inverseSurface,
+      content: Text(
+        summary,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: colors.onInverseSurface),
+      ),
+      action: SnackBarAction(
+        label: '자세히',
+        textColor: colors.inversePrimary,
+        onPressed: () => showErrorDetails(context, error),
+      ),
+    ),
+  );
+}
+
+Future<bool> deleteTildeHost(
+  BuildContext context,
+  AndroidEngine engine,
+  EngineRecord host, {
+  VoidCallback? onDeleted,
+}) async {
+  final token = await runEngine(context, engine, 'host.delete', {
+    'id': host['id'],
+    'undo': true,
+  });
+  if (token == null) return false;
+  if (!context.mounted) {
+    if (!engine.isDisposed) {
+      await engine.query('host.deleteFinish', {'token': token});
+    }
+    return true;
+  }
+  final actionContext = Navigator.of(context).context;
+  Future<dynamic>? restore;
+  final closed = ScaffoldMessenger.of(context)
+      .showSnackBar(
+        SnackBar(
+          content: Text('${host['nickname']} 호스트를 삭제했습니다'),
+          action: SnackBarAction(
+            label: '되돌리기',
+            onPressed: () {
+              restore = runEngine(actionContext, engine, 'host.restore', {
+                'token': token,
+              });
+            },
+          ),
+        ),
+      )
+      .closed;
+  onDeleted?.call();
+  await closed;
+  await restore;
+  if (!engine.isDisposed) {
+    await engine.query('host.deleteFinish', {'token': token});
+  }
+  return true;
 }
 
 Future<void> importTildeHosts(
@@ -199,23 +301,44 @@ Future<bool> confirm(
   BuildContext context,
   String title,
   String message, {
-  String action = '확인',
+  String action = '삭제',
+  bool destructive = true,
 }) async =>
-    await showDialog<bool>(
+    await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(action),
-          ),
-        ],
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (c) => SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(c).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            Text(message),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(c, false),
+                  child: const Text('취소'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  style: destructive
+                      ? FilledButton.styleFrom(
+                          backgroundColor: Theme.of(c).colorScheme.error,
+                        )
+                      : null,
+                  onPressed: () => Navigator.pop(c, true),
+                  child: Text(action),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     ) ??
     false;
@@ -230,7 +353,8 @@ String hostAddress(EngineRecord host) {
     _ => null,
   };
   final suffix = port == null || port == standard ? '' : ':$port';
-  return '$protocol · ${host['hostname'] ?? ''}$suffix';
+  final user = '${host['username'] ?? ''}';
+  return '${user.isEmpty ? '' : '$user@'}${host['hostname'] ?? ''}$suffix';
 }
 
 class ShellHome extends StatefulWidget {
@@ -246,6 +370,14 @@ class _ShellHomeState extends State<ShellHome> {
   final Set<String> _answered = {};
   int? _setupHostId;
   int? _intentSession;
+  int? _menuHostId;
+  String _quickUri = '';
+  void _quickConnect(String value) {
+    if (value.trim().isNotEmpty) {
+      runEngine(context, engine, 'connect', {'uri': value.trim()});
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -263,6 +395,19 @@ class _ShellHomeState extends State<ShellHome> {
 
   void _changed() {
     if (!mounted) return;
+    final notice = engine.notification;
+    if (notice != null) {
+      engine.notification = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          showEngineFailure(
+            context,
+            EngineException('${notice['message']}'),
+            summary: '${notice['summary'] ?? '작업을 완료하지 못했습니다'}',
+          );
+        }
+      });
+    }
     setState(() {});
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _presentPrompt();
@@ -347,14 +492,24 @@ class _ShellHomeState extends State<ShellHome> {
           context,
           '${p['hostname']} 서버 키 확인',
           '${p['keyType']} ${p['keySize']}\nSHA256: ${p['sha256']}\nMD5: ${p['md5']}\n\n${p['randomArt']}\n${p['bubblebabble']}',
+          action: '서버 키 신뢰',
+          destructive: false,
         );
       } else if (p['type'] == 'biometric') {
-        value = await confirm(context, '생체인증', '${p['nickname']} 키로 인증해요.');
+        value = await confirm(
+          context,
+          '생체인증',
+          '${p['nickname']} 키로 인증해요.',
+          action: '인증',
+          destructive: false,
+        );
       } else {
         value = await confirm(
           context,
           '${p['instructions'] ?? '확인'}',
           '${p['message'] ?? ''}',
+          action: '계속',
+          destructive: false,
         );
       }
       _answered.add(p['token'] as String);
@@ -400,20 +555,19 @@ class _ShellHomeState extends State<ShellHome> {
 
   Future<void> _homeMenu(String action) async {
     switch (action) {
-      case 'quick':
-        final uri = await askText(context, '빠른 연결', initial: 'ssh://');
-        if (uri != null && uri.trim().isNotEmpty && mounted) {
-          await runEngine(context, engine, 'connect', {'uri': uri.trim()});
-        }
       case 'sort':
         await runEngine(context, engine, 'host.sort');
       case 'settings':
         await engine.refresh();
         if (mounted) _page(SettingsPage(engine: engine));
-      case 'login':
-        _page(LoginPage(engine: engine, onSetup: _setupHost));
       case 'disconnect':
-        if (await confirm(context, '연결 모두 끊기', '모든 연결을 종료할까요?') && mounted) {
+        if (await confirm(
+              context,
+              '연결 모두 끊기',
+              '모든 연결을 종료할까요?',
+              action: '모두 연결 끊기',
+            ) &&
+            mounted) {
           await runEngine(context, engine, 'session.disconnectAll');
         }
       case 'help':
@@ -423,14 +577,6 @@ class _ShellHomeState extends State<ShellHome> {
 
   Future<void> _hostMenu(EngineRecord host, String action) async {
     switch (action) {
-      case 'more':
-        final selected = await askAction(context, '추가 기능', [
-          ('forwards', '포트 포워딩'),
-          ('duplicate', '복제'),
-          ('shortcut', '홈 화면에 추가'),
-          if (host['protocol'] == 'ssh') ('forget', '저장된 서버 키 삭제'),
-        ]);
-        if (selected != null && mounted) await _hostMenu(host, selected);
       case 'newSession':
         await _connect(host, newSession: true);
       case 'favorite':
@@ -468,7 +614,7 @@ class _ShellHomeState extends State<ShellHome> {
               context,
               '서버 키를 지울까요?',
               '다음에 연결할 때 서버 키를 다시 확인해요.',
-              action: '지우기',
+              action: '서버 키 삭제',
             ) &&
             mounted) {
           await runEngine(context, engine, 'host.forgetKeys', {
@@ -476,28 +622,77 @@ class _ShellHomeState extends State<ShellHome> {
           });
         }
       case 'disconnect':
-        if (await confirm(context, '연결 끊기', '${host['nickname']} 연결을 종료할까요?') &&
+        if (await confirm(
+              context,
+              '연결 끊기',
+              '${host['nickname']} 연결을 종료할까요?',
+              action: '연결 끊기',
+            ) &&
             mounted) {
           await runEngine(context, engine, 'host.disconnect', {
             'id': host['id'],
           });
         }
       case 'delete':
-        if (await confirm(
-              context,
-              '호스트 삭제',
-              '${host['nickname']} 설정과 연결을 삭제할까요?',
-            ) &&
-            mounted) {
-          await runEngine(context, engine, 'host.delete', {'id': host['id']});
-        }
+        await deleteTildeHost(context, engine, host);
     }
   }
 
-  Widget hostMenuLabel(IconData icon, String title) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [Icon(icon, size: 24), const SizedBox(width: 12), Text(title)],
-  );
+  Future<void> _showHostMenu(EngineRecord host, Offset finger) async {
+    HapticFeedback.selectionClick();
+    final overlay =
+        Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
+    final point = overlay.globalToLocal(finger);
+    setState(() => _menuHostId = host['id'] as int);
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(point.dx, point.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem<String>(
+          enabled: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${host['nickname']}'),
+              Text(
+                hostAddress(host),
+                style: const TextStyle(fontFamily: tildeMono, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'newSession', child: Text('새 세션으로 연결')),
+        const PopupMenuItem(value: 'edit', child: Text('편집')),
+        const PopupMenuItem(value: 'duplicate', child: Text('복제')),
+        PopupMenuItem(
+          value: 'favorite',
+          child: Text(host['favorite'] == true ? '즐겨찾기에서 제거' : '즐겨찾기 추가'),
+        ),
+        const PopupMenuDivider(),
+        if (host['protocol'] == 'ssh')
+          const PopupMenuItem(value: 'forwards', child: Text('포트 포워딩')),
+        const PopupMenuItem(value: 'shortcut', child: Text('홈 화면에 추가')),
+        if (host['protocol'] == 'ssh')
+          const PopupMenuItem(value: 'forget', child: Text('저장된 서버 키 삭제')),
+        const PopupMenuDivider(),
+        if (engine.list('sessions').any((s) => s['hostId'] == host['id']))
+          const PopupMenuItem(value: 'disconnect', child: Text('연결 끊기')),
+        PopupMenuItem(
+          value: 'delete',
+          child: Text(
+            '삭제',
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ),
+      ],
+    );
+    if (mounted) setState(() => _menuHostId = null);
+    if (selected != null && mounted) await _hostMenu(host, selected);
+  }
 
   Widget _hostIcon(EngineRecord host) => TildeHostTile(host: host);
 
@@ -516,7 +711,6 @@ class _ShellHomeState extends State<ShellHome> {
               tooltip: '메뉴',
               onSelected: _homeMenu,
               itemBuilder: (_) => [
-                const PopupMenuItem(value: 'quick', child: Text('빠른 연결')),
                 PopupMenuItem(
                   value: 'sort',
                   child: Text(
@@ -524,7 +718,6 @@ class _ShellHomeState extends State<ShellHome> {
                   ),
                 ),
                 const PopupMenuItem(value: 'settings', child: Text('설정')),
-                const PopupMenuItem(value: 'login', child: Text('로그인·SSH 키')),
                 const PopupMenuItem(
                   value: 'disconnect',
                   child: Text('연결 모두 끊기'),
@@ -545,10 +738,31 @@ class _ShellHomeState extends State<ShellHome> {
                 child: const Icon(Icons.add),
               ),
             ),
-      body: hosts.isEmpty
-          ? Center(
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
+        children: [
+          if (!shortcut)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: 'user@host · 빠른 연결',
+                  prefixIcon: const Icon(Icons.terminal),
+                  suffixIcon: IconButton(
+                    tooltip: '빠른 연결',
+                    icon: const Icon(Icons.arrow_forward),
+                    onPressed: () => _quickConnect(_quickUri),
+                  ),
+                ),
+                textInputAction: TextInputAction.go,
+                onChanged: (v) => _quickUri = v,
+                onSubmitted: _quickConnect,
+              ),
+            ),
+          if (hosts.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.dns_outlined,
@@ -560,13 +774,7 @@ class _ShellHomeState extends State<ShellHome> {
                     '저장된 호스트가 없어요',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(24, 8, 24, 16),
-                    child: Text(
-                      '서버를 추가하거나 메뉴에서 빠른 연결을 써 보세요.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
+                  const SizedBox(height: 16),
                   FilledButton.tonal(
                     onPressed: () => _page(
                       RecordEditor(engine: engine, kind: RecordKind.host),
@@ -575,96 +783,105 @@ class _ShellHomeState extends State<ShellHome> {
                   ),
                 ],
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 104),
-              itemCount: hosts.length,
-              itemBuilder: (context, index) {
-                final host = hosts[index];
-                return Column(
+            ),
+          for (final group in ['연결됨', '전체']) ...[
+            if (hosts.any(
+              (h) =>
+                  (engine
+                      .list('sessions')
+                      .any(
+                        (s) => s['hostId'] == h['id'] && s['open'] == true,
+                      )) ==
+                  (group == '연결됨'),
+            )) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+                child: Text(
+                  group,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Card.filled(
+                margin: const EdgeInsets.only(bottom: 20),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
                   children: [
-                    ListTile(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
-                      leading: _hostIcon(host),
-                      title: Row(
-                        children: [
-                          if (host['favorite'] == true)
-                            const Padding(
-                              padding: EdgeInsets.only(right: 2),
-                              child: Icon(Icons.star, size: 18),
-                            ),
-                          Expanded(
-                            child: Text(
-                              '${host['nickname']}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      subtitle: Text(hostAddress(host)),
-                      onTap: () => _connect(host),
-                      trailing: shortcut
-                          ? null
-                          : PopupMenuButton<String>(
-                              tooltip: '${host['nickname']} 옵션',
-                              onSelected: (action) => _hostMenu(host, action),
-                              itemBuilder: (_) => [
-                                PopupMenuItem(
-                                  value: 'newSession',
-                                  child: hostMenuLabel(
-                                    Icons.add_box_outlined,
-                                    '새 세션으로 연결',
+                    for (final host in hosts.where(
+                      (h) =>
+                          engine
+                              .list('sessions')
+                              .any(
+                                (s) =>
+                                    s['hostId'] == h['id'] && s['open'] == true,
+                              ) ==
+                          (group == '연결됨'),
+                    ))
+                      Builder(
+                        builder: (tileContext) {
+                          final count = engine
+                              .list('sessions')
+                              .where(
+                                (s) =>
+                                    s['hostId'] == host['id'] &&
+                                    s['open'] == true,
+                              )
+                              .length;
+                          return GestureDetector(
+                            onLongPressStart: shortcut
+                                ? null
+                                : (details) => _showHostMenu(
+                                    host,
+                                    details.globalPosition,
                                   ),
-                                ),
-                                PopupMenuItem(
-                                  value: 'favorite',
-                                  child: hostMenuLabel(
-                                    host['favorite'] == true
-                                        ? Icons.star
-                                        : Icons.star_border,
-                                    host['favorite'] == true
-                                        ? '즐겨찾기에서 제거'
-                                        : '즐겨찾기 추가',
-                                  ),
-                                ),
-                                PopupMenuItem(
-                                  value: 'edit',
-                                  child: hostMenuLabel(Icons.edit, '편집'),
-                                ),
-                                PopupMenuItem(
-                                  value: 'more',
-                                  child: hostMenuLabel(
-                                    Icons.more_horiz,
-                                    '추가 기능',
-                                  ),
-                                ),
-                                if (host['connectionState'] == 'CONNECTED')
-                                  PopupMenuItem(
-                                    value: 'disconnect',
-                                    child: hostMenuLabel(
-                                      Icons.link_off,
-                                      '연결 끊기',
+                            child: ListTile(
+                              selected: _menuHostId == host['id'],
+                              selectedColor: Theme.of(
+                                context,
+                              ).colorScheme.onSurface,
+                              leading: _hostIcon(host),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${host['nickname']}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
-                                PopupMenuItem(
-                                  value: 'delete',
-                                  child: hostMenuLabel(Icons.delete, '삭제'),
+                                  if (host['favorite'] == true)
+                                    const Icon(Icons.star, size: 16),
+                                ],
+                              ),
+                              subtitle: Text(
+                                hostAddress(host),
+                                style: const TextStyle(
+                                  fontFamily: tildeMono,
+                                  fontSize: 12.5,
                                 ),
-                              ],
+                              ),
+                              trailing: count > 0
+                                  ? Text(
+                                      '세션 $count',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.labelMedium,
+                                    )
+                                  : null,
+                              onTap: () => _connect(host),
                             ),
-                    ),
+                          );
+                        },
+                      ),
                   ],
-                );
-              },
-            ),
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
     );
   }
 }
@@ -685,7 +902,12 @@ class AppGate extends StatelessWidget {
               child: const Text('잠금 해제'),
             )
           else if (engine.state['error'] != null) ...[
-            Text('${engine.state['error']}'),
+            const Text('앱 데이터를 준비하지 못했습니다'),
+            TextButton(
+              onPressed: () =>
+                  showErrorDetails(context, '${engine.state['error']}'),
+              child: const Text('자세히'),
+            ),
             FilledButton(
               onPressed: () => runEngine(context, engine, 'retryMigration'),
               child: const Text('다시 시도'),
@@ -698,7 +920,10 @@ class AppGate extends StatelessWidget {
           if (engine.error != null)
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text(engine.error!),
+              child: TextButton(
+                onPressed: () => showErrorDetails(context, engine.error!),
+                child: const Text('오류 자세히'),
+              ),
             ),
         ],
       ),

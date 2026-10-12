@@ -71,6 +71,20 @@ class ConnectionNotifierTest {
     private fun title(notification: Notification): String = notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString()
 
     @Test
+    fun disconnectActionTargetsServiceWhileBodyStillOpensApp() = runTest(dispatcher) {
+        notifier.showRunningNotification(service, listOf(first, second))
+        advanceUntilIdle()
+
+        val notification = summary()
+        val action = shadowOf(notification.actions.single().actionIntent)
+        assertTrue(action.isService)
+        assertEquals(TerminalManager::class.java.name, action.savedIntent.component!!.className)
+        assertEquals(TerminalManager.ACTION_DISCONNECT_ALL, action.savedIntent.action)
+        assertTrue(shadowOf(notification.contentIntent).isActivity)
+        assertEquals(org.connectbot.flutter.FlutterShellActivity::class.java.name, shadowOf(notification.contentIntent).savedIntent.component!!.className)
+    }
+
+    @Test
     fun summaryCountsOnlyLiveSessionsAndExpandsWithConnectionStates() = runTest(dispatcher) {
         notifier.showRunningNotification(service, listOf(first, second.copy(connected = false, connecting = true)))
         advanceUntilIdle()

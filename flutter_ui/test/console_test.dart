@@ -113,7 +113,7 @@ void main() {
 
   for (final toolbar in [false, true]) {
     testWidgets(
-      'authentication back cancels only its session (toolbar=$toolbar)',
+      'authentication back asks before ending its session (toolbar=$toolbar)',
       (tester) async {
         await tester.pumpWidget(const AndroidShellApp());
         await tester.pumpAndSettle();
@@ -124,6 +124,10 @@ void main() {
         } else {
           await tester.binding.handlePopRoute();
         }
+        await tester.pumpAndSettle();
+        expect(find.text('세션을 유지할까요?'), findsOneWidget);
+        expect(calls.where((c) => c.method == 'session.disconnect'), isEmpty);
+        await tester.tap(find.text('세션 종료'));
         await tester.pumpAndSettle();
         expect(
           calls
@@ -145,7 +149,7 @@ void main() {
   for (final open in [false, true]) {
     for (final toolbar in [false, true]) {
       testWidgets(
-        'back without a prompt cancels only unfinished connections (open=$open toolbar=$toolbar)',
+        'back applies the chosen session action (open=$open toolbar=$toolbar)',
         (tester) async {
           final engine = AndroidEngine();
           engine.state = {
@@ -199,6 +203,10 @@ void main() {
             await tester.binding.handlePopRoute();
           }
           await tester.pumpAndSettle();
+          expect(find.text('세션을 유지할까요?'), findsOneWidget);
+          expect(calls.where((c) => c.method == 'session.disconnect'), isEmpty);
+          await tester.tap(find.text(open ? '세션 유지' : '세션 종료'));
+          await tester.pumpAndSettle();
           expect(find.byType(ConsolePage), findsNothing);
           expect(find.byType(AlertDialog), findsNothing);
           final disconnects = calls
@@ -230,6 +238,49 @@ void main() {
       );
     }
   }
+
+  testWidgets('keeping authentication pending does not disconnect', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Research'));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('세션 유지'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConsolePage), findsNothing);
+    expect(connected, isTrue);
+    expect(calls.where((c) => c.method == 'session.disconnect'), isEmpty);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('cancelling exit keeps the terminal and connection', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Research'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('뒤로'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ConsolePage), findsOneWidget);
+    expect(connected, isTrue);
+    expect(calls.where((c) => c.method == 'session.disconnect'), isEmpty);
+    await tester.tap(find.byTooltip('뒤로'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(ConsolePage), findsOneWidget);
+    expect(calls.where((c) => c.method == 'session.disconnect'), isEmpty);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
 
   testWidgets(
     'key registration uses the selected session and a readable key name',
@@ -321,7 +372,7 @@ void main() {
   ) async {
     await tester.pumpWidget(const AndroidShellApp());
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Research 옵션'));
+    await tester.longPress(find.text('Research'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('새 세션으로 연결'));
     await tester.pumpAndSettle();
@@ -448,7 +499,7 @@ void main() {
     },
   );
 
-  testWidgets('console menu keeps advanced actions in a secondary menu', (
+  testWidgets('console menu exposes grouped actions in one menu', (
     tester,
   ) async {
     await tester.pumpWidget(const AndroidShellApp());
@@ -459,9 +510,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('붙여넣기'), findsOneWidget);
     expect(find.text('텍스트 입력'), findsOneWidget);
-    expect(find.text('터미널 크기 지정'), findsNothing);
-    await tester.tap(find.text('추가 기능'));
-    await tester.pumpAndSettle();
+    expect(find.text('추가 기능'), findsNothing);
     expect(find.text('터미널 크기 지정'), findsOneWidget);
     await tester.tap(find.text('텍스트 편집 후 붙여넣기'));
     await tester.pumpAndSettle();

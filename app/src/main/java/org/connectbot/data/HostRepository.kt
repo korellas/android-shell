@@ -215,6 +215,37 @@ class HostRepository @Inject constructor(
         securePasswordStorage.deletePassword(host.id)
     }
 
+    internal class DeletedHost(
+        val host: Host,
+        val forwards: List<PortForward>,
+        val automation: List<AutomationAction>,
+        val knownHosts: List<KnownHost>,
+        val password: String?,
+    )
+
+    internal suspend fun deleteHostForUndo(host: Host): DeletedHost {
+        // Called on IO; credentials remain native and never enter a Flutter snapshot.
+        val password = securePasswordStorage.getPassword(host.id)
+        val deleted = database.withTransaction {
+            val snapshot = DeletedHost(host, portForwardDao.getByHost(host.id), getAutomation(host.id), knownHostDao.getByHostId(host.id), password)
+            hostDao.delete(host)
+            snapshot
+        }
+        securePasswordStorage.deletePassword(host.id)
+        return deleted
+    }
+
+    internal suspend fun restoreDeletedHost(deleted: DeletedHost) {
+        database.withTransaction {
+            // Plain INSERT rejects ID/name collisions instead of overwriting newer data.
+            hostDao.insert(deleted.host)
+            deleted.forwards.forEach { portForwardDao.insert(it) }
+            database.automationActionDao().insert(deleted.automation)
+            deleted.knownHosts.forEach { knownHostDao.insert(it) }
+        }
+        securePasswordStorage.savePassword(deleted.host.id, deleted.password)
+    }
+
     /**
      * Update the last connected time for a host.
      *

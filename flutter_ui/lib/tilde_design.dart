@@ -19,17 +19,25 @@ const tildeTide = Color(0xff6fd8c4);
 const tildeSand = Color(0xffebc37a);
 const tildeCoral = Color(0xffff8577);
 
-ThemeData tildeTheme(Brightness brightness, AndroidEngine engine) {
+ThemeData tildeTheme(
+  Brightness brightness,
+  AndroidEngine engine, {
+  EngineRecord? terminalScheme,
+}) {
   final dark = brightness == Brightness.dark;
   final profiles = engine.list('profiles');
   final profile = profiles
       .where((p) => p['id'] == engine.preferences['defaultProfileId'])
       .firstOrNull;
-  final scheme = engine
-      .list('schemes')
-      .where((s) => s['id'] == profile?['colorSchemeId'])
-      .firstOrNull;
-  final custom = scheme != null && !tildeBaseSchemeIds.contains(scheme['id']);
+  final scheme =
+      terminalScheme ??
+      engine
+          .list('schemes')
+          .where((s) => s['id'] == profile?['colorSchemeId'])
+          .firstOrNull;
+  final custom =
+      scheme != null &&
+      (terminalScheme != null || !tildeBaseSchemeIds.contains(scheme['id']));
   final palette = (scheme?['palette'] as List? ?? []).cast<num>();
   Color role(String key, Color fallback) {
     if (scheme?['${key}Color'] is num) {
@@ -239,6 +247,7 @@ ThemeData tildeTheme(Brightness brightness, AndroidEngine engine) {
     chipTheme: base.chipTheme.copyWith(
       backgroundColor: s2,
       selectedColor: selected,
+      showCheckmark: false,
       side: BorderSide.none,
       shape: const StadiumBorder(),
     ),
@@ -248,9 +257,9 @@ ThemeData tildeTheme(Brightness brightness, AndroidEngine engine) {
           (s) => s.contains(WidgetState.selected) ? selected : s2,
         ),
         foregroundColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? accent : muted,
+          (s) => s.contains(WidgetState.selected) ? fg : muted,
         ),
-        side: WidgetStatePropertyAll(BorderSide(color: line)),
+        side: const WidgetStatePropertyAll(BorderSide.none),
         shape: WidgetStatePropertyAll(inputShape),
       ),
     ),
@@ -344,30 +353,41 @@ class TildeWordmark extends StatelessWidget {
 
 class TildeProgress extends StatelessWidget {
   final String? label;
-  const TildeProgress({super.key, this.label});
+  final bool circular;
+  const TildeProgress({super.key, this.label}) : circular = false;
+  const TildeProgress.circular({super.key, this.label}) : circular = true;
 
   @override
   Widget build(BuildContext context) => Semantics(
     label: label ?? '진행 중',
     value: '진행 중',
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: 120,
-          height: 2,
-          child: LinearProgressIndicator(
-            minHeight: 2,
-            color: Theme.of(context).colorScheme.primary,
-            backgroundColor: Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest,
+    child: circular
+        ? const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                height: 2,
+                child: LinearProgressIndicator(
+                  minHeight: 2,
+                  color: Theme.of(context).colorScheme.primary,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
+                ),
+              ),
+              if (label != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(label!),
+                ),
+            ],
           ),
-        ),
-        if (label != null)
-          Padding(padding: const EdgeInsets.only(top: 8), child: Text(label!)),
-      ],
-    ),
   );
 }
 

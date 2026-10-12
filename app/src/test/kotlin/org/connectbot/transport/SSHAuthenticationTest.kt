@@ -81,6 +81,20 @@ class SSHAuthenticationTest {
     }
 
     @Test
+    fun loginWithConfirmationKey_doesNotAskForPermissionToUseIt() {
+        val selected = load("selected", firstKey).copy(confirmation = true)
+        loadedKeys.getValue("selected").pubkey = selected
+        `when`(repository.getByIdBlocking(42)).thenReturn(selected)
+        `when`(manager.isKeyLoaded("selected")).thenReturn(true)
+        `when`(manager.getKey("selected")).thenReturn(firstKey)
+
+        assertThat(ssh(42).authenticate()).isEqualTo(AuthenticationOutcome.Exhausted)
+
+        verify(connection).probePublicKey("alice", firstKey.public)
+        verify(bridge, never()).promptManager
+    }
+
+    @Test
     fun neverKey_doesNotOfferAnyUnlockedKeys() {
         load("first", firstKey)
         assertThat(ssh(HostConstants.PUBKEYID_NEVER).authenticate()).isEqualTo(AuthenticationOutcome.Exhausted)

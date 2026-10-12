@@ -51,8 +51,8 @@ class DisconnectPolicyTest {
     }
 
     @Test
-    fun sessionExit_stayConnected_closesImmediately() {
-        assertTrue(decide(DisconnectReason.SESSION_EXIT, stayConnected = true) is DisconnectAction.CloseImmediately)
+    fun sessionExit_stayConnected_keepsLastOutput() {
+        assertTrue(decide(DisconnectReason.SESSION_EXIT, stayConnected = true) is DisconnectAction.ShowReconnectOverlay)
     }
 
     @Test

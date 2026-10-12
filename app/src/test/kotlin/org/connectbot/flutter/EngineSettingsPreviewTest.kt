@@ -70,6 +70,14 @@ class EngineSettingsPreviewTest {
         assertEquals(320, bitmap.width)
         assertEquals(0xff112233.toInt(), bitmap.getPixel(0, 0))
         assertTrue(Mockito.mockingDetails(profiles).invocations.none { it.method.name == "save" })
+        @Suppress("UNCHECKED_CAST")
+        val compact = engine.platformOperation("settings.preview", mapOf("width" to 80, "backgroundColor" to 0, "compact" to true, "profile" to mapOf("fontSize" to 14), "sampleText" to "Mono")) as Wire
+        val compactPng = compact["png"] as ByteArray
+        val sample = BitmapFactory.decodeByteArray(compactPng, 0, compactPng.size)
+        assertEquals(80, sample.width)
+        assertEquals(0, sample.getPixel(79, 0))
+        assertTrue(sample.height < bitmap.height)
+        sample.recycle()
         bitmap.recycle()
     }
 }

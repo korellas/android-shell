@@ -134,17 +134,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(FloatingActionButton), findsOneWidget);
   });
-  testWidgets('host menus keep secondary actions reachable without clutter', (
+  testWidgets('host menus expose grouped actions without a second menu', (
     tester,
   ) async {
     await tester.pumpWidget(const AndroidShellApp());
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Research 옵션'));
+    await tester.longPress(find.text('Research'));
     await tester.pumpAndSettle();
-    expect(find.text('홈 화면에 추가'), findsNothing);
+    expect(find.text('추가 기능'), findsNothing);
     expect(find.text('연결 끊기'), findsNothing);
-    await tester.tap(find.text('추가 기능'));
-    await tester.pumpAndSettle();
     expect(find.text('홈 화면에 추가'), findsOneWidget);
     expect(find.text('저장된 서버 키 삭제'), findsOneWidget);
     await tester.tap(find.text('복제'));
@@ -170,7 +168,7 @@ void main() {
     await tester.pumpWidget(const AndroidShellApp());
     await tester.pumpAndSettle();
     expect(find.text('Research'), findsOneWidget);
-    expect(find.text('ssh · example.test'), findsOneWidget);
+    expect(find.text('alice@example.test'), findsOneWidget);
   });
   testWidgets(
     'home keeps saved connections central without a management drawer',
@@ -184,14 +182,18 @@ void main() {
       expect(find.byTooltip('호스트 추가'), findsOneWidget);
       await tester.tap(find.byTooltip('메뉴'));
       await tester.pumpAndSettle();
-      expect(find.text('로그인·SSH 키'), findsOneWidget);
+      expect(find.text('로그인·SSH 키'), findsNothing);
       expect(find.text('신뢰한 서버 키'), findsNothing);
       expect(find.text('색상 테마'), findsNothing);
-      await tester.tap(find.text('로그인·SSH 키'));
+      await tester.tap(find.text('설정'));
       await tester.pumpAndSettle();
-      expect(find.text('지문 로그인 설정'), findsOneWidget);
-      expect(find.text('SSH 키 관리'), findsOneWidget);
-      expect(find.text('공용 로그인 계정'), findsOneWidget);
+      await reveal(tester, find.text('보안·백업'), sidebar: true);
+      await tester.tap(find.text('보안·백업'));
+      await tester.pumpAndSettle();
+      await reveal(tester, find.text('SSH 키'));
+      await tester.tap(find.text('SSH 키'));
+      await tester.pumpAndSettle();
+      expect(find.text('SSH 키'), findsWidgets);
     },
   );
   testWidgets('automation and server trust stay inside the host editor', (
@@ -203,7 +205,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const AndroidShellApp());
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Research 옵션'));
+    await tester.longPress(find.text('Research'));
     await tester.pumpAndSettle();
     expect(find.text('접속 자동화'), findsNothing);
     expect(find.text('즐겨찾기 추가'), findsOneWidget);
@@ -246,7 +248,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const AndroidShellApp());
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Research 옵션'));
+    await tester.longPress(find.text('Research'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('편집'));
     await tester.pumpAndSettle();
@@ -276,7 +278,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(const AndroidShellApp());
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Research 옵션'));
+      await tester.longPress(find.text('Research'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('편집'));
       await tester.pumpAndSettle();
@@ -339,7 +341,10 @@ void main() {
     await reveal(tester, find.text('호스트 가져오기'));
     await tester.tap(find.text('호스트 가져오기'));
     await tester.pumpAndSettle();
-    expect(find.text('Invalid JSON'), findsOneWidget);
+    expect(find.text('작업을 완료하지 못했습니다'), findsOneWidget);
+    await tester.tap(find.text('자세히'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Invalid JSON'), findsOneWidget);
     expect(find.text('Imported host'), findsNothing);
   });
   testWidgets(
@@ -359,7 +364,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
     await tester.pumpAndSettle();
-    expect(find.text('Connection refused'), findsOneWidget);
+    expect(find.text('Research에 연결하지 못했습니다'), findsOneWidget);
+    await tester.tap(find.text('자세히'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Connection refused'), findsOneWidget);
     expect(find.byType(AndroidView), findsNothing);
   });
 }

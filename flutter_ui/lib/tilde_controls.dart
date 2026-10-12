@@ -8,6 +8,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'tilde_design.dart';
+import 'settings_widgets.dart' show formatCount;
 
 Future<(Object?, String)?> pickTildeOption(
   BuildContext context,
@@ -144,9 +145,13 @@ Widget tildeRadioOptions(
             ? null
             : Text(
                 subtitles[option.$1]!,
-                style: const TextStyle(fontFamily: tildeMono, fontSize: 12.5),
+                style: const TextStyle(
+                  fontFamily: tildeMono,
+                  fontFamilyFallback: ['Pretendard'],
+                  fontSize: 12.5,
+                ),
               ),
-        selected: option.$1 == value,
+        selected: false,
         onTap: onChanged == null ? null : () => onChanged(option.$1),
       ),
   ],
@@ -180,7 +185,7 @@ class TildeSaveBar extends StatelessWidget {
         children: [
           Expanded(
             child: busy
-                ? const TildeProgress(label: '저장 중')
+                ? const TildeProgress.circular(label: '저장 중')
                 : Text(
                     '변경 $changes개',
                     style: TextStyle(
@@ -298,8 +303,11 @@ class _TildeStepperState extends State<TildeStepper> {
                         controller.text = '${widget.value}';
                       }),
                       child: Text(
-                        '${widget.value}',
-                        style: const TextStyle(fontFamily: tildeMono),
+                        formatCount('${widget.value}'),
+                        style: TextStyle(
+                          fontFamily: tildeMono,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                     ),
             ),

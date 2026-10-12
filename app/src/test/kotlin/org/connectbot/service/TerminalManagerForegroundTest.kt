@@ -145,6 +145,32 @@ class TerminalManagerForegroundTest {
     }
 
     @Test
+    fun notificationDisconnectEndsSessionsWithoutOpeningActivity() = runTest(dispatcher) {
+        val host = Host(id = 42L, nickname = "shared")
+        `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)
+        mockBridges().use {
+            val first = manager.openConnectionForHostId(host.id)!!
+            val second = manager.openConnectionForHostId(host.id, newSession = true)!!
+
+            val result = manager.onStartCommand(Intent(TerminalManager.ACTION_DISCONNECT_ALL), 0, 1)
+
+            org.mockito.Mockito.verify(first).dispatchDisconnect(DisconnectReason.USER_REQUESTED)
+            org.mockito.Mockito.verify(second).dispatchDisconnect(DisconnectReason.USER_REQUESTED)
+            assertEquals(android.app.Service.START_NOT_STICKY, result)
+            assertNull(shadowOf(RuntimeEnvironment.getApplication()).nextStartedActivity)
+        }
+    }
+
+    @Test
+    fun staleNotificationDisconnectStopsEmptyService() {
+        val result = manager.onStartCommand(Intent(TerminalManager.ACTION_DISCONNECT_ALL), 0, 1)
+
+        assertEquals(android.app.Service.START_NOT_STICKY, result)
+        assertTrue(shadowOf(manager).isStoppedBySelf)
+        assertNull(shadowOf(RuntimeEnvironment.getApplication()).nextStartedActivity)
+    }
+
+    @Test
     fun disconnectSavedHostTargetsAllItsSessions() = runTest(dispatcher) {
         val host = Host(id = 42L, nickname = "shared")
         `when`(manager.hostRepository.findHostById(host.id)).thenReturn(host)

@@ -362,15 +362,15 @@ private suspend fun AndroidShellEngine.terminalPreview(args: Wire): Wire {
             TerminalFontProvider(activity, activity.dispatchers.io).loadFontByNameSuspend(TerminalFont.getGoogleFontName(storedFont))
         }
         val density = (args["scale"] as? Number)?.toFloat()?.coerceIn(1f, 3f) ?: 1f
-        val widthDp = (args["width"] as? Number)?.toFloat()?.coerceIn(200f, 1000f) ?: 360f
+        val widthDp = (args["width"] as? Number)?.toFloat()?.coerceIn(40f, 1000f) ?: 360f
         val textScale = (args["textScale"] as? Number)?.toFloat()?.coerceIn(1f, 3f) ?: 1f
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.typeface = typeface
             textSize = previewProfile.number("fontSize", profile.fontSize.toLong()).toFloat().coerceIn(4f, 72f) * textScale * density
         }
         val lineHeight = paint.fontSpacing
-        val margin = state.terminalMargin * density
-        val inset = 12f * density
+        val margin = if (args.flag("compact")) 0f else state.terminalMargin * density
+        val inset = if (args.flag("compact")) 0f else 12f * density
         val sampleText = args.optionalText("sampleText")
         val previewLines = sampleText?.let { listOf(it) } ?: listOf("user@shell:~$ ls", "src  build  한글.md", "$ ssh server")
         val bitmap = createBitmap((widthDp * density).toInt(), (lineHeight * previewLines.size + (margin + inset) * 2).toInt(), Bitmap.Config.ARGB_8888)

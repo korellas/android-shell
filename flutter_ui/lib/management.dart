@@ -163,49 +163,75 @@ class RecordListPage extends StatelessWidget {
           children: [
             if (kind == RecordKind.identity)
               settingsNote(context, '여러 호스트에서 사용자 이름·키·비밀번호를 함께 사용합니다.'),
-            for (final record in records)
-              settingsSection(context, '${record['name']}', [
-                if (kind == RecordKind.profile)
-                  TerminalPreview(
-                    engine: engine,
-                    overrides: {'profile': record},
-                  ),
-                ListTile(
-                  leading: Icon(
-                    kind == RecordKind.profile
-                        ? Icons.terminal_outlined
-                        : Icons.person_outline,
-                  ),
-                  title: Text(
-                    kind == RecordKind.profile
-                        ? '${fontLabel(engine, record['fontFamily'])} · ${record['fontSize']}sp'
-                        : '${record['username']}',
-                  ),
-                  subtitle: Text(
-                    '${usage(record)}개 호스트에서 사용${kind == RecordKind.profile && record['id'] == engine.preferences['defaultProfileId'] ? ' · 앱 기본값' : ''}',
-                  ),
-                  onTap: () => edit(context, record),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (value) => action(context, record, value),
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'edit', child: Text('편집')),
-                      if (kind == RecordKind.profile) ...[
-                        const PopupMenuItem(
-                          value: 'default',
-                          child: Text('앱 기본값으로 사용'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'duplicate',
-                          child: Text('복제'),
-                        ),
-                      ],
-                      if (kind != RecordKind.profile ||
-                          record['id'] !=
-                              engine.preferences['defaultProfileId'])
+            if (kind == RecordKind.identity)
+              for (final record in records)
+                settingsSection(context, '${record['name']}', [
+                  ListTile(
+                    leading: const Icon(Icons.person_outline),
+                    title: Text('${record['username']}'),
+                    subtitle: Text('${usage(record)}개 호스트에서 사용'),
+                    onTap: () => edit(context, record),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (value) => action(context, record, value),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(value: 'edit', child: Text('편집')),
                         const PopupMenuItem(value: 'delete', child: Text('삭제')),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                ]),
+            if (kind == RecordKind.profile)
+              settingsSection(context, '프로필', [
+                for (final record in records)
+                  ListTile(
+                    leading: kind == RecordKind.profile
+                        ? SizedBox(
+                            width: 80,
+                            height: 52,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: TerminalPreview(
+                                engine: engine,
+                                framed: false,
+                                overrides: {
+                                  'profile': {...record, 'fontSize': 9},
+                                  'compact': true,
+                                },
+                              ),
+                            ),
+                          )
+                        : const Icon(Icons.person_outline),
+                    title: Text('${record['name']}'),
+                    subtitle: Text(
+                      kind == RecordKind.profile
+                          ? '${engine.list('schemes').where((s) => s['id'] == record['colorSchemeId']).firstOrNull?['name'] ?? '색상 테마'} · ${record['fontSize']}${record['id'] == engine.preferences['defaultProfileId'] ? ' · 앱 기본값' : ''}'
+                          : '${record['username']}',
+                    ),
+                    onTap: () => edit(context, record),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (value) => action(context, record, value),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(value: 'edit', child: Text('편집')),
+                        if (kind == RecordKind.profile) ...[
+                          const PopupMenuItem(
+                            value: 'default',
+                            child: Text('앱 기본값으로 사용'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'duplicate',
+                            child: Text('복제'),
+                          ),
+                        ],
+                        if (kind != RecordKind.profile ||
+                            record['id'] !=
+                                engine.preferences['defaultProfileId'])
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('삭제'),
+                          ),
+                      ],
+                    ),
+                  ),
               ]),
           ],
         ),
@@ -277,6 +303,8 @@ class _KeyPageState extends State<KeyPage> {
             context,
             '저장 암호',
             '가져온 키를 별도의 암호로 보호할까요?',
+            action: '암호로 보호',
+            destructive: false,
           );
           String? newPassword;
           if (encrypt && mounted) {
@@ -340,7 +368,12 @@ class _KeyPageState extends State<KeyPage> {
       return;
     }
     if (action == 'delete') {
-      if (await confirm(context, '키 삭제', '${key['nickname']} 키를 삭제할까요?') &&
+      if (await confirm(
+            context,
+            '키 삭제',
+            '${key['nickname']} 키를 삭제할까요?',
+            action: '키 삭제',
+          ) &&
           mounted) {
         await runEngine(context, engine, 'key.delete', {'id': key['id']});
       }
@@ -427,7 +460,16 @@ class _KeyPageState extends State<KeyPage> {
           if (state['error'] != null || state['nicknameError'] != null)
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('${state['error'] ?? state['nicknameError']}'),
+              child: ListTile(
+                title: const Text('키 작업을 완료하지 못했습니다'),
+                trailing: TextButton(
+                  onPressed: () => showErrorDetails(
+                    context,
+                    '${state['error'] ?? state['nicknameError']}',
+                  ),
+                  child: const Text('자세히'),
+                ),
+              ),
             ),
           if (state['importPassword'] != null ||
               state['pendingNickname'] != null)
@@ -435,51 +477,55 @@ class _KeyPageState extends State<KeyPage> {
               title: const Text('키 가져오기 계속'),
               onTap: () => pending(retry: true),
             ),
-          for (final key in engine.list('keys'))
-            ListTile(
-              leading: Icon(
-                key['biometric'] == true
-                    ? Icons.fingerprint
-                    : key['encrypted'] == true
-                    ? Icons.lock_outline
-                    : Icons.key_outlined,
-              ),
-              title: Text('${key['nickname']}'),
-              subtitle: Text(
-                '${key['type']} · ${key['loaded'] == true ? '불러옴' : '불러오지 않음'}${key['encrypted'] == true ? ' · 암호화' : ''}',
-              ),
-              onTap: () => keyAction(key, 'edit'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Switch(
-                    value: key['loaded'] == true,
-                    onChanged: (_) => keyAction(key, 'load'),
-                  ),
-                  PopupMenuButton<String>(
-                    tooltip: '${key['nickname']} 옵션',
-                    onSelected: (action) => keyAction(key, action),
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'edit', child: Text('편집')),
-                      const PopupMenuItem(
-                        value: 'copy.public',
-                        child: Text('공개키 복사'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'export.public',
-                        child: Text('공개키 파일 저장'),
-                      ),
-                      if (key['biometric'] != true)
+          settingsSection(context, 'SSH 키', [
+            for (final key in engine.list('keys'))
+              ListTile(
+                leading: Icon(
+                  key['loaded'] == true
+                      ? Icons.lock_open_outlined
+                      : Icons.lock_outline,
+                ),
+                title: Text('${key['nickname']}'),
+                subtitle: Text(
+                  '${key['type']}${key['biometric'] == true
+                      ? ' · 생체인증 보호'
+                      : key['encrypted'] == true
+                      ? ' · 암호 보호'
+                      : ''}',
+                ),
+                onTap: () => keyAction(key, 'edit'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Switch(
+                      value: key['loaded'] == true,
+                      onChanged: (_) => keyAction(key, 'load'),
+                    ),
+                    PopupMenuButton<String>(
+                      tooltip: '${key['nickname']} 옵션',
+                      onSelected: (action) => keyAction(key, action),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(value: 'edit', child: Text('편집')),
                         const PopupMenuItem(
-                          value: 'private',
-                          child: Text('비밀키 복사·저장'),
+                          value: 'copy.public',
+                          child: Text('공개키 복사'),
                         ),
-                      const PopupMenuItem(value: 'delete', child: Text('삭제')),
-                    ],
-                  ),
-                ],
+                        const PopupMenuItem(
+                          value: 'export.public',
+                          child: Text('공개키 파일 저장'),
+                        ),
+                        if (key['biometric'] != true)
+                          const PopupMenuItem(
+                            value: 'private',
+                            child: Text('비밀키 복사·저장'),
+                          ),
+                        const PopupMenuItem(value: 'delete', child: Text('삭제')),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
+          ]),
           const SizedBox(height: 96),
         ],
       ),
@@ -637,7 +683,14 @@ class _ForwardsPageState extends State<ForwardsPage> {
             context,
             live ? '스위치는 선택한 세션에만 적용합니다.' : '스위치는 다음 접속 시 자동 활성화 여부입니다.',
           ),
-          if (error != null) settingsNote(context, error!),
+          if (error != null)
+            ListTile(
+              title: const Text('포워딩을 불러오지 못했습니다'),
+              trailing: TextButton(
+                onPressed: () => showErrorDetails(context, error!),
+                child: const Text('자세히'),
+              ),
+            ),
           for (final f in forwards)
             ListTile(
               leading: Text(
@@ -774,7 +827,7 @@ class KnownHostsPage extends StatelessWidget {
                                             ),
                                             onPressed: () =>
                                                 Navigator.pop(c, true),
-                                            child: const Text('삭제'),
+                                            child: const Text('서버 키 삭제'),
                                           ),
                                         ],
                                       ),
@@ -1266,7 +1319,14 @@ class _PalettePageState extends State<PalettePage> {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          if (error != null) settingsNote(context, error!),
+          if (error != null)
+            ListTile(
+              title: const Text('색상 테마를 불러오지 못했습니다'),
+              trailing: TextButton(
+                onPressed: () => showErrorDetails(context, error!),
+                child: const Text('자세히'),
+              ),
+            ),
           if (!editable) settingsNote(context, '복사본을 만들어 색상을 편집하세요.'),
           Padding(
             padding: const EdgeInsets.all(16),
@@ -1371,137 +1431,6 @@ class _PalettePageState extends State<PalettePage> {
       ),
     );
   }
-}
-
-class LoginPage extends StatelessWidget {
-  final AndroidEngine engine;
-  final Future<void> Function(EngineRecord host) onSetup;
-  const LoginPage({super.key, required this.engine, required this.onSetup});
-
-  Future<void> chooseServer(BuildContext context) async {
-    final hosts = engine
-        .list('hosts')
-        .where((h) => h['protocol'] == 'ssh' && (h['id'] as int) > 0)
-        .toList();
-    final host = await showDialog<EngineRecord>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('등록할 SSH 서버'),
-        content: hosts.isEmpty
-            ? const Text(
-                '먼저 SSH 호스트를 저장해 주세요. Mosh는 같은 서버의 SSH 호스트에서 키를 등록해 주세요.',
-              )
-            : SizedBox(
-                width: 400,
-                height: 300,
-                child: ListView(
-                  children: [
-                    for (final host in hosts)
-                      ListTile(
-                        title: Text('${host['nickname']}'),
-                        subtitle: Text(
-                          '${host['username']}@${host['hostname']}:${host['port']}',
-                        ),
-                        onTap: () => Navigator.pop(context, host),
-                      ),
-                  ],
-                ),
-              ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-        ],
-      ),
-    );
-    if (host != null && context.mounted) await onSetup(host);
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('로그인·SSH 키')),
-    body: ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      children: [
-        card(
-          '지문 로그인 설정',
-          '먼저 기존 방식으로 로그인한 뒤 공개키를 등록하고 키 로그인을 확인해요.',
-          Icons.fingerprint,
-          () => chooseServer(context),
-        ),
-        card(
-          'SSH 키 관리',
-          '키 생성·가져오기, 공개키 복사, 보호 옵션을 관리해요.',
-          Icons.key_outlined,
-          () => Navigator.push(
-            context,
-            MaterialPageRoute<void>(builder: (_) => KeyPage(engine: engine)),
-          ),
-        ),
-        card(
-          '공용 로그인 계정',
-          '여러 서버에서 같은 사용자 이름과 로그인 설정을 함께 써요.',
-          Icons.people_outline,
-          () => Navigator.push(
-            context,
-            MaterialPageRoute<void>(
-              builder: (_) =>
-                  RecordListPage(engine: engine, kind: RecordKind.identity),
-            ),
-          ),
-        ),
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
-          child: Text(
-            '지문 키는 내보내기·다른 폰으로 복원이 불가능해요. 기존 Mac 키나 다른 로그인 수단을 유지해 주세요. 지문 등록을 변경하면 키를 다시 만들어야 할 수 있어요.',
-          ),
-        ),
-      ],
-    ),
-  );
-  Widget card(
-    String title,
-    String summary,
-    IconData icon,
-    VoidCallback onTap,
-  ) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Icon(icon),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(summary),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 }
 
 class KeyExportSheet extends StatefulWidget {
