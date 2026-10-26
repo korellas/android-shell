@@ -79,7 +79,6 @@ import org.connectbot.terminal.Terminal
 import org.connectbot.ui.components.InlinePrompt
 import org.connectbot.ui.components.TerminalKeyboard
 import org.connectbot.ui.screens.console.AUTO_HIDE_DELAY_MS
-import org.connectbot.ui.screens.console.TerminalSelectionActions
 import org.connectbot.ui.screens.console.handleConsoleShortcut
 import org.connectbot.ui.screens.console.horizontalSwipeNavigation
 import org.connectbot.ui.screens.console.tmuxWindowCommand
@@ -203,6 +202,7 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                         onImeVisibilityChanged = { imeVisible = it },
                         onHyperlinkClick = { url -> openUrl(url) },
                         onPasteRequest = { paste() },
+                        onEditRequest = textInputRequest,
                         onInterceptKey = { event ->
                             handleConsoleShortcut(
                                 event,
@@ -260,15 +260,6 @@ internal class NativeTerminalView(private val engine: AndroidShellEngine, privat
                             onCancel = { bridge.dispatchDisconnect(DisconnectReason.USER_REQUESTED) },
                             onDismiss = { focus.requestFocus() },
                             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = if (sessionOpen && showExtraKeyboard) settings.terminalBarLayout.height.dp else 0.dp),
-                        )
-                    }
-
-                    selection?.takeIf { it.isSelectionActive && active && !locked }?.let { controller ->
-                        TerminalSelectionActions(
-                            controller,
-                            onEdit = { engine.requestTextInput(routeOwner, it) },
-                            onPaste = { paste() },
-                            modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
                         )
                     }
                 }

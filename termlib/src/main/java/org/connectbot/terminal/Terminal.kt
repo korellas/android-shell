@@ -302,6 +302,7 @@ private const val DOUBLE_UNDERLINE_SPACING = 2f
  * @param onHyperlinkClick Callback when user taps on an OSC8 hyperlink. Receives the URL as parameter.
  * @param onComposeControllerAvailable Optional callback providing access to the ComposeController for handling IME compose state
  * @param onPasteRequest Optional callback for handling a request to paste content, normally triggered by a context menu action
+ * @param onEditRequest Optional callback for opening the current selection in the host editor
  * @param rightAltMode How the right-alt key should behave (CharacterModifier vs Meta)
  * @param selectionBackgroundColor Optional fixed selection background. Both selection colors unspecified invert pixels;
  *                                 supplying either color uses fixed colors, with pale blue as the background fallback.
@@ -342,6 +343,7 @@ fun Terminal(
     onInterceptKey: ((ComposeKeyEvent) -> Boolean)? = null,
     resizeSuspended: Boolean = false,
     onPageGesture: ((Int) -> Unit)? = null,
+    onEditRequest: (() -> Unit)? = null,
 ) {
     if (LocalInspectionMode.current) {
         TerminalPreview(modifier, backgroundColor, foregroundColor)
@@ -377,6 +379,7 @@ fun Terminal(
         delKeyMode = delKeyMode,
         resizeSuspended = resizeSuspended,
         onPageGesture = onPageGesture,
+        onEditRequest = onEditRequest,
     )
 }
 
@@ -418,6 +421,7 @@ internal fun TerminalWithAccessibility(
     delKeyMode: DelKeyMode = DelKeyMode.Delete,
     resizeSuspended: Boolean = false,
     onPageGesture: ((Int) -> Unit)? = null,
+    onEditRequest: (() -> Unit)? = null,
 ) {
     if (terminalEmulator !is TerminalEmulatorImpl) {
         Box(
@@ -1781,12 +1785,13 @@ internal fun TerminalWithAccessibility(
             )
         }
 
-        // Copy button (+ overflow menu) when text is selected
+        // Selection actions beside the selected text
         if (selectionManager.mode != SelectionMode.NONE && !selectionManager.isSelecting && !isDraggingHandle) {
             val range = selectionManager.selectionRange
             if (range != null) {
                 val endPosition = range.getEndPosition()
-                val buttonRowWidthPx = with(density) { (COPY_BUTTON_SIZE * 2 + 8.dp).toPx() }
+                val buttonCount = if (onEditRequest != null) 3 else 2
+                val buttonRowWidthPx = with(density) { (COPY_BUTTON_SIZE * buttonCount + 8.dp * (buttonCount - 1)).toPx() }
                 val buttonHeightPx = with(density) { COPY_BUTTON_SIZE.toPx() }
 
                 val buttonX = (endPosition.second * baseCharWidth)
@@ -1832,6 +1837,17 @@ internal fun TerminalWithAccessibility(
                             Text(stringResource(R.string.terminal_selection_copy), style = MaterialTheme.typography.labelSmall)
                         }
 
+                        if (onEditRequest != null) {
+                            FloatingActionButton(
+                                onClick = onEditRequest,
+                                modifier = Modifier.size(COPY_BUTTON_SIZE),
+                                containerColor = Color.White,
+                                contentColor = Color.Black,
+                            ) {
+                                Text(stringResource(R.string.terminal_selection_edit), style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+
                         Box {
                             val moreOptionsLabel = stringResource(R.string.terminal_selection_more_options_description)
                             FloatingActionButton(
@@ -1856,6 +1872,13 @@ internal fun TerminalWithAccessibility(
                                     overflowMenuExpanded = false
                                 },
                             ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.terminal_selection_line)) },
+                                    onClick = {
+                                        selectionController.setSelectionMode(SelectionMode.LINE)
+                                        overflowMenuExpanded = false
+                                    },
+                                )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.terminal_selection_select_all)) },
                                     onClick = {
@@ -1914,6 +1937,13 @@ internal fun TerminalWithAccessibility(
                                     onClick = {
                                         selectionController.toggleSelectionMode()
                                         // Keep menu open for easy cycling
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.terminal_selection_close)) },
+                                    onClick = {
+                                        selectionController.clearSelection()
+                                        overflowMenuExpanded = false
                                     },
                                 )
                             }

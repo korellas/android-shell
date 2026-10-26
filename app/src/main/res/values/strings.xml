@@ -1016,6 +1016,8 @@
 
 	<!-- Text for the "Esc" button in virtual keyboard. -->
 	<string name="button_key_esc">Esc</string>
+	<!-- Label for the terminal Tab key. -->
+	<string name="button_key_tab" translatable="false">tab</string>
 	<!-- Text for the "Ctrl" button in virtual keyboard. -->
 	<string name="button_key_ctrl">Ctrl</string>
 	<!-- Text for the "Alt" button in virtual keyboard. -->

@@ -48,7 +48,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imeAnimationSource
 import androidx.compose.foundation.layout.imeAnimationTarget
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
@@ -102,7 +101,6 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
@@ -130,8 +128,6 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
@@ -175,7 +171,6 @@ import org.connectbot.util.rememberTerminalTypefaceResultFromStoredValue
 import timber.log.Timber
 import kotlin.math.abs
 import kotlin.math.max
-import kotlin.math.roundToInt
 
 /**
  * Check if a hardware keyboard is currently attached to the device.
@@ -464,6 +459,7 @@ private fun ConsoleTerminalPage(
             onHyperlinkClick = onOpenUrl,
             delKeyMode = delKeyMode,
             onPasteRequest = onPasteRequest,
+            onEditRequest = onTextInputRequest,
             onInterceptKey = onInterceptKey,
             onPageGesture = if (pgUpDnGestureEnabled) {
                 { key ->
@@ -680,9 +676,6 @@ fun ConsoleScreen(
     }
     var scannedUrls by remember { mutableStateOf<List<String>>(emptyList()) }
     var selectionController by remember { mutableStateOf<SelectionController?>(null) }
-    var selectionAnchor by remember { mutableStateOf(Offset.Zero) }
-    var terminalViewport by remember { mutableStateOf(IntSize.Zero) }
-    var selectionActionsSize by remember { mutableStateOf(IntSize.Zero) }
     var composeController by remember { mutableStateOf<ComposeController?>(null) }
     var imeVisible by remember { mutableStateOf(false) }
     var keyboardScrollInProgress by remember { mutableStateOf(false) }
@@ -1112,8 +1105,7 @@ fun ConsoleScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
-                            .onSizeChanged { terminalViewport = it },
+                            .weight(1f),
                     ) {
                         val bridge = uiState.bridges[uiState.currentBridgeIndex]
                         val swipeModifier = if (swipeBetweenSessions || (swipeTmuxEnabled && sessionOpen)) {
@@ -1140,15 +1132,7 @@ fun ConsoleScreen(
                         } else {
                             Modifier
                         }
-                        val terminalModifier = Modifier.padding(terminalMargin.dp).pointerInput(bridge.host.id) {
-                            awaitEachGesture {
-                                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                                selectionAnchor = down.position
-                                do {
-                                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                                } while (event.changes.any { it.pressed })
-                            }
-                        }.then(swipeModifier)
+                        val terminalModifier = Modifier.padding(terminalMargin.dp).then(swipeModifier)
 
                         key(bridge.host.id) {
                             ConsoleTerminalPage(
@@ -1199,26 +1183,6 @@ fun ConsoleScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 terminalModifier = terminalModifier,
                             )
-                        }
-                        if (terminalSelectionActive && !showTextInputDialog) {
-                            selectionController?.let { controller ->
-                                val gap = with(LocalDensity.current) { 24.dp.toPx() }
-                                TerminalSelectionActions(
-                                    controller = controller,
-                                    onEdit = ::openTextInput,
-                                    onPaste = ::pasteClipboardContents,
-                                    modifier = Modifier
-                                        .offset {
-                                            IntOffset(
-                                                (selectionAnchor.x - selectionActionsSize.width / 2f).roundToInt()
-                                                    .coerceIn(0, (terminalViewport.width - selectionActionsSize.width).coerceAtLeast(0)),
-                                                (selectionAnchor.y - selectionActionsSize.height - gap).roundToInt()
-                                                    .coerceIn(0, (terminalViewport.height - selectionActionsSize.height).coerceAtLeast(0)),
-                                            )
-                                        }
-                                        .onSizeChanged { selectionActionsSize = it },
-                                )
-                            }
                         }
                         TmuxSwipeHint(tmuxSwipeFeedback, Modifier.align(Alignment.TopCenter).padding(top = 8.dp))
                     }

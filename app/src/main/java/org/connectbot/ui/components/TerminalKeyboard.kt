@@ -257,12 +257,6 @@ internal fun TerminalKeyboardContent(
                     contentDescription = stringResource(R.string.image_description_send_escape_character),
                     onClick = onEscPress,
                 )
-                KeyButton(
-                    text = "⇥",
-                    width = 34,
-                    contentDescription = stringResource(R.string.image_description_send_tab_character),
-                    onClick = onTabPress,
-                )
                 ModifierKeyButton(
                     text = stringResource(R.string.button_key_ctrl),
                     contentDescription = stringResource(R.string.image_description_toggle_control_character),
@@ -346,6 +340,12 @@ internal fun TerminalKeyboardContent(
                         },
                     )
                 }
+                KeyButton(
+                    text = stringResource(R.string.button_key_tab),
+                    width = 48,
+                    contentDescription = stringResource(R.string.image_description_send_tab_character),
+                    onClick = onTabPress,
+                )
             }
         }
     }

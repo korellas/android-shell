@@ -20,6 +20,7 @@ package org.connectbot
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -88,7 +89,7 @@ class TerminalKeyboardContentTest {
             .assertIsDisplayed()
             .performClick()
         composeTestRule
-            .onNodeWithText("⇥")
+            .onNodeWithText("tab")
             .assertIsDisplayed()
             .performClick()
         composeTestRule
@@ -187,11 +188,16 @@ class TerminalKeyboardContentTest {
 
         val fixedKeys = listOf(
             composeTestRule.activity.getString(R.string.button_key_esc),
-            "⇥",
             composeTestRule.activity.getString(R.string.button_key_ctrl),
             "Fn",
+            "tab",
         ).map { composeTestRule.onNodeWithText(it) }
         val initialBounds = fixedKeys.map { it.assertIsDisplayed().fetchSemanticsNode().boundsInRoot }
+        composeTestRule.onNodeWithText("tab").assertWidthIsAtLeast(48.dp)
+        val keyboardBounds = composeTestRule.onNodeWithContentDescription(
+            composeTestRule.activity.getString(R.string.image_description_show_keyboard),
+        ).fetchSemanticsNode().boundsInRoot
+        assertTrue(keyboardBounds.right <= initialBounds.last().left)
 
         composeTestRule
             .onNodeWithContentDescription(composeTestRule.activity.getString(R.string.image_description_up))
@@ -213,6 +219,8 @@ class TerminalKeyboardContentTest {
         assertTrue(tabPressed)
         assertTrue(ctrlPressed)
         composeTestRule.onNodeWithText("F1").assertIsDisplayed()
+        composeTestRule.onNodeWithText("tab").assertIsDisplayed()
+        assertEquals(initialBounds.last(), composeTestRule.onNodeWithText("tab").fetchSemanticsNode().boundsInRoot)
     }
 
     @Test
