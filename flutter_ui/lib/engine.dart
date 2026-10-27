@@ -39,7 +39,10 @@ class AndroidEngine extends ChangeNotifier {
   static const events = EventChannel('dev.korellas.androidshell/events');
   EngineRecord state = {};
   EngineRecord _nativeState = {};
-  late final KeyManager _keys = KeyManager(_platformQuery);
+  late final KeyManager _keys = KeyManager(
+    _platformQuery,
+    rememberUnlocked: () => preferences['memkeys'] != false,
+  );
   late final SshEnrollmentController _enrollment = SshEnrollmentController(
     onChanged: _sessionChanged,
     keys: () => list('keys').where((key) => key['supported'] != false).toList(),
@@ -297,7 +300,7 @@ class AndroidEngine extends ChangeNotifier {
     };
   }
 
-  Future<int?> _connectTerminal(EngineRecord args) async {
+  Future<EngineRecord> _prepareTerminal(EngineRecord args) async {
     final prepared = row(await _platformQuery('session.prepare', args));
     final jumps = rows(prepared['jumps']);
     prepared['jumps'] = jumps;
@@ -307,6 +310,11 @@ class AndroidEngine extends ChangeNotifier {
     if (args.containsKey('actions')) {
       prepared['automation'] = rows(args['actions']);
     }
+    return prepared;
+  }
+
+  Future<int?> _connectTerminal(EngineRecord args) async {
+    final prepared = await _prepareTerminal(args);
     final host = row(prepared['host']);
     AppTerminalSession? existing;
     if (args['newSession'] != true) {
@@ -536,11 +544,13 @@ class AndroidEngine extends ChangeNotifier {
       final uri = args['uri'] as String?;
       final protocol =
           host?['protocol'] ??
-          (uri != null && Uri.tryParse(uri)?.hasScheme == true
-              ? Uri.parse(uri).scheme
+          (uri != null && uri.contains('://')
+              ? Uri.tryParse(uri)?.scheme
               : 'ssh');
-      if ((protocol == 'ssh' || protocol == 'local') &&
-          state['entryAction'] != 'android.intent.action.PICK') {
+      if (state['entryAction'] != 'android.intent.action.PICK') {
+        if (protocol != 'ssh' && protocol != 'local') {
+          throw const EngineException('SSH와 로컬 연결만 지원합니다.');
+        }
         return _connectTerminal(args);
       }
     }
@@ -636,6 +646,30 @@ class AndroidEngine extends ChangeNotifier {
         await _removeSession(session);
         return null;
       }
+      if (method == 'session.reconnect') {
+        final hostId = session.host['id'];
+        final prepared = await _prepareTerminal({
+          if (hostId is int && hostId > 0)
+            'id': hostId
+          else
+            'uri': session.record['uri'],
+        });
+        if (_sessions[id] != session) return null;
+        if (row(prepared['host'])['protocol'] != session.host['protocol']) {
+          throw const EngineException('연결 방식이 변경되었습니다. 홈에서 새 세션을 열어 주세요.');
+        }
+        await session.disconnect();
+        if (session is AppSshSession) {
+          session.refreshPrepared(prepared);
+        } else {
+          session.prepared
+            ..clear()
+            ..addAll(prepared);
+        }
+        _pendingReconnect.remove(session.id);
+        _attemptedReconnect.remove(session.id);
+        return session.invoke(method, args);
+      }
       if (method == 'forwards' && session is AppSshSession) {
         return session.forwards;
       }
@@ -662,7 +696,14 @@ class AndroidEngine extends ChangeNotifier {
       });
       return _platformQuery(method, {...args, 'open': session.sessionOpen});
     }
-    return _platformQuery(method, args);
+    final result = await _platformQuery(method, args);
+    if (method == 'settings.update' &&
+        args['key'] == 'memkeys' &&
+        args['value'] == false) {
+      _keys.forgetStoredKeys();
+      _sessionChanged();
+    }
+    return result;
   }
 
   Future<dynamic> _platformQuery(
@@ -696,6 +737,7 @@ class AndroidEngine extends ChangeNotifier {
   @override
   void dispose() {
     _closed = true;
+    _keys.forgetStoredKeys();
     _subscription?.cancel();
     _runtime.setMethodCallHandler(null);
     for (final session in _sessions.values) {

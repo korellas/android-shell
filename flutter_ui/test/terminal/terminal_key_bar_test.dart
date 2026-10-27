@@ -16,6 +16,7 @@
  */
 
 import 'package:android_shell_ui/terminal/terminal_key_bar.dart';
+import 'package:android_shell_ui/terminal/terminal_input.dart';
 import 'dart:ui' show Tristate;
 
 import 'package:flutter/material.dart';
@@ -25,11 +26,54 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xterm2/xterm.dart';
 
 void main() {
+  late TerminalInputController input;
+  setUp(() {
+    input = TerminalInputController(terminal: Terminal());
+  });
+  tearDown(() {
+    input.dispose();
+  });
   setUpAll(() async {
     final font = FontLoader('Pretendard')
       ..addFont(rootBundle.load('assets/fonts/Pretendard-Medium.ttf'));
     await font.load();
   });
+  testWidgets(
+    'key preferences control haptics and keyboard-toggle visibility',
+    (tester) async {
+      final haptics = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'HapticFeedback.vibrate') haptics.add(call);
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TerminalKeyBar(
+              input: input,
+              hapticFeedback: true,
+              showKeyboardToggle: false,
+              onKey: (_, _, _, _) {},
+              onToggleKeyboard: () {},
+            ),
+          ),
+        ),
+      );
+      expect(find.byTooltip('키보드 전환'), findsNothing);
+      await tester.tap(find.text('Esc'));
+      expect(haptics.single.arguments, 'HapticFeedbackType.selectionClick');
+    },
+  );
+
   testWidgets('tab remains at the right edge after scrolling and Fn', (
     tester,
   ) async {
@@ -42,6 +86,7 @@ void main() {
             child: SizedBox(
               width: 360,
               child: TerminalKeyBar(
+                input: input,
                 onKey: (key, ctrl, alt, shift) => sent.add(key),
                 onToggleKeyboard: () {},
               ),
@@ -74,7 +119,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: TerminalKeyBar(onKey: (_, _, _, _) {}, onToggleKeyboard: () {}),
+          body: TerminalKeyBar(
+            input: input,
+            onKey: (_, _, _, _) {},
+            onToggleKeyboard: () {},
+          ),
         ),
       ),
     );
@@ -124,6 +173,7 @@ void main() {
           body: Align(
             alignment: Alignment.bottomCenter,
             child: TerminalKeyBar(
+              input: input,
               onKey: (_, _, _, _) {},
               onToggleKeyboard: () {},
             ),
@@ -162,6 +212,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: TerminalKeyBar(
+            input: input,
             onKey: (key, ctrl, alt, shift) => sent.add((key, ctrl, alt, shift)),
             onToggleKeyboard: () {},
             onModifiersChanged: (ctrl, alt, shift) =>
@@ -200,6 +251,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: TerminalKeyBar(
+            input: input,
             enabled: false,
             onKey: (_, _, _, _) => emissions++,
             onToggleKeyboard: () => emissions++,
@@ -223,6 +275,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: TerminalKeyBar(
+            input: input,
             order: const ['HOME', 'UP', 'FUNCTION_KEYS', 'ALT'],
             hidden: const {'UP', 'ALT'},
             groupFunctionKeys: false,

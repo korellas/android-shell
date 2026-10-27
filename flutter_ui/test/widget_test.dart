@@ -157,25 +157,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('복제할 호스트 이름'), findsOneWidget);
   });
-  testWidgets('keyboard settings show hardware mappings and connection state', (
-    tester,
-  ) async {
-    await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('메뉴'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('설정'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('키보드').first);
-    await tester.pumpAndSettle();
-    await reveal(tester, find.text('하드웨어 키보드'));
-    expect(find.text('연결 안 됨'), findsOneWidget);
-    await tester.tap(find.text('하드웨어 키보드'));
-    await tester.pumpAndSettle();
-    await reveal(tester, find.text('카메라 버튼'));
-    await tester.pumpAndSettle();
-    expect(find.text('카메라 버튼'), findsOneWidget);
-  });
+  testWidgets(
+    'keyboard settings expose supported controls and hide legacy mappings',
+    (tester) async {
+      await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('메뉴'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('설정'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('키보드').first);
+      await tester.pumpAndSettle();
+      expect(find.text('특수키 바'), findsOneWidget);
+      expect(find.text('키보드를 닫아도 표시'), findsOneWidget);
+      await reveal(tester, find.text('Ctrl·Alt를 누르면'));
+      expect(find.text('Ctrl·Alt를 누르면'), findsOneWidget);
+      expect(find.text('하드웨어 키보드'), findsNothing);
+      expect(find.text('카메라 버튼'), findsNothing);
+      expect(find.text('Shift+숫자를 기능키로'), findsNothing);
+      expect(find.text('Ctrl+숫자를 기능키로'), findsNothing);
+      expect(find.text('영문으로 전환'), findsNothing);
+      await reveal(tester, find.text('키보드 전환 버튼'));
+      expect(find.text('키보드 전환 버튼'), findsOneWidget);
+    },
+  );
   testWidgets('saved native hosts are available in Flutter', (tester) async {
     await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();

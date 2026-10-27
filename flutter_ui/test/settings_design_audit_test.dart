@@ -196,7 +196,7 @@ void main() {
     } else if (page == '폰트 관리') {
       await select('화면');
       await select('글꼴');
-    } else if (page == '하드웨어 키보드' || page == '특수키 바') {
+    } else if (page == '특수키 바') {
       await select('키보드');
       await select(page);
     }
@@ -236,11 +236,7 @@ void main() {
     final title = tester.renderObject<RenderParagraph>(find.text('진단 로그'));
     expect(title.didExceedMaxLines, isFalse);
   });
-  for (final (page, parent) in [
-    ('폰트 관리', '화면'),
-    ('하드웨어 키보드', '키보드'),
-    ('특수키 바', '키보드'),
-  ]) {
+  for (final (page, parent) in [('폰트 관리', '화면'), ('특수키 바', '키보드')]) {
     testWidgets('$page keeps its parent category selected on wide screens', (
       tester,
     ) async {
@@ -261,7 +257,6 @@ void main() {
         '설정',
         ...categories,
         '폰트 관리',
-        '하드웨어 키보드',
         '특수키 바',
         '도움말',
         '진단 로그',

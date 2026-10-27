@@ -371,6 +371,9 @@ Future<bool> confirm(
     ) ??
     false;
 
+bool canConnectHost(EngineRecord host) =>
+    host['protocol'] == 'ssh' || host['protocol'] == 'local';
+
 String hostAddress(EngineRecord host) {
   final protocol = '${host['protocol'] ?? ''}';
   if (protocol == 'local') return '로컬 셸';
@@ -382,7 +385,7 @@ String hostAddress(EngineRecord host) {
   };
   final suffix = port == null || port == standard ? '' : ':$port';
   final user = '${host['username'] ?? ''}';
-  return '${user.isEmpty ? '' : '$user@'}${host['hostname'] ?? ''}$suffix';
+  return '${user.isEmpty ? '' : '$user@'}${host['hostname'] ?? ''}$suffix${canConnectHost(host) ? '' : ' · $protocol 미지원'}';
 }
 
 class ShellHome extends StatefulWidget {
@@ -569,6 +572,10 @@ class _ShellHomeState extends State<ShellHome> {
   }
 
   Future<void> _connect(EngineRecord host, {bool newSession = false}) async {
+    if (!canConnectHost(host)) {
+      await _hostMenu(host, 'edit');
+      return;
+    }
     if (engine.state['entryAction'] ==
         'android.intent.action.CREATE_SHORTCUT') {
       await runEngine(context, engine, 'shortcut', {
@@ -718,7 +725,8 @@ class _ShellHomeState extends State<ShellHome> {
                     runSpacing: 8,
                     children: [
                       for (final (value, label, icon) in [
-                        ('newSession', '새 세션', Icons.library_add_outlined),
+                        if (canConnectHost(host))
+                          ('newSession', '새 세션', Icons.library_add_outlined),
                         ('edit', '편집', Icons.edit_outlined),
                         (
                           'favorite',
@@ -761,10 +769,12 @@ class _ShellHomeState extends State<ShellHome> {
               ),
               const SizedBox(height: 16),
               for (final (value, label, icon) in [
-                ('duplicate', '복제', Icons.file_copy_outlined),
+                if (canConnectHost(host))
+                  ('duplicate', '복제', Icons.file_copy_outlined),
                 if (host['protocol'] == 'ssh')
                   ('forwards', '포트 포워딩', Icons.swap_horiz),
-                ('shortcut', '홈 화면에 추가', Icons.add_to_home_screen_outlined),
+                if (canConnectHost(host))
+                  ('shortcut', '홈 화면에 추가', Icons.add_to_home_screen_outlined),
               ])
                 ListTile(
                   leading: Icon(icon, size: 22),

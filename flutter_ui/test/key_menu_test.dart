@@ -28,6 +28,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late AndroidEngine engine;
   MethodCall? copied;
+  MethodCall? imported;
   setUp(() {
     engine = UiEngineFixture()
       ..state = {
@@ -42,10 +43,15 @@ void main() {
         ],
       };
     copied = null;
+    imported = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(AndroidEngine.channel, (call) async {
           if (call.method == 'snapshot') return engine.state;
           if (call.method == 'key.copy') copied = call;
+          if (call.method == 'key.importPassword') {
+            imported = call;
+            engine.state['keyState'] = {};
+          }
           return null;
         });
   });
@@ -54,7 +60,7 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(AndroidEngine.channel, null);
   });
-  testWidgets('key creation and editing have no use confirmation option', (
+  testWidgets('saved key confirmation can be explicitly enabled', (
     tester,
   ) async {
     await tester.pumpWidget(MaterialApp(home: GenerateKeyPage(engine: engine)));
@@ -70,7 +76,15 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('사용할 때마다 확인'), findsNothing);
+    expect(find.text('사용할 때 확인'), findsOneWidget);
+    expect(
+      tester
+          .widget<SwitchListTile>(
+            find.widgetWithText(SwitchListTile, '사용할 때 확인'),
+          )
+          .value,
+      isTrue,
+    );
   });
 
   testWidgets('private key formats remain reachable through grouped actions', (
@@ -91,6 +105,48 @@ void main() {
       'format': 'openssh',
       'password': null,
       'exportPassword': null,
+    });
+  });
+  for (final loaded in [false, true]) {
+    testWidgets(
+      'encrypted private copy prompts only when locked: loaded=$loaded',
+      (tester) async {
+        engine.state['keys'] = [
+          {...engine.list('keys').single, 'encrypted': true, 'loaded': loaded},
+        ];
+        await tester.pumpWidget(MaterialApp(home: KeyPage(engine: engine)));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Test key 옵션'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('비밀키 복사·저장'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('복사'));
+        await tester.pumpAndSettle();
+        expect(find.text('키 암호'), loaded ? findsNothing : findsOneWidget);
+        expect(copied != null, loaded);
+      },
+    );
+  }
+  testWidgets('encrypted import asks once and preserves its password', (
+    tester,
+  ) async {
+    await tester.pumpWidget(MaterialApp(home: KeyPage(engine: engine)));
+    await tester.pumpAndSettle();
+    engine.state['keyState'] = {
+      'importPassword': {'nickname': 'Imported key'},
+    };
+    engine.notifyListeners();
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), 'existing secret');
+    await tester.tap(find.text('적용'));
+    await tester.pumpAndSettle();
+    expect(find.text('저장 암호'), findsNothing);
+    expect(find.text('새 저장 암호'), findsNothing);
+    expect(imported?.arguments, {
+      'nickname': 'Imported key',
+      'password': 'existing secret',
+      'encrypt': true,
+      'encryptPassword': 'existing secret',
     });
   });
   testWidgets('biometric keys keep only public key export actions', (

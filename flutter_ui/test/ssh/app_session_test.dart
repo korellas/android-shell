@@ -67,33 +67,37 @@ void main() {
     }
   }
 
-  AppSshSession create({Future<void> Function(FakeTransport)? connect}) =>
-      AppSshSession(
-        id: 7,
-        prepared: prepared,
-        platform: platform,
-        onChanged: () {},
-        transportFactory:
-            ({
-              required endpoints,
-              required onOutput,
-              required onState,
-              required onError,
-              required wantShell,
-              required pty,
-            }) {
-              final transport = FakeTransport(
-                endpoints: endpoints,
-                onOutput: onOutput,
-                onState: onState,
-                onError: onError,
-                wantShell: wantShell,
-                pty: pty,
-              )..onConnect = connect;
-              transports.add(transport);
-              return transport;
-            },
-      );
+  AppSshSession create({
+    Future<void> Function(FakeTransport)? connect,
+    Future<List<SSHIdentity>> Function({required int id, String? password})?
+    loadIdentities,
+  }) => AppSshSession(
+    id: 7,
+    prepared: prepared,
+    platform: platform,
+    onChanged: () {},
+    loadStoredIdentities: loadIdentities,
+    transportFactory:
+        ({
+          required endpoints,
+          required onOutput,
+          required onState,
+          required onError,
+          required wantShell,
+          required pty,
+        }) {
+          final transport = FakeTransport(
+            endpoints: endpoints,
+            onOutput: onOutput,
+            onState: onState,
+            onError: onError,
+            wantShell: wantShell,
+            pty: pty,
+          )..onConnect = connect;
+          transports.add(transport);
+          return transport;
+        },
+  );
   setUp(() {
     transports = [];
     calls = [];
@@ -111,6 +115,17 @@ void main() {
   });
   tearDown(() async {
     await session.dispose();
+  });
+  test('legacy SOCKS4 startup cannot abort a valid SSH connection', () async {
+    prepared['forwards'] = [
+      {'id': 8, 'type': 'dynamic4', 'startEnabled': true},
+    ];
+    session = create();
+    await session.connect();
+    expect(session.sessionOpen, true);
+    expect(session.forwards.single['startEnabled'], true);
+    expect(session.forwards.single['enabled'], false);
+    await expectLater(session.setForward(8, true), throwsUnsupportedError);
   });
   test(
     'serializes codec work, preserves final output and terminal across reconnect',
@@ -213,6 +228,30 @@ void main() {
       expect(utf8.decode(transports.single.writes.single), 'c');
     },
   );
+  test('biometric key loads without an extra app confirmation', () async {
+    prepared['host']['pubkeyId'] = 4;
+    prepared['keys'] = [
+      {'id': 4, 'nickname': 'protected', 'biometric': true},
+    ];
+    var loaded = false;
+    session = create(
+      loadIdentities: ({required id, password}) async {
+        expect(id, 4);
+        expect(password, isNull);
+        loaded = true;
+        return [];
+      },
+      connect: (transport) async {
+        await transport.endpoints.single.loadIdentities!();
+      },
+    );
+    final connecting = session.connect();
+    await Future<void>.delayed(Duration.zero);
+    expect(session.prompts, isEmpty);
+    await connecting;
+    expect(loaded, true);
+  });
+
   test('key confirmation is deferred and denial skips only that key', () async {
     prepared['host']['pubkeyId'] = 4;
     prepared['keys'] = [

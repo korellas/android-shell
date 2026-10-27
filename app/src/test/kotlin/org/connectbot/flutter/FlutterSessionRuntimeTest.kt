@@ -190,8 +190,8 @@ class FlutterSessionRuntimeTest {
     }
 
     @Test
-    @Config(sdk = [24])
-    fun legacyBellNotificationSwitchIsRespected() = runTest(dispatcher) {
+    @Config(sdk = [24, 28])
+    fun individualBellNotificationSwitchIsRespected() = runTest(dispatcher) {
         val session = NotificationSession("ssh-1", Host(), connected = true)
         runtime.updateSessions(listOf(session))
         preferences.edit().putBoolean(PreferenceConstants.BELL_NOTIFICATION, false).commit()
@@ -201,7 +201,7 @@ class FlutterSessionRuntimeTest {
 
     @Test
     @Config(sdk = [28])
-    fun systemChannelsOwnBellSettingAndDepartingConsoleCannotHideNewSelection() = runTest(dispatcher) {
+    fun departingConsoleCannotHideNewSelectionAndBellPreferenceIsRespected() = runTest(dispatcher) {
         val first = NotificationSession("ssh-1", Host(), connected = true)
         val second = NotificationSession("ssh-2", Host(), connected = true)
         runtime.updateSessions(listOf(first, second))
@@ -213,7 +213,18 @@ class FlutterSessionRuntimeTest {
         Mockito.verify(notifier, Mockito.never()).showActivityNotification(application, second)
         preferences.edit().putBoolean(PreferenceConstants.BELL_NOTIFICATION, false).commit()
         runtime.bell(first.id)
-        Mockito.verify(notifier).showActivityNotification(application, first)
+        Mockito.verify(notifier, Mockito.never()).showActivityNotification(application, first)
+    }
+
+    @Test
+    @Config(sdk = [24, 28])
+    fun individualDisconnectNotificationSwitchIsRespected() = runTest(dispatcher) {
+        val session = NotificationSession("ssh-1", Host(), connected = true)
+        runtime.updateSessions(listOf(session))
+        appVisible(false)
+        preferences.edit().putBoolean(PreferenceConstants.CONNECTION_LOST_NOTIFICATION, false).commit()
+        runtime.sessionEnded(session.id, DisconnectReason.NETWORK_LOST)
+        Mockito.verify(notifier).sessionEnded(application, session.copy(connected = false, connecting = false), DisconnectReason.NETWORK_LOST, false)
     }
 
     @Test

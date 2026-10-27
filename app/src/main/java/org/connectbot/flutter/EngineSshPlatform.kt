@@ -120,9 +120,10 @@ internal suspend fun AndroidShellEngine.sshPlatformOperation(method: String, arg
     }
 }
 
-private suspend fun AndroidShellEngine.resolveSshUri(text: String): Host {
+internal suspend fun AndroidShellEngine.resolveSshUri(text: String): Host {
     val uri = Uri.parse(if (text.contains("://")) text else "ssh://$text")
-    if (uri.scheme == "local") return Host.createLocalHost(uri.fragment ?: "Local")
+    val defaults = activity.settings.uiState.value.newHostDefaults()
+    if (uri.scheme == "local") return Host.createLocalHost(uri.fragment ?: "Local").copy(profileId = defaults.profileId, scrollbackLines = defaults.scrollbackLines)
     require(uri.scheme == "ssh") { "Only SSH and local connections are supported" }
     val hostname = requireNotNull(uri.host) { "Missing SSH hostname" }
     val username = uri.userInfo.orEmpty()
@@ -130,7 +131,7 @@ private suspend fun AndroidShellEngine.resolveSshUri(text: String): Host {
     val port = if (uri.port == -1) 22 else uri.port
     require(port in 1..65535 && hostname.isNotBlank())
     val existing = hosts.findHost(mapOf("protocol" to "ssh", "hostname" to hostname, "username" to username, "port" to port.toString()))
-    return existing ?: Host(id = -1, nickname = uri.fragment ?: hostname, hostname = hostname, username = username, port = port)
+    return existing ?: defaults.copy(id = -1, nickname = uri.fragment ?: hostname, hostname = hostname, username = username, port = port)
 }
 
 private suspend fun AndroidShellEngine.prepareSshHost(configured: Host): Wire {
@@ -138,7 +139,7 @@ private suspend fun AndroidShellEngine.prepareSshHost(configured: Host): Wire {
     val identity = configured.identityId?.let { database.identityDao().getById(it) }
     require(configured.identityId == null || identity != null) { "Missing SSH identity" }
     val host = if (identity == null) configured else configured.copy(username = identity.username, pubkeyId = identity.pubkeyId)
-    val profile = host.profileId?.let { profiles.getById(it) } ?: profiles.getDefault()
+    val profile = resolveTerminalProfile(host.profileId)
     Charset.forName(profile.encoding)
     val password = if (identity != null) activity.passwords.getIdentityPassword(identity.id) else activity.passwords.getPassword(host.id)
     val candidates = if (host.protocol == "local" || !host.useKeys || host.pubkeyId == -2L) {

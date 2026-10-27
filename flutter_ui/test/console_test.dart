@@ -171,7 +171,14 @@ void main() {
           engine.state = {
             'ready': true,
             'hosts': [
-              {'id': 7, 'nickname': 'Research'},
+              {
+                'id': 7,
+                'nickname': 'Research',
+                'protocol': 'ssh',
+                'hostname': 'example.test',
+                'username': 'user',
+                'port': 22,
+              },
             ],
             'sessions': [
               {'id': 101, 'hostId': 7, 'nickname': 'Research', 'open': open},
@@ -213,6 +220,13 @@ void main() {
                 ),
               );
           await tester.pumpAndSettle();
+          if (!open) {
+            expect(find.widgetWithText(TextButton, 'tab'), findsNothing);
+            expect(
+              tester.widget<TerminalView>(find.byType(TerminalView)).readOnly,
+              true,
+            );
+          }
           if (toolbar) {
             await tester.tap(find.byTooltip('뒤로'));
           } else {
@@ -662,7 +676,62 @@ void main() {
   });
 
   testWidgets(
-    'reconnecting uses saved host identity rather than session identity',
+    'enrollment offers supported software and biometric public keys',
+    (tester) async {
+      final engine = UiEngineFixture();
+      engine.state = {
+        'ready': true,
+        'keys': [
+          {
+            'id': 1,
+            'nickname': 'Generated',
+            'type': 'IMPORTED',
+            'supported': true,
+            'publicKey': 'ssh-ed25519 generated',
+          },
+          {
+            'id': 2,
+            'nickname': 'Biometric',
+            'type': 'EC',
+            'supported': true,
+            'publicKey': 'ecdsa-sha2-nistp256 bio',
+          },
+          {
+            'id': 3,
+            'nickname': 'Unsupported',
+            'type': 'IMPORTED',
+            'supported': false,
+            'publicKey': 'invalid',
+          },
+          {'id': 4, 'nickname': 'No public key', 'type': 'EC'},
+        ],
+        'enrollment': {'stage': 'IDLE', 'selectedKeyId': 1},
+      };
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        (call) async => call.method == 'snapshot' ? engine.state : null,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: EnrollmentPage(
+            engine: engine,
+            host: const {'id': 7, 'nickname': 'Research'},
+            sessionId: 101,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Generated'));
+      await tester.pumpAndSettle();
+      expect(find.text('Generated · IMPORTED'), findsOneWidget);
+      expect(find.text('Biometric · EC'), findsOneWidget);
+      expect(find.text('Unsupported · IMPORTED'), findsNothing);
+      expect(find.text('No public key · EC'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'reconnecting targets the current session among same-host sessions',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -672,6 +741,7 @@ void main() {
       engine.state = {
         'ready': true,
         'sessions': [
+          {'id': 100, 'hostId': 7, 'nickname': 'Research other', 'open': true},
           {'id': 101, 'hostId': 7, 'nickname': 'Research', 'open': false},
         ],
         'preferences': {'titlebarhide': false},
@@ -684,9 +754,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('다시 연결'));
       await tester.pumpAndSettle();
-      expect(calls.singleWhere((c) => c.method == 'connect').arguments, {
-        'id': 7,
-      });
+      expect(calls.where((c) => c.method == 'connect'), isEmpty);
+      expect(
+        calls.singleWhere((c) => c.method == 'session.reconnect').arguments,
+        {'id': 101},
+      );
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
       engine.dispose();
@@ -794,6 +866,7 @@ void main() {
   testWidgets('console menu exposes grouped actions in one menu', (
     tester,
   ) async {
+    authenticationPending = false;
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -815,6 +888,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
     expect(find.text('Clipboard text'), findsOneWidget);
+    final pane = tester.widget<TerminalPane>(find.byType(TerminalPane));
+    final output = <String>[];
+    pane.terminal.onOutput = output.add;
+    pane.terminal.setBracketedPasteMode(true);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('전송'));
+    await tester.pumpAndSettle();
+    expect(output.join(), '\x1b[200~Clipboard text\x1b[201~');
+    expect(calls.where((c) => c.method == 'session.sendText'), isEmpty);
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
   });

@@ -140,8 +140,9 @@ class _ConsolePageState extends State<ConsolePage> {
     final input = engine.textInput;
     if (input?['owner'] == routeOwner) {
       engine.textInput = null;
+      final target = engine.terminalSession(id);
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
+        if (!mounted || target?.sessionOpen != true) return;
         final text = await askText(
           actionsContext,
           '${session['nickname'] ?? '터미널'}로 전송',
@@ -150,8 +151,12 @@ class _ConsolePageState extends State<ConsolePage> {
           initial: '${input?['text'] ?? ''}',
           multiline: true,
         );
-        if (text != null && mounted) {
-          await command('session.sendText', {'text': text});
+        await WidgetsBinding.instance.endOfFrame;
+        if (text != null &&
+            mounted &&
+            target?.sessionOpen == true &&
+            engine.terminalSession(id) == target) {
+          target!.input.paste(text);
         }
       });
     }
@@ -310,6 +315,8 @@ class _ConsolePageState extends State<ConsolePage> {
       return;
     }
     if (action == 'text' || action == 'editPaste') {
+      final target = engine.terminalSession(id);
+      if (target?.sessionOpen != true) return;
       final initial = action == 'editPaste'
           ? (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? ''
           : '';
@@ -322,8 +329,12 @@ class _ConsolePageState extends State<ConsolePage> {
         initial: initial,
         multiline: true,
       );
-      if (text != null && mounted) {
-        await command('session.sendText', {'text': text});
+      await WidgetsBinding.instance.endOfFrame;
+      if (text != null &&
+          mounted &&
+          target?.sessionOpen == true &&
+          engine.terminalSession(id) == target) {
+        target!.input.paste(text);
       }
       return;
     }
@@ -332,6 +343,10 @@ class _ConsolePageState extends State<ConsolePage> {
       return;
     }
     if (action == 'reconnect') {
+      if (engine.terminalSession(id) != null) {
+        await command('session.reconnect');
+        return;
+      }
       final hostId = connectionTarget['hostId'];
       final uri = connectionTarget['uri'];
       if (hostId is int && hostId > 0) {
@@ -498,8 +513,10 @@ class _ConsolePageState extends State<ConsolePage> {
                 runSpacing: 8,
                 alignment: WrapAlignment.center,
                 children: [
-                  tile('paste', '붙여넣기', Icons.content_paste_outlined),
-                  tile('text', '텍스트 입력', Icons.edit_note_outlined),
+                  if (connected)
+                    tile('paste', '붙여넣기', Icons.content_paste_outlined),
+                  if (connected)
+                    tile('text', '텍스트 입력', Icons.edit_note_outlined),
                   tile('urls', '링크', Icons.link_outlined),
                   if (connected)
                     tile(
@@ -528,12 +545,13 @@ class _ConsolePageState extends State<ConsolePage> {
                     ? selectMenuAction('titlebarhide')
                     : action('titlebarhide'),
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.edit_note_outlined, size: 22),
-                title: const Text('편집 후 전송'),
-                onTap: () => action('editPaste'),
-              ),
+              if (connected)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.edit_note_outlined, size: 22),
+                  title: const Text('편집 후 전송'),
+                  onTap: () => action('editPaste'),
+                ),
               if (connected && session['canForward'] == true)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -825,6 +843,14 @@ class _ConsolePageState extends State<ConsolePage> {
                                                     .toDouble(),
                                             groupFunctionKeys:
                                                 prefs['terminalBarFn'] != false,
+                                            stickyModifiers:
+                                                prefs['stickymodifiers']
+                                                    as String? ??
+                                                'no',
+                                            hapticFeedback:
+                                                prefs['bumpyarrows'] == true,
+                                            showKeyboardToggle:
+                                                prefs['imeTogglekey'] != false,
                                             onEdit: (initial) => askText(
                                               actionsContext,
                                               '${session['nickname'] ?? '터미널'}로 전송',
@@ -1167,7 +1193,14 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       if (state['biometricAvailable'] == true) (null, '새 생체인증 키'),
       ('generate', '새 SSH 키 만들기'),
       for (final key
-          in widget.engine.list('keys').where((k) => k['type'] != 'IMPORTED'))
+          in widget.engine
+              .list('keys')
+              .where(
+                (k) =>
+                    k['supported'] != false &&
+                    k['publicKey'] is String &&
+                    (k['publicKey'] as String).isNotEmpty,
+              ))
         (key['id'], '${key['nickname']} · ${key['type']}'),
     ], keyId);
     if (choice == null || !mounted) return;

@@ -168,7 +168,6 @@ class _SettingsPageState extends State<SettingsPage> {
       'connection',
       'security',
       'fonts',
-      'hardware',
     ]) {
       fields(context, id);
     }
@@ -207,7 +206,6 @@ class _SettingsPageState extends State<SettingsPage> {
     'connection' => '연결·알림',
     'security' => '보안·백업',
     'fonts' => '폰트 관리',
-    'hardware' => '하드웨어 키보드',
     'bar' => '특수키 바',
     _ => '설정',
   };
@@ -363,7 +361,9 @@ class _SettingsPageState extends State<SettingsPage> {
             title: '좌우 여백',
             unit: '',
             value: current,
-            max: 100,
+            max:
+                (engine.preferences['terminalMarginMax'] as num?)?.toInt() ??
+                24,
             onChanged: (v) => update(c, 'terminalMargin', v),
           ),
           Padding(
@@ -657,48 +657,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ]),
-          group('Ctrl·Alt를 누를 때 키보드', [
-            radio(
-              c,
-              'imeShortcutInputMode',
-              [
-                ('FORCE_ASCII', '영문으로 전환'),
-                ('TYPE_NULL', '키를 직접 전송'),
-                ('DISABLED', '그대로 두기'),
-              ],
-              label: 'Ctrl·Alt를 누를 때 키보드',
-              subtitles: {'FORCE_ASCII': '권장', 'TYPE_NULL': '자동 완성·한글 조합 끔'},
-            ),
-            if (engine.state['koreanKeyboard'] == true)
-              toggle(c, 'imeTogglekey', '입력 모드 전환 버튼'),
-          ]),
-          group('', [
-            go(
-              'hardware',
-              '하드웨어 키보드',
-              () => setState(() => category = 'hardware'),
-              sub: engine.state['hardwareKeyboard'] == true ? '연결됨' : '연결 안 됨',
-              icon: Icons.keyboard_alt_outlined,
-            ),
-          ]),
-        ];
-      case 'hardware':
-        return [
-          group('', [
-            toggle(c, 'shiftfkeys', 'Shift+숫자를 기능키로', sub: 'Shift+1 → F1'),
-            toggle(c, 'ctrlfkeys', 'Ctrl+숫자를 기능키로'),
-            choice(c, 'keymode', '보조 키 위치', [
-              ('none', '사용 안 함'),
-              ('Use left-side keys', '왼쪽'),
-              ('Use right-side keys', '오른쪽'),
-            ]),
-            choice(c, 'camera', '카메라 버튼', [
-              ('Ctrl+A then Space', 'Ctrl+A, Space'),
-              ('Ctrl+A', 'Ctrl+A'),
-              ('Esc', 'Esc'),
-              ('Esc+A', 'Esc, A'),
-            ], forceList: true),
-          ]),
+          group('', [toggle(c, 'imeTogglekey', '키보드 전환 버튼')]),
         ];
       case 'gesture':
         final horizontal = p['swipeTmux'] == true
@@ -1076,8 +1035,6 @@ class _SettingsPageState extends State<SettingsPage> {
   void back(bool wide) {
     if (category == 'bar') {
       setState(() => category = 'keyboard');
-    } else if (category == 'hardware') {
-      setState(() => category = 'keyboard');
     } else if (category == 'fonts') {
       setState(() => category = 'display');
     } else if (!wide && category != null) {
@@ -1135,8 +1092,7 @@ class _SettingsPageState extends State<SettingsPage> {
               );
         return PopScope(
           canPop:
-              category == null ||
-              wide && !['fonts', 'hardware', 'bar'].contains(category),
+              category == null || wide && !['fonts', 'bar'].contains(category),
           onPopInvokedWithResult: (didPop, result) {
             if (!didPop) back(wide);
           },
@@ -1162,7 +1118,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         width: 320,
                         child: categories(switch (selected) {
                           'fonts' => 'display',
-                          'hardware' || 'bar' => 'keyboard',
+                          'bar' => 'keyboard',
                           _ => selected,
                         }),
                       ),

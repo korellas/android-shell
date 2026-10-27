@@ -17,10 +17,15 @@
 
 package org.connectbot.service
 
+import android.Manifest
+import android.annotation.TargetApi
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.Service
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -31,6 +36,7 @@ import kotlinx.coroutines.test.runTest
 import org.connectbot.R
 import org.connectbot.data.entity.Host
 import org.connectbot.di.CoroutineDispatchers
+import org.connectbot.flutter.FlutterSessionService
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -69,6 +75,28 @@ class ConnectionNotifierTest {
     private fun text(notification: Notification): String = notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString()
 
     private fun title(notification: Notification): String = notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString()
+
+    @Test
+    @Config(sdk = [34])
+    @TargetApi(34)
+    fun foregroundTypeMatchesDeclaredTerminalUse() = runTest(dispatcher) {
+        notifier.showRunningNotification(service, listOf(first))
+        advanceUntilIdle()
+
+        val declaration = service.packageManager.getServiceInfo(ComponentName(service, FlutterSessionService::class.java), 0)
+        assertEquals(ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE, declaration.foregroundServiceType)
+        assertEquals(declaration.foregroundServiceType, service.foregroundServiceType)
+    }
+
+    @Test
+    @Config(sdk = [34])
+    fun terminalDoesNotRequestStorageDiscoveryOrMessagingPermissions() {
+        val permissions = service.packageManager.getPackageInfo(service.packageName, PackageManager.GET_PERMISSIONS).requestedPermissions.orEmpty().toSet()
+        assertFalse(Manifest.permission.WRITE_EXTERNAL_STORAGE in permissions)
+        assertFalse(Manifest.permission.NEARBY_WIFI_DEVICES in permissions)
+        assertFalse(Manifest.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING in permissions)
+        assertTrue(Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE in permissions)
+    }
 
     @Test
     fun disconnectActionTargetsServiceWhileBodyStillOpensApp() = runTest(dispatcher) {

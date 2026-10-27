@@ -294,7 +294,9 @@ class _AutomationPageState extends State<AutomationPage> {
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      title: Text(actionLabel('${action['type']}')),
+                      title: Text(
+                        '${actionLabel('${action['type']}')}${widget.host['protocol'] != 'ssh' && (action['type'] == 'ENABLE_FORWARD' || action['type'] == 'DISABLE_FORWARD') ? ' · 미지원' : ''}',
+                      ),
                       subtitle: Text(
                         action['type'] == 'DELAY'
                             ? '${action['durationMs']} ms'
@@ -367,14 +369,24 @@ class _AutomationStepPageState extends State<AutomationStepPage> {
       ...?widget.action,
     };
     original = {...draft};
-    unawaited(loadForwards());
+    if (widget.host['protocol'] == 'ssh') unawaited(loadForwards());
   }
+
+  bool get unsupportedForward =>
+      widget.host['protocol'] != 'ssh' &&
+      (draft['type'] == 'ENABLE_FORWARD' || draft['type'] == 'DISABLE_FORWARD');
 
   Future<void> loadForwards() async {
     final result = rows(
       await widget.engine.query('forwards', {'hostId': widget.host['id']}),
     );
-    if (mounted) setState(() => forwards = result);
+    if (mounted) {
+      setState(
+        () => forwards = result
+            .where((forward) => forward['type'] != 'dynamic4')
+            .toList(),
+      );
+    }
   }
 
   @override
@@ -416,13 +428,29 @@ class _AutomationStepPageState extends State<AutomationStepPage> {
                   'SEND_KEY',
                   'DELAY',
                   'DISCONNECT',
-                  'ENABLE_FORWARD',
-                  'DISABLE_FORWARD',
+                  if (widget.host['protocol'] == 'ssh') ...[
+                    'ENABLE_FORWARD',
+                    'DISABLE_FORWARD',
+                  ],
+                  if (unsupportedForward) draft['type'] as String,
                 ])
-                  DropdownMenuItem(value: type, child: Text(actionLabel(type))),
+                  DropdownMenuItem(
+                    value: type,
+                    enabled: !(unsupportedForward && type == draft['type']),
+                    child: Text(
+                      '${actionLabel(type)}${unsupportedForward && type == draft['type'] ? ' · 미지원' : ''}',
+                    ),
+                  ),
               ],
               onChanged: (v) => setState(() => draft['type'] = v),
             ),
+            if (unsupportedForward)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  '로컬 연결은 포워딩 동작을 지원하지 않습니다. 다른 동작으로 변경하거나 이 단계를 삭제하세요.',
+                ),
+              ),
             if (draft['type'] == 'WAIT_FOR_TEXT' ||
                 draft['type'] == 'SEND_TEXT')
               TextFormField(
@@ -452,8 +480,8 @@ class _AutomationStepPageState extends State<AutomationStepPage> {
                       : '대기 시간 (밀리초)',
                 ),
                 validator: (v) =>
-                    int.tryParse(v ?? '') == null || int.parse(v!) < 0
-                    ? '0 이상의 정수를 입력하세요.'
+                    int.tryParse(v ?? '') == null || int.parse(v!) <= 0
+                    ? '0보다 큰 정수를 입력하세요.'
                     : null,
                 onChanged: (v) =>
                     setState(() => draft['durationMs'] = int.tryParse(v)),
@@ -497,12 +525,18 @@ class _AutomationStepPageState extends State<AutomationStepPage> {
                 ],
               ),
             ],
-            if (draft['type'] == 'ENABLE_FORWARD' ||
-                draft['type'] == 'DISABLE_FORWARD')
+            if (!unsupportedForward &&
+                (draft['type'] == 'ENABLE_FORWARD' ||
+                    draft['type'] == 'DISABLE_FORWARD'))
               DropdownButtonFormField<int>(
                 isExpanded: true,
                 isDense: false,
-                initialValue: draft['forwardId'] as int?,
+                initialValue:
+                    forwards.any(
+                      (forward) => forward['id'] == draft['forwardId'],
+                    )
+                    ? draft['forwardId'] as int?
+                    : null,
                 decoration: const InputDecoration(labelText: '포워딩'),
                 items: [
                   for (final forward in forwards)

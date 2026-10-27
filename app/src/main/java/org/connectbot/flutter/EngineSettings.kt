@@ -30,6 +30,8 @@ import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.withContext
+import org.connectbot.data.entity.Host
+import org.connectbot.data.entity.Profile
 import org.connectbot.ui.screens.settings.SettingsUiState
 import org.connectbot.util.IconStyle
 import org.connectbot.util.ImeShortcutInputMode
@@ -43,12 +45,21 @@ import org.connectbot.util.ThemeMode
 import org.connectbot.util.VTermKey
 import java.io.ByteArrayOutputStream
 
+internal fun SettingsUiState.newHostDefaults(): Host = Host(
+    profileId = null,
+    scrollbackLines = scrollback.toIntOrNull()?.takeIf { it in 0..100000 } ?: Host().scrollbackLines,
+)
+
+internal suspend fun AndroidShellEngine.resolveTerminalProfile(profileId: Long? = null): Profile = profileId?.let { profiles.getById(it) }
+    ?: activity.settings.uiState.value.defaultProfileId.takeIf { it > 0 }?.let { profiles.getById(it) }
+    ?: profiles.getDefault()
+
 internal fun SettingsUiState.toWire(): Wire = mapOf(
     "authOnLaunch" to authOnLaunch, "canAuthenticate" to canAuthenticate, "memkeys" to memkeys,
     "connectionAlerts" to connectionAlerts, "notificationsAvailable" to notificationsAvailable, "wifilock" to wifilock,
     "backupkeys" to backupkeys, "scrollback" to scrollback, "rotation" to rotation, "titlebarhide" to titlebarhide,
     "fullscreen" to fullscreen, "pgupdngesture" to pgupdngesture, "swipeSessions" to swipeSessions, "swipeTmux" to swipeTmux,
-    "tmuxCtrlA" to tmuxCtrlA, "terminalMargin" to terminalMargin, "volumefont" to volumefont, "keepalive" to keepalive,
+    "tmuxCtrlA" to tmuxCtrlA, "terminalMargin" to terminalMargin, "terminalMarginMax" to SettingsUiState.terminalMarginRange.last, "volumefont" to volumefont, "keepalive" to keepalive,
     "alwaysvisible" to alwaysvisible, "imeTogglekey" to imeTogglekey, "imeShortcutInputMode" to imeShortcutInputMode.name,
     "shiftfkeys" to shiftfkeys, "ctrlfkeys" to ctrlfkeys, "stickymodifiers" to stickymodifiers, "keymode" to keymode,
     "camera" to camera, "bumpyarrows" to bumpyarrows, "bell" to bell, "bellVolume" to bellVolume,
@@ -284,8 +295,8 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
 
         "help.document" -> when (args.text("section")) {
             "license" -> withContext(activity.dispatchers.io) { activity.assets.open("flutter-native-license.txt").bufferedReader().use { it.readText() } }
-            "contact" -> listOf(org.connectbot.R.string.app_copyright, org.connectbot.R.string.help_website_url, org.connectbot.R.string.help_github_url, org.connectbot.R.string.help_report_bug_url).joinToString("\n\n") { activity.getString(it) }
-            "hints" -> "Ctrl+Shift+C: copy selection\nCtrl+Shift+V: paste\nCtrl+Shift++ / Ctrl+Shift+-: font size\nTouch the terminal to open the keyboard. Hold Ctrl or Alt to lock the modifier."
+            "contact" -> "Tilde\n\nProject: https://github.com/korellas/android-shell\n\nReport a bug: https://github.com/korellas/android-shell/issues"
+            "hints" -> "Ctrl+Shift+C: copy selection\nCtrl+Shift+V: paste\nCtrl+Shift++ / Ctrl+Shift+-: font size\nTouch the terminal to open the keyboard. Choose Ctrl/Alt hold behavior in Keyboard settings."
             else -> error("지원하지 않는 문서입니다.")
         }
 
@@ -293,8 +304,6 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
             activity.logs.loadLogs()
             activity.logs.uiState.value.logs
         }
-
-        "logs.clear" -> error("기존 로그 엔진은 로그 삭제를 지원하지 않습니다.")
 
         "logs.tombstone" -> {
             val uri = activity.createDocument("android-shell-tombstone.txt")
@@ -368,7 +377,7 @@ internal fun androidx.compose.material3.ColorScheme.toWire(): Wire = mapOf(
 
 private suspend fun AndroidShellEngine.terminalPreview(args: Wire): Wire {
     val state = activity.settings.uiState.value
-    val profile = state.defaultProfileId.takeIf { it > 0 }?.let { profiles.getById(it) } ?: profiles.getDefault()
+    val profile = resolveTerminalProfile()
 
     @Suppress("UNCHECKED_CAST")
     val previewProfile = args["profile"] as? Wire ?: emptyMap()
