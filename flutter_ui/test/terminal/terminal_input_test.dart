@@ -55,6 +55,22 @@ void main() {
     );
   }
 
+  test('modifier policy applies once, locks both, or locks only Alt', () {
+    final output = <String>[];
+    final input = TerminalInputController(
+      terminal: Terminal(onOutput: output.add),
+    );
+    addTearDown(input.dispose);
+    for (final policy in ['no', 'yes', 'alt']) {
+      input.stickyModifiers = policy;
+      input.setModifiers(ctrl: true, alt: true);
+      input.sendKey(TerminalKey.tab);
+      expect(input.ctrl, policy == 'yes');
+      expect(input.alt, policy != 'no');
+    }
+    expect(output, isNotEmpty);
+  });
+
   testWidgets('committed prefix is sent while the next syllable composes', (
     tester,
   ) async {
@@ -164,6 +180,7 @@ void main() {
     tester,
   ) async {
     await open(tester);
+    input.stickyModifiers = 'yes';
     input.setModifiers(ctrl: true);
     edit(tester, 'c');
     edit(tester, 'C');
@@ -178,6 +195,7 @@ void main() {
     tester,
   ) async {
     await open(tester);
+    input.stickyModifiers = 'yes';
     input.setModifiers(alt: true);
     edit(tester, 'x');
     edit(tester, 'X');
@@ -250,6 +268,18 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.keyX, character: 'x');
     await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
     expect(output.join(), '한\x03\x1b[A\x1bx');
+  });
+
+  testWidgets('one-shot hardware chord preserves Kitty release modifiers', (
+    tester,
+  ) async {
+    await open(tester, softKeyboard: false);
+    terminal.write('\x1b[>3u');
+    input.setModifiers(ctrl: true);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyC, character: 'c');
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyC);
+    expect(output.join(), '\x1b[99;5u\x1b[99;5:3u');
+    expect(input.ctrl, false);
   });
 
   testWidgets('hardware text is left to the active IME exactly once', (

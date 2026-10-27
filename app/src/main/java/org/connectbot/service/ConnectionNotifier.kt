@@ -360,7 +360,7 @@ class ConnectionNotifier @Inject constructor(dispatchers: CoroutineDispatchers) 
         foreground = true
         val notification = summary(context)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            context.startForeground(ONLINE_NOTIFICATION, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
+            context.startForeground(ONLINE_NOTIFICATION, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
             context.startForeground(ONLINE_NOTIFICATION, notification)
         }

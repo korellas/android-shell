@@ -108,7 +108,11 @@ data class SettingsUiState(
     val defaultProfileId: Long = 0L,
     val availableProfiles: List<Profile> = emptyList(),
     val terminalBarLayout: TerminalBarLayout = TerminalBarLayout(),
-)
+) {
+    companion object {
+        val terminalMarginRange = 0..24
+    }
+}
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -226,7 +230,7 @@ class SettingsViewModel @Inject constructor(
             swipeSessions = prefs.getBoolean(PreferenceConstants.SWIPE_SESSIONS, false),
             swipeTmux = prefs.getBoolean(PreferenceConstants.SWIPE_TMUX, true),
             tmuxCtrlA = prefs.getBoolean(PreferenceConstants.TMUX_CTRL_A, false),
-            terminalMargin = prefs.getInt(PreferenceConstants.TERMINAL_MARGIN, 0).coerceIn(0, 24),
+            terminalMargin = prefs.getInt(PreferenceConstants.TERMINAL_MARGIN, 0).coerceIn(SettingsUiState.terminalMarginRange),
             volumefont = prefs.getBoolean(PreferenceConstants.VOLUME_FONT, true),
             keepalive = prefs.getBoolean(PreferenceConstants.KEEP_ALIVE, true),
             alwaysvisible = prefs.getBoolean(PreferenceConstants.KEY_ALWAYS_VISIBLE, true),
@@ -385,7 +389,7 @@ class SettingsViewModel @Inject constructor(
     fun updateTmuxCtrlA(value: Boolean) = updateBooleanPref(PreferenceConstants.TMUX_CTRL_A, value) { copy(tmuxCtrlA = value) }
 
     fun updateTerminalMargin(value: Int) {
-        val margin = value.coerceIn(0, 24)
+        val margin = value.coerceIn(SettingsUiState.terminalMarginRange)
         viewModelScope.launch {
             prefs.edit { putInt(PreferenceConstants.TERMINAL_MARGIN, margin) }
             _uiState.update { it.copy(terminalMargin = margin) }

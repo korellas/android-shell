@@ -31,6 +31,21 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
   bool _ctrl = false;
   bool _alt = false;
   bool _shift = false;
+  String stickyModifiers = 'no';
+  final _hardwareModifiers = <PhysicalKeyboardKey, (bool, bool, bool)>{};
+  bool get ctrl => _ctrl;
+  bool get alt => _alt;
+  bool get shift => _shift;
+
+  void _consumeModifiers() {
+    final ctrl = stickyModifiers == 'yes' && _ctrl;
+    final alt = (stickyModifiers == 'yes' || stickyModifiers == 'alt') && _alt;
+    if (ctrl == _ctrl && alt == _alt && !_shift) return;
+    _ctrl = ctrl;
+    _alt = alt;
+    _shift = false;
+    notifyListeners();
+  }
 
   String get composingText => _composingText;
 
@@ -57,12 +72,14 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
     _focusNode = focusNode;
     _viewId = viewId;
     _enabled = enabled;
+    if (!enabled) _hardwareModifiers.clear();
     _showSoftKeyboard = showSoftKeyboard;
     focusNode.addListener(_focusChanged);
     if (focusNode.hasFocus) _openConnection();
   }
 
   void detachView() {
+    _hardwareModifiers.clear();
     _focusNode?.removeListener(_focusChanged);
     _focusNode = null;
     _closeConnection();
@@ -83,6 +100,7 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
       alt: alt || _alt,
       shift: shift || _shift,
     );
+    _consumeModifiers();
   }
 
   void setModifiers({bool ctrl = false, bool alt = false, bool shift = false}) {
@@ -92,6 +110,7 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
     _ctrl = ctrl;
     _alt = alt;
     _shift = shift;
+    notifyListeners();
   }
 
   void sendText(String text) {
@@ -258,12 +277,14 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
         shift: _shift,
       );
       if (!consumed) terminal.textInput(character);
+      _consumeModifiers();
     }
   }
 
   KeyEventResult handleKeyEvent(FocusNode node, KeyEvent event) {
     if (!_canSend) return KeyEventResult.handled;
-    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    final held = _hardwareModifiers[event.physicalKey];
+    if (event is KeyUpEvent && held == null) return KeyEventResult.ignored;
     final synonyms = LogicalKeyboardKey.collapseSynonyms({event.logicalKey});
     if (synonyms.any(
       const [
@@ -290,11 +311,40 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
         character != null &&
         character.isNotEmpty &&
         character.runes.every((rune) => rune >= 0x20 && rune != 0x7f);
-    if (_connected && !modified && printable) {
+    if (_connected && held == null && !modified && printable) {
       // Let the platform IME deliver text exactly once, including preedit.
       return KeyEventResult.skipRemainingHandlers;
     }
-    finishComposition();
+    if (event is! KeyUpEvent) finishComposition();
+    final modifiers = held ?? (_ctrl, _alt, _shift);
+    if (held != null || modifiers.$1 || modifiers.$2 || modifiers.$3) {
+      if (event is KeyUpEvent) {
+        _hardwareModifiers.remove(event.physicalKey);
+      } else {
+        _hardwareModifiers[event.physicalKey] = modifiers;
+      }
+      final key = keyToTerminalKey(event.logicalKey) ?? TerminalKey.none;
+      final consumed = terminal.keyInput(
+        key,
+        text: event is KeyUpEvent ? null : character,
+        ctrl: modifiers.$1 || keyboard.isControlPressed,
+        alt: modifiers.$2 || keyboard.isAltPressed,
+        shift: modifiers.$3 || keyboard.isShiftPressed,
+        superKey: keyboard.isMetaPressed,
+        capsLock: keyboard.lockModesEnabled.contains(KeyboardLockMode.capsLock),
+        numLock: keyboard.lockModesEnabled.contains(KeyboardLockMode.numLock),
+        type: switch (event) {
+          KeyUpEvent() => TerminalKeyEventType.release,
+          KeyRepeatEvent() => TerminalKeyEventType.repeat,
+          _ => TerminalKeyEventType.press,
+        },
+      );
+      if (!consumed && printable && event is! KeyUpEvent) {
+        terminal.textInput(character);
+      }
+      if (event is KeyDownEvent) _consumeModifiers();
+      return KeyEventResult.handled;
+    }
     return KeyEventResult.ignored;
   }
 

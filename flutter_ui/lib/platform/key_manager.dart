@@ -24,14 +24,21 @@ import 'package:pointycastle/digests/sha256.dart';
 import 'ssh_keys.dart';
 
 class KeyManager {
-  KeyManager(this.call);
+  KeyManager(this.call, {this.rememberUnlocked});
   final SshPlatformCall call;
+  final bool Function()? rememberUnlocked;
+  int _cacheGeneration = 0;
   final Map<int, List<SSHIdentity>> _loaded = {};
   final List<Map<String, Object?>> _startup = [];
   final _ephemeral = <int, Map<String, Object?>>{};
   int _nextAgentId = 0;
   Map<int, List<SSHIdentity>> get loadedIdentities => Map.unmodifiable(_loaded);
   Map<String, Object?>? ephemeralMetadata(int id) => _ephemeral[id];
+  void forgetStoredKeys() {
+    _cacheGeneration++;
+    _loaded.removeWhere((id, _) => id >= 0);
+  }
+
   Future<bool> addAgentKey(SSHKeyPair key, bool confirmation) async {
     final wire = base64.encode(key.toPublicKey().encode());
     for (final entry in _loaded.entries) {
@@ -50,6 +57,7 @@ class KeyManager {
   }
 
   Future<bool> removeAgentKey(Uint8List publicKey) async {
+    _cacheGeneration++;
     final wire = base64.encode(publicKey);
     final ids = _loaded.entries
         .where(
@@ -66,6 +74,7 @@ class KeyManager {
   }
 
   Future<bool> removeAllAgentKeys() async {
+    _cacheGeneration++;
     _loaded.clear();
     _ephemeral.clear();
     return true;
@@ -93,7 +102,16 @@ class KeyManager {
     String? password,
   }) async {
     if (_loaded.containsKey(id)) return _loaded[id]!;
-    return SshKeyAdapter(call).identities(id: id, password: password);
+    final generation = _cacheGeneration;
+    final result = await SshKeyAdapter(
+      call,
+    ).identities(id: id, password: password);
+    if (generation == _cacheGeneration &&
+        rememberUnlocked?.call() == true &&
+        result.every((identity) => identity is SSHKeyPair)) {
+      _loaded[id] = result;
+    }
+    return result;
   }
 
   Future<void> initializeStartup(List<Map<String, Object?>> keys) async {
@@ -174,6 +192,7 @@ class KeyManager {
     switch (method) {
       case 'key.load':
       case 'key.biometricUnlock':
+        _cacheGeneration++;
         if (_loaded.remove(id) == null) {
           _loaded[id!] = await identities(
             id: id,
@@ -191,6 +210,7 @@ class KeyManager {
         _startup.removeWhere((k) => k['id'] == id);
         return null;
       case 'key.delete':
+        _cacheGeneration++;
         await call('key.storageDelete', args);
         _loaded.remove(id);
         _startup.removeWhere((k) => k['id'] == id);
@@ -243,11 +263,15 @@ class KeyManager {
           });
         }
         final result = await call('key.storageSave', data);
-        _loaded.remove(id);
+        if (data['pem'] != null) {
+          _cacheGeneration++;
+          _loaded.remove(id);
+        }
         return result;
       case 'key.import':
         var text = args['text'] as String?;
         var name = args['nickname'] as String?;
+        final namedText = text != null && name?.trim().isNotEmpty == true;
         if (text == null) {
           final picked = await call('key.storagePick', args);
           if (picked == null) return null;
@@ -263,6 +287,9 @@ class KeyManager {
         }
         _importText = text;
         _importName = name ?? 'Imported key';
+        if (!_importEncrypted && namedText) {
+          return operation('key.importName', {'nickname': _importName});
+        }
         return null;
       case 'key.importPassword':
       case 'key.importName':

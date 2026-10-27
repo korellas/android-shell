@@ -331,7 +331,7 @@ class FlutterSessionRuntime @Inject constructor(
         ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
 
     private fun notificationEnabled(preference: String): Boolean = preferences.getBoolean(PreferenceConstants.CONNECTION_ALERTS, true) &&
-        (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O || preferences.getBoolean(preference, true))
+        preferences.getBoolean(preference, true)
 
     internal suspend fun setConsoleVisibility(id: String, visible: Boolean) = withContext(dispatchers.main) {
         require(id.isNotBlank())

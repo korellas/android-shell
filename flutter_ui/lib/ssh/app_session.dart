@@ -287,7 +287,7 @@ class AppSshSession implements AppTerminalSession {
         if (!_current(generation)) {
           throw StateError('SSH authentication cancelled');
         }
-        if (key['confirmation'] == true || key['biometric'] == true) {
+        if (key['confirmation'] == true) {
           final accepted = await _ask(
             {
               'type': 'boolean',
@@ -526,7 +526,7 @@ class AppSshSession implements AppTerminalSession {
       await transport.connect();
       if (!_current(generation)) return;
       for (final forward in _maps(prepared['forwards'])) {
-        if (forward['startEnabled'] == true) {
+        if (forward['startEnabled'] == true && forward['type'] != 'dynamic4') {
           await setForward(forward['id'] as int, true);
         }
         if (!_current(generation)) return;

@@ -187,12 +187,8 @@ class _RecordEditorState extends State<RecordEditor> {
         !RegExp(r':\d+$').hasMatch(input)) {
       return;
     }
-    final uri = Uri.tryParse(
-      input.contains('://') ? input : '${draft['protocol'] ?? 'ssh'}://$input',
-    );
-    if (uri == null ||
-        uri.host.isEmpty ||
-        !['ssh', 'mosh', 'telnet'].contains(uri.scheme)) {
+    final uri = Uri.tryParse(input.contains('://') ? input : 'ssh://$input');
+    if (uri == null || uri.host.isEmpty || uri.scheme != 'ssh') {
       return;
     }
     draft['hostname'] = uri.host;
@@ -218,10 +214,13 @@ class _RecordEditorState extends State<RecordEditor> {
     List<(Object?, String)> options, {
     ValueChanged<Object?>? onChanged,
     bool forceList = false,
+    bool preserveUnknown = true,
   }) {
     final current = draft[key] ?? options.firstOrNull?.$1;
     final values = [...options];
-    if (current != null && !values.any((v) => v.$1 == current)) {
+    if (preserveUnknown &&
+        current != null &&
+        !values.any((v) => v.$1 == current)) {
       values.add((current, '$current (현재 값)'));
     }
     void change(Object? value) {
@@ -440,9 +439,8 @@ class _RecordEditorState extends State<RecordEditor> {
         choices('type', '방식', [
           ('local', 'L · 로컬'),
           ('remote', 'R · 원격'),
-          ('dynamic5', 'D · SOCKS'),
-          if (draft['type'] == 'dynamic4') ('dynamic4', 'SOCKS4'),
-        ]),
+          ('dynamic5', 'D · SOCKS5'),
+        ], preserveUnknown: false),
         Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -468,7 +466,10 @@ class _RecordEditorState extends State<RecordEditor> {
           ),
         ),
         if (draft['type'] == 'dynamic4')
-          settingsNote(context, '기존 SOCKS4 설정입니다. 새 프록시는 SOCKS5를 사용하세요.'),
+          settingsNote(
+            context,
+            'SOCKS4는 실행할 수 없습니다. 방식을 SOCKS5로 변경하면 사용할 수 있습니다.',
+          ),
         Row(
           children: [
             Expanded(
@@ -494,7 +495,7 @@ class _RecordEditorState extends State<RecordEditor> {
               ),
             ],
           ),
-        toggle('startEnabled', '접속할 때 자동 활성화'),
+        if (draft['type'] != 'dynamic4') toggle('startEnabled', '접속할 때 자동 활성화'),
       ]),
     ],
     RecordKind.key => [
@@ -524,11 +525,14 @@ class _RecordEditorState extends State<RecordEditor> {
             icon: const Icon(Icons.copy_outlined),
             label: const Text('공개키 복사'),
           ),
-        if (draft['type'] == 'IMPORTED')
-          settingsNote(context, '가져온 PEM 키는 비밀키 암호를 확인한 뒤 사용할 수 있습니다.'),
       ]),
       section('키 설정', [
         text('nickname', '키 이름', required: true),
+        toggle(
+          'confirmation',
+          '사용할 때 확인',
+          description: '이 키로 인증하기 전에 허용 여부를 묻습니다',
+        ),
         if (draft['biometric'] == true)
           const ListTile(
             leading: Icon(Icons.fingerprint),
@@ -538,7 +542,7 @@ class _RecordEditorState extends State<RecordEditor> {
         if (draft['biometric'] != true) ...[
           toggle('startup', '앱 시작 시 자동 불러오기'),
           toggle('allowBackup', '키 백업 허용'),
-          if (draft['type'] != 'IMPORTED')
+          if (draft['supported'] != false)
             ListTile(
               title: const Text('키 암호 변경'),
               subtitle: Text(
@@ -554,7 +558,10 @@ class _RecordEditorState extends State<RecordEditor> {
                   context: context,
                   isScrollControlled: true,
                   showDragHandle: true,
-                  builder: (_) => const KeyPasswordSheet(),
+                  builder: (_) => KeyPasswordSheet(
+                    requireOldPassword:
+                        draft['encrypted'] == true && draft['loaded'] != true,
+                  ),
                 );
                 if (value != null && mounted) {
                   setState(() {
@@ -588,7 +595,8 @@ class _RecordEditorState extends State<RecordEditor> {
   bool get savedHost =>
       (draft['id'] as num?)?.toInt() != null &&
       (draft['id'] as num).toInt() > 0;
-  bool get sshHost => draft['protocol'] == 'ssh' || draft['protocol'] == 'mosh';
+  bool get sshHost => draft['protocol'] == 'ssh';
+  bool get supportedHost => canConnectHost(draft);
   List<Widget> hostFields(String category) {
     Widget group(String title, List<Widget> widgets) =>
         settingsSection(context, title, widgets);
@@ -599,10 +607,13 @@ class _RecordEditorState extends State<RecordEditor> {
         return [
           choices('protocol', '연결 방식', [
             ('ssh', 'SSH'),
-            ('mosh', 'Mosh'),
-            ('telnet', 'Telnet'),
             ('local', '로컬'),
-          ]),
+          ], preserveUnknown: false),
+          if (!supportedHost)
+            settingsNote(
+              context,
+              '${draft['protocol']} 연결은 지원하지 않습니다. SSH 또는 로컬로 변경하세요.',
+            ),
           text('nickname', '호스트 이름', required: true),
           if (draft['protocol'] != 'local') ...[
             text('hostname', '서버 주소', required: true, hint: 'user@host:port'),
@@ -618,19 +629,24 @@ class _RecordEditorState extends State<RecordEditor> {
                 ('IPV6_ONLY', 'IPv6'),
               ]),
               if (sshHost)
-                references(
+                choices(
                   'jumpHostId',
                   '점프 호스트',
-                  'hosts',
-                  'nickname',
-                  emptyLabel: '직접 연결',
+                  [
+                    (null, '직접 연결'),
+                    for (final host
+                        in engine
+                            .list('hosts')
+                            .where(
+                              (host) =>
+                                  host['protocol'] == 'ssh' &&
+                                  host['id'] != draft['id'],
+                            ))
+                      (host['id'], '${host['nickname']}'),
+                  ],
+                  forceList: true,
+                  preserveUnknown: false,
                 ),
-              if (draft['protocol'] == 'mosh') ...[
-                text('moshPort', 'UDP 포트 (0 = 자동)', number: true),
-                text('moshNetworkTimeout', '네트워크 타임아웃', number: true),
-                text('moshServer', 'mosh-server 경로', optional: true),
-                text('locale', '서버 로케일'),
-              ],
             ]),
           ],
         ];
@@ -823,7 +839,12 @@ class _RecordEditorState extends State<RecordEditor> {
       case 'session':
         return [
           group('연결', [
-            toggle('stayConnected', '연결 유지', description: '화면을 꺼도 끊지 않습니다'),
+            if (sshHost)
+              toggle(
+                'stayConnected',
+                '연결 유지',
+                description: '입출력 오류로 연결이 끊기면 자동으로 다시 연결합니다',
+              ),
             toggle(
               'quickDisconnect',
               '닫을 때 묻지 않기',
@@ -926,26 +947,29 @@ class _RecordEditorState extends State<RecordEditor> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            quick(
-              '새 세션',
-              Icons.library_add_outlined,
-              () => connectSavedHost(newSession: true),
-            ),
-            quick('복제', Icons.file_copy_outlined, duplicateHost),
+            if (supportedHost)
+              quick(
+                '새 세션',
+                Icons.library_add_outlined,
+                () => connectSavedHost(newSession: true),
+              ),
+            if (supportedHost)
+              quick('복제', Icons.file_copy_outlined, duplicateHost),
             if (sshHost)
               quick(
                 '포워딩',
                 Icons.swap_horiz,
                 () => page(ForwardsPage(engine: engine, host: draft)),
               ),
-            quick(
-              '홈 화면',
-              Icons.add_to_home_screen_outlined,
-              () => runEngine(context, engine, 'shortcut', {
-                'id': draft['id'],
-                'color': draft['color'],
-              }),
-            ),
+            if (supportedHost)
+              quick(
+                '홈 화면',
+                Icons.add_to_home_screen_outlined,
+                () => runEngine(context, engine, 'shortcut', {
+                  'id': draft['id'],
+                  'color': draft['color'],
+                }),
+              ),
           ],
         ),
       const SizedBox(height: 24),
@@ -1283,7 +1307,9 @@ class _RecordEditorState extends State<RecordEditor> {
                               ? (constraints.maxWidth - 20) / 2
                               : double.infinity,
                           child: FilledButton.icon(
-                            onPressed: saving ? null : connectSavedHost,
+                            onPressed: saving || !supportedHost
+                                ? null
+                                : connectSavedHost,
                             icon: const Icon(Icons.terminal_outlined),
                             label: const Text('연결'),
                           ),
@@ -1488,7 +1514,8 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
 }
 
 class KeyPasswordSheet extends StatefulWidget {
-  const KeyPasswordSheet({super.key});
+  final bool requireOldPassword;
+  const KeyPasswordSheet({super.key, this.requireOldPassword = true});
   @override
   State<KeyPasswordSheet> createState() => _KeyPasswordSheetState();
 }
@@ -1512,13 +1539,14 @@ class _KeyPasswordSheetState extends State<KeyPasswordSheet> {
           children: [
             Text('키 암호 변경', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
-            TextFormField(
-              obscureText: true,
-              enableSuggestions: false,
-              autocorrect: false,
-              decoration: const InputDecoration(labelText: '기존 암호'),
-              onChanged: (v) => oldPassword = v,
-            ),
+            if (widget.requireOldPassword)
+              TextFormField(
+                obscureText: true,
+                enableSuggestions: false,
+                autocorrect: false,
+                decoration: const InputDecoration(labelText: '기존 암호'),
+                onChanged: (v) => oldPassword = v,
+              ),
             const SizedBox(height: 16),
             TextFormField(
               obscureText: true,
@@ -1545,7 +1573,7 @@ class _KeyPasswordSheetState extends State<KeyPasswordSheet> {
               onPressed: () {
                 if (form.currentState!.validate()) {
                   Navigator.pop(context, {
-                    'oldPassword': oldPassword,
+                    if (widget.requireOldPassword) 'oldPassword': oldPassword,
                     'newPassword': newPassword,
                   });
                 }

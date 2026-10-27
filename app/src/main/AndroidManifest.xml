@@ -21,12 +21,10 @@
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 	<uses-permission android:name="android.permission.INTERNET" />
-	<uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
 	<uses-permission android:name="android.permission.VIBRATE" />
 	<uses-permission android:name="android.permission.WAKE_LOCK" />
-	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
 	<uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
 
@@ -96,7 +94,14 @@
 			android:name=".service.NotificationActionReceiver"
 			android:exported="false" />
 
-		<service android:name=".flutter.FlutterSessionService" android:exported="false" android:foregroundServiceType="remoteMessaging" />
+		<service
+			android:name=".flutter.FlutterSessionService"
+			android:exported="false"
+			android:foregroundServiceType="specialUse">
+			<property
+				android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+				android:value="Keeps user-initiated interactive SSH connections, port forwards, and local terminal sessions active while the app is in the background. The ongoing notification lets users return to or disconnect sessions. The service stops when no sessions are connecting or connected." />
+		</service>
 
 		<service
 			android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"

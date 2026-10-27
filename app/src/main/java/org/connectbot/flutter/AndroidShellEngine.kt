@@ -193,8 +193,8 @@ internal class AndroidShellEngine(
 
             "host.save" -> {
                 val old = args.optionalId("id")?.let { hosts.findHostById(it) }
-                val host = (old?.toWire().orEmpty() + args).toHost()
-                require(host.jumpHostId != host.id || host.id == 0L) { "자기 자신을 점프 호스트로 지정할 수 없습니다." }
+                val host = ((old ?: activity.settings.uiState.value.newHostDefaults()).toWire() + args).toHost()
+                validateHostSelection(host, old, host.jumpHostId?.let { hosts.findHostById(it) })
                 val saved = hosts.saveHost(host)
                 withContext(activity.dispatchers.io) { activity.passwords.updateHostPassword(saved, args) }
                 changed()
@@ -285,7 +285,12 @@ internal class AndroidShellEngine(
 
             "forwards" -> hosts.getPortForwardsForHost(args.number("hostId")).map { it.toWire() }
 
-            "forward.save" -> hosts.savePortForward(args.toForward()).also { changed() }.toWire()
+            "forward.save" -> {
+                val forward = args.toForward()
+                val old = args.optionalId("id")?.let { hosts.getPortForwardById(it) }
+                validateForwardSelection(forward, old)
+                hosts.savePortForward(forward).also { changed() }.toWire()
+            }
 
             "forward.delete" -> {
                 hosts.getPortForwardById(args.number("id"))?.let { hosts.deletePortForward(it) }
@@ -295,6 +300,7 @@ internal class AndroidShellEngine(
 
             "forward.start" -> {
                 val forward = requireNotNull(hosts.getPortForwardById(args.number("id")))
+                require(!args.flag("enabled") || forward.type != "dynamic4") { "SOCKS4 포워딩은 지원하지 않습니다." }
                 hosts.savePortForward(forward.copy(startEnabled = args.flag("enabled")))
                 changed()
                 null
@@ -306,7 +312,10 @@ internal class AndroidShellEngine(
                 @Suppress("UNCHECKED_CAST")
                 val actions = (args["actions"] as List<Map<String, Any?>>).mapIndexed { position, data -> data.toAutomation(args.number("hostId"), position) }
                 require(actions.map { it.id }.distinct().size == actions.size) { "중복 자동화 ID입니다." }
-                hosts.saveAutomation(args.number("hostId"), actions)
+                val host = requireNotNull(hosts.findHostById(args.number("hostId")))
+                val previous = hosts.getAutomation(host.id).associateBy { it.id }
+                actions.forEach { validateAutomationSelection(it, host, previous[it.id]) }
+                hosts.saveAutomation(host.id, actions)
                 changed()
                 null
             }
@@ -393,7 +402,7 @@ internal class AndroidShellEngine(
                 )
             }
 
-            "settings.update", "settings.preview", "settings.bellMode", "settings.notifications", "font.import", "font.delete", "font.custom", "font.customDelete", "terminalType.add", "terminalType.delete", "document.read", "document.write", "document.pick", "document.create", "help.document", "logs", "logs.clear", "logs.tombstone", "openUrl", "share", "shortcut" -> platformOperation(method, args)
+            "settings.update", "settings.preview", "settings.bellMode", "settings.notifications", "font.bytes", "font.import", "font.delete", "font.custom", "font.customDelete", "terminalType.add", "terminalType.delete", "document.read", "document.write", "document.pick", "document.create", "help.document", "logs", "logs.tombstone", "openUrl", "share", "shortcut" -> platformOperation(method, args)
 
             else -> {
                 if (method.startsWith("session.") || method.startsWith("key.") || method == "prompt.respond" || method == "host.disconnect" || method == "forward.toggle" || method == "automation.trial") {
@@ -421,7 +430,7 @@ internal class AndroidShellEngine(
             "themeColors" to mapOf("light" to org.connectbot.ui.theme.connectBotColorScheme(activity, false, dynamicColor = false).toWire(), "dark" to org.connectbot.ui.theme.connectBotColorScheme(activity, true, dynamicColor = false).toWire()),
             "autoHideDelayMs" to 3000L,
             "shortcutStyles" to org.connectbot.util.IconStyle.entries.map { mapOf("name" to it.name) },
-            "defaults" to mapOf("host" to Host().toWire(), "profile" to Profile(name = "").toWire()),
+            "defaults" to mapOf("host" to activity.settings.uiState.value.newHostDefaults().toWire(), "profile" to Profile(name = "").toWire()),
             "sortedByColor" to sortedByColor,
             "hosts" to hosts.getHosts(sortedByColor).map { host ->
                 host.toWire() + mapOf(
@@ -443,7 +452,7 @@ internal class AndroidShellEngine(
             "selectedSession" to null,
             "prompts" to emptyList<Wire>(),
             "startupKeys" to emptyList<Wire>(),
-            "preferences" to (activity.settings.uiState.value.toWire() + mapOf("defaultProfileId" to (activity.settings.uiState.value.defaultProfileId.takeIf { it > 0 } ?: profiles.getDefault().id))),
+            "preferences" to (activity.settings.uiState.value.toWire() + mapOf("defaultProfileId" to resolveTerminalProfile().id)),
             "keyState" to emptyMap<String, Any?>(),
             "generation" to mapOf("busy" to false, "biometricAvailable" to (activity.biometricKeys.isBiometricAvailable() == org.connectbot.util.BiometricAvailability.AVAILABLE), "nicknameExists" to false),
             "enrollment" to emptyMap<String, Any?>(),
@@ -459,19 +468,41 @@ internal class AndroidShellEngine(
     }
 }
 
+internal fun validateHostSelection(host: Host, previous: Host?, jumpHost: Host?) {
+    require(host.protocol in setOf("ssh", "local") || host.protocol == previous?.protocol) { "SSH와 로컬 연결만 지원합니다." }
+    if (host.jumpHostId != null && host.jumpHostId != previous?.jumpHostId) {
+        require(jumpHost != null && jumpHost.id != host.id && jumpHost.protocol == "ssh") { "점프 호스트는 다른 SSH 호스트여야 합니다." }
+    }
+}
+
+internal fun validateForwardSelection(forward: PortForward, previous: PortForward?) {
+    if (forward.type == "dynamic4") {
+        require(previous?.type == "dynamic4" && (!forward.startEnabled || previous.startEnabled)) { "SOCKS4 포워딩은 지원하지 않습니다." }
+    }
+}
+
+internal fun validateAutomationSelection(action: AutomationAction, host: Host, previous: AutomationAction?) {
+    if (host.protocol == "local" && action.type in setOf(AutomationActionType.ENABLE_FORWARD, AutomationActionType.DISABLE_FORWARD)) {
+        require(previous?.type == action.type && previous.forwardId == action.forwardId) { "로컬 세션은 포워딩 자동화를 지원하지 않습니다." }
+    }
+}
+
 private fun Wire.toForward(): PortForward {
     require(text("type") in setOf("local", "remote", "dynamic4", "dynamic5")) { "포워딩 유형을 확인하세요." }
     require(number("sourcePort") in 1..65535) { "소스 포트 범위를 확인하세요." }
     require(text("type") in setOf("dynamic4", "dynamic5") || (text("destAddr").isNotBlank() && number("destPort") in 1..65535)) { "대상 주소와 포트를 확인하세요." }
     return PortForward(number("id"), number("hostId"), text("nickname"), text("type"), text("sourceAddr", "localhost"), number("sourcePort").toInt(), optionalText("destAddr"), number("destPort").toInt(), flag("startEnabled", true))
 }
-private fun Wire.toAutomation(host: Long, position: Int): AutomationAction {
+internal fun Wire.toAutomation(host: Long, position: Int): AutomationAction {
     val action = AutomationAction(
         id = text("id").ifEmpty { UUID.randomUUID().toString() }, hostId = host, position = position,
         type = AutomationActionType.valueOf(text("type")), text = text("text"), regex = flag("regex"), durationMs = number("durationMs", 30000),
         key = number("key", 1).toInt(), modifiers = number("modifiers").toInt(), forwardId = optionalId("forwardId"), failurePolicy = AutomationFailurePolicy.valueOf(text("failurePolicy", "STOP")),
     )
     require(action.durationMs >= 0) { "대기 시간을 확인하세요." }
+    if (action.type == AutomationActionType.WAIT_FOR_TEXT || action.type == AutomationActionType.DELAY) {
+        require(action.durationMs > 0) { "대기 시간은 양수여야 합니다." }
+    }
     if (action.type == AutomationActionType.SEND_KEY) require(AutomationKeySupport.isSupported(action.key, action.modifiers)) { "지원하지 않는 자동화 키입니다." }
     return action
 }

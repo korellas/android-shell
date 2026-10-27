@@ -87,6 +87,7 @@ void main() {
           ],
           'defaultProfileId': 1,
           'terminalMargin': 7,
+          'terminalMarginMax': 24,
           'scrollback': '1234',
           'keepalive': true,
           'alwaysvisible': true,
@@ -189,16 +190,19 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
   });
-  testWidgets('inactive IME toggle is removed from keyboard settings', (
+  testWidgets('keyboard toggle preference works without a Korean IME', (
     tester,
   ) async {
     await open(tester);
     await tester.tap(find.text('키보드'));
     await tester.pumpAndSettle();
-    expect(find.text('입력 모드 전환 버튼'), findsNothing);
+    expect(find.text('키보드 전환 버튼'), findsOneWidget);
     expect(find.text('특수키 바'), findsOneWidget);
-    expect(engine.preferences['imeTogglekey'], true);
-    expect(changes, isEmpty);
+    await tester.ensureVisible(find.text('키보드 전환 버튼'));
+    await tester.tap(find.text('키보드 전환 버튼'));
+    await tester.pumpAndSettle();
+    expect(engine.preferences['imeTogglekey'], false);
+    expect(changes.single.arguments, {'key': 'imeTogglekey', 'value': false});
   });
   testWidgets('opening terminal preserves custom margin and scrollback', (
     tester,
@@ -211,6 +215,42 @@ void main() {
     expect(engine.preferences['terminalMargin'], 7);
     expect(engine.preferences['scrollback'], '1234');
   });
+  testWidgets('margin editor respects the native maximum', (tester) async {
+    (engine.state['preferences'] as Map)['terminalMargin'] = 24;
+    await open(tester);
+    await tester.tap(find.text('터미널'));
+    await tester.pumpAndSettle();
+    final increase = tester.widget<IconButton>(
+      find.ancestor(
+        of: find.byTooltip('좌우 여백 늘리기'),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(increase.onPressed, isNull);
+    expect(changes, isEmpty);
+  });
+  testWidgets(
+    'unused keyboard controls stay hidden without clearing preferences',
+    (tester) async {
+      (engine.state['preferences'] as Map).addAll(<String, Object>{
+        'shiftfkeys': true,
+        'ctrlfkeys': true,
+        'keymode': 'Use left-side keys',
+        'camera': 'Esc',
+        'imeShortcutInputMode': 'FORCE_ASCII',
+      });
+      engine.state['koreanKeyboard'] = true;
+      await open(tester);
+      await tester.tap(find.text('키보드'));
+      await tester.pumpAndSettle();
+      expect(find.text('하드웨어 키보드'), findsNothing);
+      expect(find.text('영문으로 전환'), findsNothing);
+      expect(find.text('키보드 전환 버튼'), findsOneWidget);
+      expect(engine.preferences['shiftfkeys'], true);
+      expect(engine.preferences['imeShortcutInputMode'], 'FORCE_ASCII');
+      expect(changes, isEmpty);
+    },
+  );
   testWidgets('scrollback stepper starts from the saved custom value', (
     tester,
   ) async {

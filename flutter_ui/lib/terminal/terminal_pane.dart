@@ -39,6 +39,9 @@ class TerminalPane extends StatefulWidget {
     this.hiddenKeys = const {},
     this.keyHeight = 36,
     this.groupFunctionKeys = true,
+    this.stickyModifiers = 'no',
+    this.hapticFeedback = false,
+    this.showKeyboardToggle = true,
     this.padding = EdgeInsets.zero,
     this.theme = TerminalThemes.defaultTheme,
     this.textStyle = const TerminalStyle(),
@@ -63,6 +66,9 @@ class TerminalPane extends StatefulWidget {
   final Set<String> hiddenKeys;
   final double keyHeight;
   final bool groupFunctionKeys;
+  final String stickyModifiers;
+  final bool hapticFeedback;
+  final bool showKeyboardToggle;
   final EdgeInsets padding;
   final TerminalTheme theme;
   final TerminalStyle textStyle;
@@ -92,7 +98,6 @@ class TerminalPaneState extends State<TerminalPane> {
   }
 
   KeyEventResult _keyEvent(FocusNode node, KeyEvent event) {
-    if (!widget.enabled) return KeyEventResult.ignored;
     _interaction();
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final keyboard = HardwareKeyboard.instance;
@@ -100,7 +105,7 @@ class TerminalPaneState extends State<TerminalPane> {
     final key = event.logicalKey;
     if (chord && key == LogicalKeyboardKey.keyC) {
       unawaited(viewAction('copy'));
-    } else if (chord && key == LogicalKeyboardKey.keyV) {
+    } else if (widget.enabled && chord && key == LogicalKeyboardKey.keyV) {
       unawaited(viewAction('paste'));
     } else if ((chord && key == LogicalKeyboardKey.equal) ||
         (widget.volumeFont && key == LogicalKeyboardKey.audioVolumeUp)) {
@@ -117,12 +122,19 @@ class TerminalPaneState extends State<TerminalPane> {
   @override
   void initState() {
     super.initState();
+    widget.input.stickyModifiers = widget.stickyModifiers;
     final rows = widget.initialRows;
     final columns = widget.initialColumns;
     if (rows != null && columns != null && rows > 0 && columns > 0) {
       _autoResize = false;
       widget.terminal.resize(columns, rows);
     }
+  }
+
+  @override
+  void didUpdateWidget(TerminalPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    widget.input.stickyModifiers = widget.stickyModifiers;
   }
 
   void resize({int? rows, int? columns}) {
@@ -132,7 +144,10 @@ class TerminalPaneState extends State<TerminalPane> {
   }
 
   Future<void> viewAction(String action) async {
-    if (!widget.enabled) return;
+    if (!widget.enabled &&
+        const {'keyboard', 'compose', 'paste'}.contains(action)) {
+      return;
+    }
     final buffer = widget.terminal.buffer;
     final selection = widget.controller.selectionFor(buffer);
     void selectRows(int first, int last) => widget.controller.setSelection(
@@ -232,6 +247,7 @@ class TerminalPaneState extends State<TerminalPane> {
       );
     }
     final text = await result;
+    await WidgetsBinding.instance.endOfFrame;
     if (!mounted || !widget.enabled || input != widget.input) return;
     if (text != null) input.paste(text);
     if (_keyboardVisible) input.requestKeyboard();
@@ -265,123 +281,119 @@ class TerminalPaneState extends State<TerminalPane> {
           terminal: widget.terminal,
           controller: widget.controller,
           terminalViewKey: _terminalKey,
-          enabled: widget.enabled,
+          inputEnabled: widget.enabled,
           onEdit: _edit,
           onPaste: widget.input.paste,
           onShare: widget.onShare,
-          child: IgnorePointer(
-            ignoring: !widget.enabled,
-            child: GestureDetector(
-              onHorizontalDragStart: widget.onSwipe == null
-                  ? null
-                  : (_) {
-                      _drag = Offset.zero;
-                    },
-              onHorizontalDragUpdate: widget.onSwipe == null
-                  ? null
-                  : (details) {
-                      _drag += details.delta;
-                    },
-              onHorizontalDragEnd: widget.onSwipe == null
-                  ? null
-                  : (_) {
-                      if (!widget.enabled ||
-                          widget.controller.selectionFor(
-                                widget.terminal.buffer,
-                              ) !=
-                              null) {
-                        return;
-                      }
-                      final threshold = math.max(54, context.size!.width * .18);
-                      if (_drag.dx.abs() >= threshold &&
-                          _drag.dx.abs() >= _drag.dy.abs() * 1.5) {
-                        widget.onSwipe!(_drag.dx < 0 ? 1 : -1);
-                      }
-                    },
-              child: Listener(
-                onPointerDown: (event) {
-                  _interaction();
-                  _pointers.add(event.pointer);
-                  if (_pointers.length > 1) _pageCancelled = true;
-                },
-                onPointerUp: (event) => _pointers.remove(event.pointer),
-                onPointerCancel: (event) => _pointers.remove(event.pointer),
-                onPointerMove: (_) => _interaction(scrolling: true),
-                child: RawGestureDetector(
-                  key: _gestureKey,
-                  gestures: {
-                    if (widget.pageGesture)
-                      _PageDragRecognizer:
-                          GestureRecognizerFactoryWithHandlers<
-                            _PageDragRecognizer
-                          >(() => _PageDragRecognizer(), (recognizer) {
-                            recognizer
-                              ..canStart = (event) {
-                                final box =
-                                    _gestureKey.currentContext
-                                            ?.findRenderObject()
-                                        as RenderBox?;
-                                return widget.enabled &&
-                                    box != null &&
-                                    _pointers.length <= 1 &&
-                                    widget.controller.selectionFor(
-                                          widget.terminal.buffer,
-                                        ) ==
-                                        null &&
-                                    box.globalToLocal(event.position).dx <=
-                                        box.size.width / 3;
-                              }
-                              ..dragStartBehavior = DragStartBehavior.down
-                              ..onStart = (_) {
-                                _pageCancelled = _pointers.length > 1;
-                                _pageDrag = 0;
-                              }
-                              ..onUpdate = (details) {
-                                if (_pageCancelled || !widget.enabled) return;
-                                _pageDrag -= details.delta.dy;
-                                final render =
-                                    _terminalKey.currentState?.renderTerminal;
-                                if (render == null) return;
-                                final step = render.cellSize.height * 5;
-                                final pages = (_pageDrag / step).truncate();
-                                for (var i = 0; i < pages.abs(); i++) {
-                                  widget.input.sendKey(
-                                    pages > 0
-                                        ? TerminalKey.pageDown
-                                        : TerminalKey.pageUp,
-                                  );
-                                }
-                                _pageDrag -= pages * step;
-                              };
-                          }),
+          child: GestureDetector(
+            onHorizontalDragStart: widget.onSwipe == null
+                ? null
+                : (_) {
+                    _drag = Offset.zero;
                   },
-                  child: TerminalInputView(
-                    terminal: widget.terminal,
-                    controller: widget.controller,
-                    input: widget.input,
-                    terminalViewKey: _terminalKey,
-                    focusNode: widget.focusNode,
-                    scrollController: _scroll,
-                    keyboardEnabled: widget.enabled,
-                    autoResize: _autoResize,
-                    onKeyEvent: _keyEvent,
-                    onRequestKeyboard: () {
-                      if (!_keyboardVisible) {
-                        toggleKeyboard();
-                      } else {
-                        widget.input.requestKeyboard();
-                      }
-                    },
-                    padding: widget.padding,
-                    showSoftKeyboard: _keyboardVisible,
-                    theme: widget.theme,
-                    textStyle: widget.textStyle,
-                    paintExtension: widget.terminal is InlineImageTerminal
-                        ? (widget.terminal as InlineImageTerminal)
-                              .images
-                              .paintExtension
-                        : null,
-                  ),
+            onHorizontalDragUpdate: widget.onSwipe == null
+                ? null
+                : (details) {
+                    _drag += details.delta;
+                  },
+            onHorizontalDragEnd: widget.onSwipe == null
+                ? null
+                : (_) {
+                    if (!widget.enabled ||
+                        widget.controller.selectionFor(
+                              widget.terminal.buffer,
+                            ) !=
+                            null) {
+                      return;
+                    }
+                    final threshold = math.max(54, context.size!.width * .18);
+                    if (_drag.dx.abs() >= threshold &&
+                        _drag.dx.abs() >= _drag.dy.abs() * 1.5) {
+                      widget.onSwipe!(_drag.dx < 0 ? 1 : -1);
+                    }
+                  },
+            child: Listener(
+              onPointerDown: (event) {
+                _interaction();
+                _pointers.add(event.pointer);
+                if (_pointers.length > 1) _pageCancelled = true;
+              },
+              onPointerUp: (event) => _pointers.remove(event.pointer),
+              onPointerCancel: (event) => _pointers.remove(event.pointer),
+              onPointerMove: (_) => _interaction(scrolling: true),
+              child: RawGestureDetector(
+                key: _gestureKey,
+                gestures: {
+                  if (widget.pageGesture)
+                    _PageDragRecognizer:
+                        GestureRecognizerFactoryWithHandlers<
+                          _PageDragRecognizer
+                        >(() => _PageDragRecognizer(), (recognizer) {
+                          recognizer
+                            ..canStart = (event) {
+                              final box =
+                                  _gestureKey.currentContext?.findRenderObject()
+                                      as RenderBox?;
+                              return widget.enabled &&
+                                  box != null &&
+                                  _pointers.length <= 1 &&
+                                  widget.controller.selectionFor(
+                                        widget.terminal.buffer,
+                                      ) ==
+                                      null &&
+                                  box.globalToLocal(event.position).dx <=
+                                      box.size.width / 3;
+                            }
+                            ..dragStartBehavior = DragStartBehavior.down
+                            ..onStart = (_) {
+                              _pageCancelled = _pointers.length > 1;
+                              _pageDrag = 0;
+                            }
+                            ..onUpdate = (details) {
+                              if (_pageCancelled || !widget.enabled) return;
+                              _pageDrag -= details.delta.dy;
+                              final render =
+                                  _terminalKey.currentState?.renderTerminal;
+                              if (render == null) return;
+                              final step = render.cellSize.height * 5;
+                              final pages = (_pageDrag / step).truncate();
+                              for (var i = 0; i < pages.abs(); i++) {
+                                widget.input.sendKey(
+                                  pages > 0
+                                      ? TerminalKey.pageDown
+                                      : TerminalKey.pageUp,
+                                );
+                              }
+                              _pageDrag -= pages * step;
+                            };
+                        }),
+                },
+                child: TerminalInputView(
+                  terminal: widget.terminal,
+                  controller: widget.controller,
+                  input: widget.input,
+                  terminalViewKey: _terminalKey,
+                  focusNode: widget.focusNode,
+                  scrollController: _scroll,
+                  keyboardEnabled: widget.enabled,
+                  autoResize: _autoResize,
+                  onKeyEvent: _keyEvent,
+                  onRequestKeyboard: () {
+                    if (!_keyboardVisible) {
+                      toggleKeyboard();
+                    } else {
+                      widget.input.requestKeyboard();
+                    }
+                  },
+                  padding: widget.padding,
+                  showSoftKeyboard: _keyboardVisible,
+                  theme: widget.theme,
+                  textStyle: widget.textStyle,
+                  paintExtension: widget.terminal is InlineImageTerminal
+                      ? (widget.terminal as InlineImageTerminal)
+                            .images
+                            .paintExtension
+                      : null,
                 ),
               ),
             ),
@@ -389,10 +401,13 @@ class TerminalPaneState extends State<TerminalPane> {
         ),
       ),
       Visibility(
-        visible: _keysVisible || widget.alwaysVisibleKeys,
+        visible: widget.enabled && (_keysVisible || widget.alwaysVisibleKeys),
         maintainState: true,
         child: TerminalKeyBar(
           key: ObjectKey(widget.input),
+          input: widget.input,
+          hapticFeedback: widget.hapticFeedback,
+          showKeyboardToggle: widget.showKeyboardToggle,
           enabled: widget.enabled,
           onToggleKeyboard: () {
             _interaction();
@@ -417,8 +432,6 @@ class TerminalPaneState extends State<TerminalPane> {
           hidden: widget.hiddenKeys,
           keyHeight: widget.keyHeight,
           groupFunctionKeys: widget.groupFunctionKeys,
-          onModifiersChanged: (ctrl, alt, shift) =>
-              widget.input.setModifiers(ctrl: ctrl, alt: alt, shift: shift),
           onKey: (key, ctrl, alt, shift) {
             _interaction();
             widget.input.sendKey(key, ctrl: ctrl, alt: alt, shift: shift);

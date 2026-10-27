@@ -18,12 +18,17 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'terminal_input.dart';
 import 'package:xterm2/xterm.dart';
 
 class TerminalKeyBar extends StatefulWidget {
   const TerminalKeyBar({
     super.key,
     required this.onKey,
+    required this.input,
+    this.hapticFeedback = false,
+    this.showKeyboardToggle = true,
     required this.onToggleKeyboard,
     this.enabled = true,
     this.onModifiersChanged,
@@ -47,6 +52,9 @@ class TerminalKeyBar extends StatefulWidget {
   });
 
   final void Function(TerminalKey key, bool ctrl, bool alt, bool shift) onKey;
+  final TerminalInputController input;
+  final bool hapticFeedback;
+  final bool showKeyboardToggle;
   final VoidCallback onToggleKeyboard;
   final bool enabled;
   final void Function(bool ctrl, bool alt, bool shift)? onModifiersChanged;
@@ -61,8 +69,8 @@ class TerminalKeyBar extends StatefulWidget {
 
 class _TerminalKeyBarState extends State<TerminalKeyBar> {
   final _scrollController = ScrollController();
-  bool _ctrl = false;
-  bool _alt = false;
+  bool get _ctrl => widget.input.ctrl;
+  bool get _alt => widget.input.alt;
   bool _functionMode = false;
 
   @override
@@ -72,18 +80,17 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
   }
 
   void _send(TerminalKey key) {
-    if (widget.enabled) widget.onKey(key, _ctrl, _alt, false);
+    if (!widget.enabled) return;
+    if (widget.hapticFeedback) HapticFeedback.selectionClick();
+    widget.onKey(key, _ctrl, _alt, false);
   }
 
   void _toggleModifier({bool ctrl = false}) {
     if (!widget.enabled) return;
-    setState(() {
-      if (ctrl) {
-        _ctrl = !_ctrl;
-      } else {
-        _alt = !_alt;
-      }
-    });
+    widget.input.setModifiers(
+      ctrl: ctrl ? !_ctrl : _ctrl,
+      alt: ctrl ? _alt : !_alt,
+    );
     widget.onModifiersChanged?.call(_ctrl, _alt, false);
   }
 
@@ -191,62 +198,66 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
   Widget build(BuildContext context) {
     final visible = widget.order.where((id) => !widget.hidden.contains(id));
     final hasFn = widget.groupFunctionKeys && visible.contains('FUNCTION_KEYS');
-    return ExcludeFocus(
-      child: Material(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            spacing: 4,
-            children: [
-              _button('Esc', () => _send(TerminalKey.escape)),
-              _button(
-                'Ctrl',
-                () => _toggleModifier(ctrl: true),
-                selected: _ctrl,
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    spacing: 4,
-                    children: [
-                      if (hasFn && _functionMode)
-                        ..._functionKeys()
-                      else
-                        for (final id in visible)
-                          if (id == 'FUNCTION_KEYS') ...[
-                            if (!hasFn) ..._functionKeys(),
-                          ] else
-                            ?_scrollKey(id),
-                    ],
+    return ListenableBuilder(
+      listenable: widget.input,
+      builder: (context, _) => ExcludeFocus(
+        child: Material(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              spacing: 4,
+              children: [
+                _button('Esc', () => _send(TerminalKey.escape)),
+                _button(
+                  'Ctrl',
+                  () => _toggleModifier(ctrl: true),
+                  selected: _ctrl,
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      spacing: 4,
+                      children: [
+                        if (hasFn && _functionMode)
+                          ..._functionKeys()
+                        else
+                          for (final id in visible)
+                            if (id == 'FUNCTION_KEYS') ...[
+                              if (!hasFn) ..._functionKeys(),
+                            ] else
+                              ?_scrollKey(id),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              Tooltip(
-                message: '키보드 전환',
-                child: _button(
-                  '⌨',
-                  widget.onToggleKeyboard,
-                  width: 40,
-                  icon: const Icon(Icons.keyboard_outlined, size: 18),
-                ),
-              ),
-              if (hasFn)
-                _button(
-                  'Fn',
-                  () {
-                    setState(() => _functionMode = !_functionMode);
-                    if (_scrollController.hasClients) {
-                      _scrollController.jumpTo(0);
-                    }
-                  },
-                  selected: _functionMode,
-                  width: 40,
-                ),
-              _button('tab', () => _send(TerminalKey.tab), width: 56),
-            ],
+                if (widget.showKeyboardToggle)
+                  Tooltip(
+                    message: '키보드 전환',
+                    child: _button(
+                      '⌨',
+                      widget.onToggleKeyboard,
+                      width: 40,
+                      icon: const Icon(Icons.keyboard_outlined, size: 18),
+                    ),
+                  ),
+                if (hasFn)
+                  _button(
+                    'Fn',
+                    () {
+                      setState(() => _functionMode = !_functionMode);
+                      if (_scrollController.hasClients) {
+                        _scrollController.jumpTo(0);
+                      }
+                    },
+                    selected: _functionMode,
+                    width: 40,
+                  ),
+                _button('tab', () => _send(TerminalKey.tab), width: 56),
+              ],
+            ),
           ),
         ),
       ),

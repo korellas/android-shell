@@ -72,6 +72,7 @@ class _TerminalInputViewState extends State<TerminalInputView> {
   }
 
   void _attach() {
+    widget.controller.setSuspendPointerInput(!widget.keyboardEnabled);
     widget.input.attachView(
       focusNode: _focusNode,
       viewId: View.of(context).viewId,
@@ -170,6 +171,7 @@ class _TerminalInputViewState extends State<TerminalInputView> {
             paintExtension: widget.paintExtension,
             autofocus: widget.autofocus,
             autoResize: widget.autoResize,
+            readOnly: !widget.keyboardEnabled,
             hardwareKeyboardOnly: true,
             onKeyEvent: (node, event) {
               final result = widget.onKeyEvent?.call(node, event);

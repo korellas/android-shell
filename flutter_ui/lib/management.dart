@@ -299,25 +299,12 @@ class _KeyPageState extends State<KeyPage> {
           password: true,
         );
         if (password != null && mounted) {
-          final encrypt = await confirm(
-            context,
-            '저장 암호',
-            '가져온 키를 별도의 암호로 보호할까요?',
-            action: '암호로 보호',
-            destructive: false,
-          );
-          String? newPassword;
-          if (encrypt && mounted) {
-            newPassword = await askText(context, '새 저장 암호', password: true);
-          }
-          if (mounted && (!encrypt || newPassword != null)) {
-            await runEngine(context, engine, 'key.importPassword', {
-              'nickname': encrypted['nickname'],
-              'password': password,
-              'encrypt': encrypt,
-              'encryptPassword': newPassword,
-            });
-          }
+          await runEngine(context, engine, 'key.importPassword', {
+            'nickname': encrypted['nickname'],
+            'password': password,
+            'encrypt': true,
+            'encryptPassword': password,
+          });
         } else if (mounted) {
           await runEngine(context, engine, 'key.importCancel');
         }
@@ -382,8 +369,8 @@ class _KeyPageState extends State<KeyPage> {
     String? password;
     final privateAction = action != 'copy.public' && action != 'export.public';
     if (key['encrypted'] == true &&
-        ((action == 'load' && key['loaded'] != true) ||
-            privateAction && action != 'load')) {
+        key['loaded'] != true &&
+        (action == 'load' || privateAction)) {
       password = await askText(context, '키 암호', password: true);
       if (password == null) return;
     }
@@ -708,29 +695,35 @@ class _ForwardsPageState extends State<ForwardsPage> {
               ),
               title: Text('${f['nickname']}'),
               subtitle: Text(
-                '${f['sourceAddr']}:${f['sourcePort']} → ${f['type'].toString().startsWith('dynamic') ? 'SOCKS' : '${f['destAddr']}:${f['destPort']}'}',
+                f['type'] == 'dynamic4'
+                    ? 'SOCKS4 미지원 · 편집에서 SOCKS5로 변경하세요'
+                    : '${f['sourceAddr']}:${f['sourcePort']} → ${f['type'].toString().startsWith('dynamic') ? 'SOCKS5' : '${f['destAddr']}:${f['destPort']}'}',
                 style: const TextStyle(fontFamily: tildeMono, fontSize: 12),
               ),
               onTap: () => edit(f),
               onLongPress: () => menu(f),
               trailing: Switch(
-                value: f[live ? 'enabled' : 'startEnabled'] == true,
-                onChanged: (value) async {
-                  await runEngine(
-                    context,
-                    widget.engine,
-                    live ? 'forward.toggle' : 'forward.start',
-                    live
-                        ? {
-                            'hostId': widget.host['id'],
-                            'sessionId': sessionId,
-                            'id': f['id'],
-                            'enabled': value,
-                          }
-                        : {'id': f['id'], 'enabled': value},
-                  );
-                  await load();
-                },
+                value:
+                    f['type'] != 'dynamic4' &&
+                    f[live ? 'enabled' : 'startEnabled'] == true,
+                onChanged: f['type'] == 'dynamic4'
+                    ? null
+                    : (value) async {
+                        await runEngine(
+                          context,
+                          widget.engine,
+                          live ? 'forward.toggle' : 'forward.start',
+                          live
+                              ? {
+                                  'hostId': widget.host['id'],
+                                  'sessionId': sessionId,
+                                  'id': f['id'],
+                                  'enabled': value,
+                                }
+                              : {'id': f['id'], 'enabled': value},
+                        );
+                        await load();
+                      },
               ),
             ),
         ],

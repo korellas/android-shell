@@ -33,6 +33,7 @@ class TerminalActions extends StatefulWidget {
     required this.onPaste,
     this.onShare,
     this.enabled = true,
+    this.inputEnabled = true,
   });
 
   final Terminal terminal;
@@ -43,6 +44,7 @@ class TerminalActions extends StatefulWidget {
   final void Function(String text) onPaste;
   final void Function(String text)? onShare;
   final bool enabled;
+  final bool inputEnabled;
 
   @override
   State<TerminalActions> createState() => _TerminalActionsState();
@@ -191,6 +193,7 @@ class _TerminalActionsState extends State<TerminalActions> {
   }
 
   Future<void> _edit() async {
+    if (!widget.inputEnabled) return;
     final text = _selectedText();
     if (text == null) return;
     widget.controller.clearSelection();
@@ -198,10 +201,15 @@ class _TerminalActionsState extends State<TerminalActions> {
   }
 
   Future<void> _paste() async {
-    if (!widget.enabled) return;
+    if (!widget.enabled || !widget.inputEnabled) return;
     final controller = widget.controller;
     final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (!mounted || !widget.enabled || controller != widget.controller) return;
+    if (!mounted ||
+        !widget.enabled ||
+        !widget.inputEnabled ||
+        controller != widget.controller) {
+      return;
+    }
     if (data?.text case final text?) {
       controller.clearSelection();
       widget.onPaste(text);
@@ -287,18 +295,19 @@ class _TerminalActionsState extends State<TerminalActions> {
                         label: const Text('복사'),
                       ),
                     ),
-                    Expanded(
-                      flex: 2,
-                      child: TextButton.icon(
-                        onPressed: _edit,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          textStyle: const TextStyle(fontSize: 13),
+                    if (widget.inputEnabled)
+                      Expanded(
+                        flex: 2,
+                        child: TextButton.icon(
+                          onPressed: _edit,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            textStyle: const TextStyle(fontSize: 13),
+                          ),
+                          icon: const Icon(Icons.send_outlined, size: 18),
+                          label: const Text('편집 후 전송'),
                         ),
-                        icon: const Icon(Icons.send_outlined, size: 18),
-                        label: const Text('편집 후 전송'),
                       ),
-                    ),
                     IconButton(
                       tooltip: '선택 메뉴 더보기',
                       onPressed: () => setState(() => _overflow = !_overflow),
@@ -309,7 +318,8 @@ class _TerminalActionsState extends State<TerminalActions> {
                   ],
                 ),
                 if (_overflow) ...[
-                  _option('붙여넣기', () => unawaited(_paste())),
+                  if (widget.inputEnabled)
+                    _option('붙여넣기', () => unawaited(_paste())),
                   if (widget.onShare != null)
                     _option('공유', () {
                       final text = _selectedText();

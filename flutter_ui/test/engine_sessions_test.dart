@@ -244,6 +244,122 @@ void main() {
     messenger.setMockMethodCallHandler(AndroidEngine.channel, null);
     messenger.setMockMethodCallHandler(runtime, null);
   });
+  test('quick address with a port still uses SSH', () async {
+    await engine.refresh();
+    final id =
+        await engine.query('connect', {'uri': 'example.test:2222'}) as int;
+    await waitConnected(id);
+    expect(transports, hasLength(1));
+  });
+  test(
+    'unsupported quick protocol has a useful error before native dispatch',
+    () async {
+      await engine.refresh();
+      await expectLater(
+        engine.query('connect', {'uri': 'mosh://example.test'}),
+        throwsA(
+          isA<EngineException>().having(
+            (e) => e.message,
+            'message',
+            'SSH와 로컬 연결만 지원합니다.',
+          ),
+        ),
+      );
+      expect(transports, isEmpty);
+    },
+  );
+  test(
+    'memory preference clears cached software keys only after successful persistence',
+    () async {
+      final pair = OpenSSHEd25519KeyPair(Uint8List(32), Uint8List(64), '');
+      var failUpdate = true;
+      var remember = true;
+      messenger.setMockMethodCallHandler(AndroidEngine.channel, (call) async {
+        switch (call.method) {
+          case 'snapshot':
+            return {
+              ...snapshot(),
+              'keys': [
+                {
+                  'id': 1,
+                  'type': 'IMPORTED',
+                  'nickname': 'key',
+                  'publicBytes': pair.toPublicKey().encode(),
+                },
+              ],
+              'preferences': {'memkeys': remember},
+            };
+          case 'ssh.keyMaterial':
+            return {'pem': pair.toPem(), 'biometric': false};
+          case 'settings.update':
+            if (failUpdate) throw PlatformException(code: 'failed');
+            remember = false;
+            return null;
+          default:
+            throw StateError('Unexpected ${call.method}');
+        }
+      });
+      await engine.refresh();
+      await engine.query('key.load', {'id': 1});
+      expect(engine.list('keys').single['loaded'], true);
+      await expectLater(
+        engine.query('settings.update', {'key': 'memkeys', 'value': false}),
+        throwsA(isA<Exception>()),
+      );
+      expect(engine.list('keys').single['loaded'], true);
+      failUpdate = false;
+      await engine.invoke('settings.update', {
+        'key': 'memkeys',
+        'value': false,
+      });
+      expect(engine.preferences['memkeys'], false);
+      expect(engine.list('keys').single['loaded'], false);
+    },
+  );
+
+  test(
+    'protocol change is rejected before mutating the existing session',
+    () async {
+      await engine.refresh();
+      final id = await engine.query('connect', {'id': 1}) as int;
+      await waitConnected(id);
+      final session = engine.sshSession(id)!;
+      final transport = transports.single;
+      host['protocol'] = 'local';
+      try {
+        await expectLater(
+          engine.query('session.reconnect', {'sessionId': id}),
+          throwsA(isA<EngineException>()),
+        );
+        expect(session.host['protocol'], 'ssh');
+        expect(session.sessionOpen, true);
+        expect(transport.closeCalls, 0);
+        expect(transports, hasLength(1));
+      } finally {
+        host['protocol'] = 'ssh';
+      }
+    },
+  );
+  test(
+    'explicit reconnect retains selected duplicate identity and refreshes preparation',
+    () async {
+      await engine.refresh();
+      final first = await engine.query('connect', {'id': 1}) as int;
+      final second =
+          await engine.query('connect', {'id': 1, 'newSession': true}) as int;
+      final target = engine.sshSession(second)!;
+      await waitConnected(second);
+      transports.last.remoteEnd();
+      await settle(() => target.ended);
+      storedPassword = 'fresh-password';
+      await engine.query('session.reconnect', {'sessionId': second});
+      await waitConnected(second);
+      expect(engine.sshSession(second), same(target));
+      expect(transports.last.password, 'fresh-password');
+      expect(engine.sshSession(first)!.record['connectionGeneration'], 1);
+    },
+  );
+
   test(
     'concurrent refresh awaits merged in-flight and queued snapshots',
     () async {
