@@ -30,6 +30,9 @@ import org.connectbot.data.entity.KnownHost
  */
 @Dao
 interface KnownHostDao {
+    @Query("SELECT * FROM known_hosts WHERE hostname = :hostname AND port = :port")
+    suspend fun getByHostnameAndPort(hostname: String, port: Int): List<KnownHost>
+
     /**
      * Observe known hosts for one host configuration.
      */

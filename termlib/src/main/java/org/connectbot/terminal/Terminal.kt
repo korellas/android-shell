@@ -38,23 +38,36 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -68,6 +81,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -105,13 +119,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -125,6 +138,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 import androidx.compose.ui.input.key.KeyEvent as ComposeKeyEvent
 
 private val CURLY_UNDERLINE_PATH = ThreadLocal.withInitial { Path() }
@@ -186,16 +200,6 @@ private const val MIN_ZOOM_SCALE = 0.5f
  * Maximum zoom scale for pinch-to-zoom gesture.
  */
 private const val MAX_ZOOM_SCALE = 3f
-
-/**
- * Size of the copy button when selection is active in dp.
- */
-private val COPY_BUTTON_SIZE = 48.dp
-
-/**
- * Vertical offset for the copy button above the selection in dp.
- */
-private val COPY_BUTTON_OFFSET = 48.dp
 
 /**
  * Touch radius in dp for detecting selection handle touches.
@@ -1790,162 +1794,157 @@ internal fun TerminalWithAccessibility(
             val range = selectionManager.selectionRange
             if (range != null) {
                 val endPosition = range.getEndPosition()
-                val buttonCount = if (onEditRequest != null) 3 else 2
-                val buttonRowWidthPx = with(density) { (COPY_BUTTON_SIZE * buttonCount + 8.dp * (buttonCount - 1)).toPx() }
-                val buttonHeightPx = with(density) { COPY_BUTTON_SIZE.toPx() }
-
-                val buttonX = (endPosition.second * baseCharWidth)
-                    .coerceAtMost(availableWidth - buttonRowWidthPx)
-                    .coerceAtLeast(0f)
-
-                // Try placing below the selection first
+                var toolbarSize by remember { mutableStateOf(IntSize.Zero) }
+                val viewportSize = IntSize(measuredWidth, measuredHeight)
+                val viewportWidth = with(density) { measuredWidth.toDp() }
+                val actionCount = if (onEditRequest != null) 2 else 1
+                val actionMaxWidth = ((viewportWidth - 56.dp) / actionCount).coerceAtLeast(44.dp)
                 val handleHeightPx = with(density) { SELECTION_HANDLE_WIDTH.toPx() }
                 val marginPx = with(density) { 8.dp.toPx() }
                 val endViewportRow = (endPosition.first - screenState.visibleLineIndex(0))
                     .coerceIn(0, screenState.snapshot.rows - 1)
-                var buttonY = (endViewportRow + 1) * baseCharHeight + handleHeightPx + marginPx
-
-                if (buttonY + buttonHeightPx > availableHeight) {
-                    // Doesn't fit below, place above the selection (clearing the handle if it's there)
-                    // Note: endPosition might have a handle pointing down, but if the selection is
-                    // short, we might be overlapping the start handle which points up.
-                    buttonY = endViewportRow * baseCharHeight - handleHeightPx - buttonHeightPx - marginPx
-                }
+                val belowSelection = IntOffset(
+                    (endPosition.second * baseCharWidth).roundToInt(),
+                    ((endViewportRow + 1) * baseCharHeight + handleHeightPx + marginPx).roundToInt(),
+                )
+                val aboveSelectionY = (endViewportRow * baseCharHeight - handleHeightPx - marginPx).roundToInt()
 
                 val context = LocalContext.current
                 var overflowMenuExpanded by remember { mutableStateOf(false) }
 
                 Box(
-                    modifier = Modifier
-                        .offset(
-                            x = with(density) { buttonX.toDp() },
-                            y = with(density) { buttonY.coerceAtLeast(0f).toDp() },
-                        ),
+                    modifier = Modifier.offset {
+                        selectionToolbarOffset(belowSelection, aboveSelectionY, toolbarSize, viewportSize)
+                    },
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FloatingActionButton(
-                            onClick = {
-                                val selectedText =
-                                    selectionManager.getSelectedText(screenState.snapshot, screenState.scrollbackPosition)
-                                clipboardManager.setText(AnnotatedString(selectedText))
-                                selectionManager.clearSelection()
-                            },
-                            modifier = Modifier.size(COPY_BUTTON_SIZE),
-                            containerColor = Color.White,
-                            contentColor = Color.Black,
+                    Surface(
+                        modifier = Modifier
+                            .widthIn(max = viewportWidth)
+                            .onSizeChanged { toolbarSize = it },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        shadowElevation = 4.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(stringResource(R.string.terminal_selection_copy), style = MaterialTheme.typography.labelSmall)
-                        }
-
-                        if (onEditRequest != null) {
-                            FloatingActionButton(
-                                onClick = onEditRequest,
-                                modifier = Modifier.size(COPY_BUTTON_SIZE),
-                                containerColor = Color.White,
-                                contentColor = Color.Black,
-                            ) {
-                                Text(stringResource(R.string.terminal_selection_edit), style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-
-                        Box {
-                            val moreOptionsLabel = stringResource(R.string.terminal_selection_more_options_description)
-                            FloatingActionButton(
+                            TextButton(
                                 onClick = {
-                                    overflowMenuExpanded = true
+                                    val selectedText =
+                                        selectionManager.getSelectedText(screenState.snapshot, screenState.scrollbackPosition)
+                                    clipboardManager.setText(AnnotatedString(selectedText))
+                                    selectionManager.clearSelection()
                                 },
-                                modifier = Modifier
-                                    .size(COPY_BUTTON_SIZE)
-                                    .semantics {
-                                        contentDescription = moreOptionsLabel
-                                        role = Role.Button
-                                    },
-                                containerColor = Color.White,
-                                contentColor = Color.Black,
+                                modifier = Modifier.widthIn(max = actionMaxWidth).heightIn(min = 44.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
                             ) {
-                                Text(stringResource(R.string.terminal_selection_more_options), style = MaterialTheme.typography.labelSmall)
+                                Icon(painterResource(R.drawable.ic_selection_copy), contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.terminal_selection_copy), style = MaterialTheme.typography.labelLarge)
                             }
 
-                            DropdownMenu(
-                                expanded = overflowMenuExpanded,
-                                onDismissRequest = {
-                                    overflowMenuExpanded = false
-                                },
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.terminal_selection_line)) },
-                                    onClick = {
-                                        selectionController.setSelectionMode(SelectionMode.LINE)
+                            if (onEditRequest != null) {
+                                TextButton(
+                                    onClick = onEditRequest,
+                                    modifier = Modifier.widthIn(max = actionMaxWidth).heightIn(min = 44.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                                ) {
+                                    Icon(painterResource(R.drawable.ic_selection_send), contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(stringResource(R.string.terminal_selection_edit), style = MaterialTheme.typography.labelLarge)
+                                }
+                            }
+
+                            Box {
+                                IconButton(
+                                    onClick = { overflowMenuExpanded = true },
+                                    modifier = Modifier.size(48.dp),
+                                ) {
+                                    Icon(
+                                        painterResource(R.drawable.ic_selection_more),
+                                        contentDescription = stringResource(R.string.terminal_selection_more_options_description),
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = overflowMenuExpanded,
+                                    onDismissRequest = {
                                         overflowMenuExpanded = false
                                     },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.terminal_selection_select_all)) },
-                                    onClick = {
-                                        selectionController.selectAll()
-                                        overflowMenuExpanded = false
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.terminal_selection_select_all_visible)) },
-                                    onClick = {
-                                        selectionController.selectAllVisible()
-                                        overflowMenuExpanded = false
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.terminal_selection_share)) },
-                                    onClick = {
-                                        val selectedText = selectionManager.getSelectedText(
-                                            screenState.snapshot,
-                                            screenState.scrollbackPosition,
+                                ) {
+                                    SingleChoiceSegmentedButtonRow(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                    ) {
+                                        val modes = listOf(
+                                            SelectionMode.CHARACTER to R.string.terminal_selection_mode_character,
+                                            SelectionMode.WORD to R.string.terminal_selection_mode_word,
+                                            SelectionMode.LINE to R.string.terminal_selection_mode_line,
                                         )
-                                        val intent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "text/plain"
-                                            putExtra(Intent.EXTRA_TEXT, selectedText)
-                                            if (context !is Activity) {
-                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        modes.forEachIndexed { index, (mode, label) ->
+                                            SegmentedButton(
+                                                selected = selectionManager.mode == mode,
+                                                onClick = { selectionController.setSelectionMode(mode) },
+                                                modifier = Modifier.heightIn(min = 44.dp),
+                                                shape = SegmentedButtonDefaults.itemShape(index, modes.size, RoundedCornerShape(10.dp)),
+                                                icon = {},
+                                            ) {
+                                                Text(stringResource(label))
                                             }
                                         }
-                                        try {
-                                            context.startActivity(Intent.createChooser(intent, null))
-                                        } catch (_: ActivityNotFoundException) {
-                                            // No app available to handle the share intent; silently ignore
-                                        }
-                                        overflowMenuExpanded = false
-                                    },
-                                )
-                                if (onPasteRequest != null) {
+                                    }
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.terminal_selection_paste)) },
+                                        text = { Text(stringResource(R.string.terminal_selection_select_all)) },
                                         onClick = {
-                                            selectionManager.clearSelection()
-                                            onPasteRequest()
+                                            selectionController.selectAll()
                                             overflowMenuExpanded = false
                                         },
                                     )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.terminal_selection_select_all_visible)) },
+                                        onClick = {
+                                            selectionController.selectAllVisible()
+                                            overflowMenuExpanded = false
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.terminal_selection_share)) },
+                                        onClick = {
+                                            val selectedText = selectionManager.getSelectedText(
+                                                screenState.snapshot,
+                                                screenState.scrollbackPosition,
+                                            )
+                                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(Intent.EXTRA_TEXT, selectedText)
+                                                if (context !is Activity) {
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                            }
+                                            try {
+                                                context.startActivity(Intent.createChooser(intent, null))
+                                            } catch (_: ActivityNotFoundException) {
+                                                // No app available to handle the share intent; silently ignore
+                                            }
+                                            overflowMenuExpanded = false
+                                        },
+                                    )
+                                    if (onPasteRequest != null) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.terminal_selection_paste)) },
+                                            onClick = {
+                                                selectionManager.clearSelection()
+                                                onPasteRequest()
+                                                overflowMenuExpanded = false
+                                            },
+                                        )
+                                    }
                                 }
-                                DropdownMenuItem(
-                                    text = {
-                                        val modeLabel = when (selectionManager.mode) {
-                                            SelectionMode.CHARACTER -> stringResource(R.string.terminal_selection_mode_character)
-                                            SelectionMode.WORD -> stringResource(R.string.terminal_selection_mode_word)
-                                            else -> stringResource(R.string.terminal_selection_mode_line)
-                                        }
-                                        Text(modeLabel)
-                                    },
-                                    onClick = {
-                                        selectionController.toggleSelectionMode()
-                                        // Keep menu open for easy cycling
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.terminal_selection_close)) },
-                                    onClick = {
-                                        selectionController.clearSelection()
-                                        overflowMenuExpanded = false
-                                    },
-                                )
                             }
                         }
                     }
@@ -1978,6 +1977,23 @@ internal fun TerminalWithAccessibility(
             )
         }
     }
+}
+
+internal fun selectionToolbarOffset(
+    belowSelection: IntOffset,
+    aboveSelectionY: Int,
+    toolbarSize: IntSize,
+    viewportSize: IntSize,
+): IntOffset {
+    val preferredY = if (belowSelection.y + toolbarSize.height <= viewportSize.height) {
+        belowSelection.y
+    } else {
+        aboveSelectionY - toolbarSize.height
+    }
+    return IntOffset(
+        belowSelection.x.coerceIn(0, (viewportSize.width - toolbarSize.width).coerceAtLeast(0)),
+        preferredY.coerceIn(0, (viewportSize.height - toolbarSize.height).coerceAtLeast(0)),
+    )
 }
 
 /**

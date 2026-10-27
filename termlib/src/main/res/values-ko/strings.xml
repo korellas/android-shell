@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Copy the selected terminal text to the clipboard. -->
+    <string name="terminal_selection_copy">복사</string>
+    <!-- Open the selected terminal text in an editor before sending it. -->
+    <string name="terminal_selection_edit">편집 후 전송</string>
+    <!-- Character selection segment in the terminal selection menu. -->
+    <string name="terminal_selection_mode_character">문자</string>
+    <!-- Word selection segment in the terminal selection menu. -->
+    <string name="terminal_selection_mode_word">단어</string>
+    <!-- Line selection segment in the terminal selection menu. -->
+    <string name="terminal_selection_mode_line">줄</string>
+    <!-- Accessibility label for the terminal selection overflow button. -->
+    <string name="terminal_selection_more_options_description">더보기</string>
+    <!-- Paste clipboard text into the terminal. -->
+    <string name="terminal_selection_paste">붙여넣기</string>
+    <!-- Select all terminal text, including scrollback. -->
+    <string name="terminal_selection_select_all">전체 선택</string>
+    <!-- Select only the terminal text visible on screen. -->
+    <string name="terminal_selection_select_all_visible">보이는 화면 선택</string>
+    <!-- Share the selected terminal text with another app. -->
+    <string name="terminal_selection_share">공유</string>
+</resources>

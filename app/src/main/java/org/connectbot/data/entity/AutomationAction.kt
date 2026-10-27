@@ -22,8 +22,8 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import org.connectbot.terminal.VTermKey
 import org.connectbot.util.TerminalKeyModifiers
+import org.connectbot.util.VTermKey
 import java.util.UUID
 
 enum class AutomationActionType {

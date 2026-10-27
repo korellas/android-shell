@@ -24,7 +24,7 @@ import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
-import org.connectbot.ui.screens.generatepubkey.KeyType
+import org.connectbot.util.KeyType
 import timber.log.Timber
 import java.security.KeyFactory
 import java.security.KeyPairGenerator

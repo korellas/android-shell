@@ -22,12 +22,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'ui_engine_fixture.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late AndroidEngine engine;
   MethodCall? copied;
   setUp(() {
-    engine = AndroidEngine()
+    engine = UiEngineFixture()
       ..state = {
         'keys': [
           {

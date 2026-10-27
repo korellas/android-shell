@@ -1,19 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Copy the selected terminal text to the clipboard. -->
     <string name="terminal_selection_copy">Copy</string>
-    <!-- Open the selected terminal text in the editor. -->
-    <string name="terminal_selection_edit">Edit</string>
-    <!-- Expand the current terminal selection to complete lines. -->
-    <string name="terminal_selection_line">Select Line</string>
-    <!-- Dismiss the terminal text selection and its menu. -->
-    <string name="terminal_selection_close">Clear Selection</string>
-    <string name="terminal_selection_mode_character">Mode: Character</string>
-    <string name="terminal_selection_mode_line">Mode: Line</string>
-    <string name="terminal_selection_mode_word">Mode: Word</string>
-    <string name="terminal_selection_more_options">⋮</string>
+    <!-- Open the selected terminal text in an editor before sending it. -->
+    <string name="terminal_selection_edit">Edit and send</string>
+    <!-- Character selection segment in the terminal selection menu. -->
+    <string name="terminal_selection_mode_character">Character</string>
+    <!-- Word selection segment in the terminal selection menu. -->
+    <string name="terminal_selection_mode_word">Word</string>
+    <!-- Line selection segment in the terminal selection menu. -->
+    <string name="terminal_selection_mode_line">Line</string>
+    <!-- Accessibility label for the terminal selection overflow button. -->
     <string name="terminal_selection_more_options_description">More options</string>
+    <!-- Paste clipboard text into the terminal. -->
     <string name="terminal_selection_paste">Paste</string>
-    <string name="terminal_selection_select_all">Select All</string>
-    <string name="terminal_selection_select_all_visible">Select All Visible</string>
+    <!-- Select all terminal text, including scrollback. -->
+    <string name="terminal_selection_select_all">Select all</string>
+    <!-- Select only the terminal text visible on screen. -->
+    <string name="terminal_selection_select_all_visible">Select visible screen</string>
+    <!-- Share the selected terminal text with another app. -->
     <string name="terminal_selection_share">Share</string>
 </resources>

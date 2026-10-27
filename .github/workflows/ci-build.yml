@@ -314,7 +314,7 @@ jobs:
           target: default
           arch: x86_64
           disk-size: 2G
-          script: ./gradlew --profile :app:connected${FLAVOR_TASK}DebugAndroidTest :mosh:connected${FLAVOR_TASK}DebugAndroidTest :app:create${FLAVOR_TASK}DebugAndroidTestCoverageReport --continue
+          script: ./gradlew --profile :app:connected${FLAVOR_TASK}DebugAndroidTest :app:create${FLAVOR_TASK}DebugAndroidTestCoverageReport --continue
 
       - name: Store instrumentation test results
         if: always()
@@ -324,8 +324,6 @@ jobs:
           path: |
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/
-            mosh/build/reports/androidTests/connected/
-            mosh/build/outputs/androidTest-results/connected/
           if-no-files-found: warn
           retention-days: 14
 

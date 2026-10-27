@@ -21,7 +21,6 @@ import org.connectbot.data.entity.AutomationAction
 import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.PortForward
 import org.connectbot.data.entity.Profile
-import org.connectbot.data.entity.Pubkey
 
 internal typealias Wire = Map<String, Any?>
 internal fun Wire.text(key: String, default: String = "") = this[key] as? String ?: default
@@ -87,12 +86,4 @@ internal fun PortForward.toWire(): Wire = mapOf(
 internal fun AutomationAction.toWire(): Wire = mapOf(
     "id" to id, "hostId" to hostId, "position" to position, "type" to type.name,
     "text" to text, "regex" to regex, "durationMs" to durationMs, "key" to key, "modifiers" to modifiers, "forwardId" to forwardId, "failurePolicy" to failurePolicy.name,
-)
-internal fun Pubkey.toWire(loaded: Boolean): Wire = mapOf(
-    "id" to id, "nickname" to nickname, "type" to type, "encrypted" to encrypted,
-    "publicKey" to runCatching { if (type == "IMPORTED") null else com.trilead.ssh2.crypto.PublicKeyUtils.toAuthorizedKeysFormat(org.connectbot.util.PubkeyUtils.decodePublic(publicKey, type), nickname) }.getOrNull(),
-    "fingerprint" to runCatching {
-        if (type == "IMPORTED") null else com.trilead.ssh2.crypto.PublicKeyUtils.toAuthorizedKeysFormat(org.connectbot.util.PubkeyUtils.decodePublic(publicKey, type), nickname).split(" ")[1].let { com.trilead.ssh2.crypto.fingerprint.KeyFingerprint.createSHA256Fingerprint(android.util.Base64.decode(it, android.util.Base64.DEFAULT)) }
-    }.getOrNull(),
-    "startup" to startup, "confirmation" to confirmation, "createdDate" to createdDate, "biometric" to isBiometric, "allowBackup" to allowBackup, "loaded" to loaded,
 )

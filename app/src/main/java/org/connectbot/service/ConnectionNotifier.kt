@@ -177,7 +177,7 @@ class ConnectionNotifier @Inject constructor(dispatchers: CoroutineDispatchers) 
 
     private fun summary(context: Context): Notification {
         val title = summaryText(context)
-        val connected = sessions.filter { it.connected }.sortedBy { it.host.nickname }
+        val connected = sessions.filter { it.connected || it.connecting }.sortedBy { it.host.nickname }
         val serverNames = connected.take(3).joinToString(", ") { it.host.nickname }
         val text = if (connected.size > 3) {
             val remaining = connected.size - 3
@@ -245,7 +245,7 @@ class ConnectionNotifier @Inject constructor(dispatchers: CoroutineDispatchers) 
                 PendingIntent.getService(
                     context,
                     3,
-                    Intent(context, TerminalManager::class.java).setAction(TerminalManager.ACTION_DISCONNECT_ALL),
+                    Intent(context, org.connectbot.flutter.FlutterSessionService::class.java).setAction(org.connectbot.flutter.FlutterSessionService.ACTION_DISCONNECT_ALL),
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                 ),
             )
@@ -283,7 +283,7 @@ class ConnectionNotifier @Inject constructor(dispatchers: CoroutineDispatchers) 
     }
 
     private fun refresh(context: Context) {
-        if (sessions.none { it.connected }) {
+        if (sessions.none { it.connected || it.connecting }) {
             notices.keys.toList().forEach { clearNotice(context, it) }
             manager(context).cancel(ONLINE_NOTIFICATION)
             return
@@ -351,7 +351,7 @@ class ConnectionNotifier @Inject constructor(dispatchers: CoroutineDispatchers) 
 
     fun showRunningNotification(context: Service, current: List<NotificationSession>) = enqueue(context) {
         replaceSessions(context, current)
-        if (sessions.none { it.connected }) {
+        if (sessions.none { it.connected || it.connecting }) {
             foreground = false
             context.stopForeground(Service.STOP_FOREGROUND_REMOVE)
             refresh(context)

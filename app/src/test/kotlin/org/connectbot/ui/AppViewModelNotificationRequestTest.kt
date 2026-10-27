@@ -71,6 +71,13 @@ class AppViewModelNotificationRequestTest {
     private fun viewModel() = AppViewModel(migrator, prefs, CoroutineDispatchers(dispatcher, dispatcher, dispatcher), permission)
 
     @Test
+    fun migrationCompletionIsReadyWithoutTerminalService() = runTest(dispatcher) {
+        val model = viewModel()
+        advanceUntilIdle()
+        assertTrue(model.uiState.value is AppUiState.Ready)
+    }
+
+    @Test
     fun firstUriConnectionRequestsOnceAndDenialPreservesAlertsAndNavigation() = runTest(dispatcher) {
         val model = viewModel()
         val uri = "ssh://user@host".toUri()

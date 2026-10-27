@@ -1,6 +1,6 @@
 # Tilde Flutter UI
 
-Flutter owns the management screens and navigation. The host application reuses the Android transport, terminal, persistence, key, and background-service implementations through method/event channels and a terminal PlatformView.
+Flutter owns the screens, terminal rendering, SSH sessions, forwarding and automation. `AndroidEngine` connects `AppSshSession` and `AppLocalSession` to the shared terminal. Android method/event channels provide persistence, protected-key signing, legacy text encodings, local PTYs and foreground notifications. `FlutterSessionRuntime` retains the Flutter engine across Activity recreation; the terminal uses Flutter widgets.
 
 Install the Flutter SDK matching the pinned revision in
 [CI](../.github/workflows/ci-build.yml). From the repository root:
@@ -28,8 +28,8 @@ The [Tilde design contract](../docs/design/tilde-design.md) and preserved
 screens, colors, fonts, and save/cancel behavior. Saved connections remain the
 home screen. Host import/export is under Settings → Security & backup; terminal
 profiles are under Settings → Terminal. Editors stage changes behind a bottom
-save bar. Settings apply immediately. SSH and Mosh retain their protocol-specific
-controls. Hardware mappings are visible with the actual connection state.
+save bar. Settings apply immediately. SSH and Android local shells retain their protocol-specific
+controls. Mosh, Telnet and SOCKS4 are excluded from this migration. Hardware mappings are visible with the actual connection state.
 
 Diagnostic logs have a separate search/share screen. Port forwarding can target
 a selected session, and automation trials open a separate session using the

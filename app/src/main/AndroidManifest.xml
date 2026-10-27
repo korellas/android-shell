@@ -76,8 +76,6 @@
 				<category android:name="android.intent.category.DEFAULT"/>
 
 				<data android:scheme="ssh"/>
-				<data android:scheme="mosh"/>
-				<data android:scheme="telnet"/>
 				<data android:scheme="local"/>
 			</intent-filter>
 			<intent-filter>
@@ -87,33 +85,18 @@
 				<category android:name="android.intent.category.BROWSABLE"/>
 
 				<data android:scheme="ssh"/>
-				<data android:scheme="mosh"/>
-				<data android:scheme="telnet"/>
 				<data android:scheme="local"/>
 				<!-- format:  ssh://user@host:port/#nickname  -->
-				<!-- format:  mosh://user@host:port/#nickname  -->
-				<!-- format:  telnet://host:port/#nickname  -->
 				<!-- format:  local://  -->
 			</intent-filter>
 		</activity>
-
-		<activity
-			android:name=".ui.MainActivity"
-			android:exported="false"
-			android:launchMode="singleTop"
-			android:resizeableActivity="true"
-			android:windowSoftInputMode="adjustResize" />
 		<meta-data android:name="flutterEmbedding" android:value="2" />
 
 		<receiver
 			android:name=".service.NotificationActionReceiver"
 			android:exported="false" />
 
-		<service
-			android:name="org.connectbot.service.TerminalManager"
-			android:configChanges="keyboardHidden|orientation|screenSize|screenLayout"
-			android:description="@string/service_desc"
-			android:foregroundServiceType="remoteMessaging"/>
+		<service android:name=".flutter.FlutterSessionService" android:exported="false" android:foregroundServiceType="remoteMessaging" />
 
 		<service
 			android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"

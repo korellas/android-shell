@@ -39,8 +39,8 @@ object ColorSchemePresets {
         description = "Tilde dark terminal palette",
         defaultFg = 7,
         defaultBg = 0,
-        foregroundColor = 0xffE4E8EB.toInt(),
-        backgroundColor = 0xff0E1216.toInt(),
+        foregroundColor = 0xffEAE9E7.toInt(),
+        backgroundColor = 0xff13110F.toInt(),
         cursorColor = 0xff6FD8C4.toInt(),
         colors = intArrayOf(
             0xff1B2229.toInt(),
@@ -67,9 +67,9 @@ object ColorSchemePresets {
         description = "Tilde light terminal palette",
         defaultFg = 0,
         defaultBg = 15,
-        foregroundColor = 0xff1B2229.toInt(),
+        foregroundColor = 0xff2E2B25.toInt(),
         backgroundColor = 0xffF6F5F0.toInt(),
-        cursorColor = 0xff0B7566.toInt(),
+        cursorColor = 0xff006E5F.toInt(),
         colors = intArrayOf(
             0xff1B2229.toInt(), 0xffC2362B.toInt(), 0xff357344.toInt(), 0xff8A641F.toInt(),
             0xff2B659C.toInt(), 0xff7954A8.toInt(), 0xff0B7566.toInt(), 0xffD5D4CB.toInt(),

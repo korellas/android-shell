@@ -31,7 +31,7 @@ Future<void> showIdentityEditor(
   BuildContext context,
   AndroidEngine engine, {
   EngineRecord? record,
-}) => showModalBottomSheet<void>(
+}) => showTildeSheet<void>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
@@ -54,7 +54,7 @@ Future<void> showForwardEditor(
   EngineRecord host, {
   EngineRecord? record,
   int? sessionId,
-}) => showModalBottomSheet<void>(
+}) => showTildeSheet<void>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
@@ -171,7 +171,7 @@ class RecordListPage extends StatelessWidget {
                     title: Text('${record['username']}'),
                     subtitle: Text('${usage(record)}개 호스트에서 사용'),
                     onTap: () => edit(context, record),
-                    trailing: PopupMenuButton<String>(
+                    trailing: TildeItemMenu<String>(
                       onSelected: (value) => action(context, record, value),
                       itemBuilder: (_) => [
                         const PopupMenuItem(value: 'edit', child: Text('편집')),
@@ -208,7 +208,7 @@ class RecordListPage extends StatelessWidget {
                           : '${record['username']}',
                     ),
                     onTap: () => edit(context, record),
-                    trailing: PopupMenuButton<String>(
+                    trailing: TildeItemMenu<String>(
                       onSelected: (value) => action(context, record, value),
                       itemBuilder: (_) => [
                         const PopupMenuItem(value: 'edit', child: Text('편집')),
@@ -343,7 +343,7 @@ class _KeyPageState extends State<KeyPage> {
     bool selectFormat = true,
   }) async {
     if (action == 'private' || selectFormat && action == 'export.public') {
-      final format = await showModalBottomSheet<(String, String)>(
+      final format = await showTildeSheet<(String, String)>(
         context: context,
         isScrollControlled: true,
         showDragHandle: true,
@@ -418,7 +418,7 @@ class _KeyPageState extends State<KeyPage> {
       appBar: AppBar(
         title: const Text('SSH 키'),
         actions: [
-          PopupMenuButton<String>(
+          TildeItemMenu<String>(
             onSelected: (action) async {
               if (action == 'file') {
                 await runEngine(context, engine, 'key.import');
@@ -443,7 +443,7 @@ class _KeyPageState extends State<KeyPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showModalBottomSheet<void>(
+        onPressed: () => showTildeSheet<void>(
           context: context,
           isScrollControlled: true,
           useSafeArea: true,
@@ -487,7 +487,7 @@ class _KeyPageState extends State<KeyPage> {
                 ),
                 title: Text('${key['nickname']}'),
                 subtitle: Text(
-                  '${key['type']}${key['biometric'] == true
+                  '${key['displayType'] ?? key['type']}${key['supported'] == false ? ' · DSA 로그인 미지원' : ''}${key['biometric'] == true
                       ? ' · 생체인증 보호'
                       : key['encrypted'] == true
                       ? ' · 암호 보호'
@@ -499,9 +499,11 @@ class _KeyPageState extends State<KeyPage> {
                   children: [
                     Switch(
                       value: key['loaded'] == true,
-                      onChanged: (_) => keyAction(key, 'load'),
+                      onChanged: key['supported'] == false
+                          ? null
+                          : (_) => keyAction(key, 'load'),
                     ),
-                    PopupMenuButton<String>(
+                    TildeItemMenu<String>(
                       tooltip: '${key['nickname']} 옵션',
                       onSelected: (action) => keyAction(key, action),
                       itemBuilder: (_) => [
@@ -554,7 +556,7 @@ class _ForwardsPageState extends State<ForwardsPage> {
   int? sessionId;
   List<EngineRecord> get sessions => widget.engine
       .list('sessions')
-      .where((s) => s['hostId'] == widget.host['id'] && s['open'] == true)
+      .where((s) => s['hostId'] == widget.host['id'] && s['canForward'] == true)
       .toList();
   bool get live => sessions.any((s) => s['id'] == sessionId);
   @override
@@ -796,8 +798,13 @@ class KnownHostsPage extends StatelessWidget {
                               label: const Text('복사'),
                             ),
                             TextButton.icon(
+                              style: TextButton.styleFrom(
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.error,
+                              ),
                               onPressed: () async {
-                                final approved = await showModalBottomSheet<bool>(
+                                final approved = await showTildeSheet<bool>(
                                   context: context,
                                   showDragHandle: true,
                                   builder: (c) => SafeArea(
@@ -914,7 +921,7 @@ class SchemesPage extends StatelessWidget {
       final name = await askText(
         context,
         '테마 이름',
-        initial: '${scheme['name']}${action == 'duplicate' ? ' copy' : ''}',
+        initial: '${scheme['name']}${action == 'duplicate' ? ' 복사' : ''}',
       );
       if (name != null && context.mounted) {
         await runEngine(context, engine, 'scheme.$action', {
@@ -955,9 +962,9 @@ class SchemesPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('색상 테마'),
         actions: [
-          IconButton(
-            tooltip: '테마 가져오기',
-            icon: const Icon(Icons.file_open),
+          TextButton.icon(
+            label: const Text('가져오기'),
+            icon: const Icon(Icons.file_open_outlined),
             onPressed: () async {
               final uri = await runEngine(context, engine, 'document.pick');
               if (uri == null || !context.mounted) return;
@@ -1118,7 +1125,7 @@ class SchemesPage extends StatelessWidget {
                                       context,
                                     ).colorScheme.primary,
                                   ),
-                                PopupMenuButton<String>(
+                                TildeItemMenu<String>(
                                   tooltip: '${scheme['name']} 옵션',
                                   onSelected: (value) =>
                                       action(context, scheme, value),
@@ -1304,7 +1311,7 @@ class _PalettePageState extends State<PalettePage> {
       appBar: AppBar(
         title: Text('${widget.scheme['name']}'),
         actions: [
-          PopupMenuButton<String>(
+          TildeItemMenu<String>(
             onSelected: menu,
             itemBuilder: (_) => [
               if (editable)
@@ -1349,7 +1356,11 @@ class _PalettePageState extends State<PalettePage> {
                     ),
                   ],
                 ),
-                style: const TextStyle(fontFamily: tildeMono, fontSize: 14),
+                style: const TextStyle(
+                  fontFamily: tildeMono,
+                  fontFamilyFallback: ['Pretendard'],
+                  fontSize: 14,
+                ),
               ),
             ),
           ),
@@ -1367,11 +1378,15 @@ class _PalettePageState extends State<PalettePage> {
                       ? '배경과 대비가 낮습니다'
                       : '#${role(key).toARGB32().toRadixString(16).substring(2).toUpperCase()}',
                   style: TextStyle(
-                    fontFamily: tildeMono,
+                    fontFamily:
+                        key != 'background' &&
+                            contrast(role(key), role('background')) < 3
+                        ? 'Pretendard'
+                        : tildeMono,
                     color:
                         key != 'background' &&
                             contrast(role(key), role('background')) < 3
-                        ? tildeSand
+                        ? Theme.of(context).colorScheme.tertiary
                         : null,
                   ),
                 ),

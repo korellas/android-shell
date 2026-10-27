@@ -41,6 +41,9 @@ class RecordEditor extends StatefulWidget {
   final int? hostId;
   final int? sessionId;
   final Future<void> Function(EngineRecord host)? onSetup;
+  final bool embedded;
+  final VoidCallback? onClose;
+  final void Function(Future<bool> Function())? registerLeaveGuard;
   const RecordEditor({
     super.key,
     required this.engine,
@@ -49,6 +52,9 @@ class RecordEditor extends StatefulWidget {
     this.hostId,
     this.sessionId,
     this.onSetup,
+    this.embedded = false,
+    this.onClose,
+    this.registerLeaveGuard,
   });
   @override
   State<RecordEditor> createState() => _RecordEditorState();
@@ -67,6 +73,11 @@ class _RecordEditorState extends State<RecordEditor> {
   @override
   void initState() {
     super.initState();
+    widget.registerLeaveGuard?.call(() async {
+      if (!mounted || mapEquals(originalDraft, draft)) return true;
+      if (saving) return false;
+      return discardTildeChanges(context);
+    });
     draft = {
       ...row(row(engine.state['defaults'])[widget.kind.name]),
       ...?widget.record,
@@ -136,11 +147,8 @@ class _RecordEditorState extends State<RecordEditor> {
           : password
           ? TextInputType.visiblePassword
           : TextInputType.text,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        border: const OutlineInputBorder(),
-      ),
+      decoration: InputDecoration(labelText: label, hintText: hint),
+      errorBuilder: (context, error) => Text(error),
       validator: (value) {
         if (required && (value ?? '').trim().isEmpty) {
           return '$label 항목을 입력하세요.';
@@ -263,7 +271,17 @@ class _RecordEditorState extends State<RecordEditor> {
   Widget pubkeySelector() => tildeRadioOptions(
     context,
     [
-      for (final key in engine.list('keys')) (key['id'], '${key['nickname']}'),
+      for (final key
+          in engine
+              .list('keys')
+              .where(
+                (key) =>
+                    key['supported'] != false || key['id'] == draft['pubkeyId'],
+              ))
+        (
+          key['id'],
+          '${key['nickname']}${key['supported'] == false ? ' (DSA 미지원)' : ''}',
+        ),
       (-1, '잠금 해제된 키 모두 시도'),
       (-2, '키 쓰지 않음'),
     ],
@@ -271,7 +289,8 @@ class _RecordEditorState extends State<RecordEditor> {
     (v) => setState(() => draft['pubkeyId'] = v),
     subtitles: {
       for (final key in engine.list('keys'))
-        key['id']: '${key['type']} · ${key['fingerprint'] ?? ''}',
+        key['id']:
+            '${key['displayType'] ?? key['type']} · ${key['fingerprint'] ?? ''}',
     },
   );
 
@@ -384,30 +403,33 @@ class _RecordEditorState extends State<RecordEditor> {
           ('on', '항상 표시'),
         ]),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: text(
-                  'forceSizeColumns',
-                  '열 수 · 자동',
-                  number: true,
-                  optional: true,
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                child: Text('×'),
-              ),
-              Expanded(
-                child: text(
-                  'forceSizeRows',
-                  '행 수 · 자동',
-                  number: true,
-                  optional: true,
-                ),
-              ),
-            ],
+          padding: const EdgeInsets.only(top: 16),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = text(
+                'forceSizeColumns',
+                '열 수 · 자동',
+                number: true,
+                optional: true,
+              );
+              final rows = text(
+                'forceSizeRows',
+                '행 수 · 자동',
+                number: true,
+                optional: true,
+              );
+              if (MediaQuery.textScalerOf(context).scale(15) > 20 ||
+                  constraints.maxWidth < 300) {
+                return Column(children: [columns, rows]);
+              }
+              return Row(
+                children: [
+                  Expanded(child: columns),
+                  const Text('×'),
+                  Expanded(child: rows),
+                ],
+              );
+            },
           ),
         ),
       ]),
@@ -528,7 +550,7 @@ class _RecordEditorState extends State<RecordEditor> {
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () async {
-                final value = await showModalBottomSheet<EngineRecord>(
+                final value = await showTildeSheet<EngineRecord>(
                   context: context,
                   isScrollControlled: true,
                   showDragHandle: true,
@@ -549,6 +571,20 @@ class _RecordEditorState extends State<RecordEditor> {
       ]),
     ],
   };
+  @override
+  void didUpdateWidget(RecordEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.embedded || widget.record?['id'] != oldWidget.record?['id']) {
+      return;
+    }
+    for (final entry in widget.record!.entries) {
+      if (draft[entry.key] == originalDraft[entry.key]) {
+        draft[entry.key] = entry.value;
+      }
+      originalDraft[entry.key] = entry.value;
+    }
+  }
+
   bool get savedHost =>
       (draft['id'] as num?)?.toInt() != null &&
       (draft['id'] as num).toInt() > 0;
@@ -844,139 +880,165 @@ class _RecordEditorState extends State<RecordEditor> {
         .list('keys')
         .where((k) => k['id'] == draft['pubkeyId'])
         .firstOrNull;
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 104),
-      children: [
-        ListTile(
-          contentPadding: const EdgeInsets.all(16),
-          leading: TildeHostTile(host: draft, size: 48),
-          title: Text(
-            '${draft['nickname'] ?? ''}',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          subtitle: Text(
-            draft['protocol'] == 'local'
-                ? '로컬 셸'
-                : '${draft['username'] ?? ''}@${draft['hostname'] ?? ''}:${draft['port'] ?? ''}',
-            style: const TextStyle(fontFamily: tildeMono),
-          ),
+    void page(Widget page) =>
+        Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
+    Widget quick(String title, IconData icon, VoidCallback action) => SizedBox(
+      width: 132,
+      child: FilledButton.tonal(
+        onPressed: saving ? null : action,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 72),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+          foregroundColor: Theme.of(context).colorScheme.onSurface,
         ),
-        if (savedHost)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: saving ? null : connectSavedHost,
-                    icon: const Icon(Icons.terminal),
-                    label: const Text('연결'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: saving ? null : duplicateHost,
-                    icon: const Icon(Icons.copy_outlined),
-                    label: const Text('복제'),
-                  ),
-                ),
-              ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 22),
+            const SizedBox(height: 8),
+            Text(title),
+          ],
+        ),
+      ),
+    );
+    final identity = <Widget>[
+      Center(child: TildeHostTile(host: draft, size: 80)),
+      const SizedBox(height: 16),
+      Text(
+        '${draft['nickname'] ?? ''}',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.headlineMedium,
+      ),
+      const SizedBox(height: 8),
+      Text(
+        hostAddress(draft),
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontFamily: draft['protocol'] == 'local' ? 'Pretendard' : tildeMono,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontSize: 13,
+        ),
+      ),
+      const SizedBox(height: 24),
+      if (savedHost)
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            quick(
+              '새 세션',
+              Icons.library_add_outlined,
+              () => connectSavedHost(newSession: true),
             ),
-          ),
-        settingsSection(context, '설정', [
-          for (final (id, icon, summary) in [
-            (
-              'connection',
-              Icons.lan_outlined,
-              draft['protocol'] == 'local'
-                  ? '로컬 셸'
-                  : '${draft['hostname'] ?? ''}:${draft['port'] ?? ''} · ${draft['protocol'] ?? 'ssh'}',
-            ),
+            quick('복제', Icons.file_copy_outlined, duplicateHost),
             if (sshHost)
-              (
-                'authentication',
-                Icons.key_outlined,
-                '${draft['username'] ?? ''} · ${key?['nickname'] ?? '키 선택'}',
+              quick(
+                '포워딩',
+                Icons.swap_horiz,
+                () => page(ForwardsPage(engine: engine, host: draft)),
               ),
-            (
-              'appearance',
-              Icons.palette_outlined,
-              '${profile['name'] ?? 'Default'}',
-            ),
-            (
-              'session',
-              Icons.tune,
-              draft['stayConnected'] == true ? '연결 유지' : '연결 설정',
-            ),
-          ])
-            ListTile(
-              selected: selected == id,
-              leading: Icon(icon, size: 24),
-              title: Text(hostCategoryTitle(id)),
-              subtitle: Text(
-                summary,
-                style: const TextStyle(fontFamily: tildeMono, fontSize: 12.5),
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => setState(() => hostCategory = id),
-            ),
-        ]),
-        if (savedHost)
-          settingsSection(context, '이 호스트의', [
-            if (sshHost)
-              ListTile(
-                leading: const Icon(Icons.swap_horiz),
-                title: const Text('포트 포워딩'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => ForwardsPage(engine: engine, host: draft),
-                  ),
-                ),
-              ),
-            if (sshHost)
-              ListTile(
-                leading: const Icon(Icons.verified_user_outlined),
-                title: const Text('신뢰한 서버 키'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => KnownHostsPage(
-                      engine: engine,
-                      hostId: draft['id'] as int,
-                    ),
-                  ),
-                ),
-              ),
-            ListTile(
-              leading: const Icon(Icons.add_to_home_screen),
-              title: const Text('홈 화면에 추가'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => runEngine(context, engine, 'shortcut', {
+            quick(
+              '홈 화면',
+              Icons.add_to_home_screen_outlined,
+              () => runEngine(context, engine, 'shortcut', {
                 'id': draft['id'],
                 'color': draft['color'],
               }),
             ),
-            ListTile(
-              leading: Icon(
-                Icons.delete_outline,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              title: Text(
-                '호스트 삭제',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              onTap: deleteHost,
-            ),
-          ]),
-      ],
+          ],
+        ),
+      const SizedBox(height: 24),
+    ];
+    final largeText = MediaQuery.textScalerOf(context).scale(15) > 20;
+    final details = <Widget>[
+      for (final (id, summary) in [
+        (
+          'connection',
+          draft['protocol'] == 'local'
+              ? '로컬 셸'
+              : '${draft['protocol'] ?? 'ssh'} · ${draft['hostname'] ?? ''}:${draft['port'] ?? ''}',
+        ),
+        if (sshHost)
+          (
+            'authentication',
+            '${key?['nickname'] ?? '키 선택'} · ${draft['username'] ?? ''}',
+          ),
+        ('appearance', '${profile['name'] ?? '앱 기본값'}'),
+        ('session', draft['stayConnected'] == true ? '연결 유지' : '연결 설정'),
+      ])
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          selected: selected == id,
+          selectedTileColor: Theme.of(context).colorScheme.surfaceContainerLow,
+          title: Text(hostCategoryTitle(id)),
+          subtitle: largeText
+              ? Text(summary, style: Theme.of(context).textTheme.bodySmall)
+              : null,
+          trailing: largeText
+              ? const Icon(Icons.chevron_right)
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 160),
+                      child: Text(
+                        summary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
+          onTap: () => setState(() => hostCategory = id),
+        ),
+      if (savedHost && sshHost)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('신뢰한 서버 키'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () =>
+              page(KnownHostsPage(engine: engine, hostId: draft['id'] as int)),
+        ),
+      if (savedHost)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(
+            '호스트 삭제',
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          onTap: deleteHost,
+        ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns =
+            widget.embedded &&
+            constraints.maxWidth >= 600 &&
+            MediaQuery.textScalerOf(context).scale(15) <= 20;
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          children: columns
+              ? [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: Column(children: identity)),
+                      const SizedBox(width: 20),
+                      Expanded(child: Column(children: details)),
+                    ],
+                  ),
+                ]
+              : [...identity, ...details],
+        );
+      },
     );
   }
 
-  Future<void> connectSavedHost() async {
+  Future<void> connectSavedHost({bool newSession = false}) async {
     if (!mapEquals(originalDraft, draft)) {
       final action = await askAction(context, '변경 사항이 있습니다', [
         ('save', '저장하고 연결'),
@@ -988,7 +1050,10 @@ class _RecordEditorState extends State<RecordEditor> {
     if (!mounted) return;
     final id = draft['id'];
     Navigator.of(context).popUntil((r) => r.isFirst);
-    await runEngine(context, engine, 'connect', {'id': id});
+    await runEngine(context, engine, 'connect', {
+      'id': id,
+      if (newSession) 'newSession': true,
+    });
   }
 
   Future<void> duplicateHost() async {
@@ -1011,12 +1076,13 @@ class _RecordEditorState extends State<RecordEditor> {
       engine,
       draft,
       onDeleted: () {
-        if (mounted) Navigator.pop(context);
+        if (mounted && !widget.embedded) Navigator.pop(context);
       },
     );
   }
 
-  bool get wideEditor => MediaQuery.sizeOf(context).width >= 720;
+  bool get wideEditor =>
+      !widget.embedded && MediaQuery.sizeOf(context).width >= 720;
   int get changeCount => {
     for (final key in {...originalDraft.keys, ...draft.keys})
       if (originalDraft[key] != draft[key] && !key.startsWith('_'))
@@ -1059,6 +1125,10 @@ class _RecordEditorState extends State<RecordEditor> {
         hostCategory != null &&
         savedHost) {
       setState(() => hostCategory = null);
+      return;
+    }
+    if (widget.embedded && widget.onClose != null) {
+      widget.onClose!();
       return;
     }
     if (mounted) Navigator.pop(context);
@@ -1124,7 +1194,7 @@ class _RecordEditorState extends State<RecordEditor> {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final wide = constraints.maxWidth >= 720;
+      final wide = !widget.embedded && constraints.maxWidth >= 720;
       final host = widget.kind == RecordKind.host;
       final selected = hostCategory ?? (wide && host ? 'connection' : null);
       final dirty = !mapEquals(originalDraft, draft);
@@ -1159,20 +1229,32 @@ class _RecordEditorState extends State<RecordEditor> {
         ),
       );
       return PopScope(
-        canPop: !saving && !dirty && !(host && !wide && hostCategory != null),
+        canPop:
+            !saving &&
+            !dirty &&
+            !(host && !wide && hostCategory != null) &&
+            !(widget.embedded && MediaQuery.sizeOf(context).width < 720),
         onPopInvokedWithResult: (didPop, result) {
           if (!didPop) back(wide);
         },
         child: Scaffold(
           appBar: AppBar(
-            leading: IconButton(
-              tooltip: '뒤로',
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => back(wide),
-            ),
+            automaticallyImplyLeading: false,
+            leading:
+                widget.embedded &&
+                    hostCategory == null &&
+                    MediaQuery.sizeOf(context).width >= 720
+                ? null
+                : IconButton(
+                    tooltip: '뒤로',
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => back(wide),
+                  ),
             title: Text(
               host && !wide && selected != null
                   ? hostCategoryTitle(selected)
+                  : widget.embedded
+                  ? ''
                   : '${kindTitle(widget.kind)} ${widget.record == null ? '추가' : '편집'}',
             ),
           ),
@@ -1187,20 +1269,50 @@ class _RecordEditorState extends State<RecordEditor> {
                       ? '추가'
                       : '저장',
                 )
+              : host && savedHost && selected == null
+              ? SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) => Align(
+                        alignment: Alignment.centerLeft,
+                        heightFactor: 1,
+                        child: SizedBox(
+                          width: widget.embedded && constraints.maxWidth >= 568
+                              ? (constraints.maxWidth - 20) / 2
+                              : double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: saving ? null : connectSavedHost,
+                            icon: const Icon(Icons.terminal_outlined),
+                            label: const Text('연결'),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                )
               : null,
           body: host && wide
               ? Row(
                   children: [
-                    SizedBox(width: 280, child: hostCategories(selected)),
+                    SizedBox(width: 320, child: hostCategories(selected)),
                     const VerticalDivider(width: 1),
-                    Expanded(child: details),
+                    Expanded(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 640),
+                          child: details,
+                        ),
+                      ),
+                    ),
                   ],
                 )
               : host && selected == null
               ? hostCategories(null)
               : Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 760),
+                    constraints: const BoxConstraints(maxWidth: 640),
                     child: details,
                   ),
                 ),
@@ -1415,6 +1527,7 @@ class _KeyPasswordSheetState extends State<KeyPasswordSheet> {
               decoration: const InputDecoration(
                 labelText: '새 암호',
                 helperText: '빈 값으로 저장하면 암호를 제거합니다',
+                helperMaxLines: 3,
               ),
               onChanged: (v) => newPassword = v,
             ),

@@ -47,7 +47,7 @@ import org.connectbot.data.ProfileRepository
 import org.connectbot.data.entity.Profile
 import org.connectbot.di.CoroutineDispatchers
 import org.connectbot.service.ConnectionNotifier
-import org.connectbot.terminal.ImeShortcutInputMode
+import org.connectbot.util.ImeShortcutInputMode
 import org.connectbot.util.LanguageDownloadState
 import org.connectbot.util.LanguagePackManager
 import org.connectbot.util.LocalFontProvider

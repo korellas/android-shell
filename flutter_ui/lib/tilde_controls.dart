@@ -85,8 +85,9 @@ Widget tildeSegments(
   String label,
   List<(Object?, String)> options,
   Object? value,
-  ValueChanged<Object?>? onChanged,
-) {
+  ValueChanged<Object?>? onChanged, {
+  Map<Object?, Widget> labels = const {},
+}) {
   final values = [...options];
   if (!values.any((v) => v.$1 == value)) values.add((value, '$value (현재 값)'));
   return Padding(
@@ -105,7 +106,7 @@ Widget tildeSegments(
               key: ValueKey(vertical),
               segments: [
                 for (final v in values)
-                  ButtonSegment(value: v.$1, label: Text(v.$2)),
+                  ButtonSegment(value: v.$1, label: labels[v.$1] ?? Text(v.$2)),
               ],
               selected: {value},
               direction: vertical ? Axis.vertical : Axis.horizontal,
@@ -146,7 +147,7 @@ Widget tildeRadioOptions(
             : Text(
                 subtitles[option.$1]!,
                 style: const TextStyle(
-                  fontFamily: tildeMono,
+                  fontFamily: 'Pretendard',
                   fontFamilyFallback: ['Pretendard'],
                   fontSize: 12.5,
                 ),
@@ -171,14 +172,12 @@ class TildeSaveBar extends StatelessWidget {
     this.saveLabel = '저장',
   });
   @override
-  Widget build(BuildContext context) => SafeArea(
-    top: false,
-    child: Container(
+  Widget build(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= 840;
+    final bar = Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        border: Border(
-          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
       ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(
@@ -187,19 +186,36 @@ class TildeSaveBar extends StatelessWidget {
             child: busy
                 ? const TildeProgress.circular(label: '저장 중')
                 : Text(
-                    '변경 $changes개',
+                    '$changes개 변경됨',
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
           ),
-          TextButton(onPressed: busy ? null : cancel, child: const Text('취소')),
+          TextButton(
+            onPressed: busy ? null : cancel,
+            child: const Text('되돌리기'),
+          ),
           const SizedBox(width: 8),
           FilledButton(onPressed: busy ? null : save, child: Text(saveLabel)),
         ],
       ),
-    ),
-  );
+    );
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Align(
+          alignment: Alignment.bottomRight,
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: wide ? 420 : double.infinity),
+            child: bar,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class TildeStepper extends StatefulWidget {
@@ -295,7 +311,7 @@ class _TildeStepperState extends State<TildeStepper> {
                       onSubmitted: apply,
                       onTapOutside: (_) => apply(controller.text),
                       decoration: const InputDecoration(isDense: true),
-                      style: const TextStyle(fontFamily: tildeMono),
+                      style: const TextStyle(fontFamily: 'Pretendard'),
                     )
                   : TextButton(
                       onPressed: () => setState(() {
@@ -305,7 +321,6 @@ class _TildeStepperState extends State<TildeStepper> {
                       child: Text(
                         formatCount('${widget.value}'),
                         style: TextStyle(
-                          fontFamily: tildeMono,
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
@@ -336,7 +351,7 @@ class _TildeStepperState extends State<TildeStepper> {
 }
 
 Future<bool> discardTildeChanges(BuildContext context) async =>
-    await showModalBottomSheet<bool>(
+    await showTildeSheet<bool>(
       context: context,
       showDragHandle: true,
       builder: (c) => SafeArea(
@@ -379,7 +394,7 @@ Future<Color?> pickTildeColor(
   Color initial, {
   String title = '색상 선택',
   ValueChanged<Color>? onPreview,
-}) => showModalBottomSheet<Color>(
+}) => showTildeSheet<Color>(
   context: context,
   isScrollControlled: true,
   showDragHandle: true,
@@ -471,6 +486,7 @@ class _TildeColorSheetState extends State<TildeColorSheet> {
                 labelText: '16진 색상',
                 prefixText: '#',
                 errorText: error,
+                errorMaxLines: 3,
               ),
               maxLength: 6,
               onChanged: (raw) {
@@ -575,4 +591,51 @@ class _ColorWheelPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ColorWheelPainter old) => old.hsv != hsv;
+}
+
+class TildeItemMenu<T> extends StatelessWidget {
+  final PopupMenuItemBuilder<T> itemBuilder;
+  final ValueChanged<T>? onSelected;
+  final String tooltip;
+  const TildeItemMenu({
+    super.key,
+    required this.itemBuilder,
+    this.onSelected,
+    this.tooltip = '메뉴',
+  });
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: tooltip,
+    icon: const Icon(Icons.more_vert),
+    onPressed: () async {
+      final selected = await showTildeSheet<T>(
+        context: context,
+        builder: (c) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final item in itemBuilder(c))
+                  if (item is PopupMenuItem<T>)
+                    ListTile(
+                      enabled: item.enabled,
+                      title: item.child,
+                      onTap: !item.enabled
+                          ? null
+                          : () {
+                              item.onTap?.call();
+                              Navigator.pop(c, item.value);
+                            },
+                    )
+                  else if (item is PopupMenuDivider)
+                    const Divider(),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (selected != null) onSelected?.call(selected);
+    },
+  );
 }

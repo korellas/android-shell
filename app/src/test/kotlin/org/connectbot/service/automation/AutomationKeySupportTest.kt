@@ -17,8 +17,8 @@
 
 package org.connectbot.service.automation
 
-import org.connectbot.terminal.VTermKey
 import org.connectbot.util.TerminalKeyModifiers
+import org.connectbot.util.VTermKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

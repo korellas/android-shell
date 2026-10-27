@@ -85,10 +85,10 @@ import org.connectbot.data.entity.AutomationActionType
 import org.connectbot.data.entity.AutomationFailurePolicy
 import org.connectbot.data.entity.PortForward
 import org.connectbot.service.automation.AutomationKeySupport
-import org.connectbot.terminal.VTermKey
 import org.connectbot.ui.components.EditorScaffold
 import org.connectbot.ui.components.SpecialCharVisualTransformation
 import org.connectbot.util.TerminalKeyModifiers
+import org.connectbot.util.VTermKey
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 

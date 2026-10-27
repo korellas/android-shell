@@ -38,15 +38,11 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
-import org.connectbot.service.AuthBanner
-import org.connectbot.ui.components.AuthBannerDialog
-import org.connectbot.ui.components.AuthBannerDialogContent
 import org.connectbot.ui.components.DisconnectAllDialog
 import org.connectbot.ui.components.FocusableAlertDialog
 import org.connectbot.ui.components.FontDownloadProgressDialog
 import org.connectbot.ui.components.TextInputAlertDialog
 import org.connectbot.ui.components.UrlScanDialog
-import org.connectbot.ui.screens.console.ConsoleTestTags
 import org.connectbot.ui.theme.ConnectBotTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -143,123 +139,6 @@ class ComponentDialogsTest {
 
         assertEquals(url, clickedUrl)
         assertTrue(dismissed)
-    }
-
-    @Test
-    fun authBannerDialog_displaysSourceMessageAndDismisses() {
-        var dismissed = false
-        val banner = AuthBanner(
-            id = 1,
-            sourceName = "jump",
-            message = "Visit https://login.tailscale.com/a/123456 to authenticate.",
-            urls = listOf("https://login.tailscale.com/a/123456"),
-            languageTag = "en",
-        )
-
-        composeTestRule.setContent {
-            ConnectBotTheme {
-                AuthBannerDialog(
-                    banner = banner,
-                    onDismiss = { dismissed = true },
-                )
-            }
-        }
-
-        composeTestRule
-            .onNodeWithText(composeTestRule.activity.getString(R.string.auth_banner_title, "jump"))
-            .assertIsDisplayed()
-        composeTestRule
-            .onNodeWithTag(ConsoleTestTags.AUTH_BANNER_MESSAGE)
-            .assertIsDisplayed()
-        composeTestRule
-            .onNodeWithText(composeTestRule.activity.getString(R.string.button_close))
-            .performClick()
-
-        assertTrue(dismissed)
-    }
-
-    @Test
-    fun authBannerDialogContent_withNoUrls() {
-        val banner = AuthBanner(
-            id = 2,
-            sourceName = "jump-no-url",
-            message = "Welcome without any link.",
-            urls = emptyList(),
-            languageTag = "en",
-        )
-
-        composeTestRule.setContent {
-            ConnectBotTheme {
-                AuthBannerDialogContent(
-                    banner = banner,
-                    onDismiss = {},
-                )
-            }
-        }
-
-        composeTestRule
-            .onNodeWithText(composeTestRule.activity.getString(R.string.auth_banner_title, "jump-no-url"))
-            .assertIsDisplayed()
-        composeTestRule
-            .onNodeWithText("Welcome without any link.")
-            .assertIsDisplayed()
-    }
-
-    @Test
-    fun authBannerDialogContent_withUrlNotMatching() {
-        val banner = AuthBanner(
-            id = 3,
-            sourceName = "jump-missing-url",
-            message = "Welcome to our server.",
-            urls = listOf("https://missing-link.com"),
-            languageTag = "en",
-        )
-
-        composeTestRule.setContent {
-            ConnectBotTheme {
-                AuthBannerDialogContent(
-                    banner = banner,
-                    onDismiss = {},
-                )
-            }
-        }
-
-        composeTestRule
-            .onNodeWithText(composeTestRule.activity.getString(R.string.auth_banner_title, "jump-missing-url"))
-            .assertIsDisplayed()
-        composeTestRule
-            .onNodeWithText("Welcome to our server.")
-            .assertIsDisplayed()
-    }
-
-    @Test
-    fun authBannerDialogContent_withMultipleUrls() {
-        val banner = AuthBanner(
-            id = 4,
-            sourceName = "jump-multiple-urls",
-            message = "Visit https://link1.com and also https://link2.com.",
-            urls = listOf("https://link1.com", "https://link2.com"),
-            languageTag = "en",
-        )
-
-        composeTestRule.setContent {
-            ConnectBotTheme {
-                AuthBannerDialogContent(
-                    banner = banner,
-                    onDismiss = {},
-                )
-            }
-        }
-
-        composeTestRule
-            .onNodeWithText(composeTestRule.activity.getString(R.string.auth_banner_title, "jump-multiple-urls"))
-            .assertIsDisplayed()
-        composeTestRule
-            .onNodeWithText("https://link1.com", substring = true)
-            .assertIsDisplayed()
-        composeTestRule
-            .onNodeWithText("https://link2.com", substring = true)
-            .assertIsDisplayed()
     }
 
     @Test

@@ -1,6 +1,7 @@
 # Tilde
 
-A Flutter Android SSH/Mosh terminal client based on [ConnectBot](https://github.com/connectbot/connectbot).
+A Flutter SSH terminal client with shared Dart sessions and rendering, and Android platform services.
+The Android data and platform code derives from [ConnectBot](https://github.com/connectbot/connectbot).
 This is an independent fork, not an official ConnectBot release.
 
 ## Build
@@ -19,14 +20,14 @@ and build the Android host and unsigned iPad-compatible iOS app together on macO
 The APK is written to `app/build/outputs/apk/oss/debug/app-oss-debug.apk`.
 
 See [Flutter build and validation](flutter_ui/README.md) for module checks and
-release builds. The engine bridge supports Android; iPad
-device installation and functional verification require a separate iOS engine bridge.
+release builds. The platform bridge supports Android; iPad
+device installation and functional verification require iOS platform integration.
 
 For local native verification:
 
 ```sh
-./gradlew :app:testOssDebugUnitTest :termlib:testDebugUnitTest
-./gradlew :app:lintOssDebug :termlib:lintDebug spotlessCheck
+./gradlew :app:testOssDebugUnitTest
+./gradlew :app:lintOssDebug spotlessCheck
 ```
 
 ## Design
@@ -50,16 +51,16 @@ New fingerprint keys authorize each SSH signing operation through Android
 Keystore and the system biometric prompt. Existing time-based keys remain
 compatible. Device-local private keys cannot be exported or restored to another
 phone; keep another working key or login method. If registration or verification
-fails, a public key may already have been added to the server. Register Mosh
-account keys through an SSH host for the same server.
+fails, a public key may already have been added to the server. DSA authentication
+is unsupported; existing stored key records are preserved.
 
 ## Upstream and licenses
 
 The original ConnectBot history, copyright notices and [LICENSE](LICENSE)
-are preserved. The terminal source and IME patch are described in
-[termlib/README.md](termlib/README.md). Dependencies retain their own licenses.
-
-See [ConnectBot](https://github.com/connectbot/connectbot),
-[ConnectBot Terminal](https://github.com/connectbot/termlib),
-[ConnectBot SSH library](https://github.com/connectbot/sshlib) and
-[Mosh for Android](https://github.com/connectbot/mosh4android) for upstream projects.
+are preserved. SSH uses the [app-local dartssh2 copy](flutter_ui/third_party/dartssh2/LOCAL_CHANGES.md);
+rendering uses the xterm2 revision pinned in `flutter_ui/pubspec.yaml`. The generic
+render hooks and authentication policy were submitted as
+[xterm2 PR #3](https://github.com/SoFluffyOS/xterm2/pull/3) and
+[dartssh2 PR #251](https://github.com/vicajilau/dartssh2/pull/251). Compression stays local.
+Dependencies retain their own licenses, available through the help screen.
+Archived `termlib` and Mosh sources are not Android application dependencies.
