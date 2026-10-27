@@ -28,6 +28,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import io.flutter.embedding.android.FlutterFragment
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import kotlinx.coroutines.CompletableDeferred
@@ -100,6 +101,12 @@ class FlutterShellActivity : FlutterFragmentActivity() {
     override fun provideFlutterEngine(context: android.content.Context): FlutterEngine = sessionRuntime.acquireEngine()
 
     override fun shouldDestroyEngineWithHost(): Boolean = false
+
+    override fun createFlutterFragment(): FlutterFragment = super.createFlutterFragment().apply {
+        // The new-engine builder sets this flag even for an Activity-provided engine.
+        // Keep the runtime-owned engine alive when this Fragment is recreated.
+        requireArguments().putBoolean("destroy_engine_with_fragment", false)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

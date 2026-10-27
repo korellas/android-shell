@@ -82,6 +82,13 @@ jobs:
           echo "$flutter_sdk/bin" >> "$GITHUB_PATH"
           "$flutter_sdk/bin/flutter" --version
 
+      - name: Check app-local SSH package
+        working-directory: flutter_ui/third_party/dartssh2
+        run: |
+          dart pub get
+          dart analyze --fatal-infos
+          dart test --exclude-tags integration
+
       - name: Build Flutter module
         working-directory: flutter_ui
         run: |

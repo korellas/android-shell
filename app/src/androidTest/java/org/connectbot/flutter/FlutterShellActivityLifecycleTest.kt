@@ -28,6 +28,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -61,7 +62,9 @@ class FlutterShellActivityLifecycleTest {
             lateinit var cachedEngine: FlutterEngine
             lateinit var firstBridge: AndroidShellEngine
             scenario.onActivity { activity ->
-                cachedEngine = requireNotNull(activity.supportFragmentManager.fragments.filterIsInstance<FlutterFragment>().single().flutterEngine)
+                val fragment = activity.supportFragmentManager.fragments.filterIsInstance<FlutterFragment>().single()
+                assertFalse(fragment.shouldDestroyEngineWithHost())
+                cachedEngine = requireNotNull(fragment.flutterEngine)
                 firstBridge = activity.engine
                 assertSame(activity, firstBridge.activity)
                 assertSame(cachedEngine, activity.sessionRuntime.acquireEngine())
