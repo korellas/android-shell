@@ -291,7 +291,7 @@ class _AutomationPageState extends State<AutomationPage> {
                         '${index + 1}',
                         style: TextStyle(
                           fontFamily: tildeMono,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                       title: Text(actionLabel('${action['type']}')),
@@ -301,7 +301,10 @@ class _AutomationPageState extends State<AutomationPage> {
                             : '${action['text'] ?? action['key'] ?? ''}',
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontFamily: tildeMono),
+                        style: const TextStyle(
+                          fontFamily: tildeMono,
+                          fontFamilyFallback: ['Pretendard'],
+                        ),
                       ),
                       onTap: () => edit(index),
                       trailing: const Icon(Icons.drag_indicator),
@@ -402,6 +405,8 @@ class _AutomationStepPageState extends State<AutomationStepPage> {
           padding: const EdgeInsets.all(16),
           children: [
             DropdownButtonFormField<String>(
+              isExpanded: true,
+              isDense: false,
               initialValue: draft['type'] as String,
               decoration: const InputDecoration(labelText: '동작'),
               items: [
@@ -427,6 +432,7 @@ class _AutomationStepPageState extends State<AutomationStepPage> {
                 decoration: const InputDecoration(
                   labelText: '텍스트',
                   helperText: '입력한 줄바꿈을 그대로 사용해요.',
+                  helperMaxLines: 3,
                 ),
                 onChanged: (v) => setState(() => draft['text'] = v),
               ),
@@ -454,6 +460,8 @@ class _AutomationStepPageState extends State<AutomationStepPage> {
               ),
             if (draft['type'] == 'SEND_KEY') ...[
               DropdownButtonFormField<int>(
+                isExpanded: true,
+                isDense: false,
                 initialValue: draft['key'] as int?,
                 decoration: const InputDecoration(labelText: '전송할 키'),
                 items: [
@@ -492,6 +500,8 @@ class _AutomationStepPageState extends State<AutomationStepPage> {
             if (draft['type'] == 'ENABLE_FORWARD' ||
                 draft['type'] == 'DISABLE_FORWARD')
               DropdownButtonFormField<int>(
+                isExpanded: true,
+                isDense: false,
                 initialValue: draft['forwardId'] as int?,
                 decoration: const InputDecoration(labelText: '포워딩'),
                 items: [

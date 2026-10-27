@@ -27,13 +27,14 @@ import 'console.dart';
 void main() => runApp(const AndroidShellApp());
 
 class AndroidShellApp extends StatefulWidget {
-  const AndroidShellApp({super.key});
+  const AndroidShellApp({super.key, this.engine});
+  final AndroidEngine? engine;
   @override
   State<AndroidShellApp> createState() => _AndroidShellAppState();
 }
 
 class _AndroidShellAppState extends State<AndroidShellApp> {
-  final engine = AndroidEngine();
+  late final engine = widget.engine ?? AndroidEngine();
   @override
   void initState() {
     super.initState();
@@ -56,8 +57,14 @@ class _AndroidShellAppState extends State<AndroidShellApp> {
       debugShowCheckedModeBanner: false,
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),
-      builder: (context, child) =>
-          engine.ready ? child! : AppGate(engine: engine),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          snackBarTheme: Theme.of(context).snackBarTheme.copyWith(
+            insetPadding: tildeToastInsets(MediaQuery.sizeOf(context).width),
+          ),
+        ),
+        child: engine.ready ? child! : AppGate(engine: engine),
+      ),
       themeMode: switch (engine.preferences['themeMode']) {
         'LIGHT' => ThemeMode.light,
         'DARK' => ThemeMode.dark,
@@ -91,7 +98,7 @@ Future<dynamic> runEngine(
 }
 
 Future<void> showErrorDetails(BuildContext context, Object error) =>
-    showModalBottomSheet<void>(
+    showTildeSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -108,7 +115,7 @@ Future<void> showErrorDetails(BuildContext context, Object error) =>
                   ? error.details ?? error.message
                   : '$error',
               style: const TextStyle(
-                fontFamily: tildeMono,
+                fontFamily: 'Pretendard',
                 fontFamilyFallback: ['Pretendard'],
                 fontSize: 13,
               ),
@@ -126,16 +133,16 @@ void showEngineFailure(
   final colors = Theme.of(context).colorScheme;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      backgroundColor: colors.inverseSurface,
+      backgroundColor: colors.surfaceContainerHighest,
       content: Text(
         summary,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: colors.onInverseSurface),
+        style: TextStyle(color: colors.onSurface),
       ),
       action: SnackBarAction(
         label: '자세히',
-        textColor: colors.inversePrimary,
+        textColor: colors.primary,
         onPressed: () => showErrorDetails(context, error),
       ),
     ),
@@ -224,7 +231,7 @@ Future<String?> askAction(
   BuildContext context,
   String title,
   List<(String, String)> actions,
-) => showModalBottomSheet<String>(
+) => showTildeSheet<String>(
   context: context,
   showDragHandle: true,
   builder: (context) => SafeArea(
@@ -258,43 +265,64 @@ Future<String?> askText(
   bool multiline = false,
   TextInputType? keyboardType,
   String? Function(String?)? validator,
+  String action = '적용',
+  double maxWidth = 440,
 }) async {
   var value = initial;
   final form = GlobalKey<FormState>();
-  final result = await showDialog<String>(
+  return showTildeSheet<String>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: Form(
-        key: form,
-        child: TextFormField(
-          keyboardType: keyboardType,
-          validator: validator,
-          initialValue: initial,
-          onChanged: (text) => value = text,
-          autofocus: true,
-          obscureText: password,
-          maxLines: multiline ? 8 : 1,
-          minLines: multiline ? 3 : 1,
+    isScrollControlled: true,
+    maxWidth: maxWidth,
+    builder: (c) => SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          0,
+          24,
+          24 + MediaQuery.viewInsetsOf(c).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(c).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            Form(
+              key: form,
+              child: TextFormField(
+                keyboardType: keyboardType,
+                validator: validator,
+                initialValue: initial,
+                onChanged: (text) => value = text,
+                autofocus: true,
+                obscureText: password,
+                maxLines: multiline ? 8 : 1,
+                minLines: multiline ? 3 : 1,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(c),
+                  child: const Text('취소'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () {
+                    if (form.currentState!.validate()) Navigator.pop(c, value);
+                  },
+                  child: Text(action),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('취소'),
-        ),
-        FilledButton(
-          onPressed: () {
-            if (form.currentState!.validate()) {
-              Navigator.pop(context, value);
-            }
-          },
-          child: const Text('확인'),
-        ),
-      ],
     ),
   );
-  return result;
 }
 
 Future<bool> confirm(
@@ -304,7 +332,7 @@ Future<bool> confirm(
   String action = '삭제',
   bool destructive = true,
 }) async =>
-    await showModalBottomSheet<bool>(
+    await showTildeSheet<bool>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
@@ -372,6 +400,19 @@ class _ShellHomeState extends State<ShellHome> {
   int? _intentSession;
   int? _menuHostId;
   String _quickUri = '';
+  int? _selectedHostId;
+  Future<bool> Function()? _leaveHost;
+  Future<void> _selectHost(EngineRecord host) async {
+    if (_selectedHostId == host['id']) return;
+    if (_leaveHost != null && !await _leaveHost!()) return;
+    if (mounted) {
+      setState(() {
+        _selectedHostId = host['id'] as int;
+        _leaveHost = null;
+      });
+    }
+  }
+
   void _quickConnect(String value) {
     if (value.trim().isNotEmpty) {
       runEngine(context, engine, 'connect', {'uri': value.trim()});
@@ -469,6 +510,7 @@ class _ShellHomeState extends State<ShellHome> {
         .where(
           (p) =>
               p['nativePresentation'] != true &&
+              engine.terminalSession(p['sessionId'] as int? ?? -1) == null &&
               !_answered.contains(p['token']),
         )
         .toList();
@@ -596,7 +638,7 @@ class _ShellHomeState extends State<ShellHome> {
         final name = await askText(
           context,
           '복제할 호스트 이름',
-          initial: '${host['nickname']} copy',
+          initial: '${host['nickname']} 복사',
         );
         if (name != null && mounted) {
           await runEngine(context, engine, 'host.duplicate', {
@@ -638,63 +680,273 @@ class _ShellHomeState extends State<ShellHome> {
     }
   }
 
-  Future<void> _showHostMenu(EngineRecord host, Offset finger) async {
+  Future<void> _showHostMenu(EngineRecord host, [Offset? finger]) async {
     HapticFeedback.selectionClick();
-    final overlay =
-        Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
-    final point = overlay.globalToLocal(finger);
     setState(() => _menuHostId = host['id'] as int);
-    final selected = await showMenu<String>(
+    final selected = await showTildeSheet<String>(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(point.dx, point.dy, 0, 0),
-        Offset.zero & overlay.size,
-      ),
-      items: [
-        PopupMenuItem<String>(
-          enabled: false,
+      isScrollControlled: true,
+      builder: (c) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text('${host['nickname']}'),
-              Text(
-                hostAddress(host),
-                style: const TextStyle(fontFamily: tildeMono, fontSize: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: TildeHostTile(host: host, size: 56),
+                title: Text(
+                  '${host['nickname']}',
+                  style: Theme.of(c).textTheme.titleMedium,
+                ),
+                subtitle: Text(
+                  hostAddress(host),
+                  style: TextStyle(
+                    fontFamily: host['protocol'] == 'local'
+                        ? 'Pretendard'
+                        : tildeMono,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final largeText =
+                      MediaQuery.textScalerOf(context).scale(14) > 21;
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final (value, label, icon) in [
+                        ('newSession', '새 세션', Icons.library_add_outlined),
+                        ('edit', '편집', Icons.edit_outlined),
+                        (
+                          'favorite',
+                          '즐겨찾기',
+                          host['favorite'] == true
+                              ? Icons.star
+                              : Icons.star_border,
+                        ),
+                      ])
+                        SizedBox(
+                          width: largeText
+                              ? constraints.maxWidth
+                              : (constraints.maxWidth - 16) / 3,
+                          child: FilledButton.tonal(
+                            onPressed: () => Navigator.pop(c, value),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(0, 72),
+                              padding: const EdgeInsets.all(8),
+                            ),
+                            child: Flex(
+                              direction: largeText
+                                  ? Axis.horizontal
+                                  : Axis.vertical,
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(icon, size: 22),
+                                SizedBox(
+                                  width: largeText ? 8 : 0,
+                                  height: largeText ? 0 : 8,
+                                ),
+                                Text(label),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              for (final (value, label, icon) in [
+                ('duplicate', '복제', Icons.file_copy_outlined),
+                if (host['protocol'] == 'ssh')
+                  ('forwards', '포트 포워딩', Icons.swap_horiz),
+                ('shortcut', '홈 화면에 추가', Icons.add_to_home_screen_outlined),
+              ])
+                ListTile(
+                  leading: Icon(icon, size: 22),
+                  title: Text(label),
+                  onTap: () => Navigator.pop(c, value),
+                ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  if (engine
+                      .list('sessions')
+                      .any((s) => s['hostId'] == host['id'])) ...[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.pop(c, 'disconnect'),
+                        icon: const Icon(Icons.link_off_outlined),
+                        label: const Text('연결 끊기'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Theme.of(c).colorScheme.error,
+                      ),
+                      onPressed: () => Navigator.pop(c, 'delete'),
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('삭제'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        const PopupMenuDivider(),
-        const PopupMenuItem(value: 'newSession', child: Text('새 세션으로 연결')),
-        const PopupMenuItem(value: 'edit', child: Text('편집')),
-        const PopupMenuItem(value: 'duplicate', child: Text('복제')),
-        PopupMenuItem(
-          value: 'favorite',
-          child: Text(host['favorite'] == true ? '즐겨찾기에서 제거' : '즐겨찾기 추가'),
-        ),
-        const PopupMenuDivider(),
-        if (host['protocol'] == 'ssh')
-          const PopupMenuItem(value: 'forwards', child: Text('포트 포워딩')),
-        const PopupMenuItem(value: 'shortcut', child: Text('홈 화면에 추가')),
-        if (host['protocol'] == 'ssh')
-          const PopupMenuItem(value: 'forget', child: Text('저장된 서버 키 삭제')),
-        const PopupMenuDivider(),
-        if (engine.list('sessions').any((s) => s['hostId'] == host['id']))
-          const PopupMenuItem(value: 'disconnect', child: Text('연결 끊기')),
-        PopupMenuItem(
-          value: 'delete',
-          child: Text(
-            '삭제',
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-        ),
-      ],
+      ),
     );
     if (mounted) setState(() => _menuHostId = null);
     if (selected != null && mounted) await _hostMenu(host, selected);
   }
 
-  Widget _hostIcon(EngineRecord host) => TildeHostTile(host: host);
+  Widget _quickConnectField() => SafeArea(
+    top: false,
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: TextField(
+        style: const TextStyle(fontFamily: tildeMono),
+        decoration: InputDecoration(
+          hintText: 'ssh user@host',
+          prefixIcon: const SizedBox(
+            width: 56,
+            child: Center(
+              child: Text(r'~ $', style: TextStyle(fontFamily: tildeMono)),
+            ),
+          ),
+          suffixIcon: IconButton(
+            tooltip: '빠른 연결',
+            icon: const Icon(Icons.arrow_upward),
+            onPressed: () => _quickConnect(_quickUri),
+          ),
+        ),
+        textInputAction: TextInputAction.go,
+        onChanged: (v) => _quickUri = v,
+        onSubmitted: _quickConnect,
+      ),
+    ),
+  );
+
+  Widget _hostList(List<EngineRecord> hosts, bool shortcut, bool wide) {
+    final sessions = engine.list('sessions');
+    bool open(EngineRecord h) =>
+        sessions.any((s) => s['hostId'] == h['id'] && s['open'] == true);
+    final ordered = [...hosts.where(open), ...hosts.where((h) => !open(h))];
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      children: [
+        if (hosts.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.dns_outlined,
+                  size: 40,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '저장된 호스트가 없어요',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 16),
+                FilledButton.tonal(
+                  onPressed: () => _page(
+                    RecordEditor(engine: engine, kind: RecordKind.host),
+                  ),
+                  child: const Text('호스트 추가'),
+                ),
+              ],
+            ),
+          ),
+        for (var i = 0; i < ordered.length; i++) ...[
+          if (i > 0 && open(ordered[i - 1]) && !open(ordered[i]))
+            const SizedBox(height: 20),
+          Builder(
+            builder: (c) {
+              final host = ordered[i];
+              final count = sessions
+                  .where((s) => s['hostId'] == host['id'] && s['open'] == true)
+                  .length;
+              final tileHost = {
+                ...host,
+                if (host['connectionState'] == null && count > 0)
+                  'connectionState': 'CONNECTED',
+              };
+              return Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onLongPressStart: shortcut
+                          ? null
+                          : (details) =>
+                                _showHostMenu(host, details.globalPosition),
+                      onDoubleTap: wide && !shortcut
+                          ? () => _connect(host)
+                          : null,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        minTileHeight: 80,
+                        selected:
+                            _menuHostId == host['id'] ||
+                            wide && _selectedHostId == host['id'],
+                        selectedTileColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerLow,
+                        selectedColor: Theme.of(context).colorScheme.onSurface,
+                        leading: TildeHostTile(host: tileHost, size: 56),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${host['nickname']}',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                            ),
+                            if (host['favorite'] == true)
+                              const Icon(Icons.star, size: 16),
+                          ],
+                        ),
+                        subtitle: Text(
+                          hostAddress(host),
+                          style: TextStyle(
+                            fontFamily: host['protocol'] == 'local'
+                                ? 'Pretendard'
+                                : tildeMono,
+                            fontSize: 13,
+                          ),
+                        ),
+                        trailing: count >= 2
+                            ? Text('$count', semanticsLabel: '세션 $count개')
+                            : null,
+                        onTap: () => wide && !shortcut
+                            ? _selectHost(host)
+                            : _connect(host),
+                      ),
+                    ),
+                  ),
+                  if (!shortcut)
+                    IconButton(
+                      tooltip: '${host['nickname']} 메뉴',
+                      onPressed: () => _showHostMenu(host),
+                      icon: const Icon(Icons.more_vert),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -702,184 +954,92 @@ class _ShellHomeState extends State<ShellHome> {
     final hosts = engine.list('hosts');
     final shortcut =
         engine.state['entryAction'] == 'android.intent.action.CREATE_SHORTCUT';
+    final wide = MediaQuery.sizeOf(context).width >= 720;
+    final selected = hosts.where((h) => h['id'] == _selectedHostId).firstOrNull;
+    final list = Column(
+      children: [
+        Expanded(child: _hostList(hosts, shortcut, wide)),
+        if (!shortcut) _quickConnectField(),
+      ],
+    );
     return Scaffold(
-      appBar: AppBar(
-        title: const TildeWordmark(),
-        actions: [
-          if (!shortcut)
-            PopupMenuButton<String>(
-              tooltip: '메뉴',
-              onSelected: _homeMenu,
-              itemBuilder: (_) => [
-                PopupMenuItem(
-                  value: 'sort',
-                  child: Text(
-                    engine.state['sortedByColor'] == true ? '이름순 정렬' : '색상순 정렬',
-                  ),
-                ),
-                const PopupMenuItem(value: 'settings', child: Text('설정')),
-                const PopupMenuItem(
-                  value: 'disconnect',
-                  child: Text('연결 모두 끊기'),
-                ),
-                const PopupMenuItem(value: 'help', child: Text('도움말')),
-              ],
-            ),
-        ],
-      ),
-      floatingActionButton: shortcut
+      appBar: !wide && selected != null && !shortcut
           ? null
-          : Padding(
-              padding: const EdgeInsets.only(right: 16, bottom: 16),
-              child: FloatingActionButton(
-                tooltip: '호스트 추가',
-                onPressed: () =>
-                    _page(RecordEditor(engine: engine, kind: RecordKind.host)),
-                child: const Icon(Icons.add),
-              ),
-            ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
-        children: [
-          if (!shortcut)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'user@host · 빠른 연결',
-                  prefixIcon: const Icon(Icons.terminal),
-                  suffixIcon: IconButton(
-                    tooltip: '빠른 연결',
-                    icon: const Icon(Icons.arrow_forward),
-                    onPressed: () => _quickConnect(_quickUri),
-                  ),
-                ),
-                textInputAction: TextInputAction.go,
-                onChanged: (v) => _quickUri = v,
-                onSubmitted: _quickConnect,
-              ),
-            ),
-          if (hosts.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 40),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.dns_outlined,
-                    size: 40,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '저장된 호스트가 없어요',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.tonal(
+          : AppBar(
+              title: const TildeWordmark(),
+              actions: [
+                if (!shortcut) ...[
+                  IconButton(
+                    tooltip: '호스트 추가',
                     onPressed: () => _page(
                       RecordEditor(engine: engine, kind: RecordKind.host),
                     ),
-                    child: const Text('호스트 추가'),
+                    icon: const Icon(Icons.add),
+                  ),
+                  IconButton(
+                    tooltip: '메뉴',
+                    icon: const Icon(Icons.more_vert),
+                    onPressed: () async {
+                      final action = await askAction(context, 'Tilde', [
+                        (
+                          'sort',
+                          engine.state['sortedByColor'] == true
+                              ? '이름순 정렬'
+                              : '색상순 정렬',
+                        ),
+                        ('settings', '설정'),
+                        ('disconnect', '연결 모두 끊기'),
+                        ('help', '도움말'),
+                      ]);
+                      if (action != null && mounted) await _homeMenu(action);
+                    },
                   ),
                 ],
-              ),
+              ],
             ),
-          for (final group in ['연결됨', '전체']) ...[
-            if (hosts.any(
-              (h) =>
-                  (engine
-                      .list('sessions')
-                      .any(
-                        (s) => s['hostId'] == h['id'] && s['open'] == true,
-                      )) ==
-                  (group == '연결됨'),
-            )) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-                child: Text(
-                  group,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              Card.filled(
-                margin: const EdgeInsets.only(bottom: 20),
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    for (final host in hosts.where(
-                      (h) =>
-                          engine
-                              .list('sessions')
-                              .any(
-                                (s) =>
-                                    s['hostId'] == h['id'] && s['open'] == true,
-                              ) ==
-                          (group == '연결됨'),
-                    ))
-                      Builder(
-                        builder: (tileContext) {
-                          final count = engine
-                              .list('sessions')
-                              .where(
-                                (s) =>
-                                    s['hostId'] == host['id'] &&
-                                    s['open'] == true,
-                              )
-                              .length;
-                          return GestureDetector(
-                            onLongPressStart: shortcut
-                                ? null
-                                : (details) => _showHostMenu(
-                                    host,
-                                    details.globalPosition,
-                                  ),
-                            child: ListTile(
-                              selected: _menuHostId == host['id'],
-                              selectedColor: Theme.of(
-                                context,
-                              ).colorScheme.onSurface,
-                              leading: _hostIcon(host),
-                              title: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      '${host['nickname']}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  if (host['favorite'] == true)
-                                    const Icon(Icons.star, size: 16),
-                                ],
-                              ),
-                              subtitle: Text(
-                                hostAddress(host),
-                                style: const TextStyle(
-                                  fontFamily: tildeMono,
-                                  fontSize: 12.5,
-                                ),
-                              ),
-                              trailing: count > 0
-                                  ? Text(
-                                      '세션 $count',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.labelMedium,
-                                    )
-                                  : null,
-                              onTap: () => _connect(host),
-                            ),
-                          );
+      body: Row(
+        children: [
+          SizedBox(
+            width: wide && !shortcut
+                ? (MediaQuery.sizeOf(context).width >= 1000 ? 380 : 320)
+                : selected == null || shortcut
+                ? MediaQuery.sizeOf(context).width
+                : 0,
+            child: wide || selected == null || shortcut ? list : null,
+          ),
+          SizedBox(
+            width: wide && !shortcut ? 1 : 0,
+            child: const VerticalDivider(width: 1),
+          ),
+          Expanded(
+            child: selected == null || shortcut
+                ? const SizedBox.shrink()
+                : Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 640),
+                      child: RecordEditor(
+                        key: ValueKey(selected['id']),
+                        engine: engine,
+                        kind: RecordKind.host,
+                        record: selected,
+                        embedded: true,
+                        registerLeaveGuard: (guard) => _leaveHost = guard,
+                        onSetup: _setupHost,
+                        onClose: () async {
+                          if (_leaveHost != null && !await _leaveHost!()) {
+                            return;
+                          }
+                          if (mounted) {
+                            setState(() {
+                              _selectedHostId = null;
+                              _leaveHost = null;
+                            });
+                          }
                         },
                       ),
-                  ],
-                ),
-              ),
-            ],
-          ],
+                    ),
+                  ),
+          ),
         ],
       ),
     );

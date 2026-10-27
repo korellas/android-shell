@@ -1,9 +1,19 @@
 name: android_shell_ui
+publish_to: none
 description: Tilde SSH and terminal interface.
 version: 1.0.0+1
 environment:
   sdk: ^3.11.3
 dependencies:
+  xterm2:
+    git:
+      url: https://github.com/korellas/xterm2.git
+      ref: 1d8360b001ab88bc92154d826077850ccafbf154
+  dartssh2:
+    path: third_party/dartssh2
+  asn1lib: 1.6.7
+  pinenacl: 0.6.0
+  pointycastle: 4.0.0
   flutter:
     sdk: flutter
 dev_dependencies:

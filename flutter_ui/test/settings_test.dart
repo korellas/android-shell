@@ -160,8 +160,8 @@ void main() {
     await open(tester);
     await tester.tap(find.text('화면'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('폰트 관리'));
-    await tester.tap(find.text('폰트 관리'));
+    await tester.ensureVisible(find.text('글꼴'));
+    await tester.tap(find.text('글꼴'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('폰트 파일 가져오기'));
     await tester.tap(find.text('폰트 파일 가져오기'));
@@ -178,8 +178,8 @@ void main() {
     await open(tester);
     await tester.tap(find.text('화면'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('폰트 관리'));
-    await tester.tap(find.text('폰트 관리'));
+    await tester.ensureVisible(find.text('글꼴'));
+    await tester.tap(find.text('글꼴'));
     await tester.pump(const Duration(milliseconds: 300));
     final tile = find.widgetWithText(ListTile, '폰트 파일 가져오기');
     expect(tester.widget<ListTile>(tile).onTap, isNull);
@@ -196,7 +196,7 @@ void main() {
     await tester.tap(find.text('키보드'));
     await tester.pumpAndSettle();
     expect(find.text('입력 모드 전환 버튼'), findsNothing);
-    expect(find.text('특수키 구성'), findsOneWidget);
+    expect(find.text('특수키 바'), findsOneWidget);
     expect(engine.preferences['imeTogglekey'], true);
     expect(changes, isEmpty);
   });
@@ -244,7 +244,12 @@ void main() {
       final order = List<String>.from(engine.preferences['terminalBarOrder']);
       await open(tester, TerminalBarPage(engine: engine));
       expect(find.text('저장'), findsNothing);
-      await tester.tap(find.text('작게 26dp'));
+      await tester.scrollUntilVisible(
+        find.byTooltip('작게'),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byTooltip('작게'));
       await tester.pumpAndSettle();
       expect(engine.preferences['terminalBarHeight'], 26);
       expect(engine.preferences['terminalBarOrder'], order);
@@ -257,7 +262,12 @@ void main() {
   ) async {
     rejectBar = true;
     await open(tester, TerminalBarPage(engine: engine));
-    await tester.tap(find.text('작게 26dp'));
+    await tester.scrollUntilVisible(
+      find.byTooltip('작게'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byTooltip('작게'));
     await tester.pumpAndSettle();
     expect(find.text('설정을 저장하지 못했습니다'), findsOneWidget);
     await tester.tap(find.text('자세히'));

@@ -44,11 +44,11 @@ import org.connectbot.data.entity.AutomationAction
 import org.connectbot.data.entity.AutomationActionType
 import org.connectbot.data.entity.Host
 import org.connectbot.di.CoroutineDispatchers
-import org.connectbot.terminal.VTermKey
 import org.connectbot.ui.screens.automation.AutomationEditorScreen
 import org.connectbot.ui.screens.automation.AutomationEditorViewModel
 import org.connectbot.ui.theme.ConnectBotTheme
 import org.connectbot.util.TerminalKeyModifiers
+import org.connectbot.util.VTermKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before

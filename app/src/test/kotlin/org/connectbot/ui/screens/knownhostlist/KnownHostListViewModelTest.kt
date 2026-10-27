@@ -18,7 +18,6 @@
 package org.connectbot.ui.screens.knownhostlist
 
 import androidx.lifecycle.SavedStateHandle
-import com.trilead.ssh2.crypto.fingerprint.KeyFingerprint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,9 +36,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
 import org.mockito.Mockito
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [24])
 class KnownHostListViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val dispatchers = CoroutineDispatchers(
@@ -76,7 +80,7 @@ class KnownHostListViewModelTest {
         assertEquals(1, state.knownHosts.size)
         assertEquals("example.com:22", state.knownHosts.single().endpoint)
         assertEquals(
-            KeyFingerprint.createSHA256Fingerprint(knownHost.hostKey),
+            "SHA256:V/wGqHTHSNb4BFrleEaT0jG2C+WQ+j9+BcxG9WeR+6I",
             state.knownHosts.single().fingerprint,
         )
     }

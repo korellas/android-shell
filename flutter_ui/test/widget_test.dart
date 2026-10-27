@@ -18,8 +18,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
 import 'package:android_shell_ui/main.dart';
+import 'package:android_shell_ui/editors.dart';
 import 'package:android_shell_ui/tilde_design.dart';
+
+import 'ui_engine_fixture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -108,9 +112,13 @@ void main() {
     Finder target, {
     bool sidebar = false,
   }) async {
-    final scroll = sidebar
-        ? find.byType(Scrollable).first
-        : find.byType(Scrollable).last;
+    final verticalScrolls = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable &&
+          (widget.axisDirection == AxisDirection.down ||
+              widget.axisDirection == AxisDirection.up),
+    );
+    final scroll = sidebar ? verticalScrolls.first : verticalScrolls.last;
     for (var i = 0; i < 12 && target.hitTestable().evaluate().isEmpty; i++) {
       await tester.drag(scroll, const Offset(0, -220));
       await tester.pumpAndSettle();
@@ -119,7 +127,7 @@ void main() {
   }
 
   testWidgets('home menus keep profile management in settings', (tester) async {
-    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('메뉴'));
     await tester.pumpAndSettle();
@@ -137,14 +145,14 @@ void main() {
   testWidgets('host menus expose grouped actions without a second menu', (
     tester,
   ) async {
-    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.longPress(find.text('Research'));
     await tester.pumpAndSettle();
     expect(find.text('추가 기능'), findsNothing);
     expect(find.text('연결 끊기'), findsNothing);
     expect(find.text('홈 화면에 추가'), findsOneWidget);
-    expect(find.text('저장된 서버 키 삭제'), findsOneWidget);
+    expect(find.text('저장된 서버 키 삭제'), findsNothing);
     await tester.tap(find.text('복제'));
     await tester.pumpAndSettle();
     expect(find.text('복제할 호스트 이름'), findsOneWidget);
@@ -152,7 +160,7 @@ void main() {
   testWidgets('keyboard settings show hardware mappings and connection state', (
     tester,
   ) async {
-    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('메뉴'));
     await tester.pumpAndSettle();
@@ -160,12 +168,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('키보드').first);
     await tester.pumpAndSettle();
+    await reveal(tester, find.text('하드웨어 키보드'));
+    expect(find.text('연결 안 됨'), findsOneWidget);
+    await tester.tap(find.text('하드웨어 키보드'));
+    await tester.pumpAndSettle();
     await reveal(tester, find.text('카메라 버튼'));
     await tester.pumpAndSettle();
     expect(find.text('카메라 버튼'), findsOneWidget);
   });
   testWidgets('saved native hosts are available in Flutter', (tester) async {
-    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     expect(find.text('Research'), findsOneWidget);
     expect(find.text('alice@example.test'), findsOneWidget);
@@ -173,7 +185,7 @@ void main() {
   testWidgets(
     'home keeps saved connections central without a management drawer',
     (tester) async {
-      await tester.pumpWidget(const AndroidShellApp());
+      await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
       await tester.pumpAndSettle();
       expect(find.byType(Drawer), findsNothing);
       expect(find.byType(SearchBar), findsNothing);
@@ -203,12 +215,12 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.longPress(find.text('Research'));
     await tester.pumpAndSettle();
     expect(find.text('접속 자동화'), findsNothing);
-    expect(find.text('즐겨찾기 추가'), findsOneWidget);
+    expect(find.text('즐겨찾기'), findsOneWidget);
     await tester.tap(find.text('편집'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('세션').first);
@@ -223,7 +235,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('메뉴'));
     await tester.pumpAndSettle();
@@ -234,7 +246,7 @@ void main() {
     expect(find.byType(SwitchListTile), findsNothing);
     await tester.tap(find.text('키보드'));
     await tester.pumpAndSettle();
-    expect(find.text('특수키 항상 표시'), findsOneWidget);
+    expect(find.text('키보드를 닫아도 표시'), findsOneWidget);
     await tester.tap(find.byTooltip('뒤로').first);
     await tester.pumpAndSettle();
     expect(find.text('화면'), findsOneWidget);
@@ -246,13 +258,13 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.longPress(find.text('Research'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('편집'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('연결').last);
+    await tester.tap(find.widgetWithText(ListTile, '연결'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('nickname:0')), 'Renamed');
     await tester.tap(find.byTooltip('뒤로').first);
@@ -276,7 +288,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(const AndroidShellApp());
+      await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
       await tester.pumpAndSettle();
       await tester.longPress(find.text('Research'));
       await tester.pumpAndSettle();
@@ -294,7 +306,7 @@ void main() {
   testWidgets('file import refreshes connections and reports completion', (
     tester,
   ) async {
-    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('메뉴'));
     await tester.pumpAndSettle();
@@ -324,7 +336,7 @@ void main() {
     tester,
   ) async {
     importError = 'Invalid JSON';
-    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('메뉴'));
     await tester.pumpAndSettle();
@@ -350,19 +362,28 @@ void main() {
   testWidgets(
     'Flutter uses Tilde surfaces when no terminal scheme is selected',
     (tester) async {
-      await tester.pumpWidget(const AndroidShellApp());
+      await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
       await tester.pumpAndSettle();
       final context = tester.element(find.text('Research'));
-      expect(Theme.of(context).colorScheme.primary, const Color(0xff0b7566));
+      expect(Theme.of(context).colorScheme.primary, const Color(0xff006e5f));
       expect(Theme.of(context).colorScheme.surface, const Color(0xfff6f5f0));
     },
   );
   testWidgets('connection failure remains visible without opening a console', (
     tester,
   ) async {
-    await tester.pumpWidget(const AndroidShellApp());
+    await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(find.byType(RecordEditor), findsOneWidget);
+    expect(find.text('Research에 연결하지 못했습니다'), findsNothing);
+    await tester.tap(
+      find
+          .descendant(of: find.byType(RecordEditor), matching: find.text('연결'))
+          .last,
+    );
     await tester.pumpAndSettle();
     expect(find.text('Research에 연결하지 못했습니다'), findsOneWidget);
     await tester.tap(find.text('자세히'));

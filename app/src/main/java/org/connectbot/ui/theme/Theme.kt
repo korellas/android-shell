@@ -37,6 +37,12 @@ import androidx.core.view.WindowCompat
 import org.connectbot.util.ThemeMode
 
 private val lightScheme = lightColorScheme(
+    surfaceContainerLowest = Color(0xFFF6F5F0),
+    surfaceContainerLow = Color(0xFFECEBE4),
+    surfaceContainer = Color(0xFFECEBE4),
+    surfaceContainerHigh = Color(0xFFE3E2DA),
+    surfaceContainerHighest = Color(0xFFDAD9D1),
+    outlineVariant = Color(0xFFCECCC4),
     primary = md_theme_light_primary,
     onPrimary = md_theme_light_onPrimary,
     primaryContainer = md_theme_light_primaryContainer,
@@ -64,12 +70,12 @@ private val lightScheme = lightColorScheme(
 )
 
 private val darkScheme = darkColorScheme(
-    surfaceContainerLowest = Color(0xFF0E1216),
-    surfaceContainerLow = Color(0xFF151A1F),
-    surfaceContainer = Color(0xFF151A1F),
-    surfaceContainerHigh = Color(0xFF1B2229),
-    surfaceContainerHighest = Color(0xFF242D35),
-    outlineVariant = Color(0xFF232B33),
+    surfaceContainerLowest = Color(0xFF13110F),
+    surfaceContainerLow = Color(0xFF1C1B18),
+    surfaceContainer = Color(0xFF1C1B18),
+    surfaceContainerHigh = Color(0xFF262421),
+    surfaceContainerHighest = Color(0xFF312F2B),
+    outlineVariant = Color(0xFF383633),
     primary = md_theme_dark_primary,
     onPrimary = md_theme_dark_onPrimary,
     primaryContainer = md_theme_dark_primaryContainer,

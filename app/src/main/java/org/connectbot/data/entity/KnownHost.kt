@@ -57,6 +57,9 @@ data class KnownHost(
 
     @ColumnInfo(name = "host_key", typeAffinity = ColumnInfo.BLOB)
     val hostKey: ByteArray,
+
+    @ColumnInfo(name = "sha256_fingerprint")
+    val sha256Fingerprint: String? = null,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -70,6 +73,7 @@ data class KnownHost(
         if (port != other.port) return false
         if (hostKeyAlgo != other.hostKeyAlgo) return false
         if (!hostKey.contentEquals(other.hostKey)) return false
+        if (sha256Fingerprint != other.sha256Fingerprint) return false
 
         return true
     }
@@ -81,6 +85,7 @@ data class KnownHost(
         result = 31 * result + port
         result = 31 * result + hostKeyAlgo.hashCode()
         result = 31 * result + hostKey.contentHashCode()
+        result = 31 * result + (sha256Fingerprint?.hashCode() ?: 0)
         return result
     }
 }

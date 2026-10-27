@@ -17,8 +17,8 @@
 
 package org.connectbot.service.automation
 
-import org.connectbot.terminal.VTermKey
 import org.connectbot.util.TerminalKeyModifiers
+import org.connectbot.util.VTermKey
 
 /** Shared by the editor and runner so their supported key encodings cannot diverge. */
 object AutomationKeySupport {

@@ -24,6 +24,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:android_shell_ui/terminal/terminal_pane.dart';
+
+import 'ui_engine_fixture.dart';
+
 void main() {
   late AndroidEngine engine;
   late List<MethodCall> calls;
@@ -46,7 +50,7 @@ void main() {
   };
   setUp(() {
     calls = [];
-    engine = AndroidEngine()
+    engine = UiEngineFixture()
       ..state = {
         'ready': true,
         'sessions': [session],
@@ -87,6 +91,10 @@ void main() {
     messenger.setMockMethodCallHandler(SystemChannels.platform, null);
   });
   Future<void> open(WidgetTester tester, Widget page) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(theme: tildeTheme(Brightness.light, engine), home: page),
     );
@@ -97,16 +105,17 @@ void main() {
     tester,
   ) async {
     await open(tester, ConsolePage(engine: engine, sessionId: 101));
-    final context = tester.element(find.byType(AndroidView));
+    final context = tester.element(find.byType(TerminalPane));
     expect(Theme.of(context).colorScheme.surface, const Color(0xff0e1216));
     expect(Theme.of(context).colorScheme.onSurface, const Color(0xffe4e8eb));
     await tester.pumpWidget(const SizedBox());
+    engine.dispose();
   });
   testWidgets('banner, progress and hidden title do not resize terminal', (
     tester,
   ) async {
     await open(tester, ConsolePage(engine: engine, sessionId: 101));
-    final size = tester.getSize(find.byType(AndroidView));
+    final size = tester.getSize(find.byType(TerminalPane));
     engine.state['sessions'] = [
       {
         ...session,
@@ -118,13 +127,17 @@ void main() {
     ];
     engine.notifyListeners();
     await tester.pump();
-    expect(tester.getSize(find.byType(AndroidView)), size);
+    expect(tester.getSize(find.byType(TerminalPane)), size);
     engine.state['preferences'] = {'titlebarhide': true};
     engine.notifyListeners();
-    await tester.tap(find.byType(AndroidView));
+    await tester.pump();
+    final overlaySize = tester.getSize(find.byType(TerminalPane));
+    expect(overlaySize.height, size.height + 44);
+    await tester.tap(find.byType(TerminalPane));
     await tester.pump(const Duration(seconds: 4));
-    expect(tester.getSize(find.byType(AndroidView)), size);
+    expect(tester.getSize(find.byType(TerminalPane)), overlaySize);
     await tester.pumpWidget(const SizedBox());
+    engine.dispose();
   });
   testWidgets(
     'ended session keeps terminal and shows reconnect at the bottom',
@@ -133,11 +146,12 @@ void main() {
         {...session, 'open': false, 'connecting': false, 'ended': true},
       ];
       await open(tester, ConsolePage(engine: engine, sessionId: 101));
-      expect(find.byType(AndroidView), findsOneWidget);
+      expect(find.byType(TerminalPane), findsOneWidget);
       expect(find.text('연결이 끊겼습니다'), findsOneWidget);
       expect(find.text('다시 연결'), findsOneWidget);
       expect(tester.getTopLeft(find.text('다시 연결')).dy, greaterThan(400));
       await tester.pumpWidget(const SizedBox());
+      engine.dispose();
     },
   );
   testWidgets('host deletion has undo and restores the same saved record', (
@@ -160,6 +174,7 @@ void main() {
     });
     expect(find.text('home-nas'), findsWidgets);
     await tester.pumpWidget(const SizedBox());
+    engine.dispose();
   });
   testWidgets('failure shows human summary and preserves raw details', (
     tester,
@@ -184,6 +199,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('connect failed:'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
+    engine.dispose();
   });
   testWidgets('loaded protected key uses unlocked icon', (tester) async {
     engine.state['keys'] = [
@@ -199,6 +215,7 @@ void main() {
     expect(find.byIcon(Icons.lock_open_outlined), findsOneWidget);
     expect(find.byIcon(Icons.lock_outline), findsNothing);
     await tester.pumpWidget(const SizedBox());
+    engine.dispose();
   });
   testWidgets('console input dialog keeps session theme', (tester) async {
     await open(tester, ConsolePage(engine: engine, sessionId: 101));
@@ -207,9 +224,10 @@ void main() {
     await tester.tap(find.text('텍스트 입력'));
     await tester.pumpAndSettle();
     expect(
-      Theme.of(tester.element(find.byType(AlertDialog))).colorScheme.surface,
+      Theme.of(tester.element(find.byType(TextFormField))).colorScheme.surface,
       const Color(0xff0e1216),
     );
     await tester.pumpWidget(const SizedBox());
+    engine.dispose();
   });
 }

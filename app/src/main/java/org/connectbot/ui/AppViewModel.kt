@@ -28,14 +28,12 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import org.connectbot.data.migration.DatabaseMigrator
 import org.connectbot.data.migration.MigrationResult
 import org.connectbot.data.migration.MigrationState
 import org.connectbot.di.CoroutineDispatchers
-import org.connectbot.service.TerminalManager
 import org.connectbot.util.NotificationPermissionHelper
 import org.connectbot.util.PreferenceConstants
 import org.connectbot.util.ThemeMode
@@ -43,19 +41,17 @@ import timber.log.Timber
 import javax.inject.Inject
 
 /**
- * Unified app state that coordinates migration and service binding.
+ * App state that exposes database migration readiness.
  */
 sealed class AppUiState {
     data object Loading : AppUiState()
     data class MigrationInProgress(val state: MigrationState) : AppUiState()
     data class MigrationFailed(val error: String, val debugLog: List<String>) : AppUiState()
-    data class Ready(val terminalManager: TerminalManager) : AppUiState()
+    data object Ready : AppUiState()
 }
 
 /**
- * ViewModel that coordinates both migration state and service binding state
- * into a unified app state machine. This eliminates intermediate states and
- * ensures smooth, flicker-free UI transitions.
+ * Coordinates migration readiness and app authentication.
  */
 @HiltViewModel
 class AppViewModel @Inject constructor(
@@ -64,8 +60,6 @@ class AppViewModel @Inject constructor(
     private val dispatchers: CoroutineDispatchers,
     private val notificationPermissionHelper: NotificationPermissionHelper,
 ) : ViewModel() {
-
-    private val _terminalManager = MutableStateFlow<TerminalManager?>(null)
 
     private val _migrationUiState = MutableStateFlow<MigrationUiState>(MigrationUiState.Checking)
     private var latestMigrationState: MigrationState? = null
@@ -99,22 +93,13 @@ class AppViewModel @Inject constructor(
     private val _pendingConnectionUri = MutableStateFlow<Uri?>(null)
     val pendingConnectionUri: StateFlow<Uri?> = _pendingConnectionUri.asStateFlow()
 
-    private val _pendingDisconnectAll = MutableStateFlow(false)
-    val pendingDisconnectAll: StateFlow<Boolean> = _pendingDisconnectAll.asStateFlow()
-
-    private val _finishActivity = Channel<Unit>(Channel.CONFLATED)
-    val finishActivity = _finishActivity.receiveAsFlow()
-
     init {
         prefs.registerOnSharedPreferenceChangeListener(themePrefListener)
         checkAndMigrate()
 
         viewModelScope.launch {
-            combine(
-                _migrationUiState,
-                _terminalManager,
-            ) { migrationState, terminalMgr ->
-                when (migrationState) {
+            _migrationUiState.collect { migrationState ->
+                _uiState.value = when (migrationState) {
                     is MigrationUiState.Checking -> AppUiState.Loading
 
                     is MigrationUiState.InProgress -> AppUiState.MigrationInProgress(migrationState.state)
@@ -124,16 +109,8 @@ class AppViewModel @Inject constructor(
                         migrationState.debugLog,
                     )
 
-                    is MigrationUiState.Completed -> {
-                        if (terminalMgr != null) {
-                            AppUiState.Ready(terminalMgr)
-                        } else {
-                            AppUiState.Loading
-                        }
-                    }
+                    is MigrationUiState.Completed -> AppUiState.Ready
                 }
-            }.collect { newState ->
-                _uiState.value = newState
             }
         }
     }
@@ -190,13 +167,6 @@ class AppViewModel @Inject constructor(
     }
 
     /**
-     * Called by MainActivity when TerminalManager service is bound or unbound.
-     */
-    fun setTerminalManager(manager: TerminalManager?) {
-        _terminalManager.value = manager
-    }
-
-    /**
      * Retry migration after a failure.
      */
     fun retryMigration() {
@@ -224,31 +194,6 @@ class AppViewModel @Inject constructor(
      */
     fun clearPendingConnectionUri() {
         _pendingConnectionUri.value = null
-    }
-
-    /**
-     * Set whether a disconnect all operation is pending.
-     */
-    fun setPendingDisconnectAll(pending: Boolean) {
-        _pendingDisconnectAll.value = pending
-    }
-
-    /**
-     * Execute pending disconnect all operation if ready.
-     * Returns true if disconnect was executed and activity should finish.
-     */
-    fun executePendingDisconnectAllIfReady(): Boolean {
-        val state = _uiState.value
-        if (state is AppUiState.Ready && _pendingDisconnectAll.value) {
-            Timber.d("Executing pending disconnectAll")
-            state.terminalManager.disconnectAll(excludeLocal = false)
-            _pendingDisconnectAll.value = false
-            viewModelScope.launch {
-                _finishActivity.send(Unit)
-            }
-            return true
-        }
-        return false
     }
 
     /**

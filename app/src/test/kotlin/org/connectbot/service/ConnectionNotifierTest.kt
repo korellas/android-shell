@@ -78,21 +78,21 @@ class ConnectionNotifierTest {
         val notification = summary()
         val action = shadowOf(notification.actions.single().actionIntent)
         assertTrue(action.isService)
-        assertEquals(TerminalManager::class.java.name, action.savedIntent.component!!.className)
-        assertEquals(TerminalManager.ACTION_DISCONNECT_ALL, action.savedIntent.action)
+        assertEquals(org.connectbot.flutter.FlutterSessionService::class.java.name, action.savedIntent.component!!.className)
+        assertEquals(org.connectbot.flutter.FlutterSessionService.ACTION_DISCONNECT_ALL, action.savedIntent.action)
         assertTrue(shadowOf(notification.contentIntent).isActivity)
         assertEquals(org.connectbot.flutter.FlutterShellActivity::class.java.name, shadowOf(notification.contentIntent).savedIntent.component!!.className)
     }
 
     @Test
-    fun summaryCountsOnlyLiveSessionsAndExpandsWithConnectionStates() = runTest(dispatcher) {
+    fun summaryCountsConnectedSessionsAndIncludesConnectingDetails() = runTest(dispatcher) {
         notifier.showRunningNotification(service, listOf(first, second.copy(connected = false, connecting = true)))
         advanceUntilIdle()
 
         val notification = summary()
         assertEquals("1 session connected", title(notification))
         assertEquals("1 session connected", notification.extras.getCharSequence(Notification.EXTRA_TITLE_BIG).toString())
-        assertEquals("production", text(notification))
+        assertEquals("production, staging", text(notification))
         assertTrue(notification.flags and Notification.FLAG_ONGOING_EVENT != 0)
         assertTrue(notification.flags and Notification.FLAG_GROUP_SUMMARY != 0)
         val rows = notification.extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)!!.map { it.toString() }
@@ -117,12 +117,15 @@ class ConnectionNotifierTest {
     }
 
     @Test
-    fun connectingOnlySessionDoesNotShowNotification() = runTest(dispatcher) {
+    fun connectingOnlySessionKeepsForegroundServiceAlive() = runTest(dispatcher) {
         notifier.showRunningNotification(service, listOf(first.copy(connected = false, connecting = true)))
         advanceUntilIdle()
 
-        assertTrue(manager.activeNotifications.isEmpty())
-        assertNull(shadowOf(service).lastForegroundNotification)
+        val notification = summary()
+        assertTrue(notification.flags and Notification.FLAG_ONGOING_EVENT != 0)
+        assertNotNull(shadowOf(service).lastForegroundNotification)
+        val rows = notification.extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)!!.map { it.toString() }
+        assertEquals(listOf("production: Connecting…"), rows)
     }
 
     @Test

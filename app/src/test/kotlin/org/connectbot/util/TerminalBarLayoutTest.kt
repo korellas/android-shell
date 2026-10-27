@@ -45,6 +45,20 @@ class TerminalBarLayoutTest {
     }
 
     @Test
+    fun defaultAndSupportedHeightsUseV2KeycapSizes() {
+        prefs.edit { clear() }
+        assertEquals(36, TerminalBarLayout.load(prefs).keyHeight)
+        assertEquals(44, TerminalBarLayout().height)
+        assertEquals(listOf(32, 36, 44), TerminalBarLayout.heights)
+        TerminalBarLayout.heights.forEach { height ->
+            TerminalBarLayout(keyHeight = height).save(prefs)
+            assertEquals(height, TerminalBarLayout.load(prefs).keyHeight)
+        }
+        prefs.edit { putInt(PreferenceConstants.TERMINAL_BAR_HEIGHT, 28) }
+        assertEquals(36, TerminalBarLayout.load(prefs).keyHeight)
+    }
+
+    @Test
     fun malformedSavedOrderIsNormalizedAndUnknownKeysAreIgnored() {
         prefs.edit {
             putInt(PreferenceConstants.TERMINAL_BAR_HEIGHT, -100)
@@ -52,7 +66,7 @@ class TerminalBarLayoutTest {
             putStringSet(PreferenceConstants.TERMINAL_BAR_HIDDEN, setOf("unknown", "ALT"))
         }
         val layout = TerminalBarLayout.load(prefs)
-        assertEquals(28, layout.keyHeight)
+        assertEquals(36, layout.keyHeight)
         assertEquals(TerminalBarKey.entries.toSet(), layout.order.toSet())
         assertEquals(layout.order.size, layout.order.distinct().size)
         assertEquals(listOf(TerminalBarKey.DELETE, TerminalBarKey.ALT), layout.order.take(2))

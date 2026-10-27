@@ -36,12 +36,12 @@ enum class TerminalBarKey(val label: String) {
 }
 
 data class TerminalBarLayout(
-    val keyHeight: Int = 28,
+    val keyHeight: Int = DEFAULT_KEY_HEIGHT,
     val order: List<TerminalBarKey> = TerminalBarKey.entries,
     val hidden: Set<TerminalBarKey> = emptySet(),
     val groupFunctionKeys: Boolean = true,
 ) {
-    val height: Int get() = keyHeight + 8
+    val height: Int get() = maxOf(44, keyHeight + 8)
     val visibleKeys: List<TerminalBarKey> get() = order.filterNot { it in hidden }
 
     fun save(prefs: SharedPreferences) {
@@ -54,14 +54,15 @@ data class TerminalBarLayout(
     }
 
     companion object {
-        val heights = listOf(26, 28, 36)
+        const val DEFAULT_KEY_HEIGHT = 36
+        val heights = listOf(32, 36, 44)
 
         fun load(prefs: SharedPreferences): TerminalBarLayout {
             val savedOrder = prefs.getString(PreferenceConstants.TERMINAL_BAR_ORDER, "") ?: ""
             val order = savedOrder.split(",").mapNotNull { name -> TerminalBarKey.entries.find { it.name == name } }.distinct()
             val hidden = prefs.getStringSet(PreferenceConstants.TERMINAL_BAR_HIDDEN, emptySet()).orEmpty()
             return TerminalBarLayout(
-                keyHeight = prefs.getInt(PreferenceConstants.TERMINAL_BAR_HEIGHT, 28).takeIf { it in heights } ?: 28,
+                keyHeight = prefs.getInt(PreferenceConstants.TERMINAL_BAR_HEIGHT, DEFAULT_KEY_HEIGHT).takeIf { it in heights } ?: DEFAULT_KEY_HEIGHT,
                 order = order + TerminalBarKey.entries.filterNot { it in order },
                 hidden = TerminalBarKey.entries.filter { it.name in hidden }.toSet(),
                 groupFunctionKeys = prefs.getBoolean(PreferenceConstants.TERMINAL_BAR_FN, true),

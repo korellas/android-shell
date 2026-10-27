@@ -16,6 +16,7 @@
  */
 
 import 'dart:typed_data';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'engine.dart';
 
@@ -48,15 +49,17 @@ Widget settingsSection(
 ) => Column(
   crossAxisAlignment: CrossAxisAlignment.start,
   children: [
-    Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+    if (title.isNotEmpty)
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+        child: Text(
+          title,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       ),
-    ),
+    if (title.isEmpty) const SizedBox(height: 20),
     Card.filled(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       color: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -165,8 +168,10 @@ class _TerminalPreviewState extends State<TerminalPreview> {
                   gaplessPlayback: true,
                 );
               }
-              return SizedBox(
-                height: widget.framed ? 100 : 30,
+              return ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: widget.framed ? 100 : 30,
+                ),
                 child: Align(
                   alignment: widget.framed
                       ? Alignment.center
@@ -177,6 +182,8 @@ class _TerminalPreviewState extends State<TerminalPreview> {
                         : snapshot.connectionState == ConnectionState.waiting
                         ? '미리보기 불러오는 중…'
                         : '미리보기를 표시할 수 없어요',
+                    maxLines: widget.framed ? null : 1,
+                    overflow: widget.framed ? null : TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -218,43 +225,51 @@ class _TerminalBarPreviewState extends State<TerminalBarPreview> {
         widget.group;
     Widget key(String label, {bool selected = false, VoidCallback? onTap}) =>
         Padding(
-          padding: const EdgeInsets.only(right: 3),
+          padding: const EdgeInsets.only(right: 4),
           child: Material(
             color: selected ? cs.secondaryContainer : cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(8),
             child: InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(6),
-              child: SizedBox(
-                width: switch (label) {
-                  '⇥' => 34,
-                  '↑' || '↓' || '←' || '→' => 32,
-                  '⌨' || 'Fn' => 36,
-                  'Home' || 'PgUp' || 'PgDn' => 44,
-                  _ => 40,
-                },
-                height: widget.height.toDouble(),
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: label == '⌨'
-                          ? Icon(
-                              Icons.keyboard_outlined,
-                              size: 18,
-                              color: cs.onSurface,
-                            )
-                          : Text(
-                              label,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: selected
-                                    ? cs.onSecondaryContainer
-                                    : cs.onSurface,
-                              ),
-                            ),
-                    ),
+              borderRadius: BorderRadius.circular(8),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: switch (label) {
+                    '⇥' || 'Tab' || 'tab' => 56,
+                    '↑' || '↓' || '←' || '→' => 38,
+                    '⌨' || 'Fn' => 40,
+                    _ => 44,
+                  },
+                  minHeight: widget.height.toDouble(),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: Center(
+                    widthFactor: 1,
+                    heightFactor: 1,
+                    child: switch (label) {
+                      '⌨' || '↑' || '↓' || '←' || '→' => Icon(
+                        switch (label) {
+                          '↑' => Icons.keyboard_arrow_up,
+                          '↓' => Icons.keyboard_arrow_down,
+                          '←' => Icons.keyboard_arrow_left,
+                          '→' => Icons.keyboard_arrow_right,
+                          _ => Icons.keyboard_outlined,
+                        },
+                        size: 20,
+                        color: cs.onSurface,
+                      ),
+                      _ => Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: selected
+                              ? cs.onSecondaryContainer
+                              : cs.onSurface,
+                        ),
+                      ),
+                    },
                   ),
                 ),
               ),
@@ -278,28 +293,27 @@ class _TerminalBarPreviewState extends State<TerminalBarPreview> {
         }
       }
     }
-    return Semantics(
+    final bar = Semantics(
       label: '특수키 바 미리보기',
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerLowest,
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
             key('Esc'),
-            key('⇥'),
             key('Ctrl'),
             Container(width: 1, height: 18, color: cs.outlineVariant),
-            const SizedBox(width: 3),
+            const SizedBox(width: 4),
             Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(children: labels.map((l) => key(l)).toList()),
               ),
             ),
-            const SizedBox(width: 3),
+            const SizedBox(width: 4),
             key('⌨'),
             if (hasFn)
               key(
@@ -307,7 +321,20 @@ class _TerminalBarPreviewState extends State<TerminalBarPreview> {
                 selected: functions,
                 onTap: () => setState(() => functions = !functions),
               ),
+            key('tab'),
           ],
+        ),
+      ),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: math.max(
+            300 * math.max(1, MediaQuery.textScalerOf(context).scale(13) / 13),
+            constraints.maxWidth,
+          ),
+          child: bar,
         ),
       ),
     );

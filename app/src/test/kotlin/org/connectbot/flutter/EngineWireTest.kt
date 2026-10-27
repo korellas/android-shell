@@ -20,6 +20,7 @@ package org.connectbot.flutter
 import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.Profile
 import org.connectbot.data.entity.Pubkey
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -55,8 +56,10 @@ class EngineWireTest {
             nickname = "private", type = "RSA", privateKey = secret, publicKey = byteArrayOf(2),
             encrypted = true, startup = false, confirmation = true, createdDate = 0, keystoreAlias = "secret-alias",
         )
-        val wire = key.toWire(false)
-        assertFalse(wire.values.any { it is ByteArray })
+        val wire = key.storageWire()
+        assertArrayEquals(key.publicKey, wire["publicBytes"] as ByteArray)
+        assertFalse(wire.containsKey("privateKey"))
+        assertFalse(wire.values.any { it is ByteArray && it.contentEquals(secret) })
         assertFalse(wire.values.contains("secret-alias"))
         assertEquals(true, wire["encrypted"])
     }

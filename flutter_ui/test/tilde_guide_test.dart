@@ -26,6 +26,8 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'ui_engine_fixture.dart';
+
 void main() {
   late AndroidEngine engine;
   late List<MethodCall> calls;
@@ -53,12 +55,24 @@ void main() {
   };
   setUp(() {
     calls = [];
-    engine = AndroidEngine()
+    engine = UiEngineFixture()
       ..state = {
         'hosts': [host],
         'sessions': [
-          {'id': 101, 'hostId': 7, 'nickname': 'First', 'open': true},
-          {'id': 102, 'hostId': 7, 'nickname': 'Second', 'open': true},
+          {
+            'id': 101,
+            'hostId': 7,
+            'nickname': 'First',
+            'open': true,
+            'canForward': true,
+          },
+          {
+            'id': 102,
+            'hostId': 7,
+            'nickname': 'Second',
+            'open': false,
+            'canForward': true,
+          },
         ],
         'keys': [],
         'profiles': [],
@@ -122,7 +136,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('forward switch targets the selected session only', (
+  testWidgets('forward switch targets the selected forwarding-only session', (
     tester,
   ) async {
     await open(
@@ -204,7 +218,9 @@ void main() {
       await open(tester, AutomationPage(engine: engine, host: host));
       await tester.drag(find.byType(Dismissible), const Offset(-500, 0));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('되돌리기'));
+      await tester.tap(
+        find.descendant(of: find.byType(SnackBar), matching: find.text('되돌리기')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('시험 실행'));
       await tester.pumpAndSettle();

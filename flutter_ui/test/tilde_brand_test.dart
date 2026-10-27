@@ -94,7 +94,7 @@ void main() {
     await tester.pumpAndSettle();
     final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
     expect(app.title, 'Tilde');
-    expect(app.darkTheme!.colorScheme.surface, const Color(0xff0e1216));
+    expect(app.darkTheme!.colorScheme.surface, const Color(0xff13110f));
     expect(app.darkTheme!.colorScheme.primary, const Color(0xff6fd8c4));
     expect(app.theme!.colorScheme.surface, const Color(0xfff6f5f0));
     expect(app.theme!.textTheme.bodyMedium!.fontFamily, 'Pretendard');

@@ -82,6 +82,13 @@ jobs:
           echo "$flutter_sdk/bin" >> "$GITHUB_PATH"
           "$flutter_sdk/bin/flutter" --version
 
+      - name: Check app-local SSH package
+        working-directory: flutter_ui/third_party/dartssh2
+        run: |
+          dart pub get
+          dart analyze --fatal-infos
+          dart test --exclude-tags integration
+
       - name: Build Flutter module
         working-directory: flutter_ui
         run: |
@@ -314,7 +321,7 @@ jobs:
           target: default
           arch: x86_64
           disk-size: 2G
-          script: ./gradlew --profile :app:connected${FLAVOR_TASK}DebugAndroidTest :mosh:connected${FLAVOR_TASK}DebugAndroidTest :app:create${FLAVOR_TASK}DebugAndroidTestCoverageReport --continue
+          script: ./gradlew --profile :app:connected${FLAVOR_TASK}DebugAndroidTest :app:create${FLAVOR_TASK}DebugAndroidTestCoverageReport --continue
 
       - name: Store instrumentation test results
         if: always()
@@ -324,8 +331,6 @@ jobs:
           path: |
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/
-            mosh/build/reports/androidTests/connected/
-            mosh/build/outputs/androidTest-results/connected/
           if-no-files-found: warn
           retention-days: 14
 

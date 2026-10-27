@@ -6,6 +6,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  */
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'engine.dart';
 
@@ -13,7 +14,7 @@ const tildeName = 'Tilde';
 // Built-in preset IDs are preserved when presets are appended.
 const tildeBaseSchemeIds = {-1, -9};
 const tildeMono = 'JetBrainsMono';
-const tildeNightBackground = Color(0xff0e1216);
+const tildeNightBackground = Color(0xff13110f);
 const tildeDayBackground = Color(0xfff6f5f0);
 const tildeTide = Color(0xff6fd8c4);
 const tildeSand = Color(0xffebc37a);
@@ -55,10 +56,10 @@ ThemeData tildeTheme(
       ? tildeNightBackground
       : tildeDayBackground;
   final fg = custom
-      ? role('foreground', const Color(0xffe4e8eb))
+      ? role('foreground', const Color(0xffeae9e7))
       : dark
-      ? const Color(0xffe4e8eb)
-      : const Color(0xff242d35);
+      ? const Color(0xffeae9e7)
+      : const Color(0xff2e2b25);
   final accent = custom
       ? Color(
           (scheme['cursorColor'] as num?)?.toInt() ??
@@ -66,34 +67,34 @@ ThemeData tildeTheme(
         )
       : dark
       ? tildeTide
-      : const Color(0xff0b7566);
+      : const Color(0xff006e5f);
   Color mix(double fraction) => Color.lerp(bg, fg, fraction)!;
   final s1 = custom
       ? mix(.04)
       : dark
-      ? const Color(0xff151a1f)
+      ? const Color(0xff1c1b18)
       : const Color(0xffecebe4);
   final s2 = custom
       ? mix(.08)
       : dark
-      ? const Color(0xff1b2229)
+      ? const Color(0xff262421)
       : const Color(0xffe3e2da);
   final s3 = custom
       ? mix(.13)
       : dark
-      ? const Color(0xff242d35)
+      ? const Color(0xff312f2b)
       : const Color(0xffdad9d1);
   final line = custom
-      ? mix(.15)
+      ? mix(.19)
       : dark
-      ? const Color(0xff232b33)
-      : const Color(0xffd2d1c9);
+      ? const Color(0xff383633)
+      : const Color(0xffceccc4);
   final muted = custom
       ? Color.lerp(bg, fg, .64)!
       : dark
-      ? const Color(0xff98a3ad)
-      : const Color(0xff626d73);
-  final selected = dark ? const Color(0xff12302b) : const Color(0xffd6e9e1);
+      ? const Color(0xffaaa7a2)
+      : const Color(0xff67635c);
+  final selected = dark ? const Color(0xff0c3a32) : const Color(0xffcfeae3);
   final cs = ColorScheme.fromSeed(seedColor: accent, brightness: brightness)
       .copyWith(
         primary: accent,
@@ -104,10 +105,10 @@ ThemeData tildeTheme(
         onSecondary: dark ? const Color(0xff04201b) : Colors.white,
         secondaryContainer: selected,
         onSecondaryContainer: accent,
-        tertiary: dark ? tildeSand : const Color(0xff936b24),
+        tertiary: dark ? tildeSand : const Color(0xff8a5f18),
         tertiaryContainer: selected,
         onTertiaryContainer: accent,
-        error: dark ? tildeCoral : const Color(0xffc2362b),
+        error: dark ? tildeCoral : const Color(0xffb8372c),
         surface: bg,
         onSurface: fg,
         onSurfaceVariant: muted,
@@ -116,7 +117,7 @@ ThemeData tildeTheme(
         surfaceContainer: s1,
         surfaceContainerHigh: s2,
         surfaceContainerHighest: s3,
-        outline: dark ? const Color(0xff6e7983) : muted,
+        outline: dark ? const Color(0xff767470) : const Color(0xff898680),
         outlineVariant: line,
         surfaceTint: Colors.transparent,
       );
@@ -127,11 +128,23 @@ ThemeData tildeTheme(
     fontFamilyFallback: const ['Pretendard'],
   );
   final inputShape = RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(10),
+    borderRadius: BorderRadius.circular(12),
   );
   return base.copyWith(
     scaffoldBackgroundColor: bg,
     textTheme: base.textTheme.copyWith(
+      headlineLarge: base.textTheme.headlineLarge!.copyWith(
+        fontSize: 30,
+        fontWeight: FontWeight.w700,
+      ),
+      headlineMedium: base.textTheme.headlineMedium!.copyWith(
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+      ),
+      titleLarge: base.textTheme.titleLarge!.copyWith(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+      ),
       bodyLarge: base.textTheme.bodyLarge!.copyWith(fontSize: 15, height: 1.4),
       bodyMedium: base.textTheme.bodyMedium!.copyWith(
         fontSize: 13,
@@ -142,7 +155,7 @@ ThemeData tildeTheme(
         height: 18 / 12.5,
       ),
       titleMedium: base.textTheme.titleMedium!.copyWith(
-        fontSize: 15,
+        fontSize: 17,
         height: 1.4,
         fontWeight: FontWeight.w600,
       ),
@@ -191,7 +204,7 @@ ThemeData tildeTheme(
     dividerTheme: DividerThemeData(color: line, thickness: 1, space: 1),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: bg,
+      fillColor: s2,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -210,20 +223,20 @@ ThemeData tildeTheme(
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        minimumSize: const Size(0, 44),
+        minimumSize: const Size(0, 48),
         shape: inputShape,
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        minimumSize: const Size(0, 44),
+        minimumSize: const Size(0, 48),
         shape: inputShape,
         side: BorderSide(color: line),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        minimumSize: const Size(0, 44),
+        minimumSize: const Size(0, 48),
         shape: inputShape,
       ),
     ),
@@ -257,10 +270,12 @@ ThemeData tildeTheme(
           (s) => s.contains(WidgetState.selected) ? selected : s2,
         ),
         foregroundColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? fg : muted,
+          (s) => s.contains(WidgetState.selected) ? accent : muted,
         ),
         side: const WidgetStatePropertyAll(BorderSide.none),
-        shape: WidgetStatePropertyAll(inputShape),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
       ),
     ),
     switchTheme: SwitchThemeData(
@@ -270,6 +285,20 @@ ThemeData tildeTheme(
       thumbColor: WidgetStateProperty.resolveWith(
         (s) => s.contains(WidgetState.selected) ? cs.onPrimary : muted,
       ),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(minimumSize: const Size(44, 44)),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: s3,
+      contentTextStyle: TextStyle(
+        fontFamily: 'Pretendard',
+        color: fg,
+        fontSize: 13,
+      ),
+      actionTextColor: accent,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: accent,
@@ -411,16 +440,25 @@ class TildeHostTile extends StatelessWidget {
     final parsed = (raw.length == 6 || raw.length == 8)
         ? int.tryParse(raw, radix: 16)
         : null;
-    final color = parsed == null
+    final sourceColor = parsed == null
         ? Color(
             (host['iconArgb'] as num?)?.toInt() ??
                 Theme.of(context).colorScheme.primary.toARGB32(),
           )
         : Color(0xff000000 | parsed);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final color = dark
+        ? sourceColor
+        : switch (sourceColor.toARGB32()) {
+            0xff6fd8c4 => const Color(0xff006e5f),
+            0xffebc37a => const Color(0xff8a5f18),
+            0xffff8577 => const Color(0xffb8372c),
+            _ => _dayHostColor(sourceColor),
+          };
     final status = host['connectionState'];
     final dot = switch (status) {
-      'CONNECTED' => const Color(0xff8fd694),
-      'UNREAD_OUTPUT' => tildeSand,
+      'CONNECTED' => Theme.of(context).colorScheme.primary,
+      'UNREAD_OUTPUT' => Theme.of(context).colorScheme.tertiary,
       'ERROR' => Theme.of(context).colorScheme.error,
       _ => Theme.of(context).colorScheme.onSurfaceVariant,
     };
@@ -441,13 +479,12 @@ class TildeHostTile extends StatelessWidget {
             Container(
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: .16),
-                borderRadius: BorderRadius.circular(12),
+                color: color.withValues(alpha: dark ? .16 : .13),
+                borderRadius: BorderRadius.circular(size >= 72 ? 20 : 16),
               ),
               child: Text(
                 initials.toLowerCase(),
                 style: TextStyle(
-                  fontFamily: tildeMono,
                   fontSize: size * .36,
                   fontWeight: FontWeight.w600,
                   color: color,
@@ -459,14 +496,14 @@ class TildeHostTile extends StatelessWidget {
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  width: 10,
-                  height: 10,
+                  width: 14,
+                  height: 14,
                   decoration: BoxDecoration(
                     color: dot,
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: Theme.of(context).colorScheme.surface,
-                      width: 1,
+                      width: 3,
                     ),
                   ),
                 ),
@@ -477,3 +514,69 @@ class TildeHostTile extends StatelessWidget {
     );
   }
 }
+
+Color _dayHostColor(Color color) {
+  double linear(double value) => value <= .04045
+      ? value / 12.92
+      : math.pow((value + .055) / 1.055, 2.4).toDouble();
+  double srgb(double value) =>
+      (value <= .0031308
+              ? value * 12.92
+              : 1.055 * math.pow(value, 1 / 2.4) - .055)
+          .clamp(0, 1)
+          .toDouble();
+  final r = linear(color.r), g = linear(color.g), b = linear(color.b);
+  final l = math
+      .pow(.4122214708 * r + .5363325363 * g + .0514459929 * b, 1 / 3)
+      .toDouble();
+  final m = math
+      .pow(.2119034982 * r + .6806995451 * g + .1073969566 * b, 1 / 3)
+      .toDouble();
+  final s = math
+      .pow(.0883024619 * r + .2817188376 * g + .6299787005 * b, 1 / 3)
+      .toDouble();
+  final a = 1.9779984951 * l - 2.4285922050 * m + .4505937099 * s;
+  final bb = .0259040371 * l + .7827717662 * m - .8086757660 * s;
+  final ll = math.pow(.5 + .3963377774 * a + .2158037573 * bb, 3).toDouble();
+  final mm = math.pow(.5 - .1055613458 * a - .0638541728 * bb, 3).toDouble();
+  final ss = math.pow(.5 - .0894841775 * a - 1.2914855480 * bb, 3).toDouble();
+  return Color.from(
+    alpha: 1,
+    red: srgb(4.0767416621 * ll - 3.3077115913 * mm + .2309699292 * ss),
+    green: srgb(-1.2684380046 * ll + 2.6097574011 * mm - .3413193965 * ss),
+    blue: srgb(-.0041960863 * ll - .7034186147 * mm + 1.7076147010 * ss),
+  );
+}
+
+Future<T?> showTildeSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool isScrollControlled = false,
+  bool useSafeArea = true,
+  bool showDragHandle = true,
+  double maxWidth = 440,
+}) {
+  if (MediaQuery.sizeOf(context).width < 840) {
+    return showModalBottomSheet<T>(
+      context: context,
+      builder: builder,
+      isScrollControlled: isScrollControlled,
+      useSafeArea: useSafeArea,
+      showDragHandle: showDragHandle,
+    );
+  }
+  return showDialog<T>(
+    context: context,
+    builder: (c) => Dialog(
+      clipBehavior: Clip.antiAlias,
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 24),
+        child: builder(c),
+      ),
+    ),
+  );
+}
+
+EdgeInsets tildeToastInsets(double width) =>
+    EdgeInsets.fromLTRB(16, 0, width >= 840 ? width - 436 : 16, 16);

@@ -18,11 +18,8 @@
 package org.connectbot.flutter
 
 import android.Manifest
-import android.content.ComponentName
 import android.content.Intent
-import android.content.ServiceConnection
 import android.os.Bundle
-import android.os.IBinder
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -31,6 +28,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import io.flutter.embedding.android.FlutterFragment
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import kotlinx.coroutines.CompletableDeferred
@@ -41,16 +39,14 @@ import org.connectbot.data.HostRepository
 import org.connectbot.data.ProfileRepository
 import org.connectbot.data.PubkeyRepository
 import org.connectbot.di.CoroutineDispatchers
-import org.connectbot.service.TerminalManager
 import org.connectbot.ui.AppViewModel
-import org.connectbot.ui.screens.generatepubkey.GeneratePubkeyViewModel
-import org.connectbot.ui.screens.login.KeyEnrollmentViewModel
-import org.connectbot.ui.screens.pubkeylist.PubkeyListViewModel
 import org.connectbot.ui.screens.settings.SettingsViewModel
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class FlutterShellActivity : FlutterFragmentActivity() {
+    @Inject lateinit var sessionRuntime: FlutterSessionRuntime
+
     @Inject lateinit var hosts: HostRepository
 
     @Inject lateinit var profiles: ProfileRepository
@@ -61,15 +57,15 @@ class FlutterShellActivity : FlutterFragmentActivity() {
 
     @Inject lateinit var database: ConnectBotDatabase
 
+    @Inject lateinit var biometricKeys: org.connectbot.util.BiometricKeyManager
+
     @Inject lateinit var passwords: org.connectbot.util.SecurePasswordStorage
+
+    @Inject lateinit var preferences: android.content.SharedPreferences
 
     @Inject lateinit var dispatchers: CoroutineDispatchers
     val appState: AppViewModel by viewModels()
     val settings: SettingsViewModel by viewModels()
-    val keyList: PubkeyListViewModel by viewModels()
-    val keyGenerator: GeneratePubkeyViewModel by viewModels()
-    internal val hostList: org.connectbot.ui.screens.hostlist.HostListViewModel by viewModels()
-    internal val enrollment: KeyEnrollmentViewModel by viewModels()
     internal lateinit var engine: AndroidShellEngine
     internal val logs: org.connectbot.ui.screens.help.LogViewerViewModel by viewModels()
     private var documentResult: CompletableDeferred<android.net.Uri?>? = null
@@ -95,7 +91,6 @@ class FlutterShellActivity : FlutterFragmentActivity() {
         createDocument.launch(name)
         return pending.await()
     }
-    private var bound = false
     private var permissionResult: CompletableDeferred<Boolean>? = null
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         settings.onNotificationPermissionResult(it)
@@ -103,30 +98,25 @@ class FlutterShellActivity : FlutterFragmentActivity() {
         permissionResult?.complete(it)
         permissionResult = null
     }
-    private val connection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName, service: IBinder) {
-            val manager = (service as TerminalManager.TerminalBinder).getService()
-            appState.setTerminalManager(manager)
-            keyList.terminalManager = manager
-            engine.bind(manager)
-            engine.handleIntent(intent)
-        }
-        override fun onServiceDisconnected(name: ComponentName) {
-            appState.setTerminalManager(null)
-            keyList.terminalManager = null
-            engine.unbind()
-        }
+    override fun provideFlutterEngine(context: android.content.Context): FlutterEngine = sessionRuntime.acquireEngine()
+
+    override fun shouldDestroyEngineWithHost(): Boolean = false
+
+    override fun createFlutterFragment(): FlutterFragment = super.createFlutterFragment().apply {
+        // The new-engine builder sets this flag even for an Activity-provided engine.
+        // Keep the runtime-owned engine alive when this Fragment is recreated.
+        requireArguments().putBoolean("destroy_engine_with_fragment", false)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         engine = AndroidShellEngine(this, flutterEngine, hosts, profiles, keys, colors, database)
+        engine.handleIntent(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        bound = bindService(Intent(this, TerminalManager::class.java), connection, BIND_AUTO_CREATE)
         lifecycleScope.launch { settings.requestNotificationPermission.collect { requestNotifications() } }
         lifecycleScope.launch { settings.openNotificationChannelSettings.collect { startActivity(it) } }
     }
@@ -134,7 +124,7 @@ class FlutterShellActivity : FlutterFragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        engine.handleIntent(intent)
+        if (::engine.isInitialized) engine.handleIntent(intent)
     }
 
     suspend fun requestNotifications(): Boolean {
@@ -188,7 +178,7 @@ class FlutterShellActivity : FlutterFragmentActivity() {
             org.connectbot.util.PreferenceConstants.ROTATION_AUTO -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
             else -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
-        val live = engine.manager?.bridgesFlow?.value?.find { it.sessionId == engine.activeSessionId }?.isSessionOpen == true
+        val live = engine.activeSessionOpen
         if (consoleVisible && preferences.keepalive && live) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
@@ -198,7 +188,6 @@ class FlutterShellActivity : FlutterFragmentActivity() {
 
     override fun onDestroy() {
         if (::engine.isInitialized) engine.dispose()
-        if (bound) unbindService(connection)
         permissionResult?.cancel()
         documentResult?.cancel()
         super.onDestroy()

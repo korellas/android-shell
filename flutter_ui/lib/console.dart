@@ -25,6 +25,9 @@ import 'editors.dart';
 import 'settings_widgets.dart';
 import 'main.dart';
 import 'management.dart';
+import 'package:xterm2/xterm.dart';
+import 'terminal/terminal_pane.dart';
+import 'terminal/terminal_prompt.dart';
 
 class ConsolePage extends StatefulWidget {
   final AndroidEngine engine;
@@ -42,6 +45,8 @@ class ConsolePage extends StatefulWidget {
 
 class _ConsolePageState extends State<ConsolePage> {
   late int id;
+  final Map<String, Future<String>> terminalFonts = {};
+  GlobalKey<TerminalPaneState> terminalKey = GlobalKey<TerminalPaneState>();
   BuildContext? consoleContext;
   BuildContext get actionsContext => consoleContext ?? context;
   EngineRecord connectionTarget = {};
@@ -55,6 +60,7 @@ class _ConsolePageState extends State<ConsolePage> {
   bool setupOpened = false;
   Timer? titleTimer;
   bool titleHidden = false;
+  bool menuOpen = false;
   void interaction() {
     titleTimer?.cancel();
     if (mounted && titleHidden) setState(() => titleHidden = false);
@@ -85,7 +91,10 @@ class _ConsolePageState extends State<ConsolePage> {
   }
 
   void select(int target) {
-    setState(() => id = target);
+    setState(() {
+      id = target;
+      terminalKey = GlobalKey<TerminalPaneState>();
+    });
     rememberSession();
     engine.query('session.visibility', {
       'id': id,
@@ -135,7 +144,9 @@ class _ConsolePageState extends State<ConsolePage> {
         if (!mounted) return;
         final text = await askText(
           actionsContext,
-          '텍스트 입력',
+          '${session['nickname'] ?? '터미널'}로 전송',
+          action: '전송',
+          maxWidth: 640,
           initial: '${input?['text'] ?? ''}',
           multiline: true,
         );
@@ -169,28 +180,62 @@ class _ConsolePageState extends State<ConsolePage> {
     exitPromptOpen = true;
     final targetId = id;
     try {
-      final disconnect = await showDialog<bool>(
+      final host =
+          engine
+              .list('hosts')
+              .where((h) => h['id'] == session['hostId'])
+              .firstOrNull ??
+          session;
+      final disconnect = await showTildeSheet<bool>(
         context: actionsContext,
-        builder: (context) => AlertDialog(
-          title: const Text('세션을 유지할까요?'),
-          content: const Text('세션을 유지하면 화면을 나가도 연결이 계속됩니다.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('취소'),
+        builder: (c) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: TildeHostTile(host: host, size: 56),
+                  title: Text(
+                    '${session['nickname'] ?? '터미널'}에서 나가기',
+                    style: Theme.of(c).textTheme.titleMedium,
+                  ),
+                  subtitle: Text(
+                    hostAddress(host),
+                    style: TextStyle(
+                      fontFamily: host['protocol'] == 'local'
+                          ? 'Pretendard'
+                          : tildeMono,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: () => Navigator.pop(c, false),
+                        icon: const Icon(Icons.pause_circle_outline),
+                        label: const Text('연결 유지'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Theme.of(c).colorScheme.error,
+                        ),
+                        onPressed: () => Navigator.pop(c, true),
+                        icon: const Icon(Icons.link_off_outlined),
+                        label: const Text('세션 종료'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(
-                '세션 종료',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('세션 유지'),
-            ),
-          ],
+          ),
         ),
       );
       if (disconnect != null && mounted && id == targetId) {
@@ -220,7 +265,6 @@ class _ConsolePageState extends State<ConsolePage> {
   Future<void> menu(String action) async {
     if ([
       'keyboard',
-      'compose',
       'select',
       'selectAll',
       'selectVisible',
@@ -233,7 +277,7 @@ class _ConsolePageState extends State<ConsolePage> {
       'selectionLeft',
       'selectionRight',
     ].contains(action)) {
-      await command('session.view', {'action': action});
+      await terminalKey.currentState?.viewAction(action);
       return;
     }
     if (action == 'resize') {
@@ -247,17 +291,18 @@ class _ConsolePageState extends State<ConsolePage> {
       if (size.isNotEmpty &&
           (parts.length != 2 ||
               int.tryParse(parts.first.trim()) == null ||
-              int.tryParse(parts.last.trim()) == null)) {
+              int.tryParse(parts.last.trim()) == null ||
+              (int.tryParse(parts.first.trim()) ?? 0) <= 0 ||
+              (int.tryParse(parts.last.trim()) ?? 0) <= 0)) {
         ScaffoldMessenger.of(actionsContext).showSnackBar(
           const SnackBar(content: Text('‘24x80’처럼 행x열로 입력해 주세요.')),
         );
         return;
       }
-      await command('session.view', {
-        'action': 'resize',
-        'rows': size.isEmpty ? null : int.parse(parts.first.trim()),
-        'columns': size.isEmpty ? null : int.parse(parts.last.trim()),
-      });
+      terminalKey.currentState?.resize(
+        rows: size.isEmpty ? null : int.parse(parts.first.trim()),
+        columns: size.isEmpty ? null : int.parse(parts.last.trim()),
+      );
       return;
     }
     if (action == 'fontUp' || action == 'fontDown') {
@@ -271,7 +316,9 @@ class _ConsolePageState extends State<ConsolePage> {
       if (!mounted) return;
       final text = await askText(
         actionsContext,
-        '텍스트 입력',
+        '${session['nickname'] ?? '터미널'}로 전송',
+        action: '전송',
+        maxWidth: 640,
         initial: initial,
         multiline: true,
       );
@@ -359,133 +406,254 @@ class _ConsolePageState extends State<ConsolePage> {
     }
   }
 
-  Future<void> pickSession() async {
-    final target = await showDialog<int>(
-      context: actionsContext,
-      builder: (context) => SimpleDialog(
-        title: const Text('연결 선택'),
-        children: [
-          for (final s in engine.list('sessions'))
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, s['id']),
-              child: Text('${s['nickname']}'),
-            ),
-        ],
-      ),
-    );
-    if (target != null && mounted) select(target);
-  }
-
   Future<void> selectMenuAction(String action) async {
     interaction();
-    final sessions = engine.list('sessions');
-    final current = sessions.indexWhere((s) => s['id'] == id);
-    if (action == 'previous' || action == 'next') {
-      final target = current + (action == 'previous' ? -1 : 1);
-      if (target >= 0 && target < sessions.length) {
-        select(sessions[target]['id'] as int);
-      }
-    } else if (action == 'fullscreen' || action == 'titlebarhide') {
+    if (action == 'fullscreen' || action == 'titlebarhide') {
       await command('settings.update', {
         'key': action,
         'value': engine.preferences[action] != true,
       });
       interaction();
+    } else if (action == 'newSession') {
+      final hostId = connectionTarget['hostId'];
+      final uri = connectionTarget['uri'];
+      if (hostId is int && hostId > 0) {
+        await runEngine(actionsContext, engine, 'connect', {
+          'id': hostId,
+          'newSession': true,
+        });
+      } else if (uri is String) {
+        await runEngine(actionsContext, engine, 'connect', {
+          'uri': uri,
+          'newSession': true,
+        });
+      }
     } else {
       await menu(action);
     }
   }
 
-  Widget popup() {
+  Widget consoleMenu(BuildContext c, VoidCallback close, {bool side = false}) {
     final connected = session['open'] == true;
-    final sessions = engine.list('sessions');
-    final current = sessions.indexWhere((s) => s['id'] == id);
-    PopupMenuItem<String> item(
-      String value,
-      String text,
-      IconData icon, {
-      bool danger = false,
-    }) => PopupMenuItem(
-      value: value,
-      child: Row(
-        children: [
-          Icon(icon, size: 20),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              text,
-              style: danger ? const TextStyle(color: tildeCoral) : null,
-            ),
-          ),
-        ],
+    final host =
+        engine
+            .list('hosts')
+            .where((h) => h['id'] == session['hostId'])
+            .firstOrNull ??
+        session;
+    void action(String value) {
+      if (!side) {
+        Navigator.pop(c, value);
+        return;
+      }
+      close();
+      unawaited(selectMenuAction(value));
+    }
+
+    Widget tile(String value, String label, IconData icon) => SizedBox(
+      width: MediaQuery.textScalerOf(c).scale(15) > 21 ? double.infinity : 148,
+      child: FilledButton.tonal(
+        onPressed: () => action(value),
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 72),
+          backgroundColor: Theme.of(c).colorScheme.surfaceContainerHigh,
+          foregroundColor: Theme.of(c).colorScheme.onSurface,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 22),
+            const SizedBox(height: 8),
+            Text(label),
+          ],
+        ),
       ),
     );
-    return PopupMenuButton<String>(
-      tooltip: '터미널 메뉴',
-      onOpened: () => titleTimer?.cancel(),
-      onCanceled: interaction,
-      onSelected: selectMenuAction,
-      itemBuilder: (_) => [
-        item('paste', '붙여넣기', Icons.content_paste),
-        item('editPaste', '텍스트 편집 후 붙여넣기', Icons.edit_note),
-        item('text', '텍스트 입력', Icons.keyboard),
-        item(
-          'compose',
-          session['composeMode'] == true ? '조합 모드 끄기' : '조합 모드 켜기',
-          Icons.edit,
+    return Material(
+      color: Theme.of(c).colorScheme.surfaceContainerLow,
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(20, side ? 20 : 0, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: TildeHostTile(host: host, size: 48),
+                title: Text(
+                  '${session['nickname'] ?? '터미널'}',
+                  style: Theme.of(c).textTheme.titleMedium,
+                ),
+                trailing: side
+                    ? IconButton(
+                        tooltip: '닫기',
+                        icon: const Icon(Icons.close),
+                        onPressed: close,
+                      )
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  tile('paste', '붙여넣기', Icons.content_paste_outlined),
+                  tile('text', '텍스트 입력', Icons.edit_note_outlined),
+                  tile('urls', '링크', Icons.link_outlined),
+                  if (connected)
+                    tile(
+                      'resize',
+                      '${session['columns'] ?? '열'}×${session['rows'] ?? '행'}',
+                      Icons.aspect_ratio_outlined,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(Icons.fullscreen, size: 22),
+                title: const Text('전체 화면'),
+                value: engine.preferences['fullscreen'] == true,
+                onChanged: (_) => side
+                    ? selectMenuAction('fullscreen')
+                    : action('fullscreen'),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(Icons.vertical_align_top, size: 22),
+                title: const Text('제목 줄 자동 숨김'),
+                value: engine.preferences['titlebarhide'] == true,
+                onChanged: (_) => side
+                    ? selectMenuAction('titlebarhide')
+                    : action('titlebarhide'),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.edit_note_outlined, size: 22),
+                title: const Text('편집 후 전송'),
+                onTap: () => action('editPaste'),
+              ),
+              if (connected && session['canForward'] == true)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.swap_horiz, size: 22),
+                  title: const Text('포트 포워딩'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => action('forwards'),
+                ),
+              if (session['canEnroll'] == true)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.key_outlined, size: 22),
+                  title: const Text('이 서버에 키 등록'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => action('enroll'),
+                ),
+              if (!leaving && !connected && session['connecting'] != true)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.refresh),
+                  title: const Text('다시 연결'),
+                  onTap: () => action('reconnect'),
+                ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed:
+                          connectionTarget['hostId'] == null &&
+                              connectionTarget['uri'] == null
+                          ? null
+                          : () => action('newSession'),
+                      icon: const Icon(Icons.library_add_outlined),
+                      label: const Text('새 세션'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Theme.of(c).colorScheme.error,
+                      ),
+                      onPressed: () => action('disconnect'),
+                      icon: const Icon(Icons.link_off_outlined),
+                      label: Text(connected ? '연결 끊기' : '닫기'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        item('urls', '링크 찾기', Icons.link),
-        const PopupMenuDivider(),
-        if (connected) item('resize', '터미널 크기 지정', Icons.aspect_ratio),
-        if (connected && session['canForward'] == true)
-          item('forwards', '포트 포워딩', Icons.swap_horiz),
-        if (session['canEnroll'] == true)
-          item('enroll', '이 서버에 키 등록', Icons.key),
-        item(
-          'fullscreen',
-          engine.preferences['fullscreen'] == true ? '전체 화면 끄기' : '전체 화면 켜기',
-          Icons.fullscreen,
-        ),
-        item(
-          'titlebarhide',
-          engine.preferences['titlebarhide'] == true
-              ? '제목 표시줄 항상 표시'
-              : '제목 표시줄 자동 숨기기',
-          Icons.vertical_align_top,
-        ),
-        if (current > 0) item('previous', '이전 연결', Icons.chevron_left),
-        if (current >= 0 && current < sessions.length - 1)
-          item('next', '다음 연결', Icons.chevron_right),
-        const PopupMenuDivider(),
-        if (!connected && session['connecting'] != true)
-          item('reconnect', '다시 연결', Icons.refresh),
-        item(
-          'disconnect',
-          connected ? '연결 끊기' : '닫기',
-          Icons.link_off,
-          danger: true,
-        ),
-      ],
+      ),
     );
   }
+
+  Widget popup() => IconButton(
+    tooltip: '터미널 메뉴',
+    icon: const Icon(Icons.more_horiz),
+    onPressed: () async {
+      titleTimer?.cancel();
+      if (MediaQuery.sizeOf(actionsContext).width >= 840) {
+        setState(() => menuOpen = !menuOpen);
+        return;
+      }
+      final targetId = id;
+      final action = await showTildeSheet<String>(
+        context: actionsContext,
+        isScrollControlled: true,
+        builder: (c) => ListenableBuilder(
+          listenable: engine,
+          builder: (_, _) => consoleMenu(c, () => Navigator.pop(c)),
+        ),
+      );
+      if (!mounted) return;
+      interaction();
+      if (action != null && id == targetId) {
+        await engine.query('session.visibility', {
+          'id': id,
+          'owner': routeOwner,
+          'visible': true,
+        });
+        await WidgetsBinding.instance.endOfFrame;
+        if (mounted && id == targetId) await selectMenuAction(action);
+      }
+    },
+  );
 
   @override
   Widget build(BuildContext context) {
     final prefs = engine.preferences;
+    final commonSession = engine.terminalSession(id);
+    final prompt = engine
+        .list('prompts')
+        .where((p) => p['sessionId'] == id)
+        .firstOrNull;
+    final storedFont =
+        commonSession?.profile['fontFamily'] as String? ??
+        prefs['fontFamily'] as String? ??
+        'MONOSPACE';
     final scheme = session.containsKey('backgroundColor')
         ? session
         : {
             'backgroundColor': tildeNightBackground.toARGB32(),
-            'foregroundColor': 0xffe4e8eb,
+            'foregroundColor': 0xffeae9e7,
             'cursorColor': tildeTide.toARGB32(),
           };
     final background = Color((scheme['backgroundColor'] as num).toInt());
     final dark =
         ThemeData.estimateBrightnessForColor(background) == Brightness.dark;
-    final theme = tildeTheme(
+    final baseTheme = tildeTheme(
       dark ? Brightness.dark : Brightness.light,
       engine,
       terminalScheme: scheme,
+    );
+    final theme = baseTheme.copyWith(
+      snackBarTheme: baseTheme.snackBarTheme.copyWith(
+        insetPadding: tildeToastInsets(MediaQuery.sizeOf(context).width),
+      ),
     );
     final overlays = SystemUiOverlayStyle(
       statusBarColor: background,
@@ -517,180 +685,382 @@ class _ConsolePageState extends State<ConsolePage> {
                 primary: false,
                 backgroundColor: background,
                 body: SafeArea(
-                  maintainBottomViewPadding: true,
                   top: prefs['fullscreen'] != true,
                   bottom: prefs['fullscreen'] != true,
                   left: prefs['fullscreen'] != true,
                   right: prefs['fullscreen'] != true,
-                  child: Stack(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Positioned.fill(
-                        top: 36,
-                        child: session.isEmpty
-                            ? (leaving
-                                  ? const SizedBox.shrink()
-                                  : Center(
-                                      child: TextButton(
-                                        onPressed: () => menu('reconnect'),
-                                        child: const Text('다시 연결'),
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              top: prefs['titlebarhide'] == true ? 0 : 44,
+                              child: session.isEmpty || commonSession == null
+                                  ? (leaving
+                                        ? const SizedBox.shrink()
+                                        : Center(
+                                            child: TextButton(
+                                              onPressed: () =>
+                                                  menu('reconnect'),
+                                              child: const Text('다시 연결'),
+                                            ),
+                                          ))
+                                  : Listener(
+                                      onPointerDown: (_) => interaction(),
+                                      child: Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom: MediaQuery.viewInsetsOf(
+                                            context,
+                                          ).bottom,
+                                        ),
+                                        child: FutureBuilder<String>(
+                                          future: terminalFonts.putIfAbsent(
+                                            storedFont,
+                                            () =>
+                                                engine.terminalFont(storedFont),
+                                          ),
+                                          builder: (context, font) => TerminalPane(
+                                            key: terminalKey,
+                                            initialRows:
+                                                commonSession
+                                                        .profile['forceSizeRows']
+                                                    as int?,
+                                            initialColumns:
+                                                commonSession
+                                                        .profile['forceSizeColumns']
+                                                    as int?,
+                                            alwaysVisibleKeys:
+                                                prefs['alwaysvisible'] == true,
+                                            keyHideDelay: Duration(
+                                              milliseconds:
+                                                  engine.state['autoHideDelayMs']
+                                                      as int? ??
+                                                  3000,
+                                            ),
+                                            pageGesture:
+                                                prefs['pgupdngesture'] == true,
+                                            volumeFont:
+                                                prefs['volumefont'] == true,
+                                            onFontSize: (increase) => command(
+                                              'session.font',
+                                              {'increase': increase},
+                                            ),
+                                            onSwipe:
+                                                prefs['swipeSessions'] ==
+                                                        true ||
+                                                    prefs['swipeTmux'] == true
+                                                ? (direction) {
+                                                    if (prefs['swipeSessions'] ==
+                                                        true) {
+                                                      final sessions = engine
+                                                          .list('sessions');
+                                                      final index = sessions
+                                                          .indexWhere(
+                                                            (s) =>
+                                                                s['id'] == id,
+                                                          );
+                                                      final target =
+                                                          (index + direction)
+                                                              .clamp(
+                                                                0,
+                                                                sessions.length -
+                                                                    1,
+                                                              );
+                                                      if (target != index) {
+                                                        select(
+                                                          sessions[target]['id']
+                                                              as int,
+                                                        );
+                                                      }
+                                                    } else {
+                                                      commonSession.input.sendText(
+                                                        '${prefs['tmuxCtrlA'] == true ? '\u0001' : '\u0002'}${direction > 0 ? 'n' : 'p'}',
+                                                      );
+                                                    }
+                                                  }
+                                                : null,
+                                            terminal: commonSession.terminal,
+                                            controller:
+                                                commonSession.controller,
+                                            input: commonSession.input,
+                                            enabled:
+                                                engine.ready &&
+                                                commonSession.sessionOpen &&
+                                                visible == true &&
+                                                prompt == null,
+                                            theme: consoleTerminalTheme(
+                                              row(
+                                                commonSession
+                                                    .prepared['scheme'],
+                                              ),
+                                            ),
+                                            textStyle: TerminalStyle(
+                                              fontSize: commonSession.fontSize,
+                                              fontFamily:
+                                                  font.data ?? tildeMono,
+                                            ),
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal:
+                                                  (prefs['terminalMargin']
+                                                              as num? ??
+                                                          0)
+                                                      .toDouble(),
+                                            ),
+                                            keyOrder:
+                                                (prefs['terminalBarOrder']
+                                                        as List?)
+                                                    ?.cast<String>(),
+                                            hiddenKeys:
+                                                (prefs['terminalBarHidden']
+                                                            as List? ??
+                                                        [])
+                                                    .cast<String>()
+                                                    .toSet(),
+                                            keyHeight:
+                                                (prefs['terminalBarHeight']
+                                                            as num? ??
+                                                        36)
+                                                    .toDouble(),
+                                            groupFunctionKeys:
+                                                prefs['terminalBarFn'] != false,
+                                            onEdit: (initial) => askText(
+                                              actionsContext,
+                                              '${session['nickname'] ?? '터미널'}로 전송',
+                                              action: '전송',
+                                              maxWidth: 640,
+                                              initial: initial,
+                                              multiline: true,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                    ))
-                            : Listener(
-                                onPointerDown: (_) => interaction(),
-                                child: AndroidView(
-                                  key: ValueKey(id),
-                                  viewType:
-                                      'dev.korellas.androidshell/terminal',
-                                  creationParams: {
-                                    'sessionId': id,
-                                    'owner': routeOwner,
-                                  },
-                                  creationParamsCodec:
-                                      const StandardMessageCodec(),
-                                ),
-                              ),
-                      ),
-                      if (!(titleHidden && prefs['titlebarhide'] == true))
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          height: 36,
-                          child: AppBar(
-                            toolbarHeight: 36,
-                            primary: false,
-                            backgroundColor: background,
-                            foregroundColor: theme.colorScheme.onSurface,
-                            systemOverlayStyle: overlays,
-                            automaticallyImplyLeading: false,
-                            leading: IconButton(
-                              tooltip: '뒤로',
-                              icon: const Icon(Icons.arrow_back),
-                              onPressed: requestLeave,
+                                    ),
                             ),
-                            titleSpacing: 0,
-                            title: InkWell(
-                              onTap: pickSession,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      '${session['nickname'] ?? connectionTarget['nickname'] ?? '터미널'}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.labelLarge,
+                            if (!(titleHidden && prefs['titlebarhide'] == true))
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: 44,
+                                child: AppBar(
+                                  toolbarHeight: 44,
+                                  primary: false,
+                                  backgroundColor: background,
+                                  foregroundColor: theme.colorScheme.onSurface,
+                                  systemOverlayStyle: overlays,
+                                  automaticallyImplyLeading: false,
+                                  leading: IconButton(
+                                    tooltip: '뒤로',
+                                    icon: const Icon(Icons.arrow_back),
+                                    onPressed: requestLeave,
+                                  ),
+                                  titleSpacing: 0,
+                                  title: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: [
+                                        for (final target in engine.list(
+                                          'sessions',
+                                        ))
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              right: 4,
+                                            ),
+                                            child: TextButton(
+                                              style: TextButton.styleFrom(
+                                                minimumSize: const Size(0, 44),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                    ),
+                                                backgroundColor:
+                                                    target['id'] == id
+                                                    ? theme
+                                                          .colorScheme
+                                                          .surfaceContainerHigh
+                                                    : null,
+                                                foregroundColor:
+                                                    target['id'] == id
+                                                    ? theme
+                                                          .colorScheme
+                                                          .onSurface
+                                                    : theme
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
+                                              ),
+                                              onPressed: () =>
+                                                  select(target['id'] as int),
+                                              child: Text(
+                                                '${target['nickname'] ?? '터미널'}',
+                                                maxLines: 1,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
-                                  if (engine.list('sessions').length > 1)
-                                    const Icon(Icons.arrow_drop_down, size: 20),
-                                ],
+                                  actions: [popup()],
+                                ),
                               ),
-                            ),
-                            actions: [popup()],
-                          ),
-                        ),
-                      Positioned(
-                        top: 36,
-                        left: 0,
-                        right: 0,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (session['connecting'] == true ||
-                                row(session['automation'])['running'] == true ||
-                                progressVisible)
-                              LinearProgressIndicator(
-                                minHeight: 2,
-                                value:
-                                    progressVisible &&
-                                        progress['state'] != 'INDETERMINATE'
-                                    ? ((progress['value'] as num?)
-                                                      ?.toDouble() ??
-                                                  0)
-                                              .clamp(0, 100) /
-                                          100
-                                    : null,
-                                color: progress['state'] == 'ERROR'
-                                    ? tildeCoral
-                                    : progress['state'] == 'WARNING'
-                                    ? tildeSand
-                                    : theme.colorScheme.primary,
-                              ),
-                            for (final banner in rows(session['banners']))
-                              Material(
-                                color: theme.colorScheme.surfaceContainerLow,
-                                child: ListTile(
-                                  dense: true,
-                                  leading: const Icon(Icons.campaign_outlined),
-                                  title: Text(
-                                    '${banner['sourceName']}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            showModalBottomSheet<void>(
-                                              context: context,
-                                              isScrollControlled: true,
-                                              useSafeArea: true,
-                                              builder: (c) => Theme(
-                                                data: theme,
-                                                child: SingleChildScrollView(
-                                                  padding: const EdgeInsets.all(
-                                                    24,
-                                                  ),
-                                                  child: SelectableText(
-                                                    '${banner['message']}',
+                            Positioned(
+                              top: 44,
+                              left: 0,
+                              right: 0,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (session['connecting'] == true ||
+                                      row(session['automation'])['running'] ==
+                                          true ||
+                                      progressVisible)
+                                    LinearProgressIndicator(
+                                      minHeight: 2,
+                                      value:
+                                          progressVisible &&
+                                              progress['state'] !=
+                                                  'INDETERMINATE'
+                                          ? ((progress['value'] as num?)
+                                                            ?.toDouble() ??
+                                                        0)
+                                                    .clamp(0, 100) /
+                                                100
+                                          : null,
+                                      color: progress['state'] == 'ERROR'
+                                          ? tildeCoral
+                                          : progress['state'] == 'WARNING'
+                                          ? tildeSand
+                                          : theme.colorScheme.primary,
+                                    ),
+                                  for (final banner in rows(session['banners']))
+                                    Material(
+                                      color:
+                                          theme.colorScheme.surfaceContainerLow,
+                                      child: ListTile(
+                                        dense: true,
+                                        leading: const Icon(
+                                          Icons.campaign_outlined,
+                                        ),
+                                        title: Text(
+                                          '${banner['sourceName']}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            TextButton(
+                                              onPressed: () => showTildeSheet<void>(
+                                                context: context,
+                                                isScrollControlled: true,
+                                                useSafeArea: true,
+                                                builder: (c) => Theme(
+                                                  data: theme,
+                                                  child: SingleChildScrollView(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                          24,
+                                                        ),
+                                                    child: SelectableText(
+                                                      '${banner['message']}',
+                                                    ),
                                                   ),
                                                 ),
                                               ),
+                                              child: const Text('보기'),
                                             ),
-                                        child: const Text('보기'),
-                                      ),
-                                      IconButton(
-                                        tooltip: '배너 닫기',
-                                        icon: const Icon(Icons.close),
-                                        onPressed: () => command(
-                                          'session.dismissBanner',
-                                          {'bannerId': banner['id']},
+                                            IconButton(
+                                              tooltip: '배너 닫기',
+                                              icon: const Icon(Icons.close),
+                                              onPressed: () => command(
+                                                'session.dismissBanner',
+                                                {'bannerId': banner['id']},
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
+                                    ),
+                                ],
+                              ),
+                            ),
+                            if (prompt != null && commonSession != null)
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: MediaQuery.viewInsetsOf(context).bottom,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxHeight:
+                                        (MediaQuery.sizeOf(context).height -
+                                                MediaQuery.viewInsetsOf(
+                                                  context,
+                                                ).bottom -
+                                                44)
+                                            .clamp(0, double.infinity) *
+                                        0.7,
+                                  ),
+                                  child: SingleChildScrollView(
+                                    child: TerminalPrompt(
+                                      key: ValueKey((id, prompt['token'])),
+                                      prompt: prompt,
+                                      enabled: visible == true,
+                                      onResponse: (value) async {
+                                        await runEngine(
+                                          actionsContext,
+                                          engine,
+                                          'prompt.respond',
+                                          {
+                                            'sessionId': prompt['sessionId'],
+                                            'token': prompt['token'],
+                                            'value': value,
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (ended)
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: MediaQuery.viewInsetsOf(context).bottom,
+                                child: Material(
+                                  color: theme.colorScheme.surfaceContainerLow,
+                                  child: SafeArea(
+                                    top: false,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 4,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Expanded(
+                                            child: Text('연결이 끊겼습니다'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () => menu('reconnect'),
+                                            child: const Text('다시 연결'),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                           ],
                         ),
                       ),
-                      if (ended)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: MediaQuery.viewInsetsOf(context).bottom,
-                          child: Material(
-                            color: theme.colorScheme.surfaceContainerLow,
-                            child: SafeArea(
-                              top: false,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 4,
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Expanded(child: Text('연결이 끊겼습니다')),
-                                    TextButton(
-                                      onPressed: () => menu('reconnect'),
-                                      child: const Text('다시 연결'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
+                      if (menuOpen && MediaQuery.sizeOf(context).width >= 840)
+                        SizedBox(
+                          width: 360,
+                          child: consoleMenu(
+                            context,
+                            () => setState(() => menuOpen = false),
+                            side: true,
                           ),
                         ),
                     ],
@@ -703,6 +1073,42 @@ class _ConsolePageState extends State<ConsolePage> {
       ),
     );
   }
+}
+
+TerminalTheme consoleTerminalTheme(EngineRecord scheme) {
+  final fallback = TerminalThemes.defaultTheme;
+  final palette = (scheme['palette'] as List? ?? []).cast<num>();
+  Color color(int index, Color defaultColor) =>
+      index < palette.length ? Color(palette[index].toInt()) : defaultColor;
+  return TerminalTheme(
+    cursor: scheme.isEmpty ? tildeTide : paletteColor(scheme, 'cursor'),
+    selection: tildeTide.withValues(alpha: .3),
+    foreground: scheme.isEmpty
+        ? const Color(0xffeae9e7)
+        : paletteColor(scheme, 'foreground'),
+    background: scheme.isEmpty
+        ? tildeNightBackground
+        : paletteColor(scheme, 'background'),
+    black: color(0, fallback.black),
+    red: color(1, fallback.red),
+    green: color(2, fallback.green),
+    yellow: color(3, fallback.yellow),
+    blue: color(4, fallback.blue),
+    magenta: color(5, fallback.magenta),
+    cyan: color(6, fallback.cyan),
+    white: color(7, fallback.white),
+    brightBlack: color(8, fallback.brightBlack),
+    brightRed: color(9, fallback.brightRed),
+    brightGreen: color(10, fallback.brightGreen),
+    brightYellow: color(11, fallback.brightYellow),
+    brightBlue: color(12, fallback.brightBlue),
+    brightMagenta: color(13, fallback.brightMagenta),
+    brightCyan: color(14, fallback.brightCyan),
+    brightWhite: color(15, fallback.brightWhite),
+    searchHitBackground: fallback.searchHitBackground,
+    searchHitBackgroundCurrent: fallback.searchHitBackgroundCurrent,
+    searchHitForeground: fallback.searchHitForeground,
+  );
 }
 
 class EnrollmentPage extends StatefulWidget {
@@ -766,7 +1172,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     ], keyId);
     if (choice == null || !mounted) return;
     if (choice.$1 == 'generate') {
-      final record = await showModalBottomSheet<EngineRecord>(
+      final record = await showTildeSheet<EngineRecord>(
         context: context,
         isScrollControlled: true,
         useSafeArea: true,

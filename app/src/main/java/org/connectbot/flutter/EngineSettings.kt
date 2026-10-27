@@ -30,10 +30,9 @@ import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.withContext
-import org.connectbot.terminal.ImeShortcutInputMode
-import org.connectbot.terminal.VTermKey
 import org.connectbot.ui.screens.settings.SettingsUiState
 import org.connectbot.util.IconStyle
+import org.connectbot.util.ImeShortcutInputMode
 import org.connectbot.util.LocalFontProvider
 import org.connectbot.util.ShortcutIconGenerator
 import org.connectbot.util.TerminalBarKey
@@ -41,6 +40,7 @@ import org.connectbot.util.TerminalBarLayout
 import org.connectbot.util.TerminalFont
 import org.connectbot.util.TerminalFontProvider
 import org.connectbot.util.ThemeMode
+import org.connectbot.util.VTermKey
 import java.io.ByteArrayOutputStream
 
 internal fun SettingsUiState.toWire(): Wire = mapOf(
@@ -64,7 +64,7 @@ internal fun SettingsUiState.toWire(): Wire = mapOf(
     "fonts" to TerminalFont.entries.map { mapOf("value" to it.name, "label" to it.displayName) },
     "terminalKeys" to terminalBarLayout.visibleKeys.flatMap { key ->
         when (key) {
-            TerminalBarKey.ALT -> listOf(mapOf("name" to key.name, "label" to key.label, "modifier" to org.connectbot.service.TerminalKeyListener.ALT_ON))
+            TerminalBarKey.ALT -> listOf(mapOf("name" to key.name, "label" to key.label, "modifier" to 4))
 
             TerminalBarKey.FUNCTION_KEYS -> {
                 val functions = (1..12).map { mapOf("name" to "F$it", "label" to "F$it", "key" to VTermKey.FUNCTION_0 + it) }
@@ -96,8 +96,8 @@ internal fun SettingsUiState.toWire(): Wire = mapOf(
     "enterKey" to VTermKey.ENTER,
     "keyModifiers" to mapOf("Ctrl" to org.connectbot.util.TerminalKeyModifiers.CTRL, "Alt" to org.connectbot.util.TerminalKeyModifiers.ALT, "Shift" to org.connectbot.util.TerminalKeyModifiers.SHIFT),
     "automationKeys" to (listOf("Enter" to VTermKey.ENTER, "Tab" to VTermKey.TAB, "Escape" to VTermKey.ESCAPE, "Backspace" to VTermKey.BACKSPACE, "Delete" to VTermKey.DEL, "Up" to VTermKey.UP, "Down" to VTermKey.DOWN, "Left" to VTermKey.LEFT, "Right" to VTermKey.RIGHT, "Home" to VTermKey.HOME, "End" to VTermKey.END, "Insert" to VTermKey.INS, "Page Up" to VTermKey.PAGEUP, "Page Down" to VTermKey.PAGEDOWN) + org.connectbot.service.automation.AutomationKeySupport.functionNumbers.map { "F$it" to VTermKey.FUNCTION_0 + it } + org.connectbot.service.automation.AutomationKeySupport.characterKeys.map { "${(-it).toChar()}" to it }).map { mapOf("label" to it.first, "key" to it.second) },
-    "ctrlModifier" to org.connectbot.service.TerminalKeyListener.CTRL_ON,
-    "altModifier" to org.connectbot.service.TerminalKeyListener.ALT_ON,
+    "ctrlModifier" to 1,
+    "altModifier" to 4,
     "escapeKey" to VTermKey.ESCAPE, "tabKey" to VTermKey.TAB,
 )
 
@@ -211,6 +211,27 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
         "settings.notifications" -> {
             settings.openNotificationSettings()
             null
+        }
+
+        "font.bytes" -> withContext(activity.dispatchers.io) {
+            val stored = args.text("name")
+            val googleName = TerminalFont.getGoogleFontName(stored)
+            if (googleName == "JetBrains Mono") {
+                mapOf("family" to "JetBrainsMono")
+            } else if (LocalFontProvider.isLocalFont(stored)) {
+                val fileName = requireNotNull(LocalFontProvider.getLocalFontFileName(stored))
+                val directory = java.io.File(activity.filesDir, LocalFontProvider.FONTS_DIR).canonicalFile
+                val file = java.io.File(directory, fileName).canonicalFile
+                require(file.parentFile == directory) { "Invalid font path" }
+                mapOf("bytes" to file.readBytes())
+            } else if (googleName.isBlank()) {
+                mapOf("family" to "monospace")
+            } else {
+                val request = androidx.core.provider.FontRequest("com.google.android.gms.fonts", "com.google.android.gms", googleName, org.connectbot.R.array.com_google_android_gms_fonts_certs)
+                val fonts = androidx.core.provider.FontsContractCompat.fetchFonts(activity, null, request)
+                val font = fonts.fonts?.firstOrNull { it.resultCode == 0 && it.ttcIndex == 0 && !it.isItalic && it.weight == 400 }
+                if (font == null) mapOf("family" to "monospace") else mapOf("bytes" to activity.contentResolver.openInputStream(font.uri)?.use { it.readBytes() })
+            }
         }
 
         "font.import" -> {
