@@ -921,7 +921,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   ? '화면 잠금을 먼저 설정하세요'
                   : '지문 또는 화면 잠금',
             ),
-            toggle(c, 'memkeys', '해제한 SSH 키를 메모리에 유지', sub: '앱을 완전히 닫으면 지워집니다'),
           ]),
           group('키와 서버', [
             go(
@@ -948,13 +947,7 @@ class _SettingsPageState extends State<SettingsPage> {
               icon: Icons.verified_user_outlined,
             ),
           ]),
-          group('백업', [
-            toggle(
-              c,
-              'backupkeys',
-              'SSH 키 백업 허용',
-              sub: 'Android 백업에 암호화된 키 포함',
-            ),
+          group('설정 파일', [
             go(
               'export',
               '호스트 내보내기',

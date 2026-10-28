@@ -269,55 +269,6 @@ void main() {
     },
   );
   test(
-    'memory preference clears cached software keys only after successful persistence',
-    () async {
-      final pair = OpenSSHEd25519KeyPair(Uint8List(32), Uint8List(64), '');
-      var failUpdate = true;
-      var remember = true;
-      messenger.setMockMethodCallHandler(AndroidEngine.channel, (call) async {
-        switch (call.method) {
-          case 'snapshot':
-            return {
-              ...snapshot(),
-              'keys': [
-                {
-                  'id': 1,
-                  'type': 'IMPORTED',
-                  'nickname': 'key',
-                  'publicBytes': pair.toPublicKey().encode(),
-                },
-              ],
-              'preferences': {'memkeys': remember},
-            };
-          case 'ssh.keyMaterial':
-            return {'pem': pair.toPem(), 'biometric': false};
-          case 'settings.update':
-            if (failUpdate) throw PlatformException(code: 'failed');
-            remember = false;
-            return null;
-          default:
-            throw StateError('Unexpected ${call.method}');
-        }
-      });
-      await engine.refresh();
-      await engine.query('key.load', {'id': 1});
-      expect(engine.list('keys').single['loaded'], true);
-      await expectLater(
-        engine.query('settings.update', {'key': 'memkeys', 'value': false}),
-        throwsA(isA<Exception>()),
-      );
-      expect(engine.list('keys').single['loaded'], true);
-      failUpdate = false;
-      await engine.invoke('settings.update', {
-        'key': 'memkeys',
-        'value': false,
-      });
-      expect(engine.preferences['memkeys'], false);
-      expect(engine.list('keys').single['loaded'], false);
-    },
-  );
-
-  test(
     'protocol change is rejected before mutating the existing session',
     () async {
       await engine.refresh();
@@ -436,13 +387,20 @@ void main() {
         }),
       );
       final transport = transports.single;
-      expect(transport.active[11]!.config.targetHost, 'old');
+      expect(transport.active, isEmpty);
       expect(
         rows(
           await engine.query('forwards', {'hostId': 1, 'sessionId': id}),
         ).single['enabled'],
-        isTrue,
+        isFalse,
       );
+      await engine.invoke('forward.toggle', {
+        'hostId': 1,
+        'sessionId': id,
+        'id': 11,
+        'enabled': true,
+      });
+      expect(transport.active[11]!.config.targetHost, 'old');
       await engine.invoke('forward.save', {...saved, 'destAddr': 'new'});
       expect(transport.disabled, [11]);
       expect(transport.active[11]!.config.targetHost, 'new');

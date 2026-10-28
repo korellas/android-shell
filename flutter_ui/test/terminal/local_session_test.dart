@@ -65,7 +65,7 @@ void main() {
     },
   );
   test(
-    'encodes text in input order and starts configured local automation',
+    'encodes text in input order and ignores legacy command automation',
     () async {
       final events = StreamController<dynamic>.broadcast();
       final writes = <String>[];
@@ -97,7 +97,7 @@ void main() {
         session.invoke('session.sendText', {'text': 'one'}),
         session.invoke('session.sendText', {'text': 'two'}),
       ]);
-      expect(writes, ['login', 'auto', 'one', 'two']);
+      expect(writes, ['one', 'two']);
       await session.dispose();
       await events.close();
     },

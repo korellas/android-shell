@@ -67,7 +67,6 @@ class _RecordEditorState extends State<RecordEditor> {
   String? hostCategory;
   late EngineRecord originalDraft;
   String? error;
-  bool changePassword = false;
   int passwordRevision = 0;
   AndroidEngine get engine => widget.engine;
   @override
@@ -88,7 +87,7 @@ class _RecordEditorState extends State<RecordEditor> {
         'sourceAddr': 'localhost',
         'sourcePort': 8080,
         'destPort': 80,
-        'startEnabled': true,
+        'startEnabled': false,
         'hostId': widget.hostId,
         ...?widget.record,
       };
@@ -281,7 +280,7 @@ class _RecordEditorState extends State<RecordEditor> {
           key['id'],
           '${key['nickname']}${key['supported'] == false ? ' (DSA 미지원)' : ''}',
         ),
-      (-1, '잠금 해제된 키 모두 시도'),
+      (-1, '사용 가능한 키 모두 시도'),
       (-2, '키 쓰지 않음'),
     ],
     draft['pubkeyId'] ?? -1,
@@ -396,11 +395,6 @@ class _RecordEditorState extends State<RecordEditor> {
           ('del', 'Delete'),
           ('backspace', 'Backspace'),
         ]),
-        choices('inlineImages', '터미널 이미지', [
-          ('off', '표시 안 함'),
-          ('ask', '세션마다 확인'),
-          ('on', '항상 표시'),
-        ]),
         Padding(
           padding: const EdgeInsets.only(top: 16),
           child: LayoutBuilder(
@@ -474,7 +468,12 @@ class _RecordEditorState extends State<RecordEditor> {
           children: [
             Expanded(
               flex: 2,
-              child: text('sourceAddr', '대기 주소', required: true),
+              child: draft['type'] == 'remote'
+                  ? text('sourceAddr', '대기 주소', required: true)
+                  : const ListTile(
+                      title: Text('대기 주소'),
+                      subtitle: Text('127.0.0.1 · 이 기기에서만 접근'),
+                    ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -495,7 +494,6 @@ class _RecordEditorState extends State<RecordEditor> {
               ),
             ],
           ),
-        if (draft['type'] != 'dynamic4') toggle('startEnabled', '접속할 때 자동 활성화'),
       ]),
     ],
     RecordKind.key => [
@@ -528,53 +526,26 @@ class _RecordEditorState extends State<RecordEditor> {
       ]),
       section('키 설정', [
         text('nickname', '키 이름', required: true),
-        toggle(
-          'confirmation',
-          '사용할 때 확인',
-          description: '이 키로 인증하기 전에 허용 여부를 묻습니다',
-        ),
-        if (draft['biometric'] == true)
+        if (draft['supported'] == true)
+          toggle(
+            'confirmation',
+            '사용할 때 확인',
+            description: '이 키로 인증하기 전에 허용 여부를 묻습니다',
+          ),
+        if (draft['supported'] == true)
           const ListTile(
             leading: Icon(Icons.fingerprint),
-            title: Text('Android Keystore 생체인증 키'),
+            title: Text('Android Keystore P-256 키'),
             subtitle: Text('비밀키는 기기 밖으로 내보낼 수 없습니다'),
           ),
-        if (draft['biometric'] != true) ...[
-          toggle('startup', '앱 시작 시 자동 불러오기'),
-          toggle('allowBackup', '키 백업 허용'),
-          if (draft['supported'] != false)
-            ListTile(
-              title: const Text('키 암호 변경'),
-              subtitle: Text(
-                changePassword
-                    ? '저장할 때 적용됩니다'
-                    : draft['encrypted'] == true
-                    ? '암호로 보호됨'
-                    : '암호 없음',
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () async {
-                final value = await showTildeSheet<EngineRecord>(
-                  context: context,
-                  isScrollControlled: true,
-                  showDragHandle: true,
-                  builder: (_) => KeyPasswordSheet(
-                    requireOldPassword:
-                        draft['encrypted'] == true && draft['loaded'] != true,
-                  ),
-                );
-                if (value != null && mounted) {
-                  setState(() {
-                    changePassword = true;
-                    draft.addAll(value);
-                    if ('${value['newPassword'] ?? ''}'.isNotEmpty) {
-                      draft['startup'] = false;
-                    }
-                  });
-                }
-              },
+        if (draft['supported'] != true)
+          ListTile(
+            leading: const Icon(Icons.block_outlined),
+            title: const Text('사용 중지된 기존 개인키'),
+            subtitle: Text(
+              '${draft['supportMessage'] ?? '새 Android Keystore 키로 교체한 뒤 삭제하세요.'}',
             ),
-        ],
+          ),
       ]),
     ],
   };
@@ -716,13 +687,6 @@ class _RecordEditorState extends State<RecordEditor> {
                 ),
             ]),
           ],
-          group('고급', [
-            choices('useAuthAgent', 'SSH 인증 에이전트', [
-              ('no', '끔'),
-              ('yes', '사용'),
-              ('confirm', '매번 확인'),
-            ]),
-          ]),
         ];
       case 'appearance':
         final selectedProfile =
@@ -855,15 +819,6 @@ class _RecordEditorState extends State<RecordEditor> {
               toggle('wantSession', '터미널 열기', description: '끄면 포트 포워딩만 합니다'),
             ],
           ]),
-          if (savedHost)
-            group('로그인 후', [
-              ListTile(
-                leading: const Icon(Icons.play_circle_outline),
-                title: const Text('자동 실행'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => page(AutomationPage(engine: engine, host: draft)),
-              ),
-            ]),
           group('이 호스트만 다르게', [
             TildeStepper(
               title: '스크롤 기록',
@@ -960,15 +915,6 @@ class _RecordEditorState extends State<RecordEditor> {
                 '포워딩',
                 Icons.swap_horiz,
                 () => page(ForwardsPage(engine: engine, host: draft)),
-              ),
-            if (supportedHost)
-              quick(
-                '홈 화면',
-                Icons.add_to_home_screen_outlined,
-                () => runEngine(context, engine, 'shortcut', {
-                  'id': draft['id'],
-                  'color': draft['color'],
-                }),
               ),
           ],
         ),
@@ -1110,13 +1056,7 @@ class _RecordEditorState extends State<RecordEditor> {
   int get changeCount => {
     for (final key in {...originalDraft.keys, ...draft.keys})
       if (originalDraft[key] != draft[key] && !key.startsWith('_'))
-        if ([
-          'password',
-          'hasPassword',
-          'clearPassword',
-          'oldPassword',
-          'newPassword',
-        ].contains(key))
+        if (['password', 'hasPassword', 'clearPassword'].contains(key))
           'password'
         else
           key,
@@ -1126,7 +1066,6 @@ class _RecordEditorState extends State<RecordEditor> {
     draft = {...originalDraft};
     passwordRevision++;
     draftRevision++;
-    changePassword = false;
   }
 
   void cancelEdits() {
@@ -1172,10 +1111,6 @@ class _RecordEditorState extends State<RecordEditor> {
       if (widget.kind == RecordKind.forward && widget.sessionId != null)
         'sessionId': widget.sessionId,
     };
-    if (!changePassword) {
-      data.remove('oldPassword');
-      data.remove('newPassword');
-    }
     try {
       final result = await engine.invoke('${widget.kind.name}.save', data);
       if (result is Map) draft = {...draft, ...row(result)};
@@ -1382,9 +1317,8 @@ class GenerateKeyPage extends StatefulWidget {
 
 class _GenerateKeyPageState extends State<GenerateKeyPage> {
   final form = GlobalKey<FormState>();
-  String name = '', type = 'ED25519', password = '';
-  int? bits;
-  bool biometric = false, startup = false, busy = false;
+  String name = '';
+  bool busy = false;
   String? error;
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1406,61 +1340,10 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
             validator: (v) => (v ?? '').trim().isEmpty ? '이름을 입력하세요.' : null,
             onChanged: (v) => name = v,
           ),
-          tildeRadioOptions(
+          settingsNote(
             context,
-            [('ED25519', 'Ed25519'), ('RSA', 'RSA'), ('EC', 'ECDSA')],
-            type,
-            (v) => setState(() {
-              type = v as String;
-              bits = type == 'RSA'
-                  ? 3072
-                  : type == 'EC'
-                  ? 256
-                  : null;
-              if (type == 'ED25519') biometric = false;
-            }),
+            'P-256 개인키를 Android Keystore에 만들고 서명할 때마다 생체인증을 요구합니다. 개인키는 복사·내보내기·백업할 수 없습니다.',
           ),
-          if (type == 'RSA' || type == 'EC')
-            tildeSegments(
-              context,
-              '키 강도',
-              [
-                for (final n
-                    in type == 'RSA' ? [2048, 3072, 4096] : [256, 384, 521])
-                  (n, '$n'),
-              ],
-              bits ?? (type == 'RSA' ? 3072 : 256),
-              (v) => setState(() => bits = v as int),
-            ),
-          if ((type == 'RSA' || type == 'EC') &&
-              row(widget.engine.state['generation'])['biometricAvailable'] ==
-                  true)
-            tildeSegments(
-              context,
-              '보호',
-              [(false, '암호'), (true, '지문')],
-              biometric,
-              busy
-                  ? null
-                  : (v) => setState(() {
-                      biometric = v as bool;
-                      if (biometric) startup = false;
-                    }),
-            ),
-          if (!biometric) ...[
-            TextFormField(
-              obscureText: true,
-              decoration: const InputDecoration(labelText: '키 암호'),
-              onChanged: (v) => setState(() {
-                password = v;
-              }),
-            ),
-            SwitchListTile(
-              title: const Text('시작 시 자동 불러오기'),
-              value: startup,
-              onChanged: (v) => setState(() => startup = v),
-            ),
-          ],
           if (error != null)
             ListTile(
               title: const Text('키를 만들지 못했습니다'),
@@ -1480,15 +1363,10 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
                       error = null;
                     });
                     try {
-                      final generated = await widget.engine
-                          .invoke('key.generate', {
-                            'nickname': name,
-                            'type': type,
-                            if (bits != null) 'bits': bits,
-                            'biometric': biometric,
-                            'startup': startup,
-                            'password': password,
-                          });
+                      final generated = await widget.engine.invoke(
+                        'key.generate',
+                        {'nickname': name, 'type': 'EC', 'bits': 256},
+                      );
                       if (context.mounted) {
                         if (widget.returnGeneratedKey) {
                           Navigator.pop(context, row(generated));
@@ -1508,80 +1386,6 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
             child: busy ? const TildeProgress.circular() : const Text('만들기'),
           ),
         ],
-      ),
-    ),
-  );
-}
-
-class KeyPasswordSheet extends StatefulWidget {
-  final bool requireOldPassword;
-  const KeyPasswordSheet({super.key, this.requireOldPassword = true});
-  @override
-  State<KeyPasswordSheet> createState() => _KeyPasswordSheetState();
-}
-
-class _KeyPasswordSheetState extends State<KeyPasswordSheet> {
-  final form = GlobalKey<FormState>();
-  String oldPassword = '', newPassword = '', confirmation = '';
-  @override
-  Widget build(BuildContext context) => SafeArea(
-    child: SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        0,
-        24,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: Form(
-        key: form,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('키 암호 변경', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            if (widget.requireOldPassword)
-              TextFormField(
-                obscureText: true,
-                enableSuggestions: false,
-                autocorrect: false,
-                decoration: const InputDecoration(labelText: '기존 암호'),
-                onChanged: (v) => oldPassword = v,
-              ),
-            const SizedBox(height: 16),
-            TextFormField(
-              obscureText: true,
-              enableSuggestions: false,
-              autocorrect: false,
-              decoration: const InputDecoration(
-                labelText: '새 암호',
-                helperText: '빈 값으로 저장하면 암호를 제거합니다',
-                helperMaxLines: 3,
-              ),
-              onChanged: (v) => newPassword = v,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              obscureText: true,
-              enableSuggestions: false,
-              autocorrect: false,
-              decoration: const InputDecoration(labelText: '새 암호 확인'),
-              validator: (v) => v == newPassword ? null : '암호가 다릅니다',
-              onChanged: (v) => confirmation = v,
-            ),
-            const SizedBox(height: 20),
-            FilledButton(
-              onPressed: () {
-                if (form.currentState!.validate()) {
-                  Navigator.pop(context, {
-                    if (widget.requireOldPassword) 'oldPassword': oldPassword,
-                    'newPassword': newPassword,
-                  });
-                }
-              },
-              child: const Text('변경'),
-            ),
-          ],
-        ),
       ),
     ),
   );

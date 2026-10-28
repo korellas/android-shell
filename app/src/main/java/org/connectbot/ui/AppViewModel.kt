@@ -182,6 +182,10 @@ class AppViewModel @Inject constructor(
         _isAuthenticated.value = true
     }
 
+    fun onAuthenticationRequired() {
+        _isAuthenticated.value = false
+    }
+
     /**
      * Set the pending connection URI that should be opened after permission dialog is dismissed.
      */

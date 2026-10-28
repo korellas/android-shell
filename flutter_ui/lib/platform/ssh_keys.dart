@@ -33,132 +33,52 @@ class SshKeyAdapter {
   SshKeyAdapter(this.call);
   final SshPlatformCall call;
 
-  Future<List<SSHIdentity>> identities({
-    required int id,
-    String? password,
-  }) async {
+  Future<List<SSHIdentity>> identities({required int id}) async {
     final material = Map<String, Object?>.from(
-      (await call('ssh.keyMaterial', {'id': id, 'password': password})) as Map,
+      (await call('ssh.keyMaterial', {'id': id})) as Map,
     );
-    if (material['biometric'] == true) {
-      final public = _PublicKey.decode(_bytes(material['publicKey']));
-      final algorithms = public.type == 'ssh-rsa'
-          ? ['rsa-sha2-512', 'rsa-sha2-256']
-          : [public.type];
-      return [
-        for (final algorithm in algorithms)
-          SSHIdentity.custom(
-            type: algorithm,
-            publicKey: SSHRawHostKey(public.wire),
-            shouldProbe: true,
-            signer: (data) async {
-              final reply = Map<String, Object?>.from(
-                (await call('ssh.sign', {
-                      'id': id,
-                      'algorithm': algorithm,
-                      'data': data,
-                    }))
-                    as Map,
-              );
-              if (reply['authcancel'] == true) {
-                throw const SshKeyAuthenticationCancelled();
-              }
-              final signature = _bytes(reply['signature']);
-              if (public.type == 'ssh-rsa') {
-                return SSHRawSignature(
-                  _strings([utf8.encode(algorithm), signature]),
-                );
-              }
-              final der = _sequence(signature);
-              if (der.elements.length != 2) {
-                throw const FormatException('Invalid ECDSA signature');
-              }
-              final r = _integer(der.elements[0]);
-              final s = _integer(der.elements[1]);
-              if (r <= BigInt.zero || s <= BigInt.zero) {
-                throw const FormatException('Invalid ECDSA signature values');
-              }
-              return SSHRawSignature(
-                _strings([
-                  utf8.encode(algorithm),
-                  _strings([_mpint(r), _mpint(s)]),
-                ]),
-              );
-            },
-          ),
-      ];
+    if (material['biometric'] != true) {
+      throw StateError('Only Android Keystore SSH keys are supported');
     }
-    final pem = material['pem'];
-    if (pem is String) {
-      return SSHKeyPair.fromPem(
-        pem,
-        SSHKeyPair.isEncryptedPem(pem) ? password : null,
-      );
+    final public = _PublicKey.decode(_bytes(material['publicKey']));
+    if (public.type != 'ecdsa-sha2-nistp256') {
+      throw StateError('Only P-256 Android Keystore keys are supported');
     }
     return [
-      decodeStoredSshKey(
-        _bytes(material['privateKey']),
-        _bytes(material['publicKey']),
+      SSHIdentity.custom(
+        type: public.type,
+        publicKey: SSHRawHostKey(public.wire),
+        shouldProbe: true,
+        signer: (data) async {
+          final reply = Map<String, Object?>.from(
+            (await call('ssh.sign', {
+                  'id': id,
+                  'algorithm': public.type,
+                  'data': data,
+                }))
+                as Map,
+          );
+          if (reply['authcancel'] == true) {
+            throw const SshKeyAuthenticationCancelled();
+          }
+          final der = _sequence(_bytes(reply['signature']));
+          if (der.elements.length != 2) {
+            throw const FormatException('Invalid ECDSA signature');
+          }
+          final r = _integer(der.elements[0]);
+          final s = _integer(der.elements[1]);
+          if (r <= BigInt.zero || s <= BigInt.zero) {
+            throw const FormatException('Invalid ECDSA signature values');
+          }
+          return SSHRawSignature(
+            _strings([
+              utf8.encode(public.type),
+              _strings([_mpint(r), _mpint(s)]),
+            ]),
+          );
+        },
       ),
     ];
-  }
-}
-
-SSHKeyPair decodeStoredSshKey(Uint8List pkcs8, Uint8List x509) {
-  final container = _sequence(pkcs8);
-  if (container.elements.length < 3 ||
-      _integer(container.elements[0]) != BigInt.zero) {
-    throw const FormatException('Invalid PKCS8 private key');
-  }
-  final algorithm = container.elements[1] as ASN1Sequence;
-  final privateBytes = (container.elements[2] as ASN1OctetString).octets;
-  final public = _PublicKey.decode(x509);
-  final oid = (algorithm.elements[0] as ASN1ObjectIdentifier).identifier;
-  if (oid != public.oid) {
-    throw const FormatException('Private and public key algorithms differ');
-  }
-  switch (oid) {
-    case '1.2.840.113549.1.1.1':
-      final key = RsaPrivateKey.decode(privateBytes);
-      if (!_equal(key.toPublicKey().encode(), public.wire)) {
-        throw const FormatException('RSA public key does not match');
-      }
-      return key;
-    case '1.2.840.10045.2.1':
-      if (_curve(algorithm.elements[1]) != public.curve) {
-        throw const FormatException('EC curves differ');
-      }
-      // Reuse the library's SEC1 decoder, including public-point validation.
-      final sec1 = _sequence(privateBytes);
-      if (!sec1.elements.any((element) => element.tag == 0xa0)) {
-        sec1.add(
-          ASN1Object.fromBytes(
-            Uint8List.fromList([
-              0xa0,
-              algorithm.elements[1].encodedBytes.length,
-              ...algorithm.elements[1].encodedBytes,
-            ]),
-          ),
-        );
-      }
-      final key = EcKeyPair(null, sec1.encodedBytes).getPrivateKeys();
-      if (!_equal(key.toPublicKey().encode(), public.wire)) {
-        throw const FormatException('EC public key does not match');
-      }
-      return key;
-    case '1.3.101.112':
-      final seed =
-          (ASN1Parser(privateBytes).nextObject() as ASN1OctetString).octets;
-      if (seed.length != 32 || public.bytes.length != 32) {
-        throw const FormatException('Invalid Ed25519 key length');
-      }
-      return OpenSSHEd25519KeyPair(
-        public.bytes,
-        Uint8List.fromList([...seed, ...public.bytes]),
-        '',
-      );
-    default:
-      throw UnsupportedError('Unsupported stored SSH key algorithm: $oid');
   }
 }
 
@@ -249,9 +169,6 @@ ASN1Sequence _sequence(Uint8List data) {
 BigInt _integer(ASN1Object object) => (object as ASN1Integer).valueAsBigInteger;
 Uint8List _bytes(Object? value) =>
     Uint8List.fromList((value as List).cast<int>());
-bool _equal(List<int> a, List<int> b) =>
-    a.length == b.length &&
-    Iterable<int>.generate(a.length).every((i) => a[i] == b[i]);
 Uint8List _strings(List<List<int>> values) {
   final builder = BytesBuilder(copy: false);
   for (final value in values) {

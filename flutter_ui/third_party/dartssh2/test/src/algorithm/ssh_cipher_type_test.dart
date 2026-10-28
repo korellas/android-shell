@@ -133,7 +133,6 @@ void main() {
           SSHKexType.nistp521,
           SSHKexType.nistp384,
           SSHKexType.nistp256,
-          SSHKexType.dhGexSha256,
           SSHKexType.dh14Sha256,
         ]));
 
@@ -165,7 +164,6 @@ void main() {
           SSHMacType.hmacSha512Etm,
           SSHMacType.hmacSha256,
           SSHMacType.hmacSha512,
-          SSHMacType.hmacSha1,
         ]));
   });
 
@@ -200,8 +198,9 @@ void main() {
       expect(algorithms.cipher, isNot(contains(SSHCipherType.aes256cbc)));
     });
 
-    test('keep hmac-sha1 last for OpenSSH compatibility', () {
-      expect(algorithms.mac.last, SSHMacType.hmacSha1);
+    test('exclude SHA-1 MAC and group exchange from defaults', () {
+      expect(algorithms.mac, isNot(contains(SSHMacType.hmacSha1)));
+      expect(algorithms.kex, isNot(contains(SSHKexType.dhGexSha256)));
     });
 
     test('legacy algorithms remain available through explicit configuration',

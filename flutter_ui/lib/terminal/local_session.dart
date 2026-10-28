@@ -5,10 +5,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:xterm2/xterm.dart';
 import 'app_terminal_session.dart';
-import 'images/image_terminal.dart';
-import 'images/inline_images.dart';
 import 'terminal_input.dart';
-import '../ssh/automation.dart';
 
 Map<String, dynamic> _map(Object? value) =>
     value is Map ? Map<String, dynamic>.from(value) : {};
@@ -22,13 +19,13 @@ class AppLocalSession implements AppTerminalSession {
     required this.onChanged,
     this.onNotification,
   }) {
-    terminal = InlineImageTerminal(
+    terminal = Terminal(
       maxLines: (host['scrollbackLines'] as int? ?? 1000).clamp(1, 100000),
-      imagePolicy: switch (profile['inlineImages']) {
-        'off' => InlineImagePolicy.off,
-        'on' => InlineImagePolicy.on,
-        _ => InlineImagePolicy.ask,
-      },
+      onClipboardStore: (_, _) {},
+      clipboardDecoder: (_, _) => null,
+      allowITerm2ClipboardCapture: false,
+      allowKittyClipboard: false,
+      onClipboardQuery: (_) => null,
       onOutput: (text) => unawaited(_send(text).catchError(_failed)),
       onResize: (width, height, pixelWidth, pixelHeight) {
         if (sessionOpen) {
@@ -60,7 +57,7 @@ class AppLocalSession implements AppTerminalSession {
   final VoidCallback onChanged;
   final void Function(Map<String, dynamic>)? onNotification;
   @override
-  late final InlineImageTerminal terminal;
+  late final Terminal terminal;
   @override
   final controller = TerminalController();
   @override
@@ -90,7 +87,6 @@ class AppLocalSession implements AppTerminalSession {
   String get _encoding => profile['encoding'] as String? ?? 'UTF-8';
   String? _error;
   String? _disconnectReason;
-  SshAutomation? _automation;
   Future<Object?>? _starting;
   final _modifiers = {'ctrl': 'OFF', 'alt': 'OFF', 'shift': 'OFF'};
   Future<void> _output = Future.value(), _input = Future.value();
@@ -120,13 +116,6 @@ class AppLocalSession implements AppTerminalSession {
     'progress': _error == null
         ? null
         : {'state': 'ERROR', 'value': 0, 'message': _error},
-    'automation': {
-      'running': _automation?.state.running ?? false,
-      'error': _automation?.state.error?.name,
-      'step': _automation?.state.step ?? 0,
-      'completed': _automation?.state.completed ?? false,
-      'failedStep': _automation?.state.failedStep,
-    },
     'banners': <Map<String, dynamic>>[],
     for (final key in ['foregroundColor', 'backgroundColor', 'cursorColor'])
       if (_map(prepared['scheme']).containsKey(key))
@@ -187,7 +176,6 @@ class AppLocalSession implements AppTerminalSession {
                         })
                         as String;
                 if (!_disposed) {
-                  _automation?.addOutput(text);
                   terminal.write(text);
                 }
               })
@@ -205,22 +193,6 @@ class AppLocalSession implements AppTerminalSession {
       },
     );
     try {
-      _automation = SshAutomation(
-        sessionOpen: () => sessionOpen,
-        sendText: _send,
-        sendKey: _sendKey,
-        setForward: (forwardId, enabled) async {
-          throw UnsupportedError('Local terminals do not support forwarding');
-        },
-        disconnect: disconnect,
-        onState: (_) => _changed(),
-        matchRegexEnd: (expression, text) async =>
-            await platform('ssh.matchRegexEnd', {
-                  'expression': expression,
-                  'text': text,
-                })
-                as int?,
-      );
       _starting = platform('local.start', {
         'id': runtime,
         ..._size(terminal.viewWidth, terminal.viewHeight),
@@ -229,18 +201,6 @@ class AppLocalSession implements AppTerminalSession {
       await _starting;
       if (!_closing && !_ended && !_disposed) {
         _open = true;
-        final postLogin = host['postLogin'] as String?;
-        if (postLogin != null && postLogin.isNotEmpty) await _send(postLogin);
-        final actions = prepared['automation'];
-        if (actions is List && actions.isNotEmpty) {
-          unawaited(
-            _automation!.run(
-              TerminalSessionOperations.automationSteps(
-                actions.map(_map).toList(),
-              ),
-            ),
-          );
-        }
       }
     } catch (error, stack) {
       _failed(error, stack);
@@ -282,7 +242,6 @@ class AppLocalSession implements AppTerminalSession {
 
   Future<void> _disconnect() async {
     _closing = true;
-    _automation?.cancel();
     input.closeKeyboard();
     await _subscription?.cancel();
     _subscription = null;
@@ -303,7 +262,6 @@ class AppLocalSession implements AppTerminalSession {
               as String;
       if (!_disposed) {
         terminal.write(text);
-        await terminal.images.drained;
       }
       await platform('ssh.encode', {
         'sessionId': _runtimeId,
@@ -386,7 +344,6 @@ class AppLocalSession implements AppTerminalSession {
         _changed();
       case 'session.urls':
         await _output;
-        await terminal.images.drained;
         return TerminalSessionOperations.scanUrls(terminal);
       case 'session.font':
         _fontSize = (_fontSize + (args['increase'] == true ? 1 : -1)).clamp(
@@ -400,10 +357,6 @@ class AppLocalSession implements AppTerminalSession {
         await reconnect();
       case 'session.visibility':
         return null;
-      case 'session.cancelAutomation':
-        _automation?.cancel();
-        return null;
-
       case 'session.dismissBanner':
         return null;
       default:

@@ -31,7 +31,6 @@ import org.connectbot.data.entity.Identity
 import org.connectbot.data.entity.KnownHost
 import org.connectbot.data.entity.PortForward
 import org.connectbot.util.SecurePasswordStorage
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -87,28 +86,12 @@ class HostRepository @Inject constructor(
 
     suspend fun toggleFavorite(hostId: Long) = hostDao.toggleFavorite(hostId)
 
-    fun observeAutomation(hostId: Long) = database.automationActionDao().observeByHost(hostId)
-
-    suspend fun getAutomation(hostId: Long) = database.automationActionDao().getByHost(hostId)
-
-    suspend fun saveAutomation(hostId: Long, actions: List<AutomationAction>) = database.automationActionDao().replace(hostId, actions)
-
-    /** Duplicate settings atomically, allocating fresh action identities and remapping forwards. */
+    /** Duplicate inert connection settings without carrying legacy command automation. */
     suspend fun duplicateHostSettings(sourceId: Long, newHost: Host): Host = database.withTransaction {
-        val savedHost = saveHost(newHost.copy(id = 0L, postLogin = null))
-        val forwardIds = getPortForwardsForHost(sourceId).associate { forward ->
-            forward.id to savePortForward(forward.copy(id = 0L, hostId = savedHost.id)).id
+        val savedHost = saveHost(newHost.copy(id = 0L, useAuthAgent = null, postLogin = null))
+        getPortForwardsForHost(sourceId).forEach { forward ->
+            savePortForward(forward.copy(id = 0L, hostId = savedHost.id, startEnabled = false))
         }
-        saveAutomation(
-            savedHost.id,
-            getAutomation(sourceId).map { action ->
-                action.copy(
-                    id = UUID.randomUUID().toString(),
-                    hostId = savedHost.id,
-                    forwardId = action.forwardId?.let { forwardIds[it] },
-                )
-            },
-        )
         savedHost
     }
 
@@ -227,7 +210,7 @@ class HostRepository @Inject constructor(
         // Called on IO; credentials remain native and never enter a Flutter snapshot.
         val password = securePasswordStorage.getPassword(host.id)
         val deleted = database.withTransaction {
-            val snapshot = DeletedHost(host, portForwardDao.getByHost(host.id), getAutomation(host.id), knownHostDao.getByHostId(host.id), password)
+            val snapshot = DeletedHost(host, portForwardDao.getByHost(host.id), database.automationActionDao().getByHost(host.id), knownHostDao.getByHostId(host.id), password)
             hostDao.delete(host)
             snapshot
         }

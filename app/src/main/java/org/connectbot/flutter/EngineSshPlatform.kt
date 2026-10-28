@@ -23,7 +23,6 @@ import androidx.room.withTransaction
 import kotlinx.coroutines.withContext
 import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.KnownHost
-import org.connectbot.service.automation.AutomationRegex
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
@@ -41,8 +40,8 @@ internal suspend fun AndroidShellEngine.sshPlatformOperation(method: String, arg
     }
     if (method == "ssh.sign") {
         val key = withContext(activity.dispatchers.io) { requireNotNull(keys.getById(args.number("id"))) }
-        require(key.isBiometric) { "Native signing requires a protected key" }
         val manager = activity.biometricKeys
+        require(key.isKeystoreSshKeyEligible(manager)) { "Native signing requires an eligible Android Keystore P-256 key" }
         val crypto = withContext(activity.dispatchers.io) {
             val alias = requireNotNull(key.keystoreAlias)
             val public = requireNotNull(manager.getPublicKey(alias))
@@ -78,7 +77,7 @@ internal suspend fun AndroidShellEngine.sshPlatformOperation(method: String, arg
 
             "ssh.keyMaterial" -> {
                 val key = requireNotNull(keys.getById(args.number("id")))
-                key.sshKeyMaterial(args["password"] as? String)
+                key.sshKeyMaterial(activity.biometricKeys)
             }
 
             "ssh.knownHosts" -> database.knownHostDao().getByHostId(args.number("id")).map { it.sshTrustWire() }
@@ -96,9 +95,8 @@ internal suspend fun AndroidShellEngine.sshPlatformOperation(method: String, arg
                     val status = sshTrustStatus(known, algorithm, fingerprint)
                     if (method == "ssh.saveHost") {
                         require(args.flag("accept")) { "Explicit host trust acceptance required" }
-                        require(status != "changed" || args.flag("replace")) { "Explicit changed host key acceptance required" }
+                        require(status != "changed") { "Changed host keys must be removed before trusting a replacement" }
                         if (status != "match") {
-                            if (status == "changed") known.filter { canonicalSshHostAlgorithm(it.hostKeyAlgo) == algorithm }.forEach { dao.delete(it) }
                             val hostId = args.optionalId("id")?.takeIf { it > 0 }
                             if (hostId != null) requireNotNull(hosts.findHostById(hostId))
                             dao.insert(KnownHost(hostId = hostId, hostname = hostname, port = port, hostKeyAlgo = algorithm, hostKey = byteArrayOf(), sha256Fingerprint = fingerprint))
@@ -107,8 +105,6 @@ internal suspend fun AndroidShellEngine.sshPlatformOperation(method: String, arg
                     mapOf("status" to status, "known" to known.map { it.sshTrustWire() })
                 }
             }
-
-            "ssh.matchRegexEnd" -> AutomationRegex(args.text("expression")).matchEnd(args.text("text"))
 
             "ssh.decode", "ssh.encode", "ssh.closeCodec" -> synchronized(sshCodecs) {
                 val codecs = sshCodecs.getOrPut(this@sshPlatformOperation) { SshCodecs() }
@@ -142,12 +138,13 @@ private suspend fun AndroidShellEngine.prepareSshHost(configured: Host): Wire {
     val profile = resolveTerminalProfile(host.profileId)
     Charset.forName(profile.encoding)
     val password = if (identity != null) activity.passwords.getIdentityPassword(identity.id) else activity.passwords.getPassword(host.id)
+    val manager = activity.biometricKeys
     val candidates = if (host.protocol == "local" || !host.useKeys || host.pubkeyId == -2L) {
         emptyList()
     } else if (host.pubkeyId >= 0) {
-        listOf(requireNotNull(keys.getById(host.pubkeyId)))
+        listOfNotNull(keys.getById(host.pubkeyId)).filter { it.isKeystoreSshKeyEligible(manager) }
     } else {
-        keys.getAll()
+        keys.getAll().filter { it.isKeystoreSshKeyEligible(manager) }
     }
     val schemeId = profile.colorSchemeId
     val defaults = colors.getSchemeDefaults(schemeId)
@@ -157,9 +154,8 @@ private suspend fun AndroidShellEngine.prepareSshHost(configured: Host): Wire {
         "host" to host.toWire(),
         "profile" to profile.toWire(),
         "password" to password,
-        "keys" to candidates.map { it.storageWire() },
+        "keys" to candidates.map { it.storageWire(manager) },
         "forwards" to hosts.getPortForwardsForHost(host.id).map { it.toWire() },
-        "automation" to hosts.getAutomation(host.id).map { it.toWire() },
     )
 }
 

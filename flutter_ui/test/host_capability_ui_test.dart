@@ -115,33 +115,8 @@ void main() {
   });
   testWidgets('SOCKS4 cannot start from forwarding list', (tester) async {
     await open(tester, ForwardsPage(engine: engine, host: host));
-    expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNull);
+    expect(find.byType(Switch), findsNothing);
     expect(find.textContaining('SOCKS4 미지원'), findsOneWidget);
-  });
-  testWidgets('local automation offers no forwarding actions', (tester) async {
-    await open(
-      tester,
-      AutomationStepPage(engine: engine, host: {...host, 'protocol': 'local'}),
-    );
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
-    await tester.pumpAndSettle();
-    expect(find.text('포워딩 활성화'), findsNothing);
-    expect(find.text('포워딩 비활성화'), findsNothing);
-  });
-  testWidgets('existing local forwarding step remains visible as unsupported', (
-    tester,
-  ) async {
-    await open(
-      tester,
-      AutomationStepPage(
-        engine: engine,
-        host: {...host, 'protocol': 'local'},
-        action: const {'type': 'ENABLE_FORWARD', 'forwardId': 3},
-      ),
-    );
-    expect(find.textContaining('포워딩 활성화 · 미지원'), findsOneWidget);
-    expect(find.textContaining('로컬 연결은 포워딩 동작을 지원하지 않습니다'), findsOneWidget);
-    expect(find.byType(DropdownButtonFormField<int>), findsNothing);
   });
   testWidgets('unsupported host stays editable without a connect action', (
     tester,
@@ -195,23 +170,8 @@ void main() {
       expect(find.text('홈 화면에 추가'), findsNothing);
     },
   );
-  for (final type in ['WAIT_FOR_TEXT', 'DELAY']) {
-    testWidgets('$type requires a positive duration', (tester) async {
-      await open(
-        tester,
-        AutomationStepPage(
-          engine: engine,
-          host: host,
-          action: {'type': type, 'durationMs': 0},
-        ),
-      );
-      expect(tester.state<FormState>(find.byType(Form)).validate(), isFalse);
-      await tester.pump();
-      expect(find.text('0보다 큰 정수를 입력하세요.'), findsOneWidget);
-    });
-  }
   testWidgets(
-    'imported software keys permit password change and confirmation opt in',
+    'imported software keys are quarantined without private-key controls',
     (tester) async {
       await open(
         tester,
@@ -227,19 +187,9 @@ void main() {
           },
         ),
       );
-      expect(find.text('사용할 때 확인'), findsOneWidget);
-      expect(
-        tester
-            .widget<SwitchListTile>(
-              find.widgetWithText(SwitchListTile, '사용할 때 확인'),
-            )
-            .value,
-        isFalse,
-      );
-      await tester.tap(find.text('키 암호 변경'));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextFormField, '기존 암호'), findsNothing);
-      expect(find.widgetWithText(TextFormField, '새 암호'), findsOneWidget);
+      expect(find.textContaining('사용 중지'), findsOneWidget);
+      expect(find.text('사용할 때 확인'), findsNothing);
+      expect(find.text('키 암호 변경'), findsNothing);
     },
   );
 }

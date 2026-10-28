@@ -84,17 +84,6 @@ void main() {
           calls.add(call);
           if (call.method == 'snapshot') return engine.state;
           if (call.method == 'forwards') return [forward];
-          if (call.method == 'automation') {
-            return [
-              {
-                'id': 'test-step',
-                'type': 'SEND_TEXT',
-                'text': 'pwd\n',
-                'position': 0,
-              },
-            ];
-          }
-          if (call.method == 'automation.trial') return 103;
           if (call.method == 'scheme.palette') {
             return {
               'colors': List.filled(16, 0xff1b2229),
@@ -152,20 +141,14 @@ void main() {
       'enabled': false,
     });
   });
-  testWidgets('offline forward switch changes its next connection setting', (
+  testWidgets('offline forwards cannot be armed for the next connection', (
     tester,
   ) async {
     engine.state['sessions'] = [];
     await open(tester, ForwardsPage(engine: engine, host: host));
-    await tester.tap(find.byType(Switch));
-    await tester.pumpAndSettle();
+    expect(find.byType(Switch), findsNothing);
     expect(calls.where((c) => c.method == 'forward.toggle'), isEmpty);
-    expect(
-      calls
-          .singleWhere((c) => c.method == 'forward.start')
-          .arguments['enabled'],
-      true,
-    );
+    expect(calls.where((c) => c.method == 'forward.start'), isEmpty);
   });
   testWidgets('local hosts hide network fields and SSH-only categories', (
     tester,
@@ -212,29 +195,6 @@ void main() {
       expect(saved['port'], 2202);
     },
   );
-  testWidgets(
-    'automation trial keeps the staged actions separate from saved actions',
-    (tester) async {
-      await open(tester, AutomationPage(engine: engine, host: host));
-      await tester.drag(find.byType(Dismissible), const Offset(-500, 0));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.descendant(of: find.byType(SnackBar), matching: find.text('되돌리기')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('시험 실행'));
-      await tester.pumpAndSettle();
-      expect(calls.where((c) => c.method == 'automation.save'), isEmpty);
-      expect(
-        calls
-            .singleWhere((c) => c.method == 'automation.trial')
-            .arguments['actions']
-            .single['text'],
-        'pwd\n',
-      );
-      expect(find.text('시험 세션 · 103'), findsOneWidget);
-    },
-  );
   testWidgets('color wheel previews and cancellation performs no save', (
     tester,
   ) async {
@@ -263,16 +223,11 @@ void main() {
       'color': 0xff112233,
     });
   });
-  testWidgets('new key choices omit DSA and use supported RSA strengths', (
-    tester,
-  ) async {
+  testWidgets('new keys are fixed to device-bound P-256', (tester) async {
     await open(tester, GenerateKeyPage(engine: engine));
     expect(find.text('DSA'), findsNothing);
-    await tester.tap(find.text('RSA'));
-    await tester.pumpAndSettle();
-    expect(find.text('2048'), findsOneWidget);
-    expect(find.text('3072'), findsOneWidget);
-    expect(find.text('4096'), findsOneWidget);
+    expect(find.text('RSA'), findsNothing);
+    expect(find.textContaining('P-256'), findsOneWidget);
   });
   testWidgets('key generation shows progress without overflow', (tester) async {
     final pending = Completer<dynamic>();

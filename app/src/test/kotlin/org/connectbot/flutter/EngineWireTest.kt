@@ -33,7 +33,7 @@ class EngineWireTest {
             jumpHostId = 4, identityId = 3, pubkeyId = 2, moshPort = 60001, moshNetworkTimeout = 30, useAuthAgent = "confirm",
         )
         val edited = (host.toWire() + mapOf("nickname" to "renamed")).toHost()
-        assertEquals(host.copy(nickname = "renamed"), edited)
+        assertEquals(host.copy(nickname = "renamed", useAuthAgent = null), edited)
     }
 
     @Test fun hostEditingRejectsInvalidPorts() {
@@ -46,7 +46,7 @@ class EngineWireTest {
 
     @Test fun localHostEditingDoesNotRequireANetworkPort() {
         val local = Host.createLocalHost("Local shell").copy(id = 7)
-        assertEquals(local, local.toWire().toHost())
+        assertEquals(local.copy(useAuthAgent = null), local.toWire().toHost())
         assertEquals(0, (local.toWire() + mapOf("port" to 22)).toHost().port)
     }
 
@@ -64,9 +64,9 @@ class EngineWireTest {
         assertEquals(true, wire["encrypted"])
     }
 
-    @Test fun profileEditingPreservesImageConsentAndFixedSize() {
+    @Test fun profileEditingDisablesInlineImagesAndPreservesFixedSize() {
         val profile = Profile(name = "work", inlineImages = "ask", forceSizeRows = 30, forceSizeColumns = 120, fontFamily = "local:work.ttf")
-        assertEquals(profile, profile.toWire().toProfile())
-        assertThrows(IllegalArgumentException::class.java) { (profile.toWire() + mapOf("inlineImages" to "anything")).toProfile() }
+        assertEquals(profile.copy(inlineImages = "off"), profile.toWire().toProfile())
+        assertEquals("off", (profile.toWire() + mapOf("inlineImages" to "anything")).toProfile().inlineImages)
     }
 }

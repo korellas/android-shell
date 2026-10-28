@@ -515,8 +515,8 @@ class DatabaseMigrator @Inject constructor(
                 lastConnect = legacyHost.lastConnect,
                 color = legacyHost.color,
                 useKeys = legacyHost.useKeys,
-                useAuthAgent = legacyHost.useAuthAgent,
-                postLogin = legacyHost.postLogin,
+                useAuthAgent = null,
+                postLogin = null,
                 pubkeyId = legacyHost.pubkeyId,
                 wantSession = legacyHost.wantSession,
                 compression = legacyHost.compression,
@@ -701,14 +701,10 @@ class DatabaseMigrator @Inject constructor(
                 val remappedHost = host.copy(
                     pubkeyId = newPubkeyId,
                     profileId = newProfileId,
+                    useAuthAgent = null,
                     postLogin = null,
                 )
                 val newId = roomDatabase.hostDao().insert(remappedHost)
-                host.postLogin?.takeIf { it.isNotEmpty() }?.let { text ->
-                    roomDatabase.automationActionDao().insert(
-                        listOf(org.connectbot.data.entity.AutomationAction(hostId = newId, text = text)),
-                    )
-                }
                 hostIdMap[oldId] = newId
             }
 

@@ -24,7 +24,6 @@ import 'engine.dart';
 import 'editors.dart';
 import 'settings_widgets.dart';
 import 'main.dart';
-export 'automation.dart';
 export 'settings.dart';
 
 Future<void> showIdentityEditor(
@@ -257,8 +256,6 @@ class KeyPage extends StatefulWidget {
 
 class _KeyPageState extends State<KeyPage> {
   AndroidEngine get engine => widget.engine;
-  bool dialogOpen = false;
-  String? seenPending;
   @override
   void initState() {
     super.initState();
@@ -274,84 +271,9 @@ class _KeyPageState extends State<KeyPage> {
   void changed() {
     if (!mounted) return;
     setState(() {});
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) pending();
-    });
   }
 
-  Future<void> pending({bool retry = false}) async {
-    if (dialogOpen || !mounted) return;
-    final state = row(engine.state['keyState']);
-    final encrypted = row(state['importPassword']);
-    final name = state['pendingNickname'] as String?;
-    final id = state['biometricUnlock'] as int?;
-    final key = id != null
-        ? 'biometric:$id'
-        : encrypted.isNotEmpty
-        ? 'password:${encrypted['nickname']}'
-        : name;
-    if (key == null) {
-      seenPending = null;
-      return;
-    }
-    if (!retry && key == seenPending) return;
-    seenPending = key;
-    dialogOpen = true;
-    try {
-      if (id != null) {
-        await runEngine(context, engine, 'key.biometricUnlock', {'id': id});
-      } else if (encrypted.isNotEmpty) {
-        final password = await askText(
-          context,
-          '${encrypted['nickname']} 키 암호',
-          password: true,
-        );
-        if (password != null && mounted) {
-          await runEngine(context, engine, 'key.importPassword', {
-            'nickname': encrypted['nickname'],
-            'password': password,
-            'encrypt': true,
-            'encryptPassword': password,
-          });
-        } else if (mounted) {
-          await runEngine(context, engine, 'key.importCancel');
-        }
-      } else {
-        final nickname = await askText(context, '가져올 키 이름', initial: name!);
-        if (mounted) {
-          await runEngine(
-            context,
-            engine,
-            nickname == null ? 'key.importCancel' : 'key.importName',
-            {'nickname': nickname},
-          );
-        }
-      }
-    } finally {
-      dialogOpen = false;
-    }
-  }
-
-  Future<void> keyAction(
-    EngineRecord key,
-    String action, {
-    bool selectFormat = true,
-  }) async {
-    if (action == 'private' || selectFormat && action == 'export.public') {
-      final format = await showTildeSheet<(String, String)>(
-        context: context,
-        isScrollControlled: true,
-        showDragHandle: true,
-        builder: (_) => KeyExportSheet(
-          privateOnly: action == 'private',
-          allowPrivate: key['biometric'] != true,
-        ),
-      );
-      if (format != null && mounted) {
-        await keyAction(key, '${format.$1}.${format.$2}', selectFormat: false);
-      }
-      return;
-    }
+  Future<void> keyAction(EngineRecord key, String action) async {
     if (action == 'edit') {
       await Navigator.push(
         context,
@@ -374,34 +296,12 @@ class _KeyPageState extends State<KeyPage> {
       }
       return;
     }
-    String? password;
-    final privateAction = action != 'copy.public' && action != 'export.public';
-    if (key['encrypted'] == true &&
-        key['loaded'] != true &&
-        (action == 'load' || privateAction)) {
-      password = await askText(context, '키 암호', password: true);
-      if (password == null) return;
-    }
     if (!mounted) return;
-    if (action == 'load') {
-      await runEngine(context, engine, 'key.load', {
-        'id': key['id'],
-        'password': password,
-      });
-      return;
-    }
     final parts = action.split('.');
-    String? exportPassword;
-    if (parts.last == 'encrypted') {
-      exportPassword = await askText(context, '내보낼 파일 암호', password: true);
-      if (exportPassword == null || exportPassword.isEmpty) return;
-    }
-    if (mounted) {
+    if (mounted && parts.last == 'public') {
       await runEngine(context, engine, 'key.${parts.first}', {
         'id': key['id'],
-        'format': parts.last,
-        'password': password,
-        'exportPassword': exportPassword,
+        'format': 'public',
       });
     }
   }
@@ -410,45 +310,19 @@ class _KeyPageState extends State<KeyPage> {
   Widget build(BuildContext context) {
     final state = row(engine.state['keyState']);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('SSH 키'),
-        actions: [
-          TildeItemMenu<String>(
-            title: 'SSH 키 가져오기',
-            icon: Icons.key_outlined,
-            onSelected: (action) async {
-              if (action == 'file') {
-                await runEngine(context, engine, 'key.import');
-              }
-              if (action == 'text' && context.mounted) {
-                final text = await askText(context, '키 붙여넣기', multiline: true);
-                if (text == null || !context.mounted) return;
-                final name = await askText(context, '키 이름');
-                if (name != null && context.mounted) {
-                  await runEngine(context, engine, 'key.import', {
-                    'text': text,
-                    'nickname': name,
-                  });
-                }
-              }
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'file', child: Text('파일에서 가져오기')),
-              PopupMenuItem(value: 'text', child: Text('텍스트에서 가져오기')),
-            ],
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('SSH 키')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showTildeSheet<void>(
-          context: context,
-          isScrollControlled: true,
-          useSafeArea: true,
-          builder: (c) => SizedBox(
-            height: MediaQuery.sizeOf(c).height * .9,
-            child: GenerateKeyPage(engine: engine),
-          ),
-        ),
+        onPressed: row(engine.state['generation'])['biometricAvailable'] == true
+            ? () => showTildeSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                builder: (c) => SizedBox(
+                  height: MediaQuery.sizeOf(c).height * .9,
+                  child: GenerateKeyPage(engine: engine),
+                ),
+              )
+            : null,
         icon: const Icon(Icons.add),
         label: const Text('새 키'),
       ),
@@ -468,12 +342,10 @@ class _KeyPageState extends State<KeyPage> {
                 ),
               ),
             ),
-          if (state['importPassword'] != null ||
-              state['pendingNickname'] != null)
-            ListTile(
-              title: const Text('키 가져오기 계속'),
-              onTap: () => pending(retry: true),
-            ),
+          settingsNote(
+            context,
+            '개인키는 Android Keystore에서 생성되며 기기 밖으로 내보낼 수 없습니다. 기존 개인키는 사용 중지 상태로 보존됩니다.',
+          ),
           settingsSection(context, 'SSH 키', [
             for (final key in engine.list('keys'))
               ListTile(
@@ -484,22 +356,12 @@ class _KeyPageState extends State<KeyPage> {
                 ),
                 title: Text('${key['nickname']}'),
                 subtitle: Text(
-                  '${key['displayType'] ?? key['type']}${key['supported'] == false ? ' · DSA 로그인 미지원' : ''}${key['biometric'] == true
-                      ? ' · 생체인증 보호'
-                      : key['encrypted'] == true
-                      ? ' · 암호 보호'
-                      : ''}',
+                  '${key['displayType'] ?? key['type']}${key['supported'] == true ? ' · Android Keystore' : ' · ${key['supportMessage'] ?? '사용 중지'}'}',
                 ),
                 onTap: () => keyAction(key, 'edit'),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Switch(
-                      value: key['loaded'] == true,
-                      onChanged: key['supported'] == false
-                          ? null
-                          : (_) => keyAction(key, 'load'),
-                    ),
                     TildeItemMenu<String>(
                       title: '${key['nickname']}',
                       icon: Icons.key_outlined,
@@ -507,18 +369,15 @@ class _KeyPageState extends State<KeyPage> {
                       onSelected: (action) => keyAction(key, action),
                       itemBuilder: (_) => [
                         const PopupMenuItem(value: 'edit', child: Text('편집')),
-                        const PopupMenuItem(
-                          value: 'copy.public',
-                          child: Text('공개키 복사'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'export.public',
-                          child: Text('공개키 파일 저장'),
-                        ),
-                        if (key['biometric'] != true)
+                        if (key['publicKey'] != null)
                           const PopupMenuItem(
-                            value: 'private',
-                            child: Text('비밀키 복사·저장'),
+                            value: 'copy.public',
+                            child: Text('공개키 복사'),
+                          ),
+                        if (key['publicKey'] != null)
+                          const PopupMenuItem(
+                            value: 'export.public',
+                            child: Text('공개키 파일 저장'),
                           ),
                         const PopupMenuItem(value: 'delete', child: Text('삭제')),
                       ],
@@ -680,10 +539,7 @@ class _ForwardsPageState extends State<ForwardsPage> {
                 }
               },
             ),
-          settingsNote(
-            context,
-            live ? '스위치는 선택한 세션에만 적용합니다.' : '스위치는 다음 접속 시 자동 활성화 여부입니다.',
-          ),
+          if (live) settingsNote(context, '스위치는 선택한 세션에만 적용합니다.'),
           if (error != null)
             ListTile(
               title: const Text('포워딩을 불러오지 못했습니다'),
@@ -714,29 +570,27 @@ class _ForwardsPageState extends State<ForwardsPage> {
               ),
               onTap: () => edit(f),
               onLongPress: () => menu(f),
-              trailing: Switch(
-                value:
-                    f['type'] != 'dynamic4' &&
-                    f[live ? 'enabled' : 'startEnabled'] == true,
-                onChanged: f['type'] == 'dynamic4'
-                    ? null
-                    : (value) async {
-                        await runEngine(
-                          context,
-                          widget.engine,
-                          live ? 'forward.toggle' : 'forward.start',
-                          live
-                              ? {
+              trailing: live
+                  ? Switch(
+                      value: f['type'] != 'dynamic4' && f['enabled'] == true,
+                      onChanged: f['type'] == 'dynamic4'
+                          ? null
+                          : (value) async {
+                              await runEngine(
+                                context,
+                                widget.engine,
+                                'forward.toggle',
+                                {
                                   'hostId': widget.host['id'],
                                   'sessionId': sessionId,
                                   'id': f['id'],
                                   'enabled': value,
-                                }
-                              : {'id': f['id'], 'enabled': value},
-                        );
-                        await load();
-                      },
-              ),
+                                },
+                              );
+                              await load();
+                            },
+                    )
+                  : null,
             ),
         ],
       ),
@@ -1455,85 +1309,4 @@ class _PalettePageState extends State<PalettePage> {
       ),
     );
   }
-}
-
-class KeyExportSheet extends StatefulWidget {
-  final bool privateOnly, allowPrivate;
-  const KeyExportSheet({
-    super.key,
-    required this.privateOnly,
-    required this.allowPrivate,
-  });
-  @override
-  State<KeyExportSheet> createState() => _KeyExportSheetState();
-}
-
-class _KeyExportSheetState extends State<KeyExportSheet> {
-  late String format = widget.privateOnly ? 'openssh' : 'public';
-  @override
-  Widget build(BuildContext context) => SafeArea(
-    child: SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        0,
-        16,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              '키 내보내기',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-          tildeSegments(
-            context,
-            '형식',
-            [
-              (
-                widget.privateOnly ? 'openssh' : 'public',
-                widget.privateOnly ? 'OpenSSH 비밀키' : 'OpenSSH 공개키',
-              ),
-              if (widget.allowPrivate) ...[
-                ('pem', 'PEM 비밀키'),
-                ('encrypted', '암호화 PEM'),
-              ],
-            ],
-            format,
-            (v) => setState(() => format = v as String),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              format == 'public'
-                  ? '서버에 등록하는 공개키입니다. 비밀키는 포함하지 않습니다.'
-                  : format == 'encrypted'
-                  ? '파일을 열 때 필요한 암호를 다음 단계에서 입력합니다.'
-                  : '암호 없이 비밀키를 내보냅니다. 파일을 안전하게 보관하세요.',
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (widget.privateOnly)
-                TextButton.icon(
-                  onPressed: () => Navigator.pop(context, ('copy', format)),
-                  icon: const Icon(Icons.copy_outlined),
-                  label: const Text('복사'),
-                ),
-              FilledButton.icon(
-                onPressed: () => Navigator.pop(context, ('export', format)),
-                icon: const Icon(Icons.save_alt),
-                label: const Text('파일로 저장'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    ),
-  );
 }

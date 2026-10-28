@@ -7,7 +7,6 @@ import 'dart:convert';
 import 'package:android_shell_ui/ssh/ssh_session.dart';
 import 'package:flutter/material.dart';
 import 'package:xterm2/xterm.dart';
-import 'package:android_shell_ui/terminal/images/image_terminal.dart';
 
 import 'package:android_shell_ui/terminal/terminal_input.dart';
 import 'package:android_shell_ui/terminal/terminal_pane.dart';
@@ -32,7 +31,7 @@ class SshProbePage extends StatefulWidget {
 }
 
 class _SshProbePageState extends State<SshProbePage> {
-  final terminal = InlineImageTerminal();
+  final terminal = Terminal();
   final controller = TerminalController();
   late final input = TerminalInputController(terminal: terminal);
   final focus = FocusNode();

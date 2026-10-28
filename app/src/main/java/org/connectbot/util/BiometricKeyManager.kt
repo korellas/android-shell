@@ -24,7 +24,6 @@ import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
-import org.connectbot.util.KeyType
 import timber.log.Timber
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
@@ -38,24 +37,13 @@ import java.util.UUID
 interface BiometricKeyManager {
     fun isBiometricAvailable(): BiometricAvailability
     fun generateKeyAlias(): String
-    fun generateRsaKey(alias: String, keySize: Int = 4096): PublicKey
-    fun generateEcKey(alias: String, keySize: Int = 256): PublicKey
-    fun generateKey(alias: String, keyType: String, keySize: Int): PublicKey
+    fun generateEcKey(alias: String): PublicKey
     fun getCryptoObject(alias: String, algorithm: String): BiometricPrompt.CryptoObject
-    fun getSignatureAlgorithm(keyType: String, keySize: Int = 256): String
-    fun getPrivateKey(alias: String): PrivateKey
     fun getPublicKey(alias: String): PublicKey?
     fun keyExists(alias: String): Boolean
     fun isAuthPerUse(alias: String): Boolean
     fun deleteKey(alias: String)
     fun sign(signature: Signature, data: ByteArray): ByteArray
-
-    companion object {
-        private const val KEYSTORE_PROVIDER = "AndroidKeyStore"
-        val SUPPORTED_KEY_TYPES = listOf("RSA", "EC")
-
-        fun supportsBiometric(keyType: KeyType): Boolean = keyType == KeyType.RSA || keyType == KeyType.EC
-    }
 }
 
 /**
@@ -94,13 +82,13 @@ class BiometricKeyManagerImpl(
 
     override fun generateKeyAlias(): String = KEY_ALIAS_PREFIX + UUID.randomUUID().toString()
 
-    override fun generateRsaKey(alias: String, keySize: Int): PublicKey {
-        Timber.d("Generating RSA key with alias: $alias, size: $keySize")
+    override fun generateEcKey(alias: String): PublicKey {
+        Timber.d("Generating P-256 EC key with alias: $alias")
 
         // Try with StrongBox first, fall back to TEE if not available
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             try {
-                return generateRsaKeyInternal(alias, keySize, useStrongBox = true)
+                return generateEcKeyInternal(alias, useStrongBox = true)
             } catch (e: Exception) {
                 Timber.w("StrongBox key generation failed, falling back to TEE", e)
                 // Delete any partial key that might have been created
@@ -110,84 +98,10 @@ class BiometricKeyManagerImpl(
             }
         }
 
-        return generateRsaKeyInternal(alias, keySize, useStrongBox = false)
+        return generateEcKeyInternal(alias, useStrongBox = false)
     }
 
-    private fun generateRsaKeyInternal(alias: String, keySize: Int, useStrongBox: Boolean): PublicKey {
-        val keyPairGenerator = KeyPairGenerator.getInstance(
-            KeyProperties.KEY_ALGORITHM_RSA,
-            KEYSTORE_PROVIDER,
-        )
-
-        val builder = KeyGenParameterSpec.Builder(
-            alias,
-            KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY,
-        ).apply {
-            setKeySize(keySize)
-            setDigests(
-                KeyProperties.DIGEST_SHA256,
-                KeyProperties.DIGEST_SHA384,
-                KeyProperties.DIGEST_SHA512,
-            )
-            setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-
-            // Require biometric authentication for every use
-            setUserAuthenticationRequired(true)
-
-            // Bind authorization to the signing operation, not an unlocked time window.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                setUserAuthenticationParameters(
-                    0,
-                    KeyProperties.AUTH_BIOMETRIC_STRONG,
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                setUserAuthenticationValidityDurationSeconds(-1)
-            }
-
-            // Invalidate key if new biometrics are enrolled
-            setInvalidatedByBiometricEnrollment(true)
-
-            // Use StrongBox if requested
-            if (useStrongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                setIsStrongBoxBacked(true)
-            }
-        }
-
-        keyPairGenerator.initialize(builder.build())
-        val keyPair = keyPairGenerator.generateKeyPair()
-
-        Timber.d("RSA key generated successfully (StrongBox: $useStrongBox)")
-        return keyPair.public
-    }
-
-    override fun generateEcKey(alias: String, keySize: Int): PublicKey {
-        Timber.d("Generating EC key with alias: $alias, size: $keySize")
-
-        // Try with StrongBox first, fall back to TEE if not available
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            try {
-                return generateEcKeyInternal(alias, keySize, useStrongBox = true)
-            } catch (e: Exception) {
-                Timber.w("StrongBox key generation failed, falling back to TEE", e)
-                // Delete any partial key that might have been created
-                try {
-                    deleteKey(alias)
-                } catch (_: Exception) {}
-            }
-        }
-
-        return generateEcKeyInternal(alias, keySize, useStrongBox = false)
-    }
-
-    private fun generateEcKeyInternal(alias: String, keySize: Int, useStrongBox: Boolean): PublicKey {
-        val curveName = when (keySize) {
-            256 -> "secp256r1"
-            384 -> "secp384r1"
-            521 -> "secp521r1"
-            else -> throw IllegalArgumentException("Unsupported EC key size: $keySize")
-        }
-
+    private fun generateEcKeyInternal(alias: String, useStrongBox: Boolean): PublicKey {
         val keyPairGenerator = KeyPairGenerator.getInstance(
             KeyProperties.KEY_ALGORITHM_EC,
             KEYSTORE_PROVIDER,
@@ -197,12 +111,8 @@ class BiometricKeyManagerImpl(
             alias,
             KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY,
         ).apply {
-            setAlgorithmParameterSpec(ECGenParameterSpec(curveName))
-            setDigests(
-                KeyProperties.DIGEST_SHA256,
-                KeyProperties.DIGEST_SHA384,
-                KeyProperties.DIGEST_SHA512,
-            )
+            setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
+            setDigests(KeyProperties.DIGEST_SHA256)
 
             // Require biometric authentication for every use
             setUserAuthenticationRequired(true)
@@ -234,12 +144,6 @@ class BiometricKeyManagerImpl(
         return keyPair.public
     }
 
-    override fun generateKey(alias: String, keyType: String, keySize: Int): PublicKey = when (keyType) {
-        "RSA" -> generateRsaKey(alias, keySize)
-        "EC" -> generateEcKey(alias, keySize)
-        else -> throw IllegalArgumentException("Unsupported key type for biometric protection: $keyType")
-    }
-
     override fun getCryptoObject(alias: String, algorithm: String): BiometricPrompt.CryptoObject {
         val privateKey = keyStore.getKey(alias, null) as PrivateKey
         val signature = Signature.getInstance(algorithm)
@@ -247,31 +151,21 @@ class BiometricKeyManagerImpl(
         return BiometricPrompt.CryptoObject(signature)
     }
 
-    override fun getSignatureAlgorithm(keyType: String, keySize: Int): String = when (keyType) {
-        "RSA" -> "SHA256withRSA"
-
-        "EC" -> when (keySize) {
-            521 -> "SHA512withECDSA"
-            384 -> "SHA384withECDSA"
-            else -> "SHA256withECDSA"
-        }
-
-        else -> throw IllegalArgumentException("Unsupported key type: $keyType")
-    }
-
-    override fun getPrivateKey(alias: String): PrivateKey = keyStore.getKey(alias, null) as PrivateKey
-
     override fun getPublicKey(alias: String): PublicKey? = keyStore.getCertificate(alias)?.publicKey
 
     override fun keyExists(alias: String): Boolean = keyStore.containsAlias(alias)
 
     override fun isAuthPerUse(alias: String): Boolean {
-        val key = getPrivateKey(alias)
+        val key = keyStore.getKey(alias, null) as java.security.PrivateKey
         val info = KeyFactory.getInstance(key.algorithm, KEYSTORE_PROVIDER).getKeySpec(key, KeyInfo::class.java)
         return info.isUserAuthenticationRequired && info.userAuthenticationValidityDurationSeconds <= 0
     }
 
     override fun deleteKey(alias: String) {
+        if (!alias.startsWith(KEY_ALIAS_PREFIX)) {
+            Timber.w("Refusing to delete an unmanaged Keystore alias")
+            return
+        }
         if (keyStore.containsAlias(alias)) {
             keyStore.deleteEntry(alias)
             Timber.d("Key deleted: $alias")

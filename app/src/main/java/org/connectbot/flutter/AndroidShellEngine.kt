@@ -35,15 +35,11 @@ import org.connectbot.data.HostConfigJson
 import org.connectbot.data.HostRepository
 import org.connectbot.data.ProfileRepository
 import org.connectbot.data.PubkeyRepository
-import org.connectbot.data.entity.AutomationAction
-import org.connectbot.data.entity.AutomationActionType
-import org.connectbot.data.entity.AutomationFailurePolicy
 import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.Identity
 import org.connectbot.data.entity.PortForward
 import org.connectbot.data.entity.Profile
 import org.connectbot.service.ConnectionNotifier
-import org.connectbot.service.automation.AutomationKeySupport
 import org.connectbot.ui.AppUiState
 import java.util.UUID
 
@@ -106,20 +102,16 @@ internal class AndroidShellEngine(
         pendingIntent = null
         activity.lifecycleScope.launch {
             try {
-                if (intent.action == FlutterShellActivity.DISCONNECT_ACTION) {
-                    activity.sessionRuntime.disconnectAll()
-                } else {
-                    val notified = intent.getStringExtra(ConnectionNotifier.EXTRA_SESSION_ID)?.toLongOrNull()
-                    if (notified != null || intent.data != null) {
-                        activity.sessionRuntime.emitEngineEvent(
-                            mapOf(
-                                "type" to "connect",
-                                "id" to notified,
-                                "uri" to intent.data?.toString(),
-                                "reconnect" to intent.getBooleanExtra(ConnectionNotifier.EXTRA_RECONNECT, false),
-                            ),
-                        )
-                    }
+                val notified = intent.getStringExtra(ConnectionNotifier.EXTRA_SESSION_ID)?.toLongOrNull()
+                if (notified != null) {
+                    activity.sessionRuntime.emitEngineEvent(
+                        mapOf(
+                            "type" to "connect",
+                            "id" to notified,
+                            "uri" to null,
+                            "reconnect" to intent.getBooleanExtra(ConnectionNotifier.EXTRA_RECONNECT, false),
+                        ),
+                    )
                 }
                 changed()
             } catch (e: Exception) {
@@ -168,15 +160,6 @@ internal class AndroidShellEngine(
         if (method.startsWith("key.storage")) return keyStorageOperation(method, args)
         if (method.startsWith("ssh.") || method == "session.prepare") return sshPlatformOperation(method, args)
         return when (method) {
-            "connect" -> {
-                val id = args.optionalId("id")
-                check(activity.intent.action == Intent.ACTION_PICK && id != null) { "Connections are owned by Dart" }
-                val host = requireNotNull(hosts.findHostById(id))
-                activity.setResult(android.app.Activity.RESULT_OK, Intent().setData(host.getUri()))
-                activity.finish()
-                null
-            }
-
             "session.visibility" -> {
                 if (args.flag("visible")) {
                     activeOwner = args.text("owner")
@@ -298,28 +281,6 @@ internal class AndroidShellEngine(
                 null
             }
 
-            "forward.start" -> {
-                val forward = requireNotNull(hosts.getPortForwardById(args.number("id")))
-                require(!args.flag("enabled") || forward.type != "dynamic4") { "SOCKS4 포워딩은 지원하지 않습니다." }
-                hosts.savePortForward(forward.copy(startEnabled = args.flag("enabled")))
-                changed()
-                null
-            }
-
-            "automation" -> hosts.getAutomation(args.number("hostId")).map { it.toWire() }
-
-            "automation.save" -> {
-                @Suppress("UNCHECKED_CAST")
-                val actions = (args["actions"] as List<Map<String, Any?>>).mapIndexed { position, data -> data.toAutomation(args.number("hostId"), position) }
-                require(actions.map { it.id }.distinct().size == actions.size) { "중복 자동화 ID입니다." }
-                val host = requireNotNull(hosts.findHostById(args.number("hostId")))
-                val previous = hosts.getAutomation(host.id).associateBy { it.id }
-                actions.forEach { validateAutomationSelection(it, host, previous[it.id]) }
-                hosts.saveAutomation(host.id, actions)
-                changed()
-                null
-            }
-
             "knownHost.delete" -> {
                 database.knownHostDao().getAll().find { it.id == args.number("id") }?.let { hosts.deleteKnownHost(it) }
                 changed()
@@ -402,10 +363,10 @@ internal class AndroidShellEngine(
                 )
             }
 
-            "settings.update", "settings.preview", "settings.bellMode", "settings.notifications", "font.bytes", "font.import", "font.delete", "font.custom", "font.customDelete", "terminalType.add", "terminalType.delete", "document.read", "document.write", "document.pick", "document.create", "help.document", "logs", "logs.tombstone", "openUrl", "share", "shortcut" -> platformOperation(method, args)
+            "settings.update", "settings.preview", "settings.bellMode", "settings.notifications", "font.bytes", "font.import", "font.delete", "font.custom", "font.customDelete", "terminalType.add", "terminalType.delete", "document.read", "document.write", "document.pick", "document.create", "help.document", "logs", "logs.tombstone", "openUrl", "share" -> platformOperation(method, args)
 
             else -> {
-                if (method.startsWith("session.") || method.startsWith("key.") || method == "prompt.respond" || method == "host.disconnect" || method == "forward.toggle" || method == "automation.trial") {
+                if (method.startsWith("session.") || method.startsWith("key.") || method == "prompt.respond" || method == "host.disconnect" || method == "forward.toggle") {
                     error("Operation is owned by Dart: $method")
                 }
                 error("지원하지 않는 엔진 작업: $method")
@@ -428,7 +389,6 @@ internal class AndroidShellEngine(
             },
             "entryAction" to activity.intent.action,
             "autoHideDelayMs" to 3000L,
-            "shortcutStyles" to org.connectbot.util.IconStyle.entries.map { mapOf("name" to it.name) },
             "defaults" to mapOf("host" to activity.settings.uiState.value.newHostDefaults().toWire(), "profile" to Profile(name = "").toWire()),
             "sortedByColor" to sortedByColor,
             "hosts" to hosts.getHosts(sortedByColor).map { host ->
@@ -440,7 +400,7 @@ internal class AndroidShellEngine(
             },
             "identities" to hosts.getIdentities().map { mapOf("id" to it.id, "name" to it.name, "username" to it.username, "pubkeyId" to it.pubkeyId, "hasPassword" to withContext(activity.dispatchers.io) { activity.passwords.hasIdentityPassword(it.id) }) },
             "profiles" to profiles.getAll().map { it.toWire() },
-            "keys" to withContext(activity.dispatchers.io) { keys.getAll().map { it.storageWire() } },
+            "keys" to withContext(activity.dispatchers.io) { keys.getAll().map { it.storageWire(activity.biometricKeys) } },
             "schemes" to colors.getAllSchemes().map { scheme ->
                 val defaults = colors.getSchemeDefaults(scheme.id)
                 val appearance = colors.getSchemeAppearance(scheme.id)
@@ -480,28 +440,14 @@ internal fun validateForwardSelection(forward: PortForward, previous: PortForwar
     }
 }
 
-internal fun validateAutomationSelection(action: AutomationAction, host: Host, previous: AutomationAction?) {
-    if (host.protocol == "local" && action.type in setOf(AutomationActionType.ENABLE_FORWARD, AutomationActionType.DISABLE_FORWARD)) {
-        require(previous?.type == action.type && previous.forwardId == action.forwardId) { "로컬 세션은 포워딩 자동화를 지원하지 않습니다." }
-    }
-}
-
 private fun Wire.toForward(): PortForward {
     require(text("type") in setOf("local", "remote", "dynamic4", "dynamic5")) { "포워딩 유형을 확인하세요." }
     require(number("sourcePort") in 1..65535) { "소스 포트 범위를 확인하세요." }
     require(text("type") in setOf("dynamic4", "dynamic5") || (text("destAddr").isNotBlank() && number("destPort") in 1..65535)) { "대상 주소와 포트를 확인하세요." }
-    return PortForward(number("id"), number("hostId"), text("nickname"), text("type"), text("sourceAddr", "localhost"), number("sourcePort").toInt(), optionalText("destAddr"), number("destPort").toInt(), flag("startEnabled", true))
-}
-internal fun Wire.toAutomation(host: Long, position: Int): AutomationAction {
-    val action = AutomationAction(
-        id = text("id").ifEmpty { UUID.randomUUID().toString() }, hostId = host, position = position,
-        type = AutomationActionType.valueOf(text("type")), text = text("text"), regex = flag("regex"), durationMs = number("durationMs", 30000),
-        key = number("key", 1).toInt(), modifiers = number("modifiers").toInt(), forwardId = optionalId("forwardId"), failurePolicy = AutomationFailurePolicy.valueOf(text("failurePolicy", "STOP")),
+    val type = text("type")
+    return PortForward(
+        number("id"), number("hostId"), text("nickname"), type,
+        if (type == "remote") text("sourceAddr", "localhost") else "127.0.0.1",
+        number("sourcePort").toInt(), optionalText("destAddr"), number("destPort").toInt(), false,
     )
-    require(action.durationMs >= 0) { "대기 시간을 확인하세요." }
-    if (action.type == AutomationActionType.WAIT_FOR_TEXT || action.type == AutomationActionType.DELAY) {
-        require(action.durationMs > 0) { "대기 시간은 양수여야 합니다." }
-    }
-    if (action.type == AutomationActionType.SEND_KEY) require(AutomationKeySupport.isSupported(action.key, action.modifiers)) { "지원하지 않는 자동화 키입니다." }
-    return action
 }

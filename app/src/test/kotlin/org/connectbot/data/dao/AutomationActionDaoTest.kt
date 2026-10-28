@@ -29,7 +29,6 @@ import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.PortForward
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -82,7 +81,7 @@ class AutomationActionDaoTest {
     }
 
     @Test
-    fun exportImportPreservesUuidAndRemapsForwardAndHostIds() = runTest {
+    fun hostConfigExportDoesNotCarryAutomationActions() = runTest {
         val source = database()
         val target = database()
         try {
@@ -106,14 +105,10 @@ class AutomationActionDaoTest {
             HostConfigJson.importFromJson(context, target, json)
             val importedHost = target.hostDao().getAll().single { it.nickname == "source" }
             val importedForward = target.portForwardDao().getByHost(importedHost.id).single()
-            val imported = target.automationActionDao().getByHost(importedHost.id).single()
-            assertEquals(action.id, imported.id)
-            assertNotEquals(hostId, imported.hostId)
-            assertEquals(importedForward.id, imported.forwardId)
-            assertNotEquals(forwardId, imported.forwardId)
+            assertTrue(target.automationActionDao().getByHost(importedHost.id).isEmpty())
             assertFalse(importedForward.startEnabled)
             HostConfigJson.importFromJson(context, target, json)
-            assertEquals(1, target.automationActionDao().getByHost(importedHost.id).size)
+            assertTrue(target.automationActionDao().getByHost(importedHost.id).isEmpty())
         } finally {
             source.close()
             target.close()
@@ -121,7 +116,7 @@ class AutomationActionDaoTest {
     }
 
     @Test
-    fun duplicateHostAllocatesNewActionIdsAndRemapsForwards() = runTest {
+    fun duplicateHostDoesNotCarryLegacyAutomation() = runTest {
         val db = database()
         try {
             val source = host("original").copy(id = db.hostDao().insert(host("original")))
@@ -139,10 +134,8 @@ class AutomationActionDaoTest {
                 org.mockito.Mockito.mock(org.connectbot.util.SecurePasswordStorage::class.java),
             )
             val duplicate = repository.duplicateHostSettings(source.id, source.copy(nickname = "copy"))
-            val copied = db.automationActionDao().getByHost(duplicate.id).single()
             val copiedForward = db.portForwardDao().getByHost(duplicate.id).single()
-            assertNotEquals(action.id, copied.id)
-            assertEquals(copiedForward.id, copied.forwardId)
+            assertTrue(db.automationActionDao().getByHost(duplicate.id).isEmpty())
             assertFalse(copiedForward.startEnabled)
             assertEquals(action.id, db.automationActionDao().getByHost(source.id).single().id)
         } finally {

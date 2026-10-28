@@ -314,8 +314,19 @@ tasks.withType<Test>().configureEach {
 // Generate filtered export schema from Room schema
 // Only includes tables needed for export/import (profiles, hosts, port_forwards)
 val generateExportSchema by tasks.registering {
-    val exportTables = setOf("profiles", "identities", "hosts", "port_forwards", "automation_actions")
-    val excludedFields = setOf("last_connect", "host_key_algo")
+    val exportTables = setOf("profiles", "identities", "hosts", "port_forwards")
+    val excludedFields = setOf(
+        "last_connect",
+        "host_key_algo",
+        "post_login",
+        "use_auth_agent",
+        "pubkey_id",
+        "mosh_port",
+        "mosh_network_timeout",
+        "mosh_server",
+        "inline_images",
+        "start_enabled",
+    )
 
     // Read schema version from Room's @Database annotation.
     val databaseFile = file("src/main/java/org/connectbot/data/ConnectBotDatabase.kt")

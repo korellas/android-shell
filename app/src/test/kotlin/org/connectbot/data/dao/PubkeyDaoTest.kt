@@ -1,6 +1,6 @@
 /*
  * ConnectBot: simple, powerful, open-source SSH client for Android
- * Copyright 2025 Kenny Root
+ * Copyright 2025-2026 Kenny Root
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,65 +78,6 @@ class PubkeyDaoTest {
         val keys = pubkeyDao.observeAll().first()
         assertThat(keys).hasSize(3)
         assertThat(keys.map { it.nickname }).containsExactly("key-1", "key-2", "key-3")
-    }
-
-    @Test
-    fun getBackupableKeysOnly() = runTest {
-        val backupable1 = createTestPubkey(nickname = "backup-1", allowBackup = true)
-        val backupable2 = createTestPubkey(nickname = "backup-2", allowBackup = true)
-        val nonBackupable = createTestPubkey(nickname = "no-backup", allowBackup = false)
-
-        pubkeyDao.insert(backupable1)
-        pubkeyDao.insert(backupable2)
-        pubkeyDao.insert(nonBackupable)
-
-        val backupableKeys = pubkeyDao.getBackupable()
-        assertThat(backupableKeys).hasSize(2)
-        assertThat(backupableKeys.map { it.nickname }).containsExactlyInAnyOrder("backup-1", "backup-2")
-        assertThat(backupableKeys.all { it.allowBackup }).isTrue()
-    }
-
-    @Test
-    fun getExportableKeysOnly() = runTest {
-        val exportable1 = createTestPubkey(
-            nickname = "export-1",
-            storageType = KeyStorageType.EXPORTABLE,
-        )
-        val exportable2 = createTestPubkey(
-            nickname = "export-2",
-            storageType = KeyStorageType.EXPORTABLE,
-        )
-        val keystore = createTestPubkey(
-            nickname = "keystore-1",
-            storageType = KeyStorageType.ANDROID_KEYSTORE,
-            keystoreAlias = "alias1",
-        )
-
-        pubkeyDao.insert(exportable1)
-        pubkeyDao.insert(exportable2)
-        pubkeyDao.insert(keystore)
-
-        val exportableKeys = pubkeyDao.getExportable()
-        assertThat(exportableKeys).hasSize(2)
-        assertThat(exportableKeys.map { it.nickname }).containsExactlyInAnyOrder("export-1", "export-2")
-        assertThat(exportableKeys.all { it.storageType == KeyStorageType.EXPORTABLE }).isTrue()
-    }
-
-    @Test
-    fun updateBackupPermission() = runTest {
-        val pubkey = createTestPubkey(nickname = "test-key", allowBackup = true)
-        val id = pubkeyDao.insert(pubkey)
-
-        // Verify initial state
-        val initial = pubkeyDao.getById(id)
-        assertThat(initial?.allowBackup).isTrue()
-
-        // Update backup permission
-        pubkeyDao.updateBackupPermission(id, false)
-
-        // Verify update
-        val updated = pubkeyDao.getById(id)
-        assertThat(updated?.allowBackup).isFalse()
     }
 
     @Test
@@ -280,7 +221,7 @@ class PubkeyDaoTest {
         confirmation: Boolean = false,
         createdDate: Long = System.currentTimeMillis(),
         storageType: KeyStorageType = KeyStorageType.EXPORTABLE,
-        allowBackup: Boolean = true,
+        allowBackup: Boolean = false,
         keystoreAlias: String? = null,
     ): Pubkey = Pubkey(
         nickname = nickname,

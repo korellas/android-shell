@@ -20,7 +20,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'ssh/app_session.dart';
 import 'ssh/enrollment.dart';
-import 'ssh/key_agent.dart';
 import 'platform/key_manager.dart';
 import 'terminal/app_terminal_session.dart';
 import 'terminal/local_session.dart';
@@ -39,10 +38,7 @@ class AndroidEngine extends ChangeNotifier {
   static const events = EventChannel('dev.korellas.androidshell/events');
   EngineRecord state = {};
   EngineRecord _nativeState = {};
-  late final KeyManager _keys = KeyManager(
-    _platformQuery,
-    rememberUnlocked: () => preferences['memkeys'] != false,
-  );
+  late final KeyManager _keys = KeyManager(_platformQuery);
   late final SshEnrollmentController _enrollment = SshEnrollmentController(
     onChanged: _sessionChanged,
     keys: () => list('keys').where((key) => key['supported'] != false).toList(),
@@ -69,17 +65,6 @@ class AndroidEngine extends ChangeNotifier {
       await refresh();
     },
   );
-  Future<List<SshAgentKey>> _agentKeys() async => [
-    for (final entry in _keys.loadedIdentities.entries)
-      if ((_keys.ephemeralMetadata(entry.key) ??
-              list('keys').where((key) => key['id'] == entry.key).firstOrNull)
-          case final metadata?)
-        SshAgentKey(
-          entry.value,
-          '${metadata['nickname'] ?? ''}',
-          confirmation: metadata['confirmation'] == true,
-        ),
-  ];
   bool _keyBusy = false;
   bool _sessionChangeQueued = false;
   final Map<int, AppTerminalSession> _sessions = {};
@@ -307,9 +292,6 @@ class AndroidEngine extends ChangeNotifier {
     for (final config in [prepared, ...jumps]) {
       config['keys'] = _keys.decorateKeys(rows(config['keys']));
     }
-    if (args.containsKey('actions')) {
-      prepared['automation'] = rows(args['actions']);
-    }
     return prepared;
   }
 
@@ -365,22 +347,6 @@ class AndroidEngine extends ChangeNotifier {
                 loadStoredIdentities: _keys.identities,
                 lookupStoredKey: (id) =>
                     list('keys').where((key) => key['id'] == id).firstOrNull,
-                loadAgentKeys: _agentKeys,
-                addAgentKey: (key, confirmation) async {
-                  final result = await _keys.addAgentKey(key, confirmation);
-                  _sessionChanged();
-                  return result;
-                },
-                removeAgentKey: (key) async {
-                  final result = await _keys.removeAgentKey(key);
-                  _sessionChanged();
-                  return result;
-                },
-                removeAllAgentKeys: () async {
-                  final result = await _keys.removeAllAgentKeys();
-                  _sessionChanged();
-                  return result;
-                },
               ));
     _pendingReconnect.remove(session.id);
     _attemptedReconnect.remove(session.id);
@@ -488,7 +454,6 @@ class AndroidEngine extends ChangeNotifier {
         _nativeState = snapshot;
         if (_nativeState['ready'] == true) {
           final keys = rows(_nativeState['keys']);
-          await _keys.initializeStartup(keys);
           _nativeState['keys'] = _keys.decorateKeys(keys);
         }
         _mergeState();
@@ -547,18 +512,12 @@ class AndroidEngine extends ChangeNotifier {
           (uri != null && uri.contains('://')
               ? Uri.tryParse(uri)?.scheme
               : 'ssh');
-      if (state['entryAction'] != 'android.intent.action.PICK') {
-        if (protocol != 'ssh' && protocol != 'local') {
-          throw const EngineException('SSH와 로컬 연결만 지원합니다.');
-        }
-        return _connectTerminal(args);
+      if (protocol != 'ssh' && protocol != 'local') {
+        throw const EngineException('SSH와 로컬 연결만 지원합니다.');
       }
+      return _connectTerminal(args);
     }
-    if (const {
-      'forward.save',
-      'forward.delete',
-      'forward.start',
-    }.contains(method)) {
+    if (const {'forward.save', 'forward.delete'}.contains(method)) {
       final operation = _forwardUpdates.then((_) async {
         final affected = _sessions.values
             .whereType<AppSshSession>()
@@ -575,23 +534,12 @@ class AndroidEngine extends ChangeNotifier {
           final configurations = rows(
             await _platformQuery('forwards', {'hostId': session.host['id']}),
           );
-          await session.synchronizeForwards(
-            configurations,
-            activateNewStartEnabled:
-                method == 'forward.save' && args['sessionId'] == session.id,
-          );
+          await session.synchronizeForwards(configurations);
         }
         return result;
       });
       _forwardUpdates = operation.then<void>((_) {}, onError: (Object _) {});
       return operation;
-    }
-    if (method == 'automation.trial') {
-      return _connectTerminal({
-        'id': args['hostId'],
-        'newSession': true,
-        'actions': args['actions'],
-      });
     }
     if (method == 'session.consumeSelection') {
       _selectedSession = null;
@@ -696,14 +644,7 @@ class AndroidEngine extends ChangeNotifier {
       });
       return _platformQuery(method, {...args, 'open': session.sessionOpen});
     }
-    final result = await _platformQuery(method, args);
-    if (method == 'settings.update' &&
-        args['key'] == 'memkeys' &&
-        args['value'] == false) {
-      _keys.forgetStoredKeys();
-      _sessionChanged();
-    }
-    return result;
+    return _platformQuery(method, args);
   }
 
   Future<dynamic> _platformQuery(
@@ -737,7 +678,6 @@ class AndroidEngine extends ChangeNotifier {
   @override
   void dispose() {
     _closed = true;
-    _keys.forgetStoredKeys();
     _subscription?.cancel();
     _runtime.setMethodCallHandler(null);
     for (final session in _sessions.values) {
