@@ -221,7 +221,7 @@ class _SettingsPageState extends State<SettingsPage> {
       'keyboard' =>
         '특수키 ${((p['terminalBarOrder'] as List? ?? []).where((k) => !(p['terminalBarHidden'] as List? ?? []).contains(k))).length}개',
       'gesture' =>
-        '가로 · ${p['swipeTmux'] == true
+        '두 손가락 가로 · ${p['swipeTmux'] == true
             ? 'tmux 창'
             : p['swipeSessions'] == true
             ? '세션'
@@ -709,10 +709,10 @@ class _SettingsPageState extends State<SettingsPage> {
             ? 'sessions'
             : 'none';
         return [
-          group('좌우로 밀면', [
+          group('두 손가락으로 좌우로 밀면', [
             tracked(
               'swipeSessions',
-              '좌우로 밀면',
+              '두 손가락으로 좌우로 밀면',
               tildeRadioOptions(
                 c,
                 [
@@ -741,7 +741,7 @@ class _SettingsPageState extends State<SettingsPage> {
               choice(c, 'tmuxCtrlA', '접두키', [(false, 'C-b'), (true, 'C-a')]),
           ]),
           group('', [
-            choice(c, 'pgupdngesture', '위아래로 밀면', [
+            choice(c, 'pgupdngesture', '두 손가락으로 위아래로 밀면', [
               (false, '스크롤'),
               (true, 'PgUp/PgDn'),
             ]),

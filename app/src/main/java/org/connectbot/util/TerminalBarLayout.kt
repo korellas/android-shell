@@ -21,11 +21,11 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 
 enum class TerminalBarKey(val label: String) {
-    ALT("Alt"),
-    UP("↑"),
-    DOWN("↓"),
-    LEFT("←"),
-    RIGHT("→"),
+    SLASH("/"),
+    COLON(":"),
+    DASH("-"),
+    PIPE("|"),
+    TILDE("~"),
     HOME("Home"),
     END("End"),
     PAGE_UP("PgUp"),
@@ -59,7 +59,16 @@ data class TerminalBarLayout(
 
         fun load(prefs: SharedPreferences): TerminalBarLayout {
             val savedOrder = prefs.getString(PreferenceConstants.TERMINAL_BAR_ORDER, "") ?: ""
-            val order = savedOrder.split(",").mapNotNull { name -> TerminalBarKey.entries.find { it.name == name } }.distinct()
+            val order = savedOrder.split(",").mapNotNull { name ->
+                when (name) {
+                    "ALT" -> TerminalBarKey.SLASH
+                    "UP" -> TerminalBarKey.COLON
+                    "DOWN" -> TerminalBarKey.DASH
+                    "LEFT" -> TerminalBarKey.PIPE
+                    "RIGHT" -> TerminalBarKey.TILDE
+                    else -> TerminalBarKey.entries.find { it.name == name }
+                }
+            }.distinct()
             val hidden = prefs.getStringSet(PreferenceConstants.TERMINAL_BAR_HIDDEN, emptySet()).orEmpty()
             return TerminalBarLayout(
                 keyHeight = prefs.getInt(PreferenceConstants.TERMINAL_BAR_HEIGHT, DEFAULT_KEY_HEIGHT).takeIf { it in heights } ?: DEFAULT_KEY_HEIGHT,

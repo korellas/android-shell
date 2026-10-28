@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
+import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'terminal_input.dart';
@@ -33,11 +35,11 @@ class TerminalKeyBar extends StatefulWidget {
     this.enabled = true,
     this.onModifiersChanged,
     this.order = const [
-      'ALT',
-      'UP',
-      'DOWN',
-      'LEFT',
-      'RIGHT',
+      'SLASH',
+      'COLON',
+      'DASH',
+      'PIPE',
+      'TILDE',
       'HOME',
       'END',
       'PAGE_UP',
@@ -67,6 +69,94 @@ class TerminalKeyBar extends StatefulWidget {
   State<TerminalKeyBar> createState() => _TerminalKeyBarState();
 }
 
+class _RepeatingKey extends StatefulWidget {
+  const _RepeatingKey({
+    super.key,
+    required this.enabled,
+    required this.onPressed,
+    required this.builder,
+  });
+
+  final bool enabled;
+  final VoidCallback onPressed;
+  final Widget Function(VoidCallback) builder;
+
+  @override
+  State<_RepeatingKey> createState() => _RepeatingKeyState();
+}
+
+class _RepeatingKeyState extends State<_RepeatingKey>
+    with WidgetsBindingObserver {
+  // Android ViewConfiguration key-repeat defaults.
+  static const _delay = Duration(milliseconds: 400);
+  static const _interval = Duration(milliseconds: 50);
+  Timer? _timer;
+  Offset? _origin;
+  int? _pointer;
+  bool _repeated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  void _stop() {
+    _timer?.cancel();
+    _timer = null;
+    _pointer = null;
+    _origin = null;
+  }
+
+  @override
+  void didUpdateWidget(_RepeatingKey oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled) _stop();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _stop();
+  }
+
+  @override
+  void dispose() {
+    _stop();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    onPointerDown: (event) {
+      if (_pointer != null) {
+        _stop();
+        return;
+      }
+      _repeated = false;
+      if (!widget.enabled) return;
+      _pointer = event.pointer;
+      _origin = event.position;
+      _timer = Timer(_delay, () {
+        _repeated = true;
+        widget.onPressed();
+        _timer = Timer.periodic(_interval, (_) => widget.onPressed());
+      });
+    },
+    onPointerMove: (event) {
+      if (_origin != null &&
+          (event.position - _origin!).distance > kTouchSlop) {
+        _stop();
+      }
+    },
+    onPointerUp: (_) => _stop(),
+    onPointerCancel: (_) => _stop(),
+    child: widget.builder(() {
+      if (!_repeated) widget.onPressed();
+    }),
+  );
+}
+
 class _TerminalKeyBarState extends State<TerminalKeyBar> {
   final _scrollController = ScrollController();
   bool get _ctrl => widget.input.ctrl;
@@ -85,12 +175,9 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
     widget.onKey(key, _ctrl, _alt, false);
   }
 
-  void _toggleModifier({bool ctrl = false}) {
+  void _toggleModifier() {
     if (!widget.enabled) return;
-    widget.input.setModifiers(
-      ctrl: ctrl ? !_ctrl : _ctrl,
-      alt: ctrl ? _alt : !_alt,
-    );
+    widget.input.setModifiers(ctrl: !_ctrl, alt: _alt);
     widget.onModifiersChanged?.call(_ctrl, _alt, false);
   }
 
@@ -101,53 +188,59 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
     bool locked = false,
     double width = 44,
     Widget? icon,
+    bool repeat = true,
   }) {
     final colors = Theme.of(context).colorScheme;
-    return MergeSemantics(
-      child: Semantics(
-        selected: selected,
-        label: icon == null ? null : label,
-        child: TextButton(
-          onPressed: widget.enabled ? onPressed : null,
-          style: TextButton.styleFrom(
-            minimumSize: Size(
-              math.max(44, width),
-              math.max(44, widget.keyHeight + 8),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            foregroundColor: locked
-                ? colors.onPrimary
-                : selected == true
-                ? colors.onPrimaryContainer
-                : colors.onSurface,
-            textStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-              fontFamily: 'Pretendard',
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          child: Ink(
-            decoration: BoxDecoration(
-              color: locked
-                  ? colors.primary
-                  : selected == true
-                  ? colors.primaryContainer
-                  : colors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: ConstrainedBox(
-              key: ValueKey('terminal-keycap-$label'),
-              constraints: BoxConstraints(
-                minWidth: width,
-                minHeight: widget.keyHeight,
+    return _RepeatingKey(
+      key: ValueKey(label),
+      enabled: widget.enabled && repeat,
+      onPressed: onPressed,
+      builder: (activate) => MergeSemantics(
+        child: Semantics(
+          selected: selected,
+          label: icon == null ? null : label,
+          child: TextButton(
+            onPressed: widget.enabled ? activate : null,
+            style: TextButton.styleFrom(
+              minimumSize: Size(
+                math.max(44, width),
+                math.max(44, widget.keyHeight + 8),
               ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Center(
-                  widthFactor: 1,
-                  heightFactor: 1,
-                  child: icon ?? Text(label),
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              foregroundColor: locked
+                  ? colors.onPrimary
+                  : selected == true
+                  ? colors.onPrimaryContainer
+                  : colors.onSurface,
+              textStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+                fontFamily: 'Pretendard',
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            child: Ink(
+              decoration: BoxDecoration(
+                color: locked
+                    ? colors.primary
+                    : selected == true
+                    ? colors.primaryContainer
+                    : colors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ConstrainedBox(
+                key: ValueKey('terminal-keycap-$label'),
+                constraints: BoxConstraints(
+                  minWidth: width,
+                  minHeight: widget.keyHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Center(
+                    widthFactor: 1,
+                    heightFactor: 1,
+                    child: icon ?? Text(label),
+                  ),
                 ),
               ),
             ),
@@ -165,19 +258,22 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
   }
 
   Widget? _scrollKey(String id) {
-    if (id == 'ALT') {
-      return _button(
-        'Alt',
-        () => _toggleModifier(),
-        selected: _alt,
-        locked: _alt && {'yes', 'alt'}.contains(widget.input.stickyModifiers),
-      );
+    final text = switch (id) {
+      'SLASH' => '/',
+      'COLON' => ':',
+      'DASH' => '-',
+      'PIPE' => '|',
+      'TILDE' => '~',
+      _ => null,
+    };
+    if (text != null) {
+      return _button(text, () {
+        if (!widget.enabled) return;
+        if (widget.hapticFeedback) HapticFeedback.selectionClick();
+        widget.input.sendText(text);
+      });
     }
     final entry = switch (id) {
-      'UP' => ('↑', 'Up', TerminalKey.arrowUp),
-      'DOWN' => ('↓', 'Down', TerminalKey.arrowDown),
-      'LEFT' => ('←', 'Left', TerminalKey.arrowLeft),
-      'RIGHT' => ('→', 'Right', TerminalKey.arrowRight),
       'HOME' => ('Home', 'Home', TerminalKey.home),
       'END' => ('End', 'End', TerminalKey.end),
       'PAGE_UP' => ('PgUp', 'Page up', TerminalKey.pageUp),
@@ -189,18 +285,7 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
     if (entry == null) return null;
     return Tooltip(
       message: entry.$2,
-      child: _button(
-        entry.$1,
-        () => _send(entry.$3),
-        width: ['UP', 'DOWN', 'LEFT', 'RIGHT'].contains(id) ? 38 : 44,
-        icon: switch (id) {
-          'UP' => const Icon(Icons.keyboard_arrow_up, size: 20),
-          'DOWN' => const Icon(Icons.keyboard_arrow_down, size: 20),
-          'LEFT' => const Icon(Icons.keyboard_arrow_left, size: 20),
-          'RIGHT' => const Icon(Icons.keyboard_arrow_right, size: 20),
-          _ => null,
-        },
-      ),
+      child: _button(entry.$1, () => _send(entry.$3)),
     );
   }
 
@@ -221,7 +306,8 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
                 _button('Esc', () => _send(TerminalKey.escape)),
                 _button(
                   'Ctrl',
-                  () => _toggleModifier(ctrl: true),
+                  _toggleModifier,
+                  repeat: false,
                   selected: _ctrl,
                   locked: _ctrl && widget.input.stickyModifiers == 'yes',
                 ),
@@ -257,6 +343,7 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
                     child: _button(
                       '⌨',
                       widget.onToggleKeyboard,
+                      repeat: false,
                       width: 40,
                       icon: const Icon(Icons.keyboard_outlined, size: 20),
                     ),
@@ -270,6 +357,7 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
                         _scrollController.jumpTo(0);
                       }
                     },
+                    repeat: false,
                     selected: _functionMode,
                     width: 40,
                   ),

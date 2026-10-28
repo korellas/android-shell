@@ -19,6 +19,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm2/xterm.dart';
 
@@ -52,6 +53,10 @@ class TerminalActions extends StatefulWidget {
 
 class _TerminalActionsState extends State<TerminalActions> {
   final _stackKey = GlobalKey();
+  Timer? _longPressTimer;
+  Offset? _pressOrigin;
+  final _pressedPointers = <int>{};
+  Offset? _contextPoint;
   ScrollPosition? _scrollPosition;
   CellOffset? _touchedCell;
   bool _overflow = false;
@@ -87,6 +92,7 @@ class _TerminalActionsState extends State<TerminalActions> {
       _overflow = false;
     }
     if (!widget.enabled ||
+        !widget.inputEnabled ||
         oldWidget.terminal != widget.terminal ||
         oldWidget.controller != widget.controller ||
         oldWidget.terminalViewKey != widget.terminalViewKey) {
@@ -96,6 +102,8 @@ class _TerminalActionsState extends State<TerminalActions> {
       _touchedCell = null;
       _overflow = false;
       _geometry = null;
+      _longPressTimer?.cancel();
+      _contextPoint = null;
     }
     _refresh();
   }
@@ -169,6 +177,7 @@ class _TerminalActionsState extends State<TerminalActions> {
 
   @override
   void dispose() {
+    _longPressTimer?.cancel();
     _stopHandleScroll();
     widget.terminal.removeListener(_refresh);
     widget.controller.removeListener(_refresh);
@@ -188,6 +197,7 @@ class _TerminalActionsState extends State<TerminalActions> {
   Future<void> _copy() async {
     final text = _selectedText();
     if (text == null) return;
+    setState(() => _contextPoint = null);
     widget.controller.clearSelection();
     await Clipboard.setData(ClipboardData(text: text));
   }
@@ -196,12 +206,14 @@ class _TerminalActionsState extends State<TerminalActions> {
     if (!widget.inputEnabled) return;
     final text = _selectedText();
     if (text == null) return;
+    setState(() => _contextPoint = null);
     widget.controller.clearSelection();
     await widget.onEdit(text);
   }
 
   Future<void> _paste() async {
     if (!widget.enabled || !widget.inputEnabled) return;
+    setState(() => _contextPoint = null);
     final controller = widget.controller;
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (!mounted ||
@@ -282,44 +294,50 @@ class _TerminalActionsState extends State<TerminalActions> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton.icon(
-                        onPressed: _copy,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          textStyle: const TextStyle(fontSize: 13),
-                        ),
-                        icon: const Icon(Icons.content_copy_outlined, size: 18),
-                        label: const Text('복사'),
-                      ),
-                    ),
-                    if (widget.inputEnabled)
+                if (widget.inputEnabled)
+                  _option('붙여넣기', () => unawaited(_paste())),
+                if (_selection != null && !_selection!.isCollapsed)
+                  Row(
+                    children: [
                       Expanded(
-                        flex: 2,
                         child: TextButton.icon(
-                          onPressed: _edit,
+                          onPressed: _copy,
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             textStyle: const TextStyle(fontSize: 13),
                           ),
-                          icon: const Icon(Icons.send_outlined, size: 18),
-                          label: const Text('편집 후 전송'),
+                          icon: const Icon(
+                            Icons.content_copy_outlined,
+                            size: 18,
+                          ),
+                          label: const Text('복사'),
                         ),
                       ),
-                    IconButton(
-                      tooltip: '선택 메뉴 더보기',
-                      onPressed: () => setState(() => _overflow = !_overflow),
-                      icon: Icon(
-                        _overflow ? Icons.expand_less : Icons.more_vert,
+                      if (widget.inputEnabled)
+                        Expanded(
+                          flex: 2,
+                          child: TextButton.icon(
+                            onPressed: _edit,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              textStyle: const TextStyle(fontSize: 13),
+                            ),
+                            icon: const Icon(Icons.send_outlined, size: 18),
+                            label: const Text('편집 후 전송'),
+                          ),
+                        ),
+                      IconButton(
+                        tooltip: '선택 메뉴 더보기',
+                        onPressed: () => setState(() => _overflow = !_overflow),
+                        icon: Icon(
+                          _overflow ? Icons.expand_less : Icons.more_vert,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 if (_overflow) ...[
-                  if (widget.inputEnabled)
-                    _option('붙여넣기', () => unawaited(_paste())),
                   if (widget.onShare != null)
                     _option('공유', () {
                       final text = _selectedText();
@@ -494,6 +512,8 @@ class _TerminalActionsState extends State<TerminalActions> {
         Listener(
           onPointerDown: _recordPointer,
           onPointerMove: _recordPointer,
+          onPointerUp: _releasePointer,
+          onPointerCancel: _releasePointer,
           child: widget.child,
         ),
         if (widget.enabled &&
@@ -519,11 +539,53 @@ class _TerminalActionsState extends State<TerminalActions> {
               ),
             ),
         ],
+        if (widget.enabled &&
+            widget.inputEnabled &&
+            (selection == null || selection.isCollapsed) &&
+            _contextPoint != null)
+          Positioned.fill(
+            child: LayoutBuilder(
+              builder: (context, constraints) => CustomSingleChildLayout(
+                delegate: _SelectionMenuLayout(
+                  viewport: Offset.zero & constraints.biggest,
+                  point: _contextPoint!,
+                  cellHeight: 0,
+                ),
+                child: _menu(),
+              ),
+            ),
+          ),
       ],
     );
   }
 
+  void _releasePointer(PointerEvent event) {
+    _pressedPointers.remove(event.pointer);
+    _longPressTimer?.cancel();
+  }
+
   void _recordPointer(PointerEvent event) {
+    if (event is PointerDownEvent) {
+      _pressedPointers.add(event.pointer);
+      _longPressTimer?.cancel();
+      _pressOrigin = event.position;
+      if (_contextPoint != null) setState(() => _contextPoint = null);
+      if (widget.enabled &&
+          widget.inputEnabled &&
+          _pressedPointers.length == 1 &&
+          event.buttons == kPrimaryButton) {
+        _longPressTimer = Timer(kLongPressTimeout, () {
+          if (!mounted) return;
+          final box =
+              _stackKey.currentContext?.findRenderObject() as RenderBox?;
+          if (box == null || !box.hasSize) return;
+          setState(() => _contextPoint = box.globalToLocal(event.position));
+        });
+      }
+    } else if (_pressOrigin != null &&
+        (event.position - _pressOrigin!).distance > kTouchSlop) {
+      _longPressTimer?.cancel();
+    }
     final render = widget.terminalViewKey.currentState?.renderTerminal;
     if (render == null || !render.hasSize) return;
     _touchedCell = render.getCellOffset(render.globalToLocal(event.position));

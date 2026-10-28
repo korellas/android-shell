@@ -35,7 +35,7 @@ class TerminalBarLayoutTest {
         val layout = TerminalBarLayout(
             keyHeight = 36,
             order = TerminalBarKey.entries.reversed(),
-            hidden = setOf(TerminalBarKey.ALT, TerminalBarKey.INSERT),
+            hidden = setOf(TerminalBarKey.SLASH, TerminalBarKey.INSERT),
             groupFunctionKeys = false,
         )
         layout.save(prefs)
@@ -59,17 +59,30 @@ class TerminalBarLayoutTest {
     }
 
     @Test
+    fun legacyLayoutDropsNavigationKeysAndAddsSymbols() {
+        prefs.edit {
+            clear()
+            putString(PreferenceConstants.TERMINAL_BAR_ORDER, "ALT,UP,DOWN,LEFT,RIGHT,HOME,END")
+            putStringSet(PreferenceConstants.TERMINAL_BAR_HIDDEN, setOf("ALT", "UP", "HOME"))
+        }
+        val layout = TerminalBarLayout.load(prefs)
+        assertEquals(TerminalBarKey.entries.take(7), layout.order.take(7))
+        assertEquals(TerminalBarKey.entries.toSet(), layout.order.toSet())
+        assertEquals(setOf(TerminalBarKey.HOME), layout.hidden)
+    }
+
+    @Test
     fun malformedSavedOrderIsNormalizedAndUnknownKeysAreIgnored() {
         prefs.edit {
             putInt(PreferenceConstants.TERMINAL_BAR_HEIGHT, -100)
-            putString(PreferenceConstants.TERMINAL_BAR_ORDER, "DELETE,unknown,DELETE,ALT")
-            putStringSet(PreferenceConstants.TERMINAL_BAR_HIDDEN, setOf("unknown", "ALT"))
+            putString(PreferenceConstants.TERMINAL_BAR_ORDER, "DELETE,unknown,DELETE,SLASH")
+            putStringSet(PreferenceConstants.TERMINAL_BAR_HIDDEN, setOf("unknown", "SLASH"))
         }
         val layout = TerminalBarLayout.load(prefs)
         assertEquals(36, layout.keyHeight)
         assertEquals(TerminalBarKey.entries.toSet(), layout.order.toSet())
         assertEquals(layout.order.size, layout.order.distinct().size)
-        assertEquals(listOf(TerminalBarKey.DELETE, TerminalBarKey.ALT), layout.order.take(2))
-        assertEquals(setOf(TerminalBarKey.ALT), layout.hidden)
+        assertEquals(listOf(TerminalBarKey.DELETE, TerminalBarKey.SLASH), layout.order.take(2))
+        assertEquals(setOf(TerminalBarKey.SLASH), layout.hidden)
     }
 }
