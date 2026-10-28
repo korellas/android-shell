@@ -25,7 +25,6 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.net.Uri
 import android.provider.OpenableColumns
-import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.createBitmap
@@ -341,39 +340,6 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
         else -> error("지원하지 않는 플랫폼 작업입니다.")
     }
 }
-
-internal fun androidx.compose.material3.ColorScheme.toWire(): Wire = mapOf(
-    "primary" to (primary.toArgb().toLong() and 0xffffffffL),
-    "onPrimary" to (onPrimary.toArgb().toLong() and 0xffffffffL),
-    "primaryContainer" to (primaryContainer.toArgb().toLong() and 0xffffffffL),
-    "onPrimaryContainer" to (onPrimaryContainer.toArgb().toLong() and 0xffffffffL),
-    "secondary" to (secondary.toArgb().toLong() and 0xffffffffL),
-    "onSecondary" to (onSecondary.toArgb().toLong() and 0xffffffffL),
-    "secondaryContainer" to (secondaryContainer.toArgb().toLong() and 0xffffffffL),
-    "onSecondaryContainer" to (onSecondaryContainer.toArgb().toLong() and 0xffffffffL),
-    "tertiary" to (tertiary.toArgb().toLong() and 0xffffffffL),
-    "onTertiary" to (onTertiary.toArgb().toLong() and 0xffffffffL),
-    "tertiaryContainer" to (tertiaryContainer.toArgb().toLong() and 0xffffffffL),
-    "onTertiaryContainer" to (onTertiaryContainer.toArgb().toLong() and 0xffffffffL),
-    "error" to (error.toArgb().toLong() and 0xffffffffL),
-    "onError" to (onError.toArgb().toLong() and 0xffffffffL),
-    "errorContainer" to (errorContainer.toArgb().toLong() and 0xffffffffL),
-    "onErrorContainer" to (onErrorContainer.toArgb().toLong() and 0xffffffffL),
-    "surface" to (surface.toArgb().toLong() and 0xffffffffL),
-    "onSurface" to (onSurface.toArgb().toLong() and 0xffffffffL),
-    "onSurfaceVariant" to (onSurfaceVariant.toArgb().toLong() and 0xffffffffL),
-    "outline" to (outline.toArgb().toLong() and 0xffffffffL),
-    "outlineVariant" to (outlineVariant.toArgb().toLong() and 0xffffffffL),
-    "inverseSurface" to (inverseSurface.toArgb().toLong() and 0xffffffffL),
-    "inverseOnSurface" to (inverseOnSurface.toArgb().toLong() and 0xffffffffL),
-    "inversePrimary" to (inversePrimary.toArgb().toLong() and 0xffffffffL),
-    "surfaceTint" to (surfaceTint.toArgb().toLong() and 0xffffffffL),
-    "surfaceContainerLowest" to (surfaceContainerLowest.toArgb().toLong() and 0xffffffffL),
-    "surfaceContainerLow" to (surfaceContainerLow.toArgb().toLong() and 0xffffffffL),
-    "surfaceContainer" to (surfaceContainer.toArgb().toLong() and 0xffffffffL),
-    "surfaceContainerHigh" to (surfaceContainerHigh.toArgb().toLong() and 0xffffffffL),
-    "surfaceContainerHighest" to (surfaceContainerHighest.toArgb().toLong() and 0xffffffffL),
-)
 
 private suspend fun AndroidShellEngine.terminalPreview(args: Wire): Wire {
     val state = activity.settings.uiState.value
