@@ -35,9 +35,18 @@ jobs:
           path: flutter_ui/build/host/outputs/repo/
           run-id: 40619119692
           github-token: ${{ github.token }}
-      - name: Build diagnostic APK and existing instrumentation APK
+      - name: Restore the exact APK that reproduced the direct-launch crash
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: native-startup-diagnostic
+          path: build/prior-startup-observation/
+          run-id: 40631435047
+          github-token: ${{ github.token }}
+      - name: Freeze the product APK including its version and signature
         run: |
-          ./gradlew :app:assembleGoogleDebug :app:assembleGoogleDebugAndroidTest --no-configuration-cache
+          mkdir -p app/build/outputs/apk/google/debug
+          cp build/prior-startup-observation/app/build/outputs/apk/google/debug/app-google-debug.apk app/build/outputs/apk/google/debug/app-google-debug.apk
+          echo '175542f70a6a4cc2370616e302453e35e55a0e791eee26642c5a906dd85b0159  app/build/outputs/apk/google/debug/app-google-debug.apk' | sha256sum --check
       - name: Build minimal host with the identical Flutter engine and Dart kernel
         run: python3 .github/diagnostics/host_comparison.py prepare
       - name: Enable KVM
