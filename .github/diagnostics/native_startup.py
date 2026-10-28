@@ -96,7 +96,6 @@ try:
     apk_hash = hashlib.sha256(APK.read_bytes()).hexdigest()
     (OUT / 'apk-sha256.txt').write_text(apk_hash + '\n')
     shell(['setprop', WRAP, ''], 'baseline-wrapper.txt')
-    instrument('instrument-cold', apk_hash)
     adb(['install', '-r', str(APK)], 'install-baseline.txt')
     for i in range(3):
         start(f'normal-{i + 1}')
