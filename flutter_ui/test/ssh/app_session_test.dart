@@ -1,6 +1,8 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dartssh2/dartssh2.dart';
@@ -113,6 +115,97 @@ void main() {
   });
   tearDown(() async {
     await session.dispose();
+  });
+  test(
+    'login log is visible while connecting and hidden after success',
+    () async {
+      final ready = Completer<void>();
+      session = create(connect: (_) => ready.future);
+      final connecting = session.connect();
+      await Future<void>.delayed(Duration.zero);
+      expect(session.record['connectionLog'], isNotEmpty);
+      expect(session.sessionOpen, false);
+      final endpoint = transports.single.endpoints.single;
+      final snapshot = session.record;
+      endpoint.onProgress!('SSH 연결 협상 중');
+      endpoint.onBanner!('Authorized users only');
+      expect(session.record['connectionLog'], contains('SSH 연결 협상 중'));
+      expect(
+        session.record['connectionLog'],
+        contains('Authorized users only'),
+      );
+      expect(snapshot['connectionLog'], isNot(contains('SSH 연결 협상 중')));
+      ready.complete();
+      await connecting;
+      endpoint.onProgress!('late progress');
+      expect(session.record['connectionLog'], isNull);
+      expect(session.sessionOpen, true);
+      await session.disconnect();
+      expect(session.record['connectionLog'], isNull);
+    },
+  );
+  test('failed login keeps its log and error for inspection', () async {
+    session = create(
+      connect: (_) async => throw const SocketException('Connection refused'),
+    );
+    await session.connect();
+    expect(session.ended, true);
+    expect(session.record['connectionLog'], isNotEmpty);
+    expect(
+      session.record['progress']['message'],
+      contains('Connection refused'),
+    );
+  });
+  test(
+    'reconnecting resets the login log and ignores stale progress',
+    () async {
+      session = create(
+        connect: (transport) async {
+          if (transports.length == 1) {
+            transport.endpoints.single.onProgress!('failed attempt');
+            throw const SocketException('Connection refused');
+          }
+          transports.first.endpoints.single.onProgress!('stale progress');
+          expect(session.record['connectionLog'], ['SSH 로그인 준비 중']);
+        },
+      );
+      await session.connect();
+      expect(session.record['connectionLog'], contains('failed attempt'));
+      await session.connect();
+      expect(session.sessionOpen, true);
+      expect(session.record['connectionLog'], isNull);
+    },
+  );
+  test('transport logs negotiation before a rejected SSH handshake', () async {
+    final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final sockets = <Socket>[];
+    final listener = server.listen((socket) {
+      sockets.add(socket);
+      socket.write('SSH-1.5-unsupported\r\n');
+    });
+    addTearDown(() async {
+      for (final socket in sockets) {
+        socket.destroy();
+      }
+      await listener.cancel();
+      await server.close();
+    });
+    prepared['host']['port'] = server.port;
+    session = AppSshSession(
+      id: 7,
+      prepared: prepared,
+      platform: platform,
+      onChanged: () {},
+    );
+    await session.connect();
+    await session.disconnect();
+    expect(session.ended, true);
+    expect(session.record['connectionLog'], [
+      'SSH 로그인 준비 중',
+      'localhost:${server.port} 연결 중',
+      'SSH 연결 협상 중',
+    ]);
+    expect(session.record['progress']['state'], 'ERROR');
   });
   test('remote terminal control sequences cannot access the clipboard', () async {
     session = create();

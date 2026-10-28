@@ -25,6 +25,7 @@ class SshEndpoint {
     this.onInteractive,
     this.onPasswordChange,
     this.onBanner,
+    this.onProgress,
     this.preferredAuthMethods,
     this.ipVersion = SshIpVersion.any,
     this.compression = false,
@@ -44,6 +45,7 @@ class SshEndpoint {
   final SSHUserInfoRequestHandler? onInteractive;
   final SSHChangePasswordRequestHandler? onPasswordChange;
   final SSHUserauthBannerHandler? onBanner;
+  final void Function(String)? onProgress;
   final List<SSHAuthMethod>? preferredAuthMethods;
   final SshIpVersion ipVersion;
   final bool compression;
@@ -184,6 +186,7 @@ class SshSession {
     try {
       for (final endpoint in endpoints) {
         _checkOpen();
+        endpoint.onProgress?.call('${endpoint.host}:${endpoint.port} 연결 중');
         final socket = _clients.isEmpty
             ? await _connectSocket(endpoint)
             : await _connectHop(endpoint);
@@ -191,6 +194,7 @@ class SshSession {
           socket.destroy();
           throw StateError('SSH session was closed');
         }
+        endpoint.onProgress?.call('SSH 연결 협상 중');
         final client = SSHClient(
           socket,
           username: endpoint.username,
@@ -217,7 +221,11 @@ class SshSession {
           compression: endpoint.compression,
           onVerifyHostKey: (type, fingerprint) async {
             if (_closing) return false;
+            endpoint.onProgress?.call('서버 키 확인 중');
             final accepted = await endpoint.verifyHostKey(type, fingerprint);
+            if (accepted && !_closing) {
+              endpoint.onProgress?.call('${endpoint.username} 인증 중');
+            }
             return accepted && !_closing;
           },
           onPasswordRequest: endpoint.onPassword == null
@@ -245,8 +253,10 @@ class SshSession {
         unawaited(_watchClient(client));
         await client.authenticated;
         _checkOpen();
+        endpoint.onProgress?.call('인증 완료');
       }
       if (wantShell) {
+        endpoints.last.onProgress?.call('터미널 세션 여는 중');
         final shell = await _openSession(
           _clients.last.shell(pty: _pty._config()),
         );

@@ -647,6 +647,11 @@ class _ConsolePageState extends State<ConsolePage> {
     final progress = row(session['progress']);
     final progressVisible =
         progress.isNotEmpty && progress['state'] != 'HIDDEN';
+    final showProgress = session['connecting'] == true || progressVisible;
+    final showTitle = !(titleHidden && prefs['titlebarhide'] == true);
+    final toolbarHeight = showTitle ? 44.0 : 0.0;
+    final contentTop = toolbarHeight + (showProgress ? 2 : 0);
+    final connectionLog = session['connectionLog'] as List?;
     return Theme(
       data: theme,
       child: Builder(
@@ -785,7 +790,12 @@ class _ConsolePageState extends State<ConsolePage> {
                                                   (prefs['terminalMargin']
                                                               as num? ??
                                                           0)
-                                                      .toDouble(),
+                                                      .toDouble()
+                                                      .clamp(
+                                                        1,
+                                                        double.infinity,
+                                                      ),
+                                              vertical: 4,
                                             ),
                                             keyOrder:
                                                 (prefs['terminalBarOrder']
@@ -825,7 +835,7 @@ class _ConsolePageState extends State<ConsolePage> {
                                       ),
                                     ),
                             ),
-                            if (!(titleHidden && prefs['titlebarhide'] == true))
+                            if (showTitle)
                               Positioned(
                                 top: 0,
                                 left: 0,
@@ -891,15 +901,37 @@ class _ConsolePageState extends State<ConsolePage> {
                                   actions: [popup()],
                                 ),
                               ),
+                            if (connectionLog != null)
+                              Positioned.fill(
+                                top: contentTop,
+                                bottom: MediaQuery.viewInsetsOf(context).bottom,
+                                child: ColoredBox(
+                                  color: background,
+                                  child: SingleChildScrollView(
+                                    padding: const EdgeInsets.all(16),
+                                    child: SelectableText(
+                                      [
+                                        ...connectionLog,
+                                        if (progress['state'] == 'ERROR')
+                                          progress['message'],
+                                      ].join('\n'),
+                                      style: TextStyle(
+                                        fontFamily: tildeMono,
+                                        color: theme.colorScheme.onSurface,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             Positioned(
-                              top: 44,
+                              top: toolbarHeight,
                               left: 0,
                               right: 0,
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  if (session['connecting'] == true ||
-                                      progressVisible)
+                                  if (showProgress)
                                     LinearProgressIndicator(
                                       minHeight: 2,
                                       value:
@@ -918,7 +950,11 @@ class _ConsolePageState extends State<ConsolePage> {
                                           ? theme.colorScheme.tertiary
                                           : theme.colorScheme.primary,
                                     ),
-                                  for (final banner in rows(session['banners']))
+                                  for (final banner in rows(
+                                    connectionLog == null
+                                        ? session['banners']
+                                        : null,
+                                  ))
                                     Material(
                                       color:
                                           theme.colorScheme.surfaceContainerLow,
