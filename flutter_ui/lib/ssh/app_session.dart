@@ -98,6 +98,7 @@ class AppSshSession implements AppTerminalSession {
   String? _transportCloseReason;
   late double _fontSize;
   final _banners = <Map<String, dynamic>>[];
+  List<String>? _connectionLog;
   final _modifiers = {'ctrl': 'OFF', 'alt': 'OFF', 'shift': 'OFF'};
   Future<void> _output = Future.value(), _input = Future.value();
   Future<void>? _disconnecting;
@@ -138,6 +139,7 @@ class AppSshSession implements AppTerminalSession {
       'connectionGeneration': _generation,
       'disconnectReason': _disconnectReason,
       'connecting': connecting,
+      'connectionLog': _connectionLog?.toList(),
       'ended': ended,
       'awaitingClose': ended,
       'canForward': connected,
@@ -306,6 +308,11 @@ class AppSshSession implements AppTerminalSession {
       host: target['hostname'] as String,
       port: target['port'] as int? ?? 22,
       username: target['username'] as String? ?? '',
+      onProgress: (message) {
+        if (!_current(generation) || _connectionLog == null) return;
+        _connectionLog!.add(message);
+        _changed();
+      },
       loadIdentities: loadIdentities,
       compression: target['compression'] == true,
       ipVersion: switch (target['ipVersion']) {
@@ -382,6 +389,7 @@ class AppSshSession implements AppTerminalSession {
       ),
       onBanner: (message) {
         if (!_current(generation)) return;
+        _connectionLog?.add(message);
         _banners.add({
           'id': ++_bannerSerial,
           'sourceName': target['nickname'] ?? target['hostname'],
@@ -407,6 +415,7 @@ class AppSshSession implements AppTerminalSession {
     final generation = ++_generation;
     _trustedHostKeys.clear();
     _state = SshSessionState.connecting;
+    _connectionLog = ['SSH 로그인 준비 중'];
     _error = null;
     _disconnectReason = null;
     _transportCloseReason = null;
@@ -437,6 +446,7 @@ class AppSshSession implements AppTerminalSession {
               );
             } else {
               _state = state;
+              if (state == SshSessionState.connected) _connectionLog = null;
               _changed();
             }
           }
