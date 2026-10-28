@@ -427,7 +427,6 @@ internal class AndroidShellEngine(
                 locale?.startsWith("ko") == true
             },
             "entryAction" to activity.intent.action,
-            "themeColors" to mapOf("light" to org.connectbot.ui.theme.connectBotColorScheme(activity, false, dynamicColor = false).toWire(), "dark" to org.connectbot.ui.theme.connectBotColorScheme(activity, true, dynamicColor = false).toWire()),
             "autoHideDelayMs" to 3000L,
             "shortcutStyles" to org.connectbot.util.IconStyle.entries.map { mapOf("name" to it.name) },
             "defaults" to mapOf("host" to activity.settings.uiState.value.newHostDefaults().toWire(), "profile" to Profile(name = "").toWire()),

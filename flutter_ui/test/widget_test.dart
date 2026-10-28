@@ -68,9 +68,6 @@ void main() {
               'keys': [],
               'schemes': [],
               'knownHosts': [],
-              'themeColors': {
-                'light': {'primary': 0xff123456, 'surface': 0xfffafafa},
-              },
               'preferences': {},
             };
           }
