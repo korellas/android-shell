@@ -20,7 +20,6 @@ package org.connectbot.flutter
 import android.Manifest
 import android.content.Intent
 import android.os.Bundle
-import android.view.WindowManager
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -116,7 +115,6 @@ class FlutterShellActivity : FlutterFragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         lifecycleScope.launch { settings.requestNotificationPermission.collect { requestNotifications() } }
