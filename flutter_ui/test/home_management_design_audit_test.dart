@@ -78,29 +78,17 @@ void main() {
             'fingerprint': 'SHA256:abcdefghijklmnopqrstuvwxyz0123456789ABCDE',
           },
         ],
+        'generation': {'biometricAvailable': true},
         'schemes': [scheme],
         'preferences': {
           'defaultProfileId': 1,
           'enterKey': 13,
-          'automationKeys': [
-            {'key': 13, 'label': 'Enter'},
-          ],
           'keyModifiers': {'Ctrl': 1, 'Alt': 2},
         },
       };
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(AndroidEngine.channel, (call) async {
           if (call.method == 'snapshot') return engine.state;
-          if (call.method == 'automation') {
-            return [
-              {
-                'id': 1,
-                'type': 'WAIT_FOR_TEXT',
-                'text': '한글 출력 기다리기',
-                'failurePolicy': 'STOP',
-              },
-            ];
-          }
           if (call.method == 'forwards') {
             return [
               {
@@ -187,9 +175,6 @@ void main() {
       'themes',
       'palette',
       'forwards',
-      'automation',
-      'automation-step',
-      'key-export',
     ]) {
       testWidgets('$name fits ${width.toInt()} at $scale text', (tester) async {
         final page = switch (name) {
@@ -207,11 +192,7 @@ void main() {
           'themes' => SchemesPage(engine: engine),
           'palette' => PalettePage(engine: engine, scheme: scheme),
           'forwards' => ForwardsPage(engine: engine, host: host),
-          'automation' => AutomationPage(engine: engine, host: host),
-          'automation-step' => AutomationStepPage(engine: engine, host: host),
-          _ => const Scaffold(
-            body: KeyExportSheet(privateOnly: true, allowPrivate: true),
-          ),
+          _ => throw StateError(name),
         };
         await open(tester, page, width, scale);
         await capture(tester, '$name-${width.toInt()}-$scale');
@@ -250,38 +231,6 @@ void main() {
             );
           }
         }
-      }
-    });
-  }
-  for (final type in ['WAIT_FOR_TEXT', 'SEND_KEY', 'ENABLE_FORWARD', 'DELAY']) {
-    testWidgets('automation $type labels remain readable at 2x', (
-      tester,
-    ) async {
-      await open(
-        tester,
-        AutomationStepPage(
-          engine: engine,
-          host: host,
-          action: {'type': type, 'text': '한글 출력', 'key': 13, 'forwardId': 1},
-        ),
-        360,
-        2,
-      );
-      await capture(tester, 'automation-$type-360-2.0');
-      expect(tester.takeException(), isNull);
-      for (final element
-          in find
-              .descendant(
-                of: find.byType(InputDecorator),
-                matching: find.byType(RichText),
-              )
-              .evaluate()) {
-        final paragraph = element.findRenderObject()! as RenderParagraph;
-        expect(
-          paragraph.didExceedMaxLines,
-          isFalse,
-          reason: paragraph.text.toPlainText(),
-        );
       }
     });
   }

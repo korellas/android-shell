@@ -91,10 +91,7 @@ void main() {
       expect(find.text('공용 로그인 계정'), findsOneWidget);
       expect(find.text('SSH 키 인증 사용'), findsNothing);
       expect(find.text('비밀번호'), findsWidgets);
-      expect(find.text('SSH 인증 에이전트'), findsOneWidget);
-      await tester.ensureVisible(find.text('매번 확인'));
-      await tester.tap(find.text('매번 확인'));
-      await tester.pumpAndSettle();
+      expect(find.text('SSH 인증 에이전트'), findsNothing);
       await tester.ensureVisible(find.text('키 쓰지 않음'));
       await tester.tap(find.text('키 쓰지 않음'));
       await tester.pumpAndSettle();

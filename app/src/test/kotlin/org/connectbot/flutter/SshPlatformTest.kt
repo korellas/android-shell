@@ -27,7 +27,6 @@ import org.connectbot.data.entity.KnownHost
 import org.connectbot.data.entity.Pubkey
 import org.connectbot.di.CoroutineDispatchers
 import org.connectbot.util.BiometricKeyManager
-import org.connectbot.util.Encryptor
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -47,54 +46,57 @@ import java.security.spec.ECGenParameterSpec
 @RunWith(RobolectricTestRunner::class)
 class SshPlatformTest {
     @Test
-    fun existingSaltPrefixedKeyDecryptsWithoutReencodingOrChangingStorage() {
-        val original = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair().private.encoded
-        val salt = ByteArray(8)
-        val encrypted = salt.let {
-            val ciphertext = requireNotNull(Encryptor.encrypt(it, 1000, "key password", original))
-            it + ciphertext
-        }
-        val key = key(encrypted, encrypted = true)
-        assertArrayEquals(original, key.sshKeyMaterial("key password")["privateKey"] as ByteArray)
-        assertArrayEquals(encrypted, key.privateKey)
-        assertThrows(IllegalArgumentException::class.java) { key.sshKeyMaterial(null) }
-        assertThrows(Exception::class.java) { key.sshKeyMaterial("incorrect password") }
+    fun onlyMatchingP256KeystoreKeysAreEligible() {
+        val manager = mock(BiometricKeyManager::class.java)
+        val pair = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }.generateKeyPair()
+        val protected = key(null).copy(
+            type = "EC",
+            publicKey = pair.public.encoded,
+            storageType = KeyStorageType.ANDROID_KEYSTORE,
+            keystoreAlias = "device-key",
+        )
+        `when`(manager.keyExists("device-key")).thenReturn(true)
+        `when`(manager.isAuthPerUse("device-key")).thenReturn(true)
+        `when`(manager.getPublicKey("device-key")).thenReturn(pair.public)
+        assertTrue(protected.isKeystoreSshKeyEligible(manager))
+        assertFalse(protected.copy(privateKey = byteArrayOf(1)).isKeystoreSshKeyEligible(manager))
+        assertFalse(protected.copy(storageType = KeyStorageType.EXPORTABLE).isKeystoreSshKeyEligible(manager))
+        assertFalse(protected.copy(publicKey = byteArrayOf(9)).isKeystoreSshKeyEligible(manager))
+        val p384 = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp384r1")) }.generateKeyPair().public
+        `when`(manager.getPublicKey("device-key")).thenReturn(p384)
+        assertFalse(protected.copy(publicKey = p384.encoded).isKeystoreSshKeyEligible(manager))
     }
 
     @Test
-    fun protectedMaterialNeverExposesPrivateBytesEvenIfDatabaseContainsThem() {
-        val material = key(byteArrayOf(1, 2, 3)).copy(storageType = KeyStorageType.ANDROID_KEYSTORE).sshKeyMaterial(null)
+    fun protectedMaterialNeverExposesPrivateBytes() {
+        val manager = mock(BiometricKeyManager::class.java)
+        val pair = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }.generateKeyPair()
+        val key = key(null).copy(
+            type = "EC",
+            publicKey = pair.public.encoded,
+            storageType = KeyStorageType.ANDROID_KEYSTORE,
+            keystoreAlias = "device-key",
+        )
+        `when`(manager.keyExists("device-key")).thenReturn(true)
+        `when`(manager.isAuthPerUse("device-key")).thenReturn(true)
+        `when`(manager.getPublicKey("device-key")).thenReturn(pair.public)
+        val material = key.sshKeyMaterial(manager)
         assertEquals(true, material["biometric"])
         assertFalse(material.containsKey("privateKey"))
         assertFalse(material.containsKey("pem"))
-        assertArrayEquals(byteArrayOf(4), material["publicKey"] as ByteArray)
+        assertArrayEquals(pair.public.encoded, material["publicKey"] as ByteArray)
+        assertThrows(IllegalArgumentException::class.java) { key(null).sshKeyMaterial(manager) }
     }
 
     @Test
-    fun importedPemRemainsOriginalAndSoftwareMaterialIsACopy() {
-        val pem = "-----BEGIN OPENSSH PRIVATE KEY-----\noriginal bytes\n"
-        assertEquals(pem, key(pem.toByteArray()).copy(type = "IMPORTED").sshKeyMaterial(null)["pem"])
-        val original = byteArrayOf(1, 2)
-        val material = key(original).sshKeyMaterial(null)["privateKey"] as ByteArray
-        material[0] = 9
-        assertArrayEquals(byteArrayOf(1, 2), original)
-    }
-
-    @Test
-    fun protectedSigningAllowsOnlyMatchingSha2Algorithms() {
+    fun protectedSigningAllowsOnlyP256Ecdsa() {
         val rsa = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair().public
-        assertEquals("SHA256withRSA", sshSigningAlgorithm(rsa, "rsa-sha2-256"))
-        assertEquals("SHA512withRSA", sshSigningAlgorithm(rsa, "rsa-sha2-512"))
-        assertThrows(IllegalStateException::class.java) { sshSigningAlgorithm(rsa, "ssh-rsa") }
-        for ((curve, wire, jca) in listOf(
-            Triple("secp256r1", "ecdsa-sha2-nistp256", "SHA256withECDSA"),
-            Triple("secp384r1", "ecdsa-sha2-nistp384", "SHA384withECDSA"),
-            Triple("secp521r1", "ecdsa-sha2-nistp521", "SHA512withECDSA"),
-        )) {
-            val ec = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec(curve)) }.generateKeyPair().public
-            assertEquals(jca, sshSigningAlgorithm(ec, wire))
-            assertThrows(IllegalArgumentException::class.java) { sshSigningAlgorithm(ec, "rsa-sha2-256") }
-        }
+        assertThrows(IllegalStateException::class.java) { sshSigningAlgorithm(rsa, "rsa-sha2-256") }
+        val p256 = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }.generateKeyPair().public
+        assertEquals("SHA256withECDSA", sshSigningAlgorithm(p256, "ecdsa-sha2-nistp256"))
+        assertThrows(IllegalArgumentException::class.java) { sshSigningAlgorithm(p256, "rsa-sha2-256") }
+        val p384 = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp384r1")) }.generateKeyPair().public
+        assertThrows(IllegalArgumentException::class.java) { sshSigningAlgorithm(p384, "ecdsa-sha2-nistp384") }
     }
 
     @Test
@@ -163,21 +165,29 @@ class SshPlatformTest {
         val engine = mock(AndroidShellEngine::class.java)
         val repository = mock(PubkeyRepository::class.java)
         val biometrics = mock(BiometricKeyManager::class.java)
-        val pair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
-        val signature = Signature.getInstance("SHA256withRSA").apply { initSign(pair.private) }
+        val pair = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }.generateKeyPair()
+        val signature = Signature.getInstance("SHA256withECDSA").apply { initSign(pair.private) }
         val crypto = BiometricPrompt.CryptoObject(signature)
-        val key = key(byteArrayOf()).copy(id = 9, storageType = KeyStorageType.ANDROID_KEYSTORE, keystoreAlias = "device-key")
+        val key = key(null).copy(
+            id = 9,
+            type = "EC",
+            publicKey = pair.public.encoded,
+            storageType = KeyStorageType.ANDROID_KEYSTORE,
+            keystoreAlias = "device-key",
+        )
         `when`(engine.authenticated).thenReturn(true)
         `when`(engine.activity).thenReturn(activity)
         `when`(engine.keys).thenReturn(repository)
         `when`(activity.dispatchers).thenReturn(CoroutineDispatchers(dispatcher, dispatcher, dispatcher))
         `when`(activity.biometricKeys).thenReturn(biometrics)
         `when`(repository.getById(9)).thenReturn(key)
+        `when`(biometrics.keyExists("device-key")).thenReturn(true)
+        `when`(biometrics.isAuthPerUse("device-key")).thenReturn(true)
         `when`(biometrics.getPublicKey("device-key")).thenReturn(pair.public)
-        `when`(biometrics.getCryptoObject("device-key", "SHA256withRSA")).thenReturn(crypto)
+        `when`(biometrics.getCryptoObject("device-key", "SHA256withECDSA")).thenReturn(crypto)
         `when`(activity.authenticate(key.nickname, crypto)).thenReturn(null)
         val data = byteArrayOf(1, 2, 3)
-        val args = mapOf("id" to 9L, "algorithm" to "rsa-sha2-256", "data" to data)
+        val args = mapOf("id" to 9L, "algorithm" to "ecdsa-sha2-nistp256", "data" to data)
         assertEquals(mapOf("authcancel" to true), engine.sshPlatformOperation("ssh.sign", args))
         assertFalse(mockingDetails(biometrics).invocations.any { it.method.name == "sign" })
         val result = mock(BiometricPrompt.AuthenticationResult::class.java)
@@ -189,7 +199,7 @@ class SshPlatformTest {
         assertEquals(1, mockingDetails(biometrics).invocations.count { it.method.name == "sign" })
     }
 
-    private fun key(private: ByteArray, encrypted: Boolean = false) = Pubkey(
+    private fun key(private: ByteArray?, encrypted: Boolean = false) = Pubkey(
         nickname = "test",
         type = "RSA",
         privateKey = private,

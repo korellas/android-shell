@@ -19,41 +19,39 @@ package org.connectbot.flutter
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.net.Uri
 import kotlinx.coroutines.withContext
 import org.connectbot.data.entity.KeyStorageType
 import org.connectbot.data.entity.Pubkey
-import java.security.KeyPairGenerator
-import java.security.spec.ECGenParameterSpec
+import org.connectbot.util.BiometricAvailability
+import org.connectbot.util.BiometricKeyManager
 
 internal suspend fun AndroidShellEngine.keyStorageOperation(method: String, args: Wire): Any? {
     check(authenticated) { "App is locked" }
-    if (method == "key.storagePick") {
-        val uri = args.optionalText("uri")?.let(Uri::parse) ?: activity.pickDocument(arrayOf("*/*")) ?: return null
-        return withContext(activity.dispatchers.io) {
-            mapOf("text" to requireNotNull(activity.contentResolver.openInputStream(uri)).use { it.readBytes().toString(Charsets.UTF_8) }, "nickname" to (uri.lastPathSegment ?: "Imported key"))
+    if (method == "key.storageWrite" || method == "key.storageCopy") {
+        val text = args.text("text").also(::requireSshPublicKeyText)
+        if (method == "key.storageCopy") {
+            activity.getSystemService(ClipboardManager::class.java)
+                .setPrimaryClip(ClipData.newPlainText("SSH public key", text))
+            return null
         }
-    }
-    if (method == "key.storageWrite") {
-        val uri = activity.createDocument(args.text("name")) ?: return null
+        val name = args.text("name").takeIf { it.endsWith(".pub") && !it.contains('/') && !it.contains('\\') }
+            ?: "id_ecdsa.pub"
+        val uri = activity.createDocument(name) ?: return null
         return withContext(activity.dispatchers.io) {
-            requireNotNull(activity.contentResolver.openOutputStream(uri)).use { it.write(args.text("text").toByteArray()) }
+            requireNotNull(activity.contentResolver.openOutputStream(uri)).use {
+                it.write((text + "\n").toByteArray())
+            }
             null
         }
     }
-    if (method == "key.storageCopy") {
-        activity.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("SSH key", args.text("text")))
-        return null
-    }
     return withContext(activity.dispatchers.io) {
+        val manager = activity.biometricKeys
         when (method) {
-            "key.storageList" -> keys.getAll().map { it.storageWire() }
-
-            "key.storageMaterial" -> requireNotNull(keys.getById(args.number("id"))).sshKeyMaterial(args.optionalText("password"))
+            "key.storageList" -> keys.getAll().map { it.storageWire(manager) }
 
             "key.storageDelete" -> {
                 keys.getById(args.number("id"))?.let { key ->
-                    key.keystoreAlias?.let { activity.biometricKeys.deleteKey(it) }
+                    key.keystoreAlias?.let(manager::deleteKey)
                     keys.delete(key)
                 }
                 changed()
@@ -61,80 +59,56 @@ internal suspend fun AndroidShellEngine.keyStorageOperation(method: String, args
             }
 
             "key.storageGenerate" -> {
-                val type = args.text("type", "ED25519")
-                val bits = args.number("bits", if (type == "RSA") 4096 else 256).toInt()
-                require(type in setOf("RSA", "EC")) { "Unsupported key generation algorithm" }
-                if (args.flag("biometric")) {
-                    require(type != "ED25519" && !args.flag("startup"))
-                    val alias = activity.biometricKeys.generateKeyAlias()
-                    try {
-                        val public = activity.biometricKeys.generateKey(alias, type, bits)
-                        keys.save(
-                            Pubkey(
-                                nickname = args.text("nickname"), type = type, privateKey = null, publicKey = public.encoded,
-                                encrypted = false, startup = false, confirmation = args.flag("confirmation"), createdDate = System.currentTimeMillis(),
-                                storageType = KeyStorageType.ANDROID_KEYSTORE, allowBackup = false, keystoreAlias = alias,
-                            ),
-                        ).storageWire()
-                    } catch (error: Exception) {
-                        activity.biometricKeys.deleteKey(alias)
-                        throw error
-                    }
-                } else {
-                    val generator = KeyPairGenerator.getInstance(type)
-                    when (type) {
-                        "RSA" -> {
-                            require(bits in 1024..8192 && bits % 8 == 0)
-                            generator.initialize(bits)
-                        }
-
-                        "EC" -> generator.initialize(
-                            ECGenParameterSpec(
-                                when (bits) {
-                                    256 -> "secp256r1"
-                                    384 -> "secp384r1"
-                                    521 -> "secp521r1"
-                                    else -> error("Unsupported EC size")
-                                },
-                            ),
-                        )
-                    }
-                    val pair = generator.generateKeyPair()
-                    mapOf("privateKey" to pair.private.encoded, "publicKey" to pair.public.encoded)
+                require(manager.isBiometricAvailable() == BiometricAvailability.AVAILABLE) {
+                    "Strong biometric authentication is required"
+                }
+                require(args.text("type", "EC") == "EC" && args.number("bits", 256).toInt() == 256) {
+                    "Only P-256 Android Keystore keys are supported"
+                }
+                val nickname = args.text("nickname").trim()
+                require(nickname.isNotEmpty()) { "Key name is required" }
+                require(keys.getByNickname(nickname) == null) { "A key with that name already exists" }
+                val alias = manager.generateKeyAlias()
+                try {
+                    val public = manager.generateEcKey(alias)
+                    keys.save(
+                        Pubkey(
+                            nickname = nickname,
+                            type = "EC",
+                            privateKey = null,
+                            publicKey = public.encoded,
+                            encrypted = false,
+                            startup = false,
+                            confirmation = false,
+                            createdDate = System.currentTimeMillis(),
+                            storageType = KeyStorageType.ANDROID_KEYSTORE,
+                            allowBackup = false,
+                            keystoreAlias = alias,
+                        ),
+                    ).storageWire(manager)
+                } catch (error: Exception) {
+                    manager.deleteKey(alias)
+                    throw error
                 }
             }
 
             "key.storageSave" -> {
-                val old = args.optionalId("id")?.let { requireNotNull(keys.getById(it)) }
-                val nickname = args.text("nickname", old?.nickname ?: "")
-                require(nickname.isNotBlank())
-                require(keys.getByNickname(nickname)?.id.let { it == null || it == old?.id }) { "A key with that name already exists" }
-                val pem = args.optionalText("pem")
-                require(old?.isBiometric != true || pem == null)
-                val updated = old?.copy(
-                    nickname = nickname,
-                    startup = args.flag("startup", old.startup),
-                    confirmation = args.flag("confirmation", old.confirmation),
-                    allowBackup = !old.isBiometric && args.flag("allowBackup", old.allowBackup),
-                    type = if (pem != null) "IMPORTED" else old.type,
-                    privateKey = pem?.toByteArray() ?: old.privateKey,
-                    publicKey = (args["publicKey"] as? ByteArray) ?: old.publicKey,
-                    encrypted = if (pem != null) args.flag("encrypted") else old.encrypted,
-                )
-                    ?: Pubkey(
+                val old = requireNotNull(keys.getById(args.number("id")))
+                val nickname = args.text("nickname", old.nickname).trim()
+                require(nickname.isNotEmpty()) { "Key name is required" }
+                require(keys.getByNickname(nickname)?.id.let { it == null || it == old.id }) {
+                    "A key with that name already exists"
+                }
+                val saved = keys.save(
+                    old.copy(
                         nickname = nickname,
-                        type = "IMPORTED",
-                        privateKey = requireNotNull(pem).toByteArray(),
-                        publicKey = (args["publicKey"] as? ByteArray) ?: byteArrayOf(),
-                        encrypted = args.flag("encrypted"),
-                        startup = args.flag("startup"),
-                        confirmation = args.flag("confirmation"),
-                        createdDate = System.currentTimeMillis(),
-                    )
-                require(!updated.isBiometric || !updated.startup)
-                val saved = keys.save(updated)
+                        startup = false,
+                        confirmation = args.flag("confirmation", old.confirmation),
+                        allowBackup = false,
+                    ),
+                )
                 changed()
-                saved.storageWire()
+                saved.storageWire(manager)
             }
 
             else -> error("Unknown key storage operation: $method")
@@ -142,8 +116,29 @@ internal suspend fun AndroidShellEngine.keyStorageOperation(method: String, args
     }
 }
 
-internal fun Pubkey.storageWire(): Wire = mapOf(
-    "id" to id, "nickname" to nickname, "type" to type, "encrypted" to encrypted,
-    "publicBytes" to publicKey, "startup" to startup, "confirmation" to confirmation,
-    "createdDate" to createdDate, "biometric" to isBiometric, "allowBackup" to allowBackup,
-)
+internal fun Pubkey.storageWire(manager: BiometricKeyManager? = null): Wire {
+    val eligible = manager?.let(::isKeystoreSshKeyEligible) ?: false
+    return mapOf(
+        "id" to id,
+        "nickname" to nickname,
+        "type" to type,
+        "encrypted" to encrypted,
+        "publicBytes" to publicKey,
+        "startup" to false,
+        "confirmation" to confirmation,
+        "createdDate" to createdDate,
+        "biometric" to isBiometric,
+        "eligible" to eligible,
+        "allowBackup" to false,
+    )
+}
+
+private fun requireSshPublicKeyText(text: String) {
+    require(text.length in 32..16384 && !text.contains('\n') && !text.contains('\r'))
+    require(
+        text.startsWith("ecdsa-sha2-nistp256 ") ||
+            text.startsWith("ssh-ed25519 ") ||
+            text.startsWith("ssh-rsa "),
+    ) { "Only OpenSSH public keys can be copied or saved" }
+    require(!text.contains("PRIVATE KEY", ignoreCase = true))
+}

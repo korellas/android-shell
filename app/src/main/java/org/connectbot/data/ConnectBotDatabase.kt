@@ -40,14 +40,13 @@ import org.connectbot.data.entity.KnownHost
 import org.connectbot.data.entity.PortForward
 import org.connectbot.data.entity.Profile
 import org.connectbot.data.entity.Pubkey
-import java.util.UUID
 
 /**
  * ConnectBot Room database.
  *
  * This database contains all the tables needed to run ConnectBot:
  * - hosts: SSH/Telnet connection configurations
- * - pubkeys: SSH key pairs with security-conscious backup controls
+ * - pubkeys: Keystore key metadata and quarantined historical software-key rows
  * - port_forwards: SSH port forwarding rules
  * - known_hosts: SSH host key verification data
  * - color_schemes: Terminal color scheme metadata
@@ -70,8 +69,7 @@ import java.util.UUID
  * - Future versions: Use Room AutoMigration when possible for simple schema changes
  *
  * Security Considerations:
- * - Pubkeys table supports per-key backup control via allowBackup field
- * - Custom BackupAgent filters pubkeys during backup/restore operations
+ * - Android backup is disabled; key rows stay device-local
  */
 @Database(
     entities = [
@@ -130,22 +128,8 @@ abstract class ConnectBotDatabase : RoomDatabase() {
                     """.trimIndent(),
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_automation_actions_host_id ON automation_actions(host_id)")
-                migratePostLogin(db)
+                db.execSQL("UPDATE hosts SET post_login = NULL WHERE post_login IS NOT NULL")
             }
-        }
-
-        /** Also used after importing an older JSON backup. Never trims or interprets text. */
-        fun migratePostLogin(db: SupportSQLiteDatabase) {
-            db.query("SELECT id, post_login FROM hosts WHERE post_login IS NOT NULL AND post_login <> ''").use { cursor ->
-                while (cursor.moveToNext()) {
-                    db.execSQL(
-                        "INSERT INTO automation_actions (id, host_id, position, type, text, regex, duration_ms, `key`, modifiers, forward_id, failure_policy) " +
-                            "VALUES (?, ?, 0, 'SEND_TEXT', ?, 0, 30000, 1, 0, NULL, 'STOP')",
-                        arrayOf<Any>(UUID.randomUUID().toString(), cursor.getLong(0), cursor.getString(1)),
-                    )
-                }
-            }
-            db.execSQL("UPDATE hosts SET post_login = NULL WHERE post_login IS NOT NULL")
         }
 
         /**

@@ -61,7 +61,6 @@ class SSHAlgorithms {
       SSHKexType.nistp521,
       SSHKexType.nistp384,
       SSHKexType.nistp256,
-      SSHKexType.dhGexSha256,
       SSHKexType.dh14Sha256,
     ],
     this.hostkey = const [
@@ -85,7 +84,6 @@ class SSHAlgorithms {
       SSHMacType.hmacSha512Etm,
       SSHMacType.hmacSha256,
       SSHMacType.hmacSha512,
-      SSHMacType.hmacSha1,
     ],
   });
 }

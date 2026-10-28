@@ -58,8 +58,7 @@ void main() {
         expect(args['fingerprint'], 'SHA256:${List.filled(43, 'A').join()}');
         return {'status': 'changed'};
       case 'ssh.saveHost':
-        expect(args['replace'], true);
-        return {};
+        throw StateError('changed host keys must never be saved inline');
       case 'ssh.closeCodec':
         return null;
       default:
@@ -69,8 +68,7 @@ void main() {
 
   AppSshSession create({
     Future<void> Function(FakeTransport)? connect,
-    Future<List<SSHIdentity>> Function({required int id, String? password})?
-    loadIdentities,
+    Future<List<SSHIdentity>> Function({required int id})? loadIdentities,
   }) => AppSshSession(
     id: 7,
     prepared: prepared,
@@ -116,6 +114,33 @@ void main() {
   tearDown(() async {
     await session.dispose();
   });
+  test('remote terminal control sequences cannot access the clipboard', () async {
+    session = create();
+
+    expect(session.terminal.onClipboardStore, isNotNull);
+    expect(session.terminal.onClipboardQuery, isNotNull);
+    expect(session.terminal.clipboardDecoder, isNotNull);
+    expect(
+      session.terminal.clipboardDecoder!('c', 'c2VjcmV0'),
+      isNull,
+    );
+    expect(
+      await Future<String?>.value(
+        session.terminal.onClipboardQuery!('c'),
+      ),
+      isNull,
+    );
+
+    session.terminal.write('\x1b]52;c;?\x07');
+    session.terminal.write('\x1b]52;c;c2VjcmV0\x07');
+    session.terminal.write(
+      '\x1b]1337;CopyToClipboard=c\x07secret\x1b]1337;EndCopy\x07',
+    );
+    session.terminal.write('\x1b]5522;type=write;c2VjcmV0\x07');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(transports, isEmpty);
+  });
   test('legacy SOCKS4 startup cannot abort a valid SSH connection', () async {
     prepared['forwards'] = [
       {'id': 8, 'type': 'dynamic4', 'startEnabled': true},
@@ -123,7 +148,7 @@ void main() {
     session = create();
     await session.connect();
     expect(session.sessionOpen, true);
-    expect(session.forwards.single['startEnabled'], true);
+    expect(session.forwards.single['startEnabled'], false);
     expect(session.forwards.single['enabled'], false);
     await expectLater(session.setForward(8, true), throwsUnsupportedError);
   });
@@ -151,34 +176,24 @@ void main() {
       expect(transports.length, 2);
     },
   );
-  test(
-    'changed trust is not saved until token matched explicit confirmation',
-    () async {
-      session = create(
-        connect: (transport) async {
-          expect(
-            await transport.endpoints.single.verifyHostKey(
-              'ssh-ed25519',
-              Uint8List.fromList(
-                utf8.encode('SHA256:${List.filled(43, 'A').join()}'),
-              ),
+  test('changed host key is rejected without prompting or saving', () async {
+    session = create(
+      connect: (transport) async {
+        expect(
+          await transport.endpoints.single.verifyHostKey(
+            'ssh-ed25519',
+            Uint8List.fromList(
+              utf8.encode('SHA256:${List.filled(43, 'A').join()}'),
             ),
-            true,
-          );
-        },
-      );
-      final connecting = session.connect();
-      while (session.prompts.isEmpty) {
-        await Future<void>.delayed(Duration.zero);
-      }
-      expect(calls.any((call) => call.startsWith('ssh.saveHost')), false);
-      expect(session.respond('stale', true), false);
-      expect(session.prompts.single['instructions'], contains('변경'));
-      session.respond(session.prompts.single['token'] as String, true);
-      await connecting;
-      expect(calls.any((call) => call.startsWith('ssh.saveHost')), true);
-    },
-  );
+          ),
+          false,
+        );
+      },
+    );
+    await session.connect();
+    expect(session.prompts, isEmpty);
+    expect(calls.any((call) => call.startsWith('ssh.saveHost')), false);
+  });
   test(
     'cancel authentication closes entire session and rejects stale answer',
     () async {
@@ -235,9 +250,8 @@ void main() {
     ];
     var loaded = false;
     session = create(
-      loadIdentities: ({required id, password}) async {
+      loadIdentities: ({required id}) async {
         expect(id, 4);
-        expect(password, isNull);
         loaded = true;
         return [];
       },
@@ -250,6 +264,26 @@ void main() {
     expect(session.prompts, isEmpty);
     await connecting;
     expect(loaded, true);
+  });
+
+  test('any-key mode tries every native-filtered protected key', () async {
+    prepared['host']['pubkeyId'] = -1;
+    prepared['keys'] = [
+      {'id': 4, 'nickname': 'first', 'biometric': true, 'loaded': false},
+      {'id': 5, 'nickname': 'second', 'biometric': true, 'loaded': false},
+    ];
+    final loaded = <int>[];
+    session = create(
+      loadIdentities: ({required id}) async {
+        loaded.add(id);
+        return [];
+      },
+      connect: (transport) async {
+        await transport.endpoints.single.loadIdentities!();
+      },
+    );
+    await session.connect();
+    expect(loaded, [4, 5]);
   });
 
   test('key confirmation is deferred and denial skips only that key', () async {

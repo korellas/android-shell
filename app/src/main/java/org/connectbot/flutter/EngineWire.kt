@@ -17,7 +17,6 @@
 
 package org.connectbot.flutter
 
-import org.connectbot.data.entity.AutomationAction
 import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.PortForward
 import org.connectbot.data.entity.Profile
@@ -33,7 +32,7 @@ internal fun Host.toWire(): Wire = mapOf(
     "id" to id, "nickname" to nickname, "favorite" to favorite, "identityId" to identityId,
     "protocol" to protocol, "username" to username, "hostname" to hostname, "port" to port,
     "hostKeyAlgo" to hostKeyAlgo, "lastConnect" to lastConnect, "color" to color, "useKeys" to useKeys,
-    "useAuthAgent" to useAuthAgent, "postLogin" to postLogin, "pubkeyId" to pubkeyId, "wantSession" to wantSession,
+    "useAuthAgent" to null, "postLogin" to null, "pubkeyId" to pubkeyId, "wantSession" to wantSession,
     "compression" to compression, "stayConnected" to stayConnected, "quickDisconnect" to quickDisconnect,
     "scrollbackLines" to scrollbackLines, "useCtrlAltAsMetaKey" to useCtrlAltAsMetaKey,
     "jumpHostId" to jumpHostId, "profileId" to profileId, "ipVersion" to ipVersion, "moshPort" to moshPort,
@@ -53,7 +52,7 @@ internal fun Wire.toHost(): Host {
         id = data.number("id"), nickname = data.text("nickname"), favorite = data.flag("favorite"), identityId = data.optionalId("identityId"),
         protocol = protocol, username = data.text("username"), hostname = data.text("hostname"), port = if (protocol == "local") 0 else data.number("port").toInt(),
         hostKeyAlgo = data.optionalText("hostKeyAlgo"), lastConnect = data.number("lastConnect"), color = data.optionalText("color"),
-        useKeys = data.flag("useKeys"), useAuthAgent = data.optionalText("useAuthAgent"), postLogin = data.optionalText("postLogin"),
+        useKeys = data.flag("useKeys"), useAuthAgent = null, postLogin = null,
         pubkeyId = data.number("pubkeyId"), wantSession = data.flag("wantSession"), compression = data.flag("compression"),
         stayConnected = data.flag("stayConnected"), quickDisconnect = data.flag("quickDisconnect"), scrollbackLines = data.number("scrollbackLines").toInt(),
         useCtrlAltAsMetaKey = data.flag("useCtrlAltAsMetaKey"), jumpHostId = data.optionalId("jumpHostId"), profileId = data.optionalId("profileId"),
@@ -64,26 +63,22 @@ internal fun Wire.toHost(): Host {
 internal fun Profile.toWire(): Wire = mapOf(
     "id" to id, "name" to name, "iconColor" to iconColor, "colorSchemeId" to colorSchemeId,
     "fontFamily" to fontFamily, "fontSize" to fontSize, "delKey" to delKey, "encoding" to encoding,
-    "emulation" to emulation, "inlineImages" to inlineImages, "forceSizeRows" to forceSizeRows, "forceSizeColumns" to forceSizeColumns,
+    "emulation" to emulation, "inlineImages" to "off", "forceSizeRows" to forceSizeRows, "forceSizeColumns" to forceSizeColumns,
 )
 internal fun Wire.toProfile(): Profile {
     val data = Profile(name = "").toWire() + this
     require(data.text("name").isNotBlank()) { "프로필 이름을 입력하세요." }
     require(data.number("fontSize") in 4..72) { "글자 크기는 4–72 범위여야 합니다." }
-    require(data.text("inlineImages") in setOf("off", "ask", "on")) { "이미지 정책을 확인하세요." }
     require(data.optionalId("forceSizeRows") == null || data.number("forceSizeRows") > 0) { "행 크기를 확인하세요." }
     require(data.optionalId("forceSizeColumns") == null || data.number("forceSizeColumns") > 0) { "열 크기를 확인하세요." }
     return Profile(
         data.number("id"), data.text("name"), data.optionalText("iconColor"), data.number("colorSchemeId"), data.optionalText("fontFamily"),
-        data.number("fontSize").toInt(), data.text("delKey"), data.text("encoding"), data.text("emulation"), data.text("inlineImages"),
+        data.number("fontSize").toInt(), data.text("delKey"), data.text("encoding"), data.text("emulation"), "off",
         data.optionalId("forceSizeRows")?.toInt(), data.optionalId("forceSizeColumns")?.toInt(),
     )
 }
 internal fun PortForward.toWire(): Wire = mapOf(
     "id" to id, "hostId" to hostId, "nickname" to nickname, "type" to type,
-    "sourceAddr" to sourceAddr, "sourcePort" to sourcePort, "destAddr" to destAddr, "destPort" to destPort, "startEnabled" to startEnabled, "enabled" to isEnabled(),
-)
-internal fun AutomationAction.toWire(): Wire = mapOf(
-    "id" to id, "hostId" to hostId, "position" to position, "type" to type.name,
-    "text" to text, "regex" to regex, "durationMs" to durationMs, "key" to key, "modifiers" to modifiers, "forwardId" to forwardId, "failurePolicy" to failurePolicy.name,
+    "sourceAddr" to if (type == "remote") sourceAddr else "127.0.0.1", "sourcePort" to sourcePort,
+    "destAddr" to destAddr, "destPort" to destPort, "startEnabled" to false, "enabled" to isEnabled(),
 )

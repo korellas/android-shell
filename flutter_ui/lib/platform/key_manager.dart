@@ -15,132 +15,31 @@
  * limitations under the License.
  */
 import 'dart:convert';
-import 'dart:isolate';
-import 'dart:math';
 import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
-import 'package:pinenacl/ed25519.dart' as ed25519;
 import 'package:pointycastle/digests/sha256.dart';
 import 'ssh_keys.dart';
 
+/// Manages public metadata for device-bound Android Keystore SSH keys.
+///
+/// Private key bytes never cross the platform boundary. Historical software
+/// keys remain visible so the user can inspect and delete them, but they are
+/// not eligible for authentication or private-key operations.
 class KeyManager {
-  KeyManager(this.call, {this.rememberUnlocked});
+  KeyManager(this.call);
   final SshPlatformCall call;
-  final bool Function()? rememberUnlocked;
-  int _cacheGeneration = 0;
-  final Map<int, List<SSHIdentity>> _loaded = {};
-  final List<Map<String, Object?>> _startup = [];
-  final _ephemeral = <int, Map<String, Object?>>{};
-  int _nextAgentId = 0;
-  Map<int, List<SSHIdentity>> get loadedIdentities => Map.unmodifiable(_loaded);
-  Map<String, Object?>? ephemeralMetadata(int id) => _ephemeral[id];
-  void forgetStoredKeys() {
-    _cacheGeneration++;
-    _loaded.removeWhere((id, _) => id >= 0);
-  }
 
-  Future<bool> addAgentKey(SSHKeyPair key, bool confirmation) async {
-    final wire = base64.encode(key.toPublicKey().encode());
-    for (final entry in _loaded.entries) {
-      if (base64.encode(entry.value.first.toPublicKey().encode()) == wire) {
-        return true;
-      }
-    }
-    final id = --_nextAgentId;
-    _loaded[id] = [key];
-    _ephemeral[id] = {
-      'id': id,
-      'nickname': key.comment ?? '',
-      'confirmation': confirmation,
-    };
-    return true;
-  }
+  Map<String, Object?> get state => const {};
+  List<Map<String, Object?>> get pendingStartup => const [];
 
-  Future<bool> removeAgentKey(Uint8List publicKey) async {
-    _cacheGeneration++;
-    final wire = base64.encode(publicKey);
-    final ids = _loaded.entries
-        .where(
-          (entry) =>
-              base64.encode(entry.value.first.toPublicKey().encode()) == wire,
-        )
-        .map((entry) => entry.key)
-        .toList();
-    for (final id in ids) {
-      _loaded.remove(id);
-      _ephemeral.remove(id);
-    }
-    return ids.isNotEmpty;
-  }
+  Future<List<SSHIdentity>> identities({required int id}) =>
+      SshKeyAdapter(call).identities(id: id);
 
-  Future<bool> removeAllAgentKeys() async {
-    _cacheGeneration++;
-    _loaded.clear();
-    _ephemeral.clear();
-    return true;
-  }
-
-  bool _startupInitialized = false;
-  String? _importText;
-  String? _importName;
-  bool _importEncrypted = false;
-  String? _error;
-  Map<String, Object?> get state => {
-    'error': _error,
-    'pendingNickname': _importText != null && !_importEncrypted
-        ? _importName
-        : null,
-    'importPassword': _importText != null && _importEncrypted
-        ? {'nickname': _importName, 'type': 'IMPORTED'}
-        : null,
-    'biometricUnlock': null,
-    'nicknameError': null,
-  };
-  List<Map<String, Object?>> get pendingStartup => List.unmodifiable(_startup);
-  Future<List<SSHIdentity>> identities({
-    required int id,
-    String? password,
-  }) async {
-    if (_loaded.containsKey(id)) return _loaded[id]!;
-    final generation = _cacheGeneration;
-    final result = await SshKeyAdapter(
-      call,
-    ).identities(id: id, password: password);
-    if (generation == _cacheGeneration &&
-        rememberUnlocked?.call() == true &&
-        result.every((identity) => identity is SSHKeyPair)) {
-      _loaded[id] = result;
-    }
-    return result;
-  }
-
-  Future<void> initializeStartup(List<Map<String, Object?>> keys) async {
-    if (_startupInitialized) return;
-    _startupInitialized = true;
-    for (final key in keys.where(
-      (k) =>
-          k['startup'] == true && k['biometric'] != true && k['type'] != 'DSA',
-    )) {
-      if (key['encrypted'] == true) {
-        _startup.add(key);
-        continue;
-      }
-      try {
-        _loaded[(key['id'] as num).toInt()] = await identities(
-          id: (key['id'] as num).toInt(),
-        );
-      } catch (e) {
-        _error = '$e';
-      }
-    }
-  }
-
-  List<Map<String, Object?>> decorateKeys(List<Map<String, Object?>> keys) {
-    return [for (final key in keys) _decorate(key)];
-  }
+  List<Map<String, Object?>> decorateKeys(List<Map<String, Object?>> keys) => [
+    for (final key in keys) _decorate(key),
+  ];
 
   Map<String, Object?> _decorate(Map<String, Object?> key) {
-    final id = (key['id'] as num).toInt();
     Uint8List? wire;
     try {
       final bytes = Uint8List.fromList(
@@ -150,9 +49,9 @@ class KeyManager {
         wire = key['type'] == 'IMPORTED' ? bytes : storedSshPublicKey(bytes);
       }
     } catch (_) {
-      /* Older imported PEM records have no public metadata. */
+      // Historical rows can have missing or malformed public metadata. They
+      // remain quarantined and deletable without parsing private material.
     }
-    wire ??= _loaded[id]?.first.toPublicKey().encode();
     String? algorithm;
     if (wire != null) {
       try {
@@ -161,22 +60,22 @@ class KeyManager {
         wire = null;
       }
     }
-    final supported = key['type'] != 'DSA' && algorithm != 'ssh-dss';
+    final eligible = key['eligible'] == true;
     final displayType = switch (algorithm) {
+      'ecdsa-sha2-nistp256' => 'EC',
       'ssh-rsa' => 'RSA',
       'ssh-ed25519' => 'Ed25519',
-      'ssh-dss' => 'DSA',
-      'ecdsa-sha2-nistp256' ||
-      'ecdsa-sha2-nistp384' ||
-      'ecdsa-sha2-nistp521' => 'EC',
       _ => key['type'],
     };
     return {
       ...key,
-      'loaded': _loaded.containsKey(id),
-      'supported': supported,
+      'loaded': false,
+      'supported': eligible,
       'displayType': displayType,
-      if (!supported) 'supportMessage': 'DSA 로그인 미지원',
+      if (!eligible)
+        'supportMessage': key['biometric'] == true
+            ? 'Android Keystore 키를 사용할 수 없음'
+            : '기존 개인키 · 사용 중지',
       'publicKey': wire == null
           ? null
           : '${SSHHostKey.getType(wire)} ${base64.encode(wire)} ${key['nickname']}',
@@ -187,218 +86,39 @@ class KeyManager {
   }
 
   Future<Object?> operation(String method, Map<String, Object?> args) async {
-    _error = null;
     final id = (args['id'] as num?)?.toInt();
     switch (method) {
-      case 'key.load':
-      case 'key.biometricUnlock':
-        _cacheGeneration++;
-        if (_loaded.remove(id) == null) {
-          _loaded[id!] = await identities(
-            id: id,
-            password: args['password'] as String?,
-          );
-        }
-        return null;
-      case 'key.startup':
-        if (args['cancel'] != true) {
-          _loaded[id!] = await identities(
-            id: id,
-            password: args['password'] as String?,
-          );
-        }
-        _startup.removeWhere((k) => k['id'] == id);
-        return null;
       case 'key.delete':
-        _cacheGeneration++;
-        await call('key.storageDelete', args);
-        _loaded.remove(id);
-        _startup.removeWhere((k) => k['id'] == id);
-        return null;
+        return call('key.storageDelete', {'id': id});
       case 'key.generate':
-        if (args['biometric'] == true) return call('key.storageGenerate', args);
-        SSHKeyPair pair;
-        if ((args['type'] ?? 'ED25519') == 'ED25519') {
-          pair = await Isolate.run(() {
-            final random = Random.secure();
-            final seed = Uint8List.fromList(
-              List.generate(32, (_) => random.nextInt(256)),
-            );
-            final key = ed25519.SigningKey.fromSeed(seed);
-            return OpenSSHEd25519KeyPair(
-              Uint8List.fromList(key.publicKey),
-              Uint8List.fromList(key),
-              '',
-            );
-          });
-        } else {
-          final material = Map<String, Object?>.from(
-            await call('key.storageGenerate', args) as Map,
-          );
-          pair = decodeStoredSshKey(
-            _bytes(material['privateKey']),
-            _bytes(material['publicKey']),
-          );
-        }
-        final pem = await _encode(pair, args['password'] as String?);
-        return call('key.storageSave', {
-          ...args,
-          'pem': pem,
-          'encrypted': (args['password'] as String? ?? '').isNotEmpty,
-          'publicKey': pair.toPublicKey().encode(),
+        return call('key.storageGenerate', {
+          'nickname': args['nickname'],
+          'type': 'EC',
+          'bits': 256,
         });
       case 'key.save':
-        final data = {...args};
-        if (args.containsKey('newPassword')) {
-          final pair =
-              (await identities(
-                    id: id!,
-                    password: args['oldPassword'] as String?,
-                  )).first
-                  as SSHKeyPair;
-          data.addAll({
-            'pem': await _encode(pair, args['newPassword'] as String?),
-            'encrypted': (args['newPassword'] as String? ?? '').isNotEmpty,
-            'publicKey': pair.toPublicKey().encode(),
-          });
-        }
-        final result = await call('key.storageSave', data);
-        if (data['pem'] != null) {
-          _cacheGeneration++;
-          _loaded.remove(id);
-        }
-        return result;
-      case 'key.import':
-        var text = args['text'] as String?;
-        var name = args['nickname'] as String?;
-        final namedText = text != null && name?.trim().isNotEmpty == true;
-        if (text == null) {
-          final picked = await call('key.storagePick', args);
-          if (picked == null) return null;
-          final data = Map<String, Object?>.from(picked as Map);
-          text = data['text'] as String;
-          name = data['nickname'] as String;
-        }
-        _importEncrypted = await Isolate.run(
-          () => SSHKeyPair.isEncryptedPem(text!),
-        );
-        if (!_importEncrypted) {
-          await Isolate.run(() => SSHKeyPair.fromPem(text!));
-        }
-        _importText = text;
-        _importName = name ?? 'Imported key';
-        if (!_importEncrypted && namedText) {
-          return operation('key.importName', {'nickname': _importName});
-        }
-        return null;
-      case 'key.importPassword':
-      case 'key.importName':
-        final text = _importText;
-        if (text == null) return null;
-        final password = args['password'] as String?;
-        final pair = (await Isolate.run(
-          () => SSHKeyPair.fromPem(text, _importEncrypted ? password : null),
-        )).single;
-        final encryptPassword = args['encrypt'] == true
-            ? (args['encryptPassword'] as String? ?? password)
-            : null;
-        final result = await call('key.storageSave', {
-          'nickname': args['nickname'] ?? _importName,
-          'pem': await _encode(pair, encryptPassword),
-          'encrypted': encryptPassword?.isNotEmpty == true,
-          'publicKey': pair.toPublicKey().encode(),
+        return call('key.storageSave', {
+          'id': id,
+          'nickname': args['nickname'],
+          'confirmation': args['confirmation'] == true,
         });
-        _clearImport();
-        return result;
-      case 'key.importCancel':
-        _clearImport();
-        return null;
       case 'key.copy':
       case 'key.export':
-        final keys = (await call('key.storageList', {}) as List).map(
-          (k) => Map<String, Object?>.from(k as Map),
-        );
-        final key = keys.firstWhere((k) => k['id'] == id);
-        final format = args['format'] as String? ?? 'public';
-        String text;
-        if (format == 'public') {
-          var decorated = _decorate(key);
-          if (decorated['publicKey'] == null) {
-            final identity = (await identities(
-              id: id!,
-              password: args['password'] as String?,
-            )).first;
-            final wire = identity.toPublicKey().encode();
-            decorated = _decorate({
-              ...key,
-              'type': 'IMPORTED',
-              'publicBytes': wire,
-            });
-          }
-          text = decorated['publicKey'] as String;
-        } else {
-          if (key['biometric'] == true) {
-            throw StateError('Protected private keys cannot be exported');
-          }
-          final pair =
-              (await identities(
-                    id: id!,
-                    password: args['password'] as String?,
-                  )).first
-                  as SSHKeyPair;
-          if (format == 'encrypted' &&
-              (args['exportPassword'] as String? ?? '').isEmpty) {
-            throw ArgumentError('Export password required');
-          }
-          if (!['pem', 'openssh', 'encrypted'].contains(format)) {
-            throw ArgumentError('Unsupported export format');
-          }
-          text = format == 'pem'
-              ? pair.toPem()
-              : await _encode(
-                  pair,
-                  format == 'encrypted'
-                      ? args['exportPassword'] as String
-                      : null,
-                );
+        if ((args['format'] as String? ?? 'public') != 'public') {
+          throw UnsupportedError('Private key export is not supported');
         }
+        final keys = (await call('key.storageList', {}) as List).map(
+          (value) => Map<String, Object?>.from(value as Map),
+        );
+        final key = _decorate(keys.firstWhere((value) => value['id'] == id));
+        final text = key['publicKey'];
+        if (text is! String) throw StateError('Public key is unavailable');
         return call(
           method == 'key.copy' ? 'key.storageCopy' : 'key.storageWrite',
-          {
-            'text': text,
-            'name': '${key['nickname']}${format == 'public' ? '.pub' : '.pem'}',
-          },
+          {'text': text, 'name': '${key['nickname']}.pub'},
         );
       default:
         throw UnsupportedError(method);
     }
   }
-
-  void _clearImport() {
-    _importText = null;
-    _importName = null;
-    _importEncrypted = false;
-  }
 }
-
-Uint8List _bytes(Object? value) =>
-    Uint8List.fromList((value as List).cast<int>());
-Future<String> _encode(SSHKeyPair pair, String? password) => Isolate.run(() {
-  final OpenSSHKeyPair open;
-  if (pair is OpenSSHKeyPair) {
-    open = pair;
-  } else if (pair is RsaPrivateKey) {
-    open = OpenSSHRsaKeyPair(
-      pair.n,
-      pair.e,
-      pair.d,
-      pair.q.modInverse(pair.p),
-      pair.p,
-      pair.q,
-      '',
-    );
-  } else {
-    throw UnsupportedError('Unsupported OpenSSH export algorithm');
-  }
-  return open.toPem(passphrase: password?.isNotEmpty == true ? password : null);
-});

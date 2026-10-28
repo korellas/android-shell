@@ -68,7 +68,7 @@ data class Host(
     val useKeys: Boolean = true,
 
     @ColumnInfo(name = "use_auth_agent")
-    val useAuthAgent: String? = "no",
+    val useAuthAgent: String? = null,
 
     @ColumnInfo(name = "post_login")
     val postLogin: String? = null,
@@ -196,19 +196,6 @@ data class Host(
         )
 
         /**
-         * Create a new Telnet host with default values (Java interop helper).
-         */
-        @JvmStatic
-        fun createTelnetHost(nickname: String, hostname: String, port: Int): Host = Host(
-            id = 0L,
-            nickname = nickname,
-            protocol = "telnet",
-            username = "",
-            hostname = hostname,
-            port = port,
-        )
-
-        /**
          * Create a new Local host with default values (Java interop helper).
          */
         @JvmStatic
@@ -219,30 +206,6 @@ data class Host(
             username = "",
             hostname = "",
             port = 0,
-        )
-
-        /**
-         * Create a new Mosh host with default values (Java interop helper).
-         */
-        @JvmStatic
-        fun createMoshHost(
-            nickname: String,
-            hostname: String,
-            port: Int,
-            username: String,
-            moshPort: Int = 0,
-            moshServer: String? = null,
-            locale: String = "en_US.UTF-8",
-        ): Host = Host(
-            id = 0L,
-            nickname = nickname,
-            protocol = "mosh",
-            username = username,
-            hostname = hostname,
-            port = port,
-            moshPort = moshPort,
-            moshServer = moshServer,
-            locale = locale,
         )
     }
 }

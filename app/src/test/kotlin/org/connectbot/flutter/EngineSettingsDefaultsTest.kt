@@ -27,7 +27,6 @@ import org.connectbot.ui.screens.settings.SettingsUiState
 import org.connectbot.ui.screens.settings.SettingsViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -74,12 +73,12 @@ class EngineSettingsDefaultsTest {
     }
 
     @Test
-    fun newHostsInheritAppProfileAndCurrentScrollbackWithoutChangingExistingHosts() {
+    fun newHostsInheritAppProfileAndDeprecatedAgentSettingsStayDisabled() {
         val defaults = state.value.newHostDefaults()
         assertNull(defaults.profileId)
         assertEquals(1234, defaults.scrollbackLines)
         val existing = Host(nickname = "Host", hostname = "example.test", profileId = 3, scrollbackLines = 567)
-        assertEquals(existing, (defaults.toWire() + existing.toWire()).toHost())
+        assertEquals(existing.copy(useAuthAgent = null), (defaults.toWire() + existing.toWire()).toHost())
     }
 
     @Test
@@ -89,18 +88,5 @@ class EngineSettingsDefaultsTest {
         assertEquals(0, host.port)
         assertNull(host.profileId)
         assertEquals(1234, host.scrollbackLines)
-    }
-
-    @Test
-    fun timedAutomationRequiresPositiveDurationAndUntimedActionsAllowZero() {
-        for (type in listOf("WAIT_FOR_TEXT", "DELAY")) {
-            for (duration in listOf(-1L, 0L)) {
-                assertThrows(IllegalArgumentException::class.java) {
-                    mapOf("type" to type, "durationMs" to duration).toAutomation(1, 0)
-                }
-            }
-            assertEquals(1L, mapOf("type" to type, "durationMs" to 1L).toAutomation(1, 0).durationMs)
-        }
-        assertEquals(0L, mapOf("type" to "SEND_TEXT", "durationMs" to 0L).toAutomation(1, 0).durationMs)
     }
 }

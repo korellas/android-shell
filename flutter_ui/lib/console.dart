@@ -348,10 +348,6 @@ class _ConsolePageState extends State<ConsolePage> {
       }
       return;
     }
-    if (action == 'cancelAutomation') {
-      await command('session.cancelAutomation');
-      return;
-    }
     if (action == 'urls') {
       final urls = await command('session.urls') as List? ?? [];
       if (mounted) {
@@ -903,8 +899,6 @@ class _ConsolePageState extends State<ConsolePage> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   if (session['connecting'] == true ||
-                                      row(session['automation'])['running'] ==
-                                          true ||
                                       progressVisible)
                                     LinearProgressIndicator(
                                       minHeight: 2,

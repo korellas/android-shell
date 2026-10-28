@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import 'package:xterm2/xterm.dart';
-import 'images/image_terminal.dart';
 import 'terminal_input.dart';
-import '../ssh/automation.dart';
 
 typedef TerminalPlatformCall =
     Future<Object?> Function(String method, Map<String, Object?> arguments);
@@ -15,7 +13,7 @@ abstract interface class AppTerminalSession {
   Map<String, dynamic> get host;
   Map<String, dynamic> get profile;
   Map<String, dynamic> get record;
-  InlineImageTerminal get terminal;
+  Terminal get terminal;
   TerminalController get controller;
   TerminalInputController get input;
   double get fontSize;
@@ -36,30 +34,6 @@ class TerminalSessionOperations {
         : defaultInputHandler;
   }
 
-  static List<SshAutomationStep> automationSteps(
-    List<Map<String, dynamic>> actions,
-  ) => [
-    for (final action in actions)
-      SshAutomationStep(
-        type: switch (action['type']) {
-          'WAIT_FOR_TEXT' => SshAutomationType.waitForText,
-          'SEND_TEXT' => SshAutomationType.sendText,
-          'SEND_KEY' => SshAutomationType.sendKey,
-          'DELAY' => SshAutomationType.delay,
-          'DISCONNECT' => SshAutomationType.disconnect,
-          'ENABLE_FORWARD' => SshAutomationType.enableForward,
-          'DISABLE_FORWARD' => SshAutomationType.disableForward,
-          _ => throw UnsupportedError('Unsupported automation action'),
-        },
-        text: action['text'] as String? ?? '',
-        regex: action['regex'] == true,
-        duration: Duration(milliseconds: action['durationMs'] as int? ?? 30000),
-        key: action['key'] as int? ?? 2,
-        modifiers: action['modifiers'] as int? ?? 0,
-        forwardId: action['forwardId'] as int?,
-        continueOnFailure: action['failurePolicy'] == 'CONTINUE',
-      ),
-  ];
   static TerminalKey key(int key) {
     return key >= 257 && key <= 280
         ? TerminalKey.values[TerminalKey.f1.index + key - 257]
@@ -91,7 +65,7 @@ class TerminalSessionOperations {
     r'(?:/[^\s<>"{}|\\^`\[\]]*)?'
     r'|(?:\d{1,3}\.){3}\d{1,3}:\d{1,5}(?:/[^\s<>"{}|\\^`\[\]]*)?',
   );
-  static List<String> scanUrls(InlineImageTerminal terminal) {
+  static List<String> scanUrls(Terminal terminal) {
     final buffer = terminal.buffer;
     final text = buffer.getText(
       BufferRangeLine(

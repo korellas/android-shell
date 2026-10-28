@@ -148,7 +148,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('추가 기능'), findsNothing);
     expect(find.text('연결 끊기'), findsNothing);
-    expect(find.text('홈 화면에 추가'), findsOneWidget);
+    expect(find.text('홈 화면에 추가'), findsNothing);
     expect(find.text('저장된 서버 키 삭제'), findsNothing);
     await tester.tap(find.text('복제'));
     await tester.pumpAndSettle();
@@ -210,28 +210,29 @@ void main() {
       expect(find.text('SSH 키'), findsWidgets);
     },
   );
-  testWidgets('automation and server trust stay inside the host editor', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
-    await tester.pumpAndSettle();
-    await tester.longPress(find.text('Research'));
-    await tester.pumpAndSettle();
-    expect(find.text('접속 자동화'), findsNothing);
-    expect(find.text('즐겨찾기'), findsOneWidget);
-    await tester.tap(find.text('편집'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('세션').first);
-    await tester.pumpAndSettle();
-    expect(find.text('자동 실행'), findsOneWidget);
-    await tester.tap(find.byTooltip('뒤로').first);
-    await tester.pumpAndSettle();
-    expect(find.text('신뢰한 서버 키'), findsOneWidget);
-  });
+  testWidgets(
+    'automation is removed and server trust stays in the host editor',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.text('Research'));
+      await tester.pumpAndSettle();
+      expect(find.text('접속 자동화'), findsNothing);
+      expect(find.text('즐겨찾기'), findsOneWidget);
+      await tester.tap(find.text('편집'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('세션').first);
+      await tester.pumpAndSettle();
+      expect(find.text('자동 실행'), findsNothing);
+      await tester.tap(find.byTooltip('뒤로').first);
+      await tester.pumpAndSettle();
+      expect(find.text('신뢰한 서버 키'), findsOneWidget);
+    },
+  );
   testWidgets('settings use the native category hierarchy', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;

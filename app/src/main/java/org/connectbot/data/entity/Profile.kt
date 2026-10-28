@@ -37,7 +37,7 @@ import androidx.room.PrimaryKey
  * @property delKey DEL key behavior ("del" or "backspace")
  * @property encoding Character encoding (e.g., "UTF-8")
  * @property emulation Terminal emulation mode (e.g., "xterm-256color")
- * @property inlineImages Inline image policy ("off", "ask", or "on"); Ask remembers consent per session
+ * @property inlineImages Historical schema field; runtime behavior is always off
  * @property forceSizeRows Forced terminal rows (null = auto-size based on screen)
  * @property forceSizeColumns Forced terminal columns (null = auto-size based on screen)
  */
@@ -77,7 +77,7 @@ data class Profile(
     val emulation: String = "xterm-256color",
 
     @ColumnInfo(name = "inline_images", defaultValue = "'ask'")
-    val inlineImages: String = "ask",
+    val inlineImages: String = "off",
 
     @ColumnInfo(name = "force_size_rows")
     val forceSizeRows: Int? = null,

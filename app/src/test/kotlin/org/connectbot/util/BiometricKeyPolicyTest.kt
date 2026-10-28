@@ -43,7 +43,7 @@ class BiometricKeyPolicyTest {
         `when`(generator.generateKeyPair()).thenReturn(pair)
         mockStatic(KeyPairGenerator::class.java).use { factory ->
             factory.`when`<KeyPairGenerator> { KeyPairGenerator.getInstance(anyString(), anyString()) }.thenReturn(generator)
-            BiometricKeyManagerImpl(ApplicationProvider.getApplicationContext()).generateEcKey("test-alias", 256)
+            BiometricKeyManagerImpl(ApplicationProvider.getApplicationContext()).generateEcKey("test-alias")
         }
         val spec = ArgumentCaptor.forClass(AlgorithmParameterSpec::class.java)
         verify(generator).initialize(spec.capture())

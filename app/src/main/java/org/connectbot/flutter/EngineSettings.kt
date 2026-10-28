@@ -25,17 +25,13 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.net.Uri
 import android.provider.OpenableColumns
-import androidx.core.content.pm.ShortcutInfoCompat
-import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.withContext
 import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.Profile
 import org.connectbot.ui.screens.settings.SettingsUiState
-import org.connectbot.util.IconStyle
 import org.connectbot.util.ImeShortcutInputMode
 import org.connectbot.util.LocalFontProvider
-import org.connectbot.util.ShortcutIconGenerator
 import org.connectbot.util.TerminalBarKey
 import org.connectbot.util.TerminalBarLayout
 import org.connectbot.util.TerminalFont
@@ -54,9 +50,9 @@ internal suspend fun AndroidShellEngine.resolveTerminalProfile(profileId: Long? 
     ?: profiles.getDefault()
 
 internal fun SettingsUiState.toWire(): Wire = mapOf(
-    "authOnLaunch" to authOnLaunch, "canAuthenticate" to canAuthenticate, "memkeys" to memkeys,
+    "authOnLaunch" to authOnLaunch, "canAuthenticate" to canAuthenticate,
     "connectionAlerts" to connectionAlerts, "notificationsAvailable" to notificationsAvailable, "wifilock" to wifilock,
-    "backupkeys" to backupkeys, "scrollback" to scrollback, "rotation" to rotation, "titlebarhide" to titlebarhide,
+    "scrollback" to scrollback, "rotation" to rotation, "titlebarhide" to titlebarhide,
     "fullscreen" to fullscreen, "pgupdngesture" to pgupdngesture, "swipeSessions" to swipeSessions, "swipeTmux" to swipeTmux,
     "tmuxCtrlA" to tmuxCtrlA, "terminalMargin" to terminalMargin, "terminalMarginMax" to SettingsUiState.terminalMarginRange.last, "volumefont" to volumefont, "keepalive" to keepalive,
     "alwaysvisible" to alwaysvisible, "imeTogglekey" to imeTogglekey, "imeShortcutInputMode" to imeShortcutInputMode.name,
@@ -96,7 +92,6 @@ internal fun SettingsUiState.toWire(): Wire = mapOf(
                         TerminalBarKey.PAGE_DOWN -> VTermKey.PAGEDOWN
                         TerminalBarKey.INSERT -> VTermKey.INS
                         TerminalBarKey.DELETE -> VTermKey.DEL
-                        else -> error("Invalid terminal key")
                     },
                 ),
             )
@@ -105,7 +100,6 @@ internal fun SettingsUiState.toWire(): Wire = mapOf(
     "barKeys" to TerminalBarKey.entries.map { mapOf("name" to it.name, "label" to it.label) },
     "enterKey" to VTermKey.ENTER,
     "keyModifiers" to mapOf("Ctrl" to org.connectbot.util.TerminalKeyModifiers.CTRL, "Alt" to org.connectbot.util.TerminalKeyModifiers.ALT, "Shift" to org.connectbot.util.TerminalKeyModifiers.SHIFT),
-    "automationKeys" to (listOf("Enter" to VTermKey.ENTER, "Tab" to VTermKey.TAB, "Escape" to VTermKey.ESCAPE, "Backspace" to VTermKey.BACKSPACE, "Delete" to VTermKey.DEL, "Up" to VTermKey.UP, "Down" to VTermKey.DOWN, "Left" to VTermKey.LEFT, "Right" to VTermKey.RIGHT, "Home" to VTermKey.HOME, "End" to VTermKey.END, "Insert" to VTermKey.INS, "Page Up" to VTermKey.PAGEUP, "Page Down" to VTermKey.PAGEDOWN) + org.connectbot.service.automation.AutomationKeySupport.functionNumbers.map { "F$it" to VTermKey.FUNCTION_0 + it } + org.connectbot.service.automation.AutomationKeySupport.characterKeys.map { "${(-it).toChar()}" to it }).map { mapOf("label" to it.first, "key" to it.second) },
     "ctrlModifier" to 1,
     "altModifier" to 4,
     "escapeKey" to VTermKey.ESCAPE, "tabKey" to VTermKey.TAB,
@@ -119,13 +113,9 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
             when (args.text("key")) {
                 "authOnLaunch" -> settings.updateAuthOnLaunch(value as Boolean)
 
-                "memkeys" -> settings.updateMemkeys(value as Boolean)
-
                 "connectionAlerts" -> settings.updateConnectionAlerts(value as Boolean)
 
                 "wifilock" -> settings.updateWifilock(value as Boolean)
-
-                "backupkeys" -> settings.updateBackupkeys(value as Boolean)
 
                 "scrollback" -> {
                     require((value as String).toInt() in 0..100000)
@@ -319,22 +309,6 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
         "share" -> {
             activity.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, args.text("text")), "공유"))
             null
-        }
-
-        "shortcut" -> {
-            val host = requireNotNull(hosts.findHostById(args.number("id")))
-            val shortcut = ShortcutInfoCompat.Builder(activity, "host-${host.id}")
-                .setShortLabel(host.nickname.ifBlank { host.hostname })
-                .setIcon(ShortcutIconGenerator.generateShortcutIcon(activity, args.optionalText("color"), IconStyle.valueOf(args.text("style", IconStyle.entries.first().name))))
-                .setIntent(Intent(activity, FlutterShellActivity::class.java).setAction(Intent.ACTION_VIEW).setData(host.getUri()))
-                .build()
-            if (activity.intent.action == Intent.ACTION_CREATE_SHORTCUT) {
-                activity.setResult(android.app.Activity.RESULT_OK, ShortcutManagerCompat.createShortcutResultIntent(activity, shortcut))
-                activity.finish()
-                true
-            } else {
-                ShortcutManagerCompat.requestPinShortcut(activity, shortcut, null)
-            }
         }
 
         else -> error("지원하지 않는 플랫폼 작업입니다.")

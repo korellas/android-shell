@@ -17,9 +17,6 @@
 
 package org.connectbot.flutter
 
-import org.connectbot.data.entity.AutomationAction
-import org.connectbot.data.entity.AutomationActionType
-import org.connectbot.data.entity.AutomationFailurePolicy
 import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.PortForward
 import org.junit.Assert.assertThrows
@@ -50,25 +47,21 @@ class EngineSelectionValidationTest {
 
     @Test
     fun socks4CannotBeCreatedOrEnabledButExistingMetadataCanBeSavedOrDisabled() {
-        val legacy = PortForward(id = 1, hostId = 1, nickname = "legacy", type = "dynamic4", sourcePort = 1080, destAddr = null, destPort = 0)
+        val legacy = PortForward(
+            id = 1,
+            hostId = 1,
+            nickname = "legacy",
+            type = "dynamic4",
+            sourcePort = 1080,
+            destAddr = null,
+            destPort = 0,
+            startEnabled = true,
+        )
         assertThrows(IllegalArgumentException::class.java) { validateForwardSelection(legacy, null) }
         validateForwardSelection(legacy.copy(nickname = "renamed"), legacy)
         val disabled = legacy.copy(startEnabled = false)
         validateForwardSelection(disabled, legacy)
         assertThrows(IllegalArgumentException::class.java) { validateForwardSelection(legacy, disabled) }
         validateForwardSelection(legacy.copy(type = "dynamic5"), legacy)
-    }
-
-    @Test
-    fun localForwardAutomationCannotBeAddedButItsStoredSelectionCanBePreserved() {
-        val local = Host(protocol = "local")
-        for (type in listOf(AutomationActionType.ENABLE_FORWARD, AutomationActionType.DISABLE_FORWARD)) {
-            val action = AutomationAction(id = "legacy", hostId = 1, type = type, forwardId = 2)
-            assertThrows(IllegalArgumentException::class.java) { validateAutomationSelection(action, local, null) }
-            assertThrows(IllegalArgumentException::class.java) { validateAutomationSelection(action.copy(forwardId = 3), local, action) }
-            validateAutomationSelection(action.copy(failurePolicy = AutomationFailurePolicy.CONTINUE), local, action)
-            validateAutomationSelection(action.copy(type = AutomationActionType.SEND_TEXT), local, action)
-            validateAutomationSelection(action, Host(), null)
-        }
     }
 }

@@ -10,7 +10,7 @@ import 'package:dartssh2/src/utils/compute.dart';
 /// cannot be determined by either party alone.
 /// https://tools.ietf.org/html/rfc4253#section-8
 class SSHKexDH implements SSHKex {
-  static const gexMin = 1024;
+  static const gexMin = 2048;
   static const gexPref = 2048;
   static const gexMax = 8192;
 

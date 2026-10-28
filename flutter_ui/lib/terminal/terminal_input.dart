@@ -1,6 +1,8 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 // Reuse the pinned xterm2 key map so IME chords use its keyboard protocols.
@@ -31,6 +33,8 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
   bool _ctrl = false;
   bool _alt = false;
   bool _shift = false;
+  Object? _pasteGuardOwner;
+  Future<bool> Function(String text)? _pasteGuard;
   String stickyModifiers = 'no';
   final _hardwareModifiers = <PhysicalKeyboardKey, (bool, bool, bool)>{};
   bool get ctrl => _ctrl;
@@ -122,6 +126,42 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
   void paste(String text) {
     if (!_canSend) return;
     finishComposition();
+    if (!requiresPasteConfirmation(text)) {
+      terminal.paste(text);
+      return;
+    }
+    final guard = _pasteGuard;
+    if (guard == null) return;
+    unawaited(_pasteAfterConfirmation(text, guard));
+  }
+
+  void pasteConfirmed(String text) {
+    if (!_canSend) return;
+    finishComposition();
+    terminal.paste(text);
+  }
+
+  void installPasteGuard(
+    Object owner,
+    Future<bool> Function(String text) guard,
+  ) {
+    _pasteGuardOwner = owner;
+    _pasteGuard = guard;
+  }
+
+  void removePasteGuard(Object owner) {
+    if (!identical(_pasteGuardOwner, owner)) return;
+    _pasteGuardOwner = null;
+    _pasteGuard = null;
+  }
+
+  Future<void> _pasteAfterConfirmation(
+    String text,
+    Future<bool> Function(String text) guard,
+  ) async {
+    if (!await guard(text) || !_canSend || !identical(_pasteGuard, guard)) {
+      return;
+    }
     terminal.paste(text);
   }
 
@@ -257,7 +297,16 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
       terminal.keyInput(TerminalKey.backspace);
     }
     final inserted = next.skip(common).join();
-    if (inserted.isNotEmpty) _emitText(inserted);
+    if (inserted.isNotEmpty) {
+      if (requiresPasteConfirmation(inserted)) {
+        final guard = _pasteGuard;
+        if (guard != null) {
+          unawaited(_pasteAfterConfirmation(inserted, guard));
+        }
+      } else {
+        _emitText(inserted);
+      }
+    }
     _committed = text;
   }
 
@@ -386,3 +435,6 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
     super.dispose();
   }
 }
+
+bool requiresPasteConfirmation(String text) =>
+    text.codeUnits.any((unit) => unit == 0x7f || unit < 0x20);
