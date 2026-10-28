@@ -22,14 +22,13 @@ package org.connectbot.data.entity
  */
 enum class KeyStorageType {
     /**
-     * Traditional encrypted key stored in the database.
-     * Private key material is stored encrypted in the database.
-     * Can be exported and backed up (if allowBackup=true).
+     * Historical software key retained in the database for inspection and
+     * deletion. It is ineligible for SSH authentication and export.
      */
     EXPORTABLE,
 
     /**
-     * Key stored in Android Keystore (future Phase 2).
+     * Key stored in Android Keystore.
      * Only the key alias is stored in the database.
      * Private key material never leaves the secure hardware.
      * Cannot be backed up or exported.

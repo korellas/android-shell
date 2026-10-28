@@ -21,14 +21,9 @@ package org.connectbot.util
  * @author Kenny Root
  */
 object PreferenceConstants {
-    const val MEMKEYS: String = "memkeys"
-
     const val SCROLLBACK: String = "scrollback"
 
     const val ROTATION: String = "rotation"
-
-    const val BACKUP_KEYS: String = "backupkeys"
-    const val BACKUP_KEYS_DEFAULT: Boolean = false
 
     const val ROTATION_DEFAULT: String = "Default"
     const val ROTATION_LANDSCAPE: String = "Force landscape"
@@ -82,8 +77,6 @@ object PreferenceConstants {
     const val CONNECTION_ALERTS: String = "connPersist"
     const val NOTIFICATION_PERMISSION_REQUESTED: String = "notificationPermissionRequested"
     const val NOTIFICATION_PERMISSION_DENIED: String = "notificationPermissionDenied"
-
-    const val MOSH_RELEASE_TAG: String = "moshReleaseTag"
 
     const val SHIFT_FKEYS: String = "shiftfkeys"
     const val CTRL_FKEYS: String = "ctrlfkeys"

@@ -24,7 +24,6 @@ import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
 import org.connectbot.util.BiometricAvailability
 import org.connectbot.util.BiometricKeyManager
-import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.Signature
 import javax.inject.Singleton
@@ -40,12 +39,8 @@ object TestBiometricModule {
     fun provideBiometricKeyManager(): BiometricKeyManager = object : BiometricKeyManager {
         override fun isBiometricAvailable() = BiometricAvailability.NO_HARDWARE
         override fun generateKeyAlias() = "stub-key-alias"
-        override fun generateRsaKey(alias: String, keySize: Int): PublicKey = throw UnsupportedOperationException()
-        override fun generateEcKey(alias: String, keySize: Int): PublicKey = throw UnsupportedOperationException()
-        override fun generateKey(alias: String, keyType: String, keySize: Int): PublicKey = throw UnsupportedOperationException()
+        override fun generateEcKey(alias: String): PublicKey = throw UnsupportedOperationException()
         override fun getCryptoObject(alias: String, algorithm: String): BiometricPrompt.CryptoObject = throw UnsupportedOperationException()
-        override fun getSignatureAlgorithm(keyType: String, keySize: Int) = "SHA256withRSA"
-        override fun getPrivateKey(alias: String): PrivateKey = throw UnsupportedOperationException()
         override fun getPublicKey(alias: String): PublicKey? = null
         override fun keyExists(alias: String) = false
         override fun isAuthPerUse(alias: String) = false

@@ -347,9 +347,6 @@ void main() {
 
           await open(GenerateKeyPage(engine: engine));
           check();
-          await tester.tap(find.text('RSA'));
-          await tester.pumpAndSettle();
-          check();
           tester.state<FormState>(find.byType(Form)).validate();
           await tester.pumpAndSettle();
           check();
@@ -359,14 +356,6 @@ void main() {
           check();
           if (scale == 2 && brightness == Brightness.light) {
             await capture(tester, 'new-key-360-2');
-          }
-          await open(const Scaffold(body: KeyPasswordSheet()));
-          await tester.enterText(find.byType(TextFormField).at(1), 'secret');
-          tester.state<FormState>(find.byType(Form)).validate();
-          await tester.pumpAndSettle();
-          check();
-          if (scale == 2 && brightness == Brightness.light) {
-            await capture(tester, 'key-password-360-2');
           }
           await open(
             const TildeChoicePage(

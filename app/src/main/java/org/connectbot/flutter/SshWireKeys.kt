@@ -17,52 +17,30 @@
 
 package org.connectbot.flutter
 
+import org.connectbot.data.entity.KeyStorageType
 import org.connectbot.data.entity.Pubkey
-import org.connectbot.util.Encryptor
+import org.connectbot.util.BiometricKeyManager
+import java.security.MessageDigest
 import java.security.PublicKey
 import java.security.interfaces.ECPublicKey
-import java.security.interfaces.RSAPublicKey
 
-internal fun Pubkey.sshKeyMaterial(password: String?): Wire {
-    val public = mapOf("id" to id, "type" to type, "publicKey" to publicKey, "biometric" to isBiometric)
-    if (isBiometric) return public
-    val stored = requireNotNull(privateKey) { "Missing private key" }
-    if (type == "IMPORTED") return public + ("pem" to stored.toString(Charsets.UTF_8))
-    val clear = if (encrypted) {
-        require(!password.isNullOrEmpty()) { "Key password required" }
-        require(stored.size > 8) { "Invalid encrypted key" }
-        // Matches PubkeyUtils' existing salt-prefixed storage format.
-        requireNotNull(Encryptor.decrypt(stored.copyOfRange(0, 8), 1000, password, stored.copyOfRange(8, stored.size)))
-    } else {
-        stored.copyOf()
-    }
-    return public + ("privateKey" to clear)
+internal fun Pubkey.isKeystoreSshKeyEligible(manager: BiometricKeyManager): Boolean = runCatching {
+    if (storageType != KeyStorageType.ANDROID_KEYSTORE || type != "EC" || privateKey != null) return@runCatching false
+    val alias = keystoreAlias?.takeIf { it.isNotBlank() } ?: return@runCatching false
+    if (!manager.keyExists(alias) || !manager.isAuthPerUse(alias)) return@runCatching false
+    val actual = manager.getPublicKey(alias) as? ECPublicKey ?: return@runCatching false
+    actual.params.curve.field.fieldSize == 256 && MessageDigest.isEqual(actual.encoded, publicKey)
+}.getOrDefault(false)
+
+internal fun Pubkey.sshKeyMaterial(manager: BiometricKeyManager): Wire {
+    require(isKeystoreSshKeyEligible(manager)) { "SSH key is not an eligible Android Keystore P-256 key" }
+    return mapOf("id" to id, "type" to type, "publicKey" to publicKey, "biometric" to true)
 }
 
 internal fun sshSigningAlgorithm(key: PublicKey, algorithm: String): String = when (key) {
-    is RSAPublicKey -> when (algorithm) {
-        "rsa-sha2-256" -> "SHA256withRSA"
-        "rsa-sha2-512" -> "SHA512withRSA"
-        else -> error("Unsupported RSA signature algorithm")
-    }
-
-    is ECPublicKey -> when (key.params.curve.field.fieldSize) {
-        256 -> {
-            require(algorithm == "ecdsa-sha2-nistp256")
-            "SHA256withECDSA"
-        }
-
-        384 -> {
-            require(algorithm == "ecdsa-sha2-nistp384")
-            "SHA384withECDSA"
-        }
-
-        521 -> {
-            require(algorithm == "ecdsa-sha2-nistp521")
-            "SHA512withECDSA"
-        }
-
-        else -> error("Unsupported EC curve")
+    is ECPublicKey -> {
+        require(key.params.curve.field.fieldSize == 256 && algorithm == "ecdsa-sha2-nistp256")
+        "SHA256withECDSA"
     }
 
     else -> error("Unsupported protected key")

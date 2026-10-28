@@ -552,29 +552,6 @@ class _ShellHomeState extends State<ShellHome> {
 
   Future<void> _presentPrompt() async {
     if (_promptOpen || !engine.ready || !mounted) return;
-    if (engine.list('prompts').isEmpty &&
-        engine.list('startupKeys').isNotEmpty) {
-      final key = engine.list('startupKeys').first;
-      _promptOpen = true;
-      try {
-        final password = await askText(
-          context,
-          '${key['nickname']} 키 암호',
-          password: true,
-        );
-        if (mounted) {
-          await runEngine(context, engine, 'key.startup', {
-            'id': key['id'],
-            'password': password,
-            'cancel': password == null,
-          });
-        }
-      } finally {
-        _promptOpen = false;
-      }
-      if (mounted) unawaited(_presentPrompt());
-      return;
-    }
     final pending = engine
         .list('prompts')
         .where(
@@ -641,14 +618,6 @@ class _ShellHomeState extends State<ShellHome> {
   Future<void> _connect(EngineRecord host, {bool newSession = false}) async {
     if (!canConnectHost(host)) {
       await _hostMenu(host, 'edit');
-      return;
-    }
-    if (engine.state['entryAction'] ==
-        'android.intent.action.CREATE_SHORTCUT') {
-      await runEngine(context, engine, 'shortcut', {
-        'id': host['id'],
-        'color': host['color'],
-      });
       return;
     }
     // Native selectedSession is the single owner of navigation after connection.
@@ -720,11 +689,6 @@ class _ShellHomeState extends State<ShellHome> {
             'nickname': name,
           });
         }
-      case 'shortcut':
-        await runEngine(context, engine, 'shortcut', {
-          'id': host['id'],
-          'color': host['color'],
-        });
       case 'forget':
         if (await confirm(
               context,
@@ -823,8 +787,6 @@ class _ShellHomeState extends State<ShellHome> {
                   ('duplicate', '복제', Icons.file_copy_outlined),
                 if (host['protocol'] == 'ssh')
                   ('forwards', '포트 포워딩', Icons.swap_horiz),
-                if (canConnectHost(host))
-                  ('shortcut', '홈 화면에 추가', Icons.add_to_home_screen_outlined),
               ])
                 ListTile(
                   leading: Icon(icon, size: 22),
@@ -885,7 +847,7 @@ class _ShellHomeState extends State<ShellHome> {
     ),
   );
 
-  Widget _hostList(List<EngineRecord> hosts, bool shortcut, bool wide) {
+  Widget _hostList(List<EngineRecord> hosts, bool wide) {
     final sessions = engine.list('sessions');
     bool open(EngineRecord h) =>
         sessions.any((s) => s['hostId'] == h['id'] && s['open'] == true);
@@ -936,13 +898,9 @@ class _ShellHomeState extends State<ShellHome> {
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onLongPressStart: shortcut
-                          ? null
-                          : (details) =>
-                                _showHostMenu(host, details.globalPosition),
-                      onDoubleTap: wide && !shortcut
-                          ? () => _connect(host)
-                          : null,
+                      onLongPressStart: (details) =>
+                          _showHostMenu(host, details.globalPosition),
+                      onDoubleTap: wide ? () => _connect(host) : null,
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
                         minTileHeight: 80,
@@ -983,18 +941,15 @@ class _ShellHomeState extends State<ShellHome> {
                             fontSize: 13,
                           ),
                         ),
-                        onTap: () => wide && !shortcut
-                            ? _selectHost(host)
-                            : _connect(host),
+                        onTap: () => wide ? _selectHost(host) : _connect(host),
                       ),
                     ),
                   ),
-                  if (!shortcut)
-                    IconButton(
-                      tooltip: '${host['nickname']} 메뉴',
-                      onPressed: () => _showHostMenu(host),
-                      icon: const Icon(Icons.more_vert),
-                    ),
+                  IconButton(
+                    tooltip: '${host['nickname']} 메뉴',
+                    onPressed: () => _showHostMenu(host),
+                    icon: const Icon(Icons.more_vert),
+                  ),
                 ],
               );
             },
@@ -1008,67 +963,60 @@ class _ShellHomeState extends State<ShellHome> {
   Widget build(BuildContext context) {
     if (!engine.ready) return AppGate(engine: engine);
     final hosts = engine.list('hosts');
-    final shortcut =
-        engine.state['entryAction'] == 'android.intent.action.CREATE_SHORTCUT';
     final wide = MediaQuery.sizeOf(context).width >= 720;
     final selected = hosts.where((h) => h['id'] == _selectedHostId).firstOrNull;
     final list = Column(
       children: [
-        Expanded(child: _hostList(hosts, shortcut, wide)),
-        if (!shortcut) _quickConnectField(),
+        Expanded(child: _hostList(hosts, wide)),
+        _quickConnectField(),
       ],
     );
     return Scaffold(
-      appBar: !wide && selected != null && !shortcut
+      appBar: !wide && selected != null
           ? null
           : AppBar(
               title: const TildeWordmark(),
               actions: [
-                if (!shortcut) ...[
-                  IconButton(
-                    tooltip: '호스트 추가',
-                    onPressed: () => _page(
-                      RecordEditor(engine: engine, kind: RecordKind.host),
-                    ),
-                    icon: const Icon(Icons.add),
+                IconButton(
+                  tooltip: '호스트 추가',
+                  onPressed: () => _page(
+                    RecordEditor(engine: engine, kind: RecordKind.host),
                   ),
-                  IconButton(
-                    tooltip: '메뉴',
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () async {
-                      final action = await askAction(context, 'Tilde', [
-                        (
-                          'sort',
-                          engine.state['sortedByColor'] == true
-                              ? '이름순 정렬'
-                              : '색상순 정렬',
-                        ),
-                        ('settings', '설정'),
-                        ('disconnect', '연결 모두 끊기'),
-                        ('help', '도움말'),
-                      ]);
-                      if (action != null && mounted) await _homeMenu(action);
-                    },
-                  ),
-                ],
+                  icon: const Icon(Icons.add),
+                ),
+                IconButton(
+                  tooltip: '메뉴',
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: () async {
+                    final action = await askAction(context, 'Tilde', [
+                      (
+                        'sort',
+                        engine.state['sortedByColor'] == true
+                            ? '이름순 정렬'
+                            : '색상순 정렬',
+                      ),
+                      ('settings', '설정'),
+                      ('disconnect', '연결 모두 끊기'),
+                      ('help', '도움말'),
+                    ]);
+                    if (action != null && mounted) await _homeMenu(action);
+                  },
+                ),
               ],
             ),
       body: Row(
         children: [
           SizedBox(
-            width: wide && !shortcut
+            width: wide
                 ? (MediaQuery.sizeOf(context).width >= 1000 ? 380 : 320)
-                : selected == null || shortcut
+                : selected == null
                 ? MediaQuery.sizeOf(context).width
                 : 0,
-            child: wide || selected == null || shortcut ? list : null,
+            child: wide || selected == null ? list : null,
           ),
-          SizedBox(
-            width: wide && !shortcut ? 1 : 0,
-            child: const VerticalDivider(width: 1),
-          ),
+          SizedBox(width: wide ? 1 : 0, child: const VerticalDivider(width: 1)),
           Expanded(
-            child: selected == null || shortcut
+            child: selected == null
                 ? const SizedBox.shrink()
                 : Center(
                     child: ConstrainedBox(

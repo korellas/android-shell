@@ -62,11 +62,9 @@ import javax.inject.Inject
 data class SettingsUiState(
     val authOnLaunch: Boolean = false,
     val canAuthenticate: Boolean = false,
-    val memkeys: Boolean = true,
     val connectionAlerts: Boolean = true,
     val notificationsAvailable: Boolean = true,
     val wifilock: Boolean = true,
-    val backupkeys: Boolean = false,
     val scrollback: String = "140",
     val rotation: String = "Default",
     val titlebarhide: Boolean = false,
@@ -218,10 +216,8 @@ class SettingsViewModel @Inject constructor(
         return SettingsUiState(
             authOnLaunch = prefs.getBoolean(PreferenceConstants.AUTH_ON_LAUNCH, false),
             canAuthenticate = canAuthenticate,
-            memkeys = prefs.getBoolean(PreferenceConstants.MEMKEYS, true),
             connectionAlerts = prefs.getBoolean(PreferenceConstants.CONNECTION_ALERTS, true),
             wifilock = prefs.getBoolean(PreferenceConstants.WIFI_LOCK, true),
-            backupkeys = prefs.getBoolean(PreferenceConstants.BACKUP_KEYS, false),
             scrollback = prefs.getString(PreferenceConstants.SCROLLBACK, "140") ?: "140",
             rotation = prefs.getString(PreferenceConstants.ROTATION, "Default") ?: "Default",
             titlebarhide = prefs.getBoolean(PreferenceConstants.TITLEBARHIDE, false),
@@ -270,10 +266,6 @@ class SettingsViewModel @Inject constructor(
         updateBooleanPref(PreferenceConstants.AUTH_ON_LAUNCH, value) { copy(authOnLaunch = value) }
     }
 
-    fun updateMemkeys(value: Boolean) {
-        updateBooleanPref("memkeys", value) { copy(memkeys = value) }
-    }
-
     fun updateConnectionAlerts(value: Boolean) {
         val wasEnabled = _uiState.value.connectionAlerts
         updateBooleanPref(PreferenceConstants.CONNECTION_ALERTS, value) { copy(connectionAlerts = value) }
@@ -316,10 +308,6 @@ class SettingsViewModel @Inject constructor(
 
     fun updateWifilock(value: Boolean) {
         updateBooleanPref(PreferenceConstants.WIFI_LOCK, value) { copy(wifilock = value) }
-    }
-
-    fun updateBackupkeys(value: Boolean) {
-        updateBooleanPref(PreferenceConstants.BACKUP_KEYS, value) { copy(backupkeys = value) }
     }
 
     fun updateFullscreen(value: Boolean) {

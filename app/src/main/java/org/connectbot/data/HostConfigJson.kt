@@ -69,7 +69,7 @@ object HostConfigJson {
      * Note: Excluded fields (runtime state like last_connect, host_key_algo) are
      * configured in the generateExportSchema Gradle task and marked in the schema.
      */
-    val EXPORT_TABLES = listOf("profiles", "identities", "hosts", "port_forwards", "automation_actions")
+    val EXPORT_TABLES = listOf("profiles", "identities", "hosts", "port_forwards")
 
     /**
      * Export host configurations to JSON.
@@ -105,9 +105,7 @@ object HostConfigJson {
         val exporter = SchemaBasedExporter(database, schema)
         val results = database.runInTransaction(
             Callable {
-                val imported = exporter.importFromJson(jsonString, EXPORT_TABLES)
-                ConnectBotDatabase.migratePostLogin(database.openHelper.writableDatabase)
-                imported
+                exporter.importFromJson(jsonString, EXPORT_TABLES)
             },
         )
 

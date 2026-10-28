@@ -20,6 +20,7 @@ package org.connectbot.flutter
 import android.Manifest
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -115,6 +116,7 @@ class FlutterShellActivity : FlutterFragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         lifecycleScope.launch { settings.requestNotificationPermission.collect { requestNotifications() } }
@@ -125,6 +127,13 @@ class FlutterShellActivity : FlutterFragmentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (::engine.isInitialized) engine.handleIntent(intent)
+    }
+
+    override fun onStop() {
+        if (!isChangingConfigurations && appState.authOnLaunchEnabled) {
+            appState.onAuthenticationRequired()
+        }
+        super.onStop()
     }
 
     suspend fun requestNotifications(): Boolean {
@@ -191,9 +200,5 @@ class FlutterShellActivity : FlutterFragmentActivity() {
         permissionResult?.cancel()
         documentResult?.cancel()
         super.onDestroy()
-    }
-
-    companion object {
-        const val DISCONNECT_ACTION = "org.connectbot.action.DISCONNECT"
     }
 }

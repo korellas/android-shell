@@ -9,8 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:xterm2/xterm.dart';
 
 import '../tilde_design.dart';
-import 'images/image_terminal.dart';
-import 'images/inline_images.dart';
 import 'terminal_actions.dart';
 import 'terminal_input.dart';
 import 'terminal_input_view.dart';
@@ -123,6 +121,7 @@ class TerminalPaneState extends State<TerminalPane> {
   void initState() {
     super.initState();
     widget.input.stickyModifiers = widget.stickyModifiers;
+    widget.input.installPasteGuard(this, _confirmPaste);
     final rows = widget.initialRows;
     final columns = widget.initialColumns;
     if (rows != null && columns != null && rows > 0 && columns > 0) {
@@ -134,7 +133,38 @@ class TerminalPaneState extends State<TerminalPane> {
   @override
   void didUpdateWidget(TerminalPane oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.input, widget.input)) {
+      oldWidget.input.removePasteGuard(this);
+      widget.input.installPasteGuard(this, _confirmPaste);
+    }
     widget.input.stickyModifiers = widget.stickyModifiers;
+  }
+
+  Future<bool> _confirmPaste(String text) async {
+    if (!mounted) return false;
+    final lines = '\n'.allMatches(text.replaceAll('\r\n', '\n')).length + 1;
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('위험할 수 있는 내용 붙여넣기'),
+            content: Text(
+              lines > 1
+                  ? '$lines개 줄을 터미널에 붙여넣으면 명령이 즉시 실행될 수 있습니다.'
+                  : '제어 문자가 포함되어 있어 터미널 동작이나 명령 실행을 유발할 수 있습니다.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('취소'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('붙여넣기'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   void resize({int? rows, int? columns}) {
@@ -249,7 +279,7 @@ class TerminalPaneState extends State<TerminalPane> {
     final text = await result;
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted || !widget.enabled || input != widget.input) return;
-    if (text != null) input.paste(text);
+    if (text != null) input.pasteConfirmed(text);
     if (_keyboardVisible) input.requestKeyboard();
   }
 
@@ -267,6 +297,7 @@ class TerminalPaneState extends State<TerminalPane> {
   @override
   void dispose() {
     _keyHideTimer?.cancel();
+    widget.input.removePasteGuard(this);
     _scroll.dispose();
     super.dispose();
   }
@@ -274,8 +305,6 @@ class TerminalPaneState extends State<TerminalPane> {
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      if (widget.terminal case final InlineImageTerminal terminal)
-        _ImageApproval(images: terminal.images, enabled: widget.enabled),
       Expanded(
         child: TerminalActions(
           terminal: widget.terminal,
@@ -389,11 +418,6 @@ class TerminalPaneState extends State<TerminalPane> {
                   showSoftKeyboard: _keyboardVisible,
                   theme: widget.theme,
                   textStyle: widget.textStyle,
-                  paintExtension: widget.terminal is InlineImageTerminal
-                      ? (widget.terminal as InlineImageTerminal)
-                            .images
-                            .paintExtension
-                      : null,
                 ),
               ),
             ),
@@ -500,82 +524,6 @@ class _SelectionEditorState extends State<_SelectionEditor> {
       ],
     ),
   );
-}
-
-class _ImageApproval extends StatefulWidget {
-  const _ImageApproval({required this.images, required this.enabled});
-  final InlineImageRuntime images;
-  final bool enabled;
-
-  @override
-  State<_ImageApproval> createState() => _ImageApprovalState();
-}
-
-class _ImageApprovalState extends State<_ImageApproval> {
-  InlineImageSource? _source;
-  bool _scheduled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _source = widget.images.pendingConsent.firstOrNull;
-    widget.images.addListener(_changed);
-  }
-
-  @override
-  void didUpdateWidget(_ImageApproval oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.images != widget.images) {
-      oldWidget.images.removeListener(_changed);
-      widget.images.addListener(_changed);
-      _source = widget.images.pendingConsent.firstOrNull;
-    }
-  }
-
-  void _changed() {
-    if (_scheduled ||
-        identical(_source, widget.images.pendingConsent.firstOrNull)) {
-      return;
-    }
-    _scheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scheduled = false;
-      if (!mounted) return;
-      setState(() => _source = widget.images.pendingConsent.firstOrNull);
-    });
-    WidgetsBinding.instance.ensureVisualUpdate();
-  }
-
-  @override
-  void dispose() {
-    widget.images.removeListener(_changed);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final source = _source;
-    if (source == null || !widget.enabled) return const SizedBox.shrink();
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHigh,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Row(
-          children: [
-            Expanded(child: Text('서버 이미지 ${source.width} × ${source.height}')),
-            TextButton(
-              onPressed: () => widget.images.decide(source, false),
-              child: const Text('거부'),
-            ),
-            FilledButton(
-              onPressed: () => widget.images.decide(source, true),
-              child: const Text('표시'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _PageDragRecognizer extends VerticalDragGestureRecognizer {

@@ -23,15 +23,11 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * SSH public/private key pair entity with security-conscious backup controls.
+ * SSH key metadata.
  *
- * This entity supports two storage types:
- * - EXPORTABLE: Traditional encrypted keys stored in database (current implementation)
- * - ANDROID_KEYSTORE: Keys stored in Android Keystore (future Phase 2)
- *
- * The allowBackup field gives users granular control over which keys are included
- * in Android backups. Keys marked with allowBackup=false will be excluded from
- * backup operations via the custom BackupAgent.
+ * Historical software-key fields remain only for migration, inspection, and
+ * deletion. Runtime SSH authentication accepts only eligible Android Keystore
+ * rows and never exposes private bytes.
  */
 @Entity(
     tableName = "pubkeys",
@@ -68,7 +64,7 @@ data class Pubkey(
     val storageType: KeyStorageType = KeyStorageType.EXPORTABLE,
 
     @ColumnInfo(name = "allow_backup")
-    val allowBackup: Boolean = true,
+    val allowBackup: Boolean = false,
 
     @ColumnInfo(name = "keystore_alias")
     val keystoreAlias: String? = null,

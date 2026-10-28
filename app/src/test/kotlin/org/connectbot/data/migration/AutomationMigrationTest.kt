@@ -22,21 +22,18 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.test.runTest
 import org.connectbot.data.ConnectBotDatabase
-import org.connectbot.data.entity.AutomationActionType
 import org.json.JSONObject
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.File
-import java.util.UUID
 
 @RunWith(RobolectricTestRunner::class)
 class AutomationMigrationTest {
     @Test
-    fun migratesVerbatimTextAndDefaultsForwardsToEnabled() = runTest {
+    fun discardsPostLoginCommandsAndKeepsSchemaCompatibleForwardDefault() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "automation-migration"
         context.deleteDatabase(name)
@@ -65,18 +62,9 @@ class AutomationMigrationTest {
         val database = Room.databaseBuilder(context, ConnectBotDatabase::class.java, name)
             .addMigrations(ConnectBotDatabase.MIGRATION_10_11).build()
         try {
-            val ids = mutableSetOf<String>()
-            texts.forEachIndexed { i, text ->
+            texts.forEachIndexed { i, _ ->
                 val actions = database.automationActionDao().getByHost(i + 1L)
-                if (text.isNullOrEmpty()) {
-                    assertTrue(actions.isEmpty())
-                } else {
-                    val action = actions.single()
-                    assertEquals(text, action.text)
-                    assertEquals(AutomationActionType.SEND_TEXT, action.type)
-                    assertEquals(4, UUID.fromString(action.id).version())
-                    assertTrue(ids.add(action.id))
-                }
+                assertTrue(actions.isEmpty())
                 assertNull(database.hostDao().getById(i + 1L)!!.postLogin)
             }
             assertTrue(database.portForwardDao().getByHost(1).single().startEnabled)

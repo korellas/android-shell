@@ -122,7 +122,6 @@ void main() {
         'banners': [
           {'id': 1, 'sourceName': 'Ubuntu', 'message': 'Welcome'},
         ],
-        'automation': {'running': true},
       },
     ];
     engine.notifyListeners();

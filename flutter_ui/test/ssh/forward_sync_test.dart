@@ -79,11 +79,15 @@ void main() {
         await session.synchronizeForwards([
           config(1, 'new'),
           config(3, 'added', start: true),
-        ], activateNewStartEnabled: true);
+        ]);
         expect(transport.closed, [1, 2]);
-        expect(transport.active.keys, containsAll([1, 3]));
+        expect(transport.active.keys, [1]);
         expect(transport.active[1]!.config.targetHost, 'new');
         expect(session.forwards.map((row) => row['id']), [1, 3]);
+        expect(
+          session.forwards.every((row) => row['startEnabled'] == false),
+          isTrue,
+        );
         await session.setForward(3, false);
         await session.synchronizeForwards([
           config(1, 'new'),

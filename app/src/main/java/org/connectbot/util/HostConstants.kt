@@ -94,13 +94,6 @@ object HostConstants {
     const val PORTFORWARD_DYNAMIC5: String = "dynamic5"
 
     /*
-     * Auth agent usage
-     */
-    const val AUTHAGENT_NO: String = "no"
-    const val AUTHAGENT_CONFIRM: String = "confirm"
-    const val AUTHAGENT_YES: String = "yes"
-
-    /*
      * Old database field names
      */
     const val FIELD_HOST_PROTOCOL: String = "protocol"

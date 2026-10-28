@@ -71,6 +71,35 @@ void main() {
     expect(output, isNotEmpty);
   });
 
+  testWidgets('multiline and control-character paste requires approval', (
+    tester,
+  ) async {
+    await open(tester);
+    input.paste('first\nsecond');
+    expect(output, isEmpty);
+    final owner = Object();
+    input.installPasteGuard(owner, (text) async => text == 'first\nsecond');
+    input.paste('first\nsecond');
+    await tester.pump();
+    expect(output.join(), 'first\rsecond');
+    input.removePasteGuard(owner);
+    input.paste('safe');
+    expect(output.join(), 'first\rsecondsafe');
+  });
+
+  testWidgets('IME-committed control text uses the paste approval boundary', (
+    tester,
+  ) async {
+    await open(tester);
+    edit(tester, 'first\nsecond');
+    expect(output, isEmpty);
+    final owner = Object();
+    input.installPasteGuard(owner, (text) async => text == 'first\nsecond');
+    edit(tester, 'first\nsecond');
+    await tester.pump();
+    expect(output.join(), 'first\rsecond');
+  });
+
   testWidgets('committed prefix is sent while the next syllable composes', (
     tester,
   ) async {
@@ -165,7 +194,7 @@ void main() {
     expect(output.join(), '한\t글!');
     terminal.write('\x1b[?2004h');
     edit(tester, '가', composingStart: 0);
-    input.paste('one\ntwo');
+    input.pasteConfirmed('one\ntwo');
     expect(output.join(), '한\t글!가\x1b[200~one\ntwo\x1b[201~');
   });
 

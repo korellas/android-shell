@@ -17,11 +17,8 @@
 
 package org.connectbot.data
 
-import android.content.Context
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.runBlocking
 import org.connectbot.data.dao.PubkeyDao
-import org.connectbot.data.entity.KeyStorageType
 import org.connectbot.data.entity.Pubkey
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -49,14 +46,6 @@ class PubkeyRepository @Inject constructor(
     fun observeAll(): Flow<List<Pubkey>> = pubkeyDao.observeAll()
 
     /**
-     * Observe pubkeys by storage type reactively.
-     *
-     * @param type The storage type (EXPORTABLE or ANDROID_KEYSTORE)
-     * @return Flow of pubkey list filtered by type
-     */
-    fun observeByStorageType(type: KeyStorageType): Flow<List<Pubkey>> = pubkeyDao.observeByStorageType(type)
-
-    /**
      * Observe a specific pubkey reactively.
      *
      * @param pubkeyId The pubkey ID
@@ -80,54 +69,12 @@ class PubkeyRepository @Inject constructor(
     suspend fun getById(pubkeyId: Long): Pubkey? = pubkeyDao.getById(pubkeyId)
 
     /**
-     * Find a pubkey by its unique ID (blocking).
-     * For Java interop from service layer.
-     *
-     * @param pubkeyId The pubkey ID
-     * @return The pubkey, or null if not found
-     */
-    fun getByIdBlocking(pubkeyId: Long): Pubkey? = runBlocking {
-        pubkeyDao.getById(pubkeyId)
-    }
-
-    /**
      * Find a pubkey by nickname.
      *
      * @param nickname The pubkey nickname
      * @return The pubkey, or null if not found
      */
     suspend fun getByNickname(nickname: String): Pubkey? = pubkeyDao.getByNickname(nickname)
-
-    /**
-     * Get all pubkeys that allow backup.
-     *
-     * @return List of backupable pubkeys
-     */
-    suspend fun getBackupable(): List<Pubkey> = pubkeyDao.getBackupable()
-
-    /**
-     * Get all exportable pubkeys (not stored in Android Keystore).
-     *
-     * @return List of exportable pubkeys
-     */
-    suspend fun getExportable(): List<Pubkey> = pubkeyDao.getExportable()
-
-    /**
-     * Get all pubkeys marked for automatic unlocking at startup.
-     *
-     * @return List of startup pubkeys
-     */
-    suspend fun getStartupKeys(): List<Pubkey> = pubkeyDao.getStartupKeys()
-
-    /**
-     * Get all pubkeys marked for automatic unlocking at startup (blocking).
-     * For Java interop from service layer.
-     *
-     * @return List of startup pubkeys
-     */
-    fun getStartupKeysBlocking(): List<Pubkey> = runBlocking {
-        pubkeyDao.getStartupKeys()
-    }
 
     /**
      * Save a pubkey (insert or update).
@@ -152,15 +99,5 @@ class PubkeyRepository @Inject constructor(
      */
     suspend fun delete(pubkey: Pubkey) {
         pubkeyDao.delete(pubkey)
-    }
-
-    /**
-     * Update backup permission for a pubkey.
-     *
-     * @param pubkeyId The pubkey ID
-     * @param allowBackup Whether to allow backup
-     */
-    suspend fun updateBackupPermission(pubkeyId: Long, allowBackup: Boolean) {
-        pubkeyDao.updateBackupPermission(pubkeyId, allowBackup)
     }
 }

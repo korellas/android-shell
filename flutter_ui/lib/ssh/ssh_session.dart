@@ -25,7 +25,6 @@ class SshEndpoint {
     this.onInteractive,
     this.onPasswordChange,
     this.onBanner,
-    this.agentHandler,
     this.preferredAuthMethods,
     this.ipVersion = SshIpVersion.any,
     this.compression = false,
@@ -45,7 +44,6 @@ class SshEndpoint {
   final SSHUserInfoRequestHandler? onInteractive;
   final SSHChangePasswordRequestHandler? onPasswordChange;
   final SSHUserauthBannerHandler? onBanner;
-  final SSHAgentHandler? agentHandler;
   final List<SSHAuthMethod>? preferredAuthMethods;
   final SshIpVersion ipVersion;
   final bool compression;
@@ -88,7 +86,7 @@ class SshForward {
   const SshForward({
     required this.id,
     required this.type,
-    this.bindHost = '0.0.0.0',
+    this.bindHost = '127.0.0.1',
     this.bindPort = 0,
     this.targetHost = '',
     this.targetPort = 0,
@@ -238,7 +236,6 @@ class SshSession {
                 },
           onChangePasswordRequest: endpoint.onPasswordChange,
           onUserauthBanner: endpoint.onBanner,
-          agentHandler: endpoint.agentHandler,
           keepAliveInterval: endpoint.keepAliveInterval,
           handshakeTimeout: endpoint.connectTimeout,
           authTimeout: endpoint.authTimeout,

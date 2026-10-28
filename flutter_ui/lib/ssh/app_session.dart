@@ -7,13 +7,9 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 import 'package:xterm2/xterm.dart';
 import '../platform/ssh_keys.dart';
-import '../terminal/images/image_terminal.dart';
-import '../terminal/images/inline_images.dart';
 import '../terminal/terminal_input.dart';
-import 'automation.dart';
 import '../terminal/app_terminal_session.dart';
 import 'ssh_session.dart';
-import 'key_agent.dart';
 import 'enrollment.dart';
 
 typedef AppSshTransportFactory =
@@ -40,20 +36,20 @@ class AppSshSession implements AppTerminalSession {
     required this.onChanged,
     this.onNotification,
     this.loadStoredIdentities,
-    this.loadAgentKeys,
     this.lookupStoredKey,
-    this.addAgentKey,
-    this.removeAgentKey,
-    this.removeAllAgentKeys,
     AppSshTransportFactory? transportFactory,
   }) : _factory = transportFactory ?? SshSession.new {
-    terminal = InlineImageTerminal(
+    prepared['forwards'] = [
+      for (final row in _maps(prepared['forwards']))
+        {...row, 'startEnabled': false},
+    ];
+    terminal = Terminal(
       maxLines: (host['scrollbackLines'] as int? ?? 1000).clamp(1, 100000),
-      imagePolicy: switch (profile['inlineImages']) {
-        'off' => InlineImagePolicy.off,
-        'on' => InlineImagePolicy.on,
-        _ => InlineImagePolicy.ask,
-      },
+      onClipboardStore: (_, _) {},
+      clipboardDecoder: (_, _) => null,
+      allowITerm2ClipboardCapture: false,
+      allowKittyClipboard: false,
+      onClipboardQuery: (_) => null,
       onOutput: (text) {
         unawaited(_send(text).catchError(_failed));
       },
@@ -77,18 +73,14 @@ class AppSshSession implements AppTerminalSession {
   final VoidCallback onChanged;
   final void Function(Map<String, dynamic>)? onNotification;
   final AppSshTransportFactory _factory;
-  final Future<List<SSHIdentity>> Function({required int id, String? password})?
+  final Future<List<SSHIdentity>> Function({required int id})?
   loadStoredIdentities;
-  final Future<List<SshAgentKey>> Function()? loadAgentKeys;
   final Map<String, dynamic>? Function(int id)? lookupStoredKey;
-  final Future<bool> Function(SSHKeyPair key, bool confirmation)? addAgentKey;
-  final Future<bool> Function(Uint8List publicKey)? removeAgentKey;
-  final Future<bool> Function()? removeAllAgentKeys;
   final _trustedHostKeys = <String, (String, String)>{};
   List<SshEndpoint> _connectedEndpoints = [];
   Map<String, dynamic>? _enrollmentHost;
   @override
-  late final InlineImageTerminal terminal;
+  late final Terminal terminal;
   @override
   final controller = TerminalController();
   @override
@@ -98,7 +90,6 @@ class AppSshSession implements AppTerminalSession {
   @override
   Map<String, dynamic> get profile => _map(prepared['profile']);
   SshSession? _transport;
-  SshAutomation? _automation;
   SshSessionState _state = SshSessionState.idle;
   int _generation = 0, _promptSerial = 0, _bannerSerial = 0;
   bool _disposed = false, _closing = false;
@@ -130,7 +121,6 @@ class AppSshSession implements AppTerminalSession {
   ];
   @override
   Map<String, dynamic> get record {
-    final automation = _automation?.state;
     final scheme = _map(prepared['scheme']);
     return {
       'id': id,
@@ -160,13 +150,6 @@ class AppSshSession implements AppTerminalSession {
       'progress': _error == null
           ? null
           : {'state': 'ERROR', 'value': 0, 'message': _error},
-      'automation': {
-        'running': automation?.running ?? false,
-        'error': automation?.error?.name,
-        'step': automation?.step ?? 0,
-        'completed': automation?.completed ?? false,
-        'failedStep': automation?.failedStep,
-      },
       'banners': [
         for (final banner in _banners) {...banner},
       ],
@@ -281,9 +264,6 @@ class AppSshSession implements AppTerminalSession {
     Future<List<SSHIdentity>> loadIdentities() async {
       final identities = <SSHIdentity>[];
       for (final key in _maps(config['keys'])) {
-        if ((target['pubkeyId'] as int? ?? -1) < 0 && key['loaded'] != true) {
-          continue;
-        }
         if (!_current(generation)) {
           throw StateError('SSH authentication cancelled');
         }
@@ -299,9 +279,6 @@ class AppSshSession implements AppTerminalSession {
           );
           if (accepted != true) continue;
         }
-        final secret = key['encrypted'] == true && key['loaded'] != true
-            ? await askString('${key['nickname']}', hint: 'Key password')
-            : null;
         final adapter = SshKeyAdapter((method, args) async {
           if (!_current(generation)) {
             throw StateError('SSH authentication cancelled');
@@ -319,7 +296,6 @@ class AppSshSession implements AppTerminalSession {
         identities.addAll(
           await (loadStoredIdentities ?? adapter.identities)(
             id: key['id'] as int,
-            password: secret,
           ),
         );
       }
@@ -355,18 +331,22 @@ class AppSshSession implements AppTerminalSession {
           return true;
         }
         final changed = check['status'] == 'changed';
+        if (changed) {
+          onNotification?.call({
+            'type': 'message',
+            'message': '서버 키가 변경되어 연결을 차단했습니다. 저장된 서버 키를 확인한 뒤 직접 삭제하세요.',
+            'sessionId': id,
+          });
+          return false;
+        }
         final accepted = await _ask({
           'type': 'boolean',
-          'instructions': changed ? '서버 키가 변경되었습니다' : '서버 키 신뢰 확인',
+          'instructions': '서버 키 신뢰 확인',
           'message':
-              '${target['hostname']}:${target['port'] ?? 22}\n$algorithm\n${args['fingerprint']}\n${changed ? '기존 키를 교체하고 계속할까요?' : '이 서버 키를 신뢰할까요?'}',
+              '${target['hostname']}:${target['port'] ?? 22}\n$algorithm\n${args['fingerprint']}\n이 서버 키를 신뢰할까요?',
         }, generation);
         if (accepted != true || !_current(generation)) return false;
-        await platform('ssh.saveHost', {
-          ...args,
-          'accept': true,
-          'replace': changed,
-        });
+        await platform('ssh.saveHost', {...args, 'accept': true});
         if (_current(generation)) {
           _trustedHostKeys['${target['hostname']}:${target['port'] ?? 22}'] = (
             algorithm,
@@ -375,41 +355,6 @@ class AppSshSession implements AppTerminalSession {
         }
         return _current(generation);
       },
-      agentHandler:
-          target['useAuthAgent'] != 'no' &&
-              target['useAuthAgent'] != null &&
-              loadAgentKeys != null
-          ? AppSshKeyAgent(
-              mode: target['useAuthAgent'] as String,
-              addKey: (key, confirmation) async =>
-                  _current(generation) &&
-                  addAgentKey != null &&
-                  await addAgentKey!(key, confirmation),
-              removeKey: (key) async =>
-                  _current(generation) &&
-                  removeAgentKey != null &&
-                  await removeAgentKey!(key),
-              removeAllKeys: () async =>
-                  _current(generation) &&
-                  removeAllAgentKeys != null &&
-                  await removeAllAgentKeys!(),
-              loadKeys: () async {
-                if (!_current(generation)) return [];
-                return loadAgentKeys!();
-              },
-              confirm: (nickname) async =>
-                  await _ask(
-                    {
-                      'type': 'boolean',
-                      'instructions': 'SSH 에이전트 키 사용 확인',
-                      'message': nickname,
-                    },
-                    generation,
-                    rejectCancels: false,
-                  ) ==
-                  true,
-            )
-          : null,
       onPassword: password,
       onInteractive: (request) async {
         final answers = <String>[];
@@ -509,34 +454,8 @@ class AppSshSession implements AppTerminalSession {
         pty: _pty(terminal.viewWidth, terminal.viewHeight, 0, 0),
       );
       _transport = transport;
-      _automation = SshAutomation(
-        sessionOpen: () => sessionOpen,
-        sendText: _send,
-        sendKey: _sendKey,
-        setForward: setForward,
-        disconnect: disconnect,
-        onState: (_) => _changed(),
-        matchRegexEnd: (expression, text) async =>
-            await platform('ssh.matchRegexEnd', {
-                  'expression': expression,
-                  'text': text,
-                })
-                as int?,
-      );
       await transport.connect();
       if (!_current(generation)) return;
-      for (final forward in _maps(prepared['forwards'])) {
-        if (forward['startEnabled'] == true && forward['type'] != 'dynamic4') {
-          await setForward(forward['id'] as int, true);
-        }
-        if (!_current(generation)) return;
-      }
-      if (sessionOpen) {
-        final postLogin = host['postLogin'] as String?;
-        if (postLogin != null && postLogin.isNotEmpty) await _send(postLogin);
-        final actions = _maps(prepared['automation']);
-        if (actions.isNotEmpty) unawaited(runAutomation(actions));
-      }
       _changed();
     } catch (error, stack) {
       if (_current(generation)) {
@@ -590,12 +509,12 @@ class AppSshSession implements AppTerminalSession {
   }
 
   Future<void> synchronizeForwards(
-    List<Map<String, dynamic>> configurations, {
-    bool activateNewStartEnabled = false,
-  }) async {
+    List<Map<String, dynamic>> configurations,
+  ) async {
     final previous = _maps(prepared['forwards']);
     final fresh = [
-      for (final row in configurations) Map<String, dynamic>.from(row),
+      for (final row in configurations)
+        {...Map<String, dynamic>.from(row), 'startEnabled': false},
     ];
     prepared['forwards'] = fresh;
     final transport = _transport;
@@ -613,15 +532,6 @@ class AppSshSession implements AppTerminalSession {
       await transport.disableForward(old['id'] as int);
       if (!_current(generation) || !connected) return;
       if (next != null) await setForward(next['id'] as int, true);
-    }
-    if (activateNewStartEnabled) {
-      for (final next in fresh) {
-        if (next['startEnabled'] == true &&
-            !previous.any((row) => row['id'] == next['id'])) {
-          if (!_current(generation) || !connected) return;
-          await setForward(next['id'] as int, true);
-        }
-      }
     }
     _changed();
   }
@@ -648,21 +558,7 @@ class AppSshSession implements AppTerminalSession {
         throw const SshKeyAuthenticationCancelled();
       }
     }
-    String? password;
-    if (key['encrypted'] == true && key['loaded'] != true) {
-      final value = await _ask({
-        'type': 'string',
-        'instructions': key['nickname'],
-        'hint': 'Key password',
-        'password': true,
-      }, generation);
-      if (value is! String) throw const SshKeyAuthenticationCancelled();
-      password = value;
-    }
-    final identities = await loadStoredIdentities!(
-      id: keyId,
-      password: password,
-    );
+    final identities = await loadStoredIdentities!(id: keyId);
     if (!_current(generation) || !canEnroll) {
       throw StateError(
         'The original SSH connection is no longer authenticated.',
@@ -765,7 +661,6 @@ class AppSshSession implements AppTerminalSession {
                   })
                   as String;
           if (_disposed || generation != _generation) return;
-          _automation?.addOutput(text);
           terminal.write(text);
         })
         .catchError((Object error, StackTrace stack) {
@@ -862,7 +757,7 @@ class AppSshSession implements AppTerminalSession {
     final config = _maps(
       prepared['forwards'],
     ).where((row) => row['id'] == forwardId).firstOrNull;
-    if (config == null) throw SshAutomationError.forwardMissing;
+    if (config == null) throw StateError('Port forward is missing');
     await transport.enableForward(
       SshForward(
         id: forwardId,
@@ -872,42 +767,15 @@ class AppSshSession implements AppTerminalSession {
           'dynamic5' => SshForwardType.socks5,
           _ => throw UnsupportedError('Unsupported SSH forward type'),
         },
-        bindHost: config['sourceAddr'] as String? ?? 'localhost',
+        bindHost: config['type'] == 'remote'
+            ? config['sourceAddr'] as String? ?? 'localhost'
+            : '127.0.0.1',
         bindPort: config['sourcePort'] as int,
         targetHost: config['destAddr'] as String? ?? '',
         targetPort: config['destPort'] as int? ?? 0,
       ),
     );
     _changed();
-  }
-
-  Future<void> runAutomation(List<Map<String, dynamic>> actions) async {
-    final automation = _automation;
-    if (automation == null) throw StateError('SSH is not connected');
-    await automation.run([
-      for (final action in actions)
-        SshAutomationStep(
-          type: switch (action['type']) {
-            'WAIT_FOR_TEXT' => SshAutomationType.waitForText,
-            'SEND_TEXT' => SshAutomationType.sendText,
-            'SEND_KEY' => SshAutomationType.sendKey,
-            'DELAY' => SshAutomationType.delay,
-            'DISCONNECT' => SshAutomationType.disconnect,
-            'ENABLE_FORWARD' => SshAutomationType.enableForward,
-            'DISABLE_FORWARD' => SshAutomationType.disableForward,
-            _ => throw UnsupportedError('Unsupported automation action'),
-          },
-          text: action['text'] as String? ?? '',
-          regex: action['regex'] == true,
-          duration: Duration(
-            milliseconds: action['durationMs'] as int? ?? 30000,
-          ),
-          key: action['key'] as int? ?? 2,
-          modifiers: action['modifiers'] as int? ?? 0,
-          forwardId: action['forwardId'] as int?,
-          continueOnFailure: action['failurePolicy'] == 'CONTINUE',
-        ),
-    ]);
   }
 
   @override
@@ -924,7 +792,6 @@ class AppSshSession implements AppTerminalSession {
     _response = null;
     _prompt = null;
     response?.complete(null);
-    _automation?.cancel();
     input.closeKeyboard();
     final transport = _transport;
     await _input;
@@ -941,7 +808,6 @@ class AppSshSession implements AppTerminalSession {
               as String;
       if (!_disposed) {
         terminal.write(text);
-        await terminal.images.drained;
       }
       await platform('ssh.encode', {
         'sessionId': _codecId,
@@ -1019,7 +885,6 @@ class AppSshSession implements AppTerminalSession {
     switch (method) {
       case 'session.urls':
         await _output;
-        await terminal.images.drained;
         return scanUrls();
       case 'prompt.respond':
         return respond(args['token'] as String, args['value']);
@@ -1052,8 +917,6 @@ class AppSshSession implements AppTerminalSession {
         await disconnect();
       case 'session.reconnect':
         await reconnect();
-      case 'session.cancelAutomation':
-        _automation?.cancel();
       case 'session.dismissBanner':
         _banners.removeWhere((banner) => banner['id'] == args['bannerId']);
         _changed();

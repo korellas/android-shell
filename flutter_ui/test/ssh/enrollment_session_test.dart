@@ -41,7 +41,7 @@ void main() {
           ],
         },
         onChanged: () {},
-        loadStoredIdentities: ({required id, password}) async {
+        loadStoredIdentities: ({required id}) async {
           expect(id, 3);
           return [selected];
         },
@@ -104,7 +104,6 @@ void main() {
         expect(target.onPassword, isNull);
         expect(target.onInteractive, isNull);
         expect(target.onPasswordChange, isNull);
-        expect(target.agentHandler, isNull);
         expect(await target.verifyHostKey('ssh-rsa', pin), isFalse);
         expect(
           await target.verifyHostKey('ssh-ed25519', Uint8List.fromList([1])),

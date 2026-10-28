@@ -1,6 +1,6 @@
 # Tilde Flutter UI
 
-Flutter owns the screens, terminal rendering, SSH sessions, forwarding and automation. `AndroidEngine` connects `AppSshSession` and `AppLocalSession` to the shared terminal. Android method/event channels provide persistence, protected-key signing, legacy text encodings, local PTYs and foreground notifications. `FlutterSessionRuntime` retains the Flutter engine across Activity recreation; the terminal uses Flutter widgets.
+Flutter owns the screens, terminal rendering, SSH sessions and forwarding. `AndroidEngine` connects `AppSshSession` and `AppLocalSession` to the shared terminal. Android method/event channels provide persistence, protected-key signing, legacy text encodings, local PTYs and foreground notifications. `FlutterSessionRuntime` retains the Flutter engine across Activity recreation; the terminal uses Flutter widgets.
 
 Install the Flutter SDK matching the pinned revision in
 [CI](../.github/workflows/ci-build.yml). From the repository root:
@@ -15,7 +15,7 @@ The paired command also builds the generated iOS runner for iPhone and iPad with
 
 Use `release` to build the release AAR and host variant. Distribution still requires the existing release signing configuration.
 
-The application ID is `dev.korellas.androidshell.flutter` with the existing debug suffix. It uses separate app storage and Android Keystore entries. Host configuration import/export uses the native format; private keys are imported explicitly through key management. The installed native application is not replaced.
+The application ID is `dev.korellas.androidshell.flutter` with the existing debug suffix. It uses separate app storage and Android Keystore entries. New SSH keys are non-exportable P-256 keys generated in Android Keystore and require strong biometric authentication for every signing operation. Historical software-key rows remain visible only for inspection and deletion; they cannot authenticate or expose private material. Host configuration import/export excludes key bindings and executable behavior. The installed native application is not replaced.
 
 Run UI checks in this directory with `flutter analyze` and `flutter test`. Run native checks using the host Gradle tasks. Physical keyboard, IME, biometric, network recovery, and background behavior require device validation.
 
@@ -28,10 +28,11 @@ The [Tilde design contract](../docs/design/tilde-design.md) and preserved
 screens, colors, fonts, and save/cancel behavior. Saved connections remain the
 home screen. Host import/export is under Settings → Security & backup; terminal
 profiles are under Settings → Terminal. Editors stage changes behind a bottom
-save bar. Settings apply immediately. SSH and Android local shells retain their protocol-specific
-controls. Mosh, Telnet and SOCKS4 are excluded from this migration. Hardware mappings are visible with the actual connection state.
+save bar. Settings apply immediately. Only SSH and Android local shells can start;
+legacy Mosh, Telnet and SOCKS4 metadata may remain stored but is not executable.
+Hardware mappings are visible with the actual connection state.
 
 Diagnostic logs have a separate search/share screen. Port forwarding can target
-a selected session, and automation trials open a separate session using the
-staged steps. The document's example renders use test fixtures and are separate
-from device captures.
+a selected session, but forwards never start automatically and local/SOCKS listeners
+bind only to loopback. The document's example renders use test fixtures and are
+separate from device captures.

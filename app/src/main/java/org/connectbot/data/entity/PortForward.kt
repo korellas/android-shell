@@ -62,7 +62,7 @@ data class PortForward(
     @ColumnInfo(name = "dest_port")
     val destPort: Int,
     @ColumnInfo(name = "start_enabled", defaultValue = "1")
-    val startEnabled: Boolean = true,
+    val startEnabled: Boolean = false,
 ) {
     // Transient fields (not stored in database)
     @Transient

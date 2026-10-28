@@ -30,7 +30,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.connectbot.data.ColorSchemeRepository
 import org.connectbot.data.ProfileRepository
-import org.connectbot.data.entity.Profile
 import org.connectbot.di.CoroutineDispatchers
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -84,33 +83,6 @@ class ProfileEditorViewModelTest {
         context = context,
         dispatchers = dispatchers,
     )
-
-    @Test
-    fun inlineImagesDefaultsToAskAndSavesSelection() = runTest {
-        val viewModel = createViewModel()
-        assertEquals("ask", viewModel.uiState.value.inlineImages)
-        assertEquals("ask", Profile.createDefault().inlineImages)
-        viewModel.updateName("Images")
-        viewModel.updateInlineImages("on")
-        `when`(profileRepository.nameExists("Images", null)).thenReturn(false)
-        `when`(profileRepository.save(Profile(name = "Images", inlineImages = "on"))).thenReturn(1L)
-        viewModel.save {}
-        verify(profileRepository).save(Profile(name = "Images", inlineImages = "on"))
-    }
-
-    @Test
-    fun inlineImagesLoadsSavedSelection() = runTest {
-        `when`(profileRepository.getById(2L)).thenReturn(Profile(id = 2L, name = "Images", inlineImages = "off"))
-        val viewModel = ProfileEditorViewModel(
-            SavedStateHandle(mapOf("profileId" to 2L)),
-            profileRepository,
-            colorSchemeRepository,
-            sharedPreferences,
-            context,
-            dispatchers,
-        )
-        assertEquals("off", viewModel.uiState.value.inlineImages)
-    }
 
     @Test
     fun commonEncodings_hasExpectedFiveEntriesInOrder() {

@@ -1,6 +1,6 @@
 /*
  * ConnectBot: simple, powerful, open-source SSH client for Android
- * Copyright 2025 Kenny Root
+ * Copyright 2025-2026 Kenny Root
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -179,7 +179,7 @@ class PubkeyEntityTest {
 
         assertThat(pubkey.id).isEqualTo(0) // Default from @PrimaryKey(autoGenerate = true)
         assertThat(pubkey.storageType).isEqualTo(KeyStorageType.EXPORTABLE) // Default
-        assertThat(pubkey.allowBackup).isTrue() // Default
+        assertThat(pubkey.allowBackup).isFalse() // New and migrated keys are never backup-enabled
         assertThat(pubkey.keystoreAlias).isNull() // Default
     }
 

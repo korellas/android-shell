@@ -38,11 +38,7 @@
 
 	<application
 		android:name=".ConnectBotApplication"
-		android:allowBackup="true"
-		android:backupAgent=".service.BackupAgent"
-		android:fullBackupOnly="true"
-		android:fullBackupContent="@xml/backup_rules"
-		android:dataExtractionRules="@xml/data_extraction_rules"
+		android:allowBackup="false"
 		android:description="@string/app_desc"
 		android:enableOnBackInvokedCallback="true"
 		android:icon="@mipmap/icon"
@@ -54,39 +50,25 @@
 		android:theme="@style/AppTheme">
 
 		<activity
-			android:name=".flutter.FlutterShellActivity"
+			android:name=".flutter.LauncherActivity"
 			android:exported="true"
+			android:excludeFromRecents="true"
+			android:noHistory="true"
+			android:theme="@style/AppTheme">
+			<intent-filter>
+				<action android:name="android.intent.action.MAIN"/>
+				<category android:name="android.intent.category.LAUNCHER"/>
+			</intent-filter>
+		</activity>
+
+		<activity
+			android:name=".flutter.FlutterShellActivity"
+			android:exported="false"
 			android:launchMode="singleTop"
 			android:resizeableActivity="true"
 			android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
 			android:hardwareAccelerated="true"
 			android:windowSoftInputMode="adjustResize">
-			<intent-filter>
-				<action android:name="android.intent.action.MAIN"/>
-				<category android:name="android.intent.category.LAUNCHER"/>
-			</intent-filter>
-			<intent-filter>
-				<action android:name="android.intent.action.CREATE_SHORTCUT"/>
-				<category android:name="android.intent.category.DEFAULT"/>
-			</intent-filter>
-			<intent-filter>
-				<action android:name="android.intent.action.PICK"/>
-				<category android:name="android.intent.category.DEFAULT"/>
-
-				<data android:scheme="ssh"/>
-				<data android:scheme="local"/>
-			</intent-filter>
-			<intent-filter>
-				<action android:name="android.intent.action.VIEW"/>
-
-				<category android:name="android.intent.category.DEFAULT"/>
-				<category android:name="android.intent.category.BROWSABLE"/>
-
-				<data android:scheme="ssh"/>
-				<data android:scheme="local"/>
-				<!-- format:  ssh://user@host:port/#nickname  -->
-				<!-- format:  local://  -->
-			</intent-filter>
 		</activity>
 		<meta-data android:name="flutterEmbedding" android:value="2" />
 
@@ -111,10 +93,6 @@
 				android:name="autoStoreLocales"
 				android:value="true" />
 		</service>
-
-		<meta-data
-			android:name="com.google.android.backup.api_key"
-			android:value="unused"/>
 
 	</application>
 </manifest>

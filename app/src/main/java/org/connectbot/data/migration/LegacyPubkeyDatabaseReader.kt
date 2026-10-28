@@ -36,7 +36,7 @@ class LegacyPubkeyDatabaseReader(private val context: Context) {
 
     /**
      * Reads all pubkeys from the legacy database.
-     * All migrated keys are marked as EXPORTABLE with allowBackup=true by default.
+     * Migrated software keys remain quarantined and are never backup-enabled.
      * @param onWarning optional callback for user-visible warnings about skipped rows
      */
     fun readPubkeys(onWarning: ((String) -> Unit)? = null): List<Pubkey> {
@@ -107,8 +107,8 @@ class LegacyPubkeyDatabaseReader(private val context: Context) {
             startup = cursor.getInt(startupIndex) == 1,
             confirmation = cursor.getInt(confirmUseIndex) == 1,
             createdDate = System.currentTimeMillis(), // Legacy DB doesn't track this, use current time
-            storageType = KeyStorageType.EXPORTABLE, // All legacy keys are exportable
-            allowBackup = true, // Default to allowing backup for legacy keys
+            storageType = KeyStorageType.EXPORTABLE,
+            allowBackup = false,
             keystoreAlias = null, // Legacy keys don't use Android Keystore
         )
     }
