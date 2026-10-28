@@ -52,6 +52,7 @@ jobs:
           target: default
           arch: x86_64
           disk-size: 2G
+          emulator-options: -no-window -gpu swangle -no-snapshot -noaudio -no-boot-anim
           script: python3 .github/diagnostics/host_comparison.py observe
       - name: Preserve every observation
         if: always()
