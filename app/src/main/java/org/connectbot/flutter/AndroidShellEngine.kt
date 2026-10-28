@@ -387,7 +387,7 @@ internal class AndroidShellEngine(
                 val locale = activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java).currentInputMethodSubtype?.locale
                 locale?.startsWith("ko") == true
             },
-            "themeColors" to mapOf("light" to org.connectbot.ui.theme.connectBotColorScheme(activity, false, dynamicColor = false).toWire(), "dark" to org.connectbot.ui.theme.connectBotColorScheme(activity, true, dynamicColor = false).toWire()),
+            "entryAction" to activity.intent.action,
             "autoHideDelayMs" to 3000L,
             "defaults" to mapOf("host" to activity.settings.uiState.value.newHostDefaults().toWire(), "profile" to Profile(name = "").toWire()),
             "sortedByColor" to sortedByColor,

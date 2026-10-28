@@ -63,7 +63,7 @@ jobs:
   docs:
     name: Lint documentation
     needs: changes
-    if: needs.changes.outputs.needs_docs == 'true'
+    if: needs.changes.outputs.needs_docs == 'true' && needs.changes.outputs.needs_ci != 'true'
     uses: ./.github/workflows/ci-docs.yml
     secrets: inherit
 
@@ -103,7 +103,7 @@ jobs:
             failed=true
           fi
 
-          if [[ "${NEEDS_DOCS}" == "true" && "${DOCS_RESULT}" != "success" ]]; then
+          if [[ "${NEEDS_DOCS}" == "true" && "${NEEDS_CI}" != "true" && "${DOCS_RESULT}" != "success" ]]; then
             echo "Documentation lint result was ${DOCS_RESULT}"
             failed=true
           fi

@@ -4,7 +4,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.app.versioning)
     alias(libs.plugins.spotless)
@@ -78,7 +77,6 @@ android {
 
     buildFeatures {
         buildConfig = true
-        compose = true
     }
 
     signingConfigs {
@@ -401,43 +399,23 @@ tasks
 dependencies {
     debugImplementation(libs.flutter.debug)
     releaseImplementation(libs.flutter.release)
-    implementation(libs.androidx.media3.common.ktx)
-    implementation(libs.androidx.navigation.testing)
-    implementation(libs.androidx.ui)
     "googleImplementation"(libs.play.services.basement)
     "googleImplementation"(libs.play.feature.delivery)
-    testImplementation(libs.play.feature.delivery)
     "ossImplementation"(libs.conscrypt.android)
 
-    implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.appcompat)
-    implementation(libs.androidx.appcompat.resources)
     implementation(libs.androidx.preference)
     implementation(libs.material)
     implementation(libs.timber)
     implementation(libs.re2j)
-    implementation(libs.reorderable)
 
-    val composeBom = platform(libs.androidx.compose.bom)
-    implementation(composeBom)
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material.icons.extended)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.process)
-    implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.navigationevent.core)
-    implementation(libs.androidx.navigationevent.compose)
-    implementation(libs.androidx.activity.compose)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.hilt.android)
-    implementation(libs.androidx.hilt.navigation.compose)
     ksp(libs.hilt.android.compiler)
 
     androidTestImplementation(libs.hilt.android.testing)
@@ -445,26 +423,14 @@ dependencies {
 
     testImplementation(libs.hilt.android.testing)
     kspTest(libs.hilt.android.compiler)
-    testImplementation(libs.androidx.compose.ui.test)
-    testImplementation(libs.androidx.compose.ui.test.junit4)
 
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.core)
 
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
-
-    androidTestImplementation(composeBom)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.androidx.espresso.intents)
-    androidTestImplementation(libs.androidx.espresso.contrib) {
-        exclude(group = "com.google.android.apps.common.testing.accessibility.framework", module = "accessibility-test-framework")
-    }
     androidTestImplementation(libs.androidx.test.ext.junit)
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.assertj.core)
 
     androidTestUtil(libs.androidx.test.orchestrator)
@@ -479,7 +445,6 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.androidx.room.testing)
 
-    testCompileOnly(libs.conscrypt.openjdk.uber)
     testRuntimeOnly(libs.conscrypt.android)
     testImplementation(libs.conscrypt.openjdk.uber)
 }

@@ -63,4 +63,4 @@ render hooks and authentication policy were submitted as
 [xterm2 PR #3](https://github.com/SoFluffyOS/xterm2/pull/3) and
 [dartssh2 PR #251](https://github.com/vicajilau/dartssh2/pull/251). Compression stays local.
 Dependencies retain their own licenses, available through the help screen.
-Archived `termlib` and Mosh sources are not Android application dependencies.
+The retired native Compose UI and terminal module are removed; their history remains in Git. Archived Mosh sources are not Android application dependencies.
