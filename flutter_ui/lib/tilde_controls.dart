@@ -158,6 +158,78 @@ Widget tildeRadioOptions(
   ],
 );
 
+class TildeActionTile extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  const TildeActionTile({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final horizontal = MediaQuery.textScalerOf(context).scale(14) > 21;
+    return FilledButton.tonal(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 72),
+        padding: const EdgeInsets.all(8),
+        backgroundColor: colors.surfaceContainerHigh,
+        foregroundColor: colors.onSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      child: Flex(
+        direction: horizontal ? Axis.horizontal : Axis.vertical,
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 22),
+          SizedBox(width: horizontal ? 8 : 0, height: horizontal ? 0 : 8),
+          Flexible(child: Text(label, textAlign: TextAlign.center)),
+        ],
+      ),
+    );
+  }
+}
+
+Widget tildeActionButtons(BuildContext context, List<Widget> actions) =>
+    LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 300 ||
+            MediaQuery.textScalerOf(context).scale(15) > 21) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < actions.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                actions[i],
+              ],
+            ],
+          );
+        }
+        return Row(
+          children: [
+            for (var i = 0; i < actions.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(child: actions[i]),
+            ],
+          ],
+        );
+      },
+    );
+
+ButtonStyle tildeDangerButtonStyle(BuildContext context) =>
+    FilledButton.styleFrom(
+      foregroundColor: Theme.of(context).colorScheme.error,
+      backgroundColor: Theme.of(
+        context,
+      ).colorScheme.error.withValues(alpha: .14),
+    );
+
 class TildeSaveBar extends StatelessWidget {
   final int changes;
   final bool busy;
@@ -174,31 +246,61 @@ class TildeSaveBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 840;
+    final colors = Theme.of(context).colorScheme;
+    final status = busy
+        ? const TildeProgress.circular(label: '저장 중')
+        : Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: colors.tertiary,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '$changes개 변경됨',
+                  style: TextStyle(color: colors.onSurface),
+                ),
+              ),
+            ],
+          );
+    final actions = Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        TextButton(onPressed: busy ? null : cancel, child: const Text('되돌리기')),
+        FilledButton(onPressed: busy ? null : save, child: Text(saveLabel)),
+      ],
+    );
     final bar = Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
+        color: colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: busy
-                ? const TildeProgress.circular(label: '저장 중')
-                : Text(
-                    '$changes개 변경됨',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-          ),
-          TextButton(
-            onPressed: busy ? null : cancel,
-            child: const Text('되돌리기'),
-          ),
-          const SizedBox(width: 8),
-          FilledButton(onPressed: busy ? null : save, child: Text(saveLabel)),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 320 ||
+              MediaQuery.textScalerOf(context).scale(14) > 21) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [status, const SizedBox(height: 8), actions],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: status),
+              const SizedBox(width: 8),
+              actions,
+            ],
+          );
+        },
       ),
     );
     return SafeArea(
@@ -597,9 +699,13 @@ class TildeItemMenu<T> extends StatelessWidget {
   final PopupMenuItemBuilder<T> itemBuilder;
   final ValueChanged<T>? onSelected;
   final String tooltip;
+  final String title;
+  final IconData icon;
   const TildeItemMenu({
     super.key,
     required this.itemBuilder,
+    required this.title,
+    required this.icon,
     this.onSelected,
     this.tooltip = '메뉴',
   });
@@ -616,6 +722,11 @@ class TildeItemMenu<T> extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                ListTile(
+                  leading: Icon(icon),
+                  title: Text(title, style: Theme.of(c).textTheme.titleMedium),
+                ),
+                const SizedBox(height: 8),
                 for (final item in itemBuilder(c))
                   if (item is PopupMenuItem<T>)
                     ListTile(

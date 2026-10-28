@@ -74,6 +74,52 @@ void main() {
     },
   );
 
+  testWidgets('one-shot and locked modifiers have distinct keycap states', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TerminalKeyBar(
+            input: input,
+            onKey: (_, _, _, _) {},
+            onToggleKeyboard: () {},
+          ),
+        ),
+      ),
+    );
+    final colors = Theme.of(
+      tester.element(find.byType(TerminalKeyBar)),
+    ).colorScheme;
+    Color cap(String label) =>
+        (tester
+                    .widget<Ink>(
+                      find.ancestor(
+                        of: find.byKey(ValueKey('terminal-keycap-$label')),
+                        matching: find.byType(Ink),
+                      ),
+                    )
+                    .decoration!
+                as BoxDecoration)
+            .color!;
+    await tester.tap(find.text('Ctrl'));
+    await tester.pump();
+    expect(cap('Ctrl'), colors.primaryContainer);
+    input.setModifiers(ctrl: false);
+    input.stickyModifiers = 'yes';
+    await tester.tap(find.text('Ctrl'));
+    await tester.pump();
+    expect(cap('Ctrl'), colors.primary);
+    input.setModifiers(ctrl: false);
+    input.stickyModifiers = 'alt';
+    await tester.tap(find.text('Alt'));
+    await tester.pump();
+    expect(cap('Alt'), colors.primary);
+    await tester.tap(find.text('Ctrl'));
+    await tester.pump();
+    expect(cap('Ctrl'), colors.primaryContainer);
+  });
+
   testWidgets('tab remains at the right edge after scrolling and Fn', (
     tester,
   ) async {
@@ -95,7 +141,7 @@ void main() {
         ),
       ),
     );
-    final tab = find.widgetWithText(TextButton, 'tab');
+    final tab = find.widgetWithText(TextButton, 'Tab');
     final initial = tester.getRect(tab);
     expect(initial.width, greaterThanOrEqualTo(44));
     expect(initial.height, greaterThanOrEqualTo(44));
@@ -128,7 +174,7 @@ void main() {
       ),
     );
     expect(tester.getSize(find.byType(TerminalKeyBar)).height, 44);
-    for (final label in ['Esc', 'Ctrl', '↑', 'Fn', 'tab']) {
+    for (final label in ['Esc', 'Ctrl', '↑', 'Fn', 'Tab']) {
       final button = find.ancestor(
         of: find.byKey(ValueKey('terminal-keycap-$label')),
         matching: find.byType(TextButton),
@@ -149,7 +195,7 @@ void main() {
       const Size(40, 36),
     );
     expect(
-      tester.getSize(find.byKey(const ValueKey('terminal-keycap-tab'))),
+      tester.getSize(find.byKey(const ValueKey('terminal-keycap-Tab'))),
       const Size(56, 36),
     );
   });
@@ -157,7 +203,7 @@ void main() {
   testWidgets('large key labels fit their caps and pinned tab stays visible', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(360, 800);
+    tester.view.physicalSize = const Size(320, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -181,7 +227,7 @@ void main() {
         ),
       ),
     );
-    for (final label in ['Esc', 'Ctrl', 'Alt', 'tab']) {
+    for (final label in ['Esc', 'Ctrl', 'Alt', 'Tab']) {
       final text = tester.renderObject<RenderParagraph>(find.text(label));
       expect(text.didExceedMaxLines, isFalse, reason: label);
       final painter = TextPainter(
@@ -197,8 +243,8 @@ void main() {
       painter.dispose();
     }
     expect(
-      tester.getRect(find.widgetWithText(TextButton, 'tab')).right,
-      lessThanOrEqualTo(360),
+      tester.getRect(find.widgetWithText(TextButton, 'Tab')).right,
+      lessThanOrEqualTo(320),
     );
     expect(tester.takeException(), isNull);
   });
@@ -231,7 +277,7 @@ void main() {
       Tristate.isTrue,
     );
     await tester.tap(find.text('Alt'));
-    await tester.tap(find.text('tab'));
+    await tester.tap(find.text('Tab'));
     await tester.tap(find.text('Esc'));
     expect(sent, [
       (TerminalKey.tab, true, true, false),
@@ -239,7 +285,7 @@ void main() {
     ]);
     expect(modifiers.last, (true, true, false));
     await tester.tap(find.text('Ctrl'));
-    await tester.tap(find.text('tab'));
+    await tester.tap(find.text('Tab'));
     expect(sent.last, (TerminalKey.tab, false, true, false));
   });
 
@@ -260,7 +306,7 @@ void main() {
         ),
       ),
     );
-    for (final label in ['Ctrl', 'Alt', 'tab', 'Esc', 'Fn']) {
+    for (final label in ['Ctrl', 'Alt', 'Tab', 'Esc', 'Fn']) {
       await tester.tap(find.text(label));
     }
     await tester.tap(find.byTooltip('키보드 전환'));

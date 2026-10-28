@@ -98,6 +98,7 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
     String label,
     VoidCallback onPressed, {
     bool? selected,
+    bool locked = false,
     double width = 44,
     Widget? icon,
   }) {
@@ -115,7 +116,9 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
             ),
             padding: const EdgeInsets.symmetric(vertical: 4),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            foregroundColor: selected == true
+            foregroundColor: locked
+                ? colors.onPrimary
+                : selected == true
                 ? colors.onPrimaryContainer
                 : colors.onSurface,
             textStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -126,7 +129,9 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
           ),
           child: Ink(
             decoration: BoxDecoration(
-              color: selected == true
+              color: locked
+                  ? colors.primary
+                  : selected == true
                   ? colors.primaryContainer
                   : colors.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(8),
@@ -161,7 +166,12 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
 
   Widget? _scrollKey(String id) {
     if (id == 'ALT') {
-      return _button('Alt', () => _toggleModifier(), selected: _alt);
+      return _button(
+        'Alt',
+        () => _toggleModifier(),
+        selected: _alt,
+        locked: _alt && {'yes', 'alt'}.contains(widget.input.stickyModifiers),
+      );
     }
     final entry = switch (id) {
       'UP' => ('↑', 'Up', TerminalKey.arrowUp),
@@ -213,6 +223,14 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
                   'Ctrl',
                   () => _toggleModifier(ctrl: true),
                   selected: _ctrl,
+                  locked: _ctrl && widget.input.stickyModifiers == 'yes',
+                ),
+                SizedBox(
+                  width: 1,
+                  height: 22,
+                  child: ColoredBox(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                 ),
                 Expanded(
                   child: SingleChildScrollView(
@@ -240,7 +258,7 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
                       '⌨',
                       widget.onToggleKeyboard,
                       width: 40,
-                      icon: const Icon(Icons.keyboard_outlined, size: 18),
+                      icon: const Icon(Icons.keyboard_outlined, size: 20),
                     ),
                   ),
                 if (hasFn)
@@ -255,7 +273,7 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
                     selected: _functionMode,
                     width: 40,
                   ),
-                _button('tab', () => _send(TerminalKey.tab), width: 56),
+                _button('Tab', () => _send(TerminalKey.tab), width: 56),
               ],
             ),
           ),

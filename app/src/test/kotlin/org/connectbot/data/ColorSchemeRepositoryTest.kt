@@ -298,7 +298,7 @@ class ColorSchemeRepositoryTest {
         val before = repository.getSchemeColors(id)
         val night = repository.getSchemeAppearance(id)
         assertEquals(ColorSchemePresets.default.backgroundColor, night.second)
-        assertEquals(0xff1b2229.toInt(), before[0])
+        assertEquals(ColorSchemePresets.default.colors[0], before[0])
         repository.setSchemeRole(id, "cursor", 0xff112233.toInt())
         repository.setSchemeRole(id, "foreground", 0xffabcdef.toInt())
         assertTrue(before.contentEquals(repository.getSchemeColors(id)))

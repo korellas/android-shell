@@ -287,6 +287,39 @@ void main() {
         .singleWhere((d) => d.shape == BoxShape.circle);
     expect(status.color, theme.colorScheme.primary);
   });
+  for (final brightness in [Brightness.light, Brightness.dark]) {
+    testWidgets(
+      'session count badge identifies concurrent connections in $brightness',
+      (tester) async {
+        engine.state['sessions'] = [
+          ...engine.list('sessions'),
+          {...engine.list('sessions').single, 'id': 102},
+        ];
+        await open(tester, ShellHome(engine: engine), brightness: brightness);
+        final tile = tester.widget<TildeHostTile>(
+          find.byType(TildeHostTile).first,
+        );
+        expect(tile.sessionCount, 2);
+        expect(find.text('2'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await capture(
+          tester,
+          brightness == Brightness.light
+              ? 'polish-home-day'
+              : 'polish-home-night',
+        );
+        await tester.tap(find.byTooltip('home-nas 메뉴'));
+        await tester.pumpAndSettle();
+        await capture(
+          tester,
+          brightness == Brightness.light
+              ? 'polish-host-menu-day'
+              : 'polish-host-menu-night',
+        );
+      },
+    );
+  }
+
   testWidgets('phone home keeps quick connect below flat host rows', (
     tester,
   ) async {
@@ -390,6 +423,26 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+  testWidgets('locked modifiers remain visible in the console', (tester) async {
+    engine.state['preferences'] = {
+      ...engine.preferences,
+      'stickymodifiers': 'yes',
+      'alwaysvisible': true,
+    };
+    await open(tester, ConsolePage(engine: engine, sessionId: 101));
+    final session = engine.terminalSession(101)!;
+    const sample = 'admin@home-nas:~\$ htop';
+    session.terminal.writeText(sample, 0, sample.length);
+    session.terminal.notifyListeners();
+    expect(session.input.stickyModifiers, 'yes');
+    session.input.setModifiers(ctrl: true, alt: true);
+    await tester.pumpAndSettle();
+    await capture(tester, 'polish-console-night');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    engine.dispose();
+  });
+
   testWidgets(
     'wide console menu stays open while the terminal remains usable',
     (tester) async {

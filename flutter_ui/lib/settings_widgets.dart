@@ -305,7 +305,7 @@ class _TerminalBarPreviewState extends State<TerminalBarPreview> {
           children: [
             key('Esc'),
             key('Ctrl'),
-            Container(width: 1, height: 18, color: cs.outlineVariant),
+            Container(width: 1, height: 22, color: cs.outlineVariant),
             const SizedBox(width: 4),
             Expanded(
               child: SingleChildScrollView(
@@ -321,7 +321,7 @@ class _TerminalBarPreviewState extends State<TerminalBarPreview> {
                 selected: functions,
                 onTap: () => setState(() => functions = !functions),
               ),
-            key('tab'),
+            key('Tab'),
           ],
         ),
       ),

@@ -221,7 +221,7 @@ void main() {
               );
           await tester.pumpAndSettle();
           if (!open) {
-            expect(find.widgetWithText(TextButton, 'tab'), findsNothing);
+            expect(find.widgetWithText(TextButton, 'Tab'), findsNothing);
             expect(
               tester.widget<TerminalView>(find.byType(TerminalView)).readOnly,
               true,
@@ -863,6 +863,82 @@ void main() {
     },
   );
 
+  testWidgets('text input paste replaces the selected range', (tester) async {
+    String? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async => result = await askText(
+              context,
+              '전송할 내용',
+              initial: 'start end',
+              multiline: true,
+              showPasteAction: true,
+            ),
+            child: const Text('열기'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'start end',
+        selection: TextSelection(baseOffset: 6, extentOffset: 9),
+      ),
+    );
+    await tester.tap(find.text('붙여넣기'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.widgetWithText(FilledButton, '적용')).right,
+      tester.getRect(find.byType(TextFormField)).right,
+      reason: 'Prompt actions stay aligned with the field trailing edge',
+    );
+    final field = tester.widget<TextFormField>(find.byType(TextFormField));
+    expect(field.controller!.text, 'start Clipboard text');
+    expect(
+      field.controller!.selection,
+      const TextSelection.collapsed(offset: 20),
+    );
+    await tester.tap(find.text('적용'));
+    await tester.pumpAndSettle();
+    expect(result, 'start Clipboard text');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'terminal dimensions use columns then rows for x and multiplication sign',
+    (tester) async {
+      authenticationPending = false;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Research'));
+      await tester.pumpAndSettle();
+      for (final value in ['80×24', '100x30']) {
+        await tester.tap(find.byTooltip('터미널 메뉴'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.aspect_ratio_outlined));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextFormField), value);
+        await tester.tap(find.text('적용'));
+        await tester.pumpAndSettle();
+        final terminal = tester
+            .widget<TerminalPane>(find.byType(TerminalPane))
+            .terminal;
+        expect(terminal.viewWidth, value == '80×24' ? 80 : 100);
+        expect(terminal.viewHeight, value == '80×24' ? 24 : 30);
+      }
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
+
   testWidgets('console menu exposes grouped actions in one menu', (
     tester,
   ) async {
@@ -882,7 +958,10 @@ void main() {
     expect(find.text('추가 기능'), findsNothing);
     expect(find.text('열×행'), findsOneWidget);
     expect(find.text('조합 모드'), findsNothing);
-    await tester.tap(find.text('편집 후 전송'));
+    expect(find.text('편집 후 전송'), findsNothing);
+    await tester.tap(find.text('텍스트 입력'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('붙여넣기'));
     await tester.pumpAndSettle();
     await tester.pump();
     await tester.pumpAndSettle();

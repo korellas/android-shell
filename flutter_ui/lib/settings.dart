@@ -251,10 +251,39 @@ class _SettingsPageState extends State<SettingsPage> {
             padding: const EdgeInsets.only(bottom: 20),
             child: Text('설정', style: Theme.of(context).textTheme.headlineLarge),
           ),
-        OutlinedButton.icon(
-          onPressed: searchSettings,
-          icon: const Icon(Icons.search),
-          label: const Text('설정 검색'),
+        Material(
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            onTap: searchSettings,
+            borderRadius: BorderRadius.circular(10),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.search,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '설정 검색',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
         const SizedBox(height: 20),
         if (wide)
@@ -264,8 +293,22 @@ class _SettingsPageState extends State<SettingsPage> {
               selectedTileColor: Theme.of(
                 context,
               ).colorScheme.surfaceContainerLow,
-              leading: Icon(icon, size: 22),
-              title: Text(title(id)),
+              selectedColor: Theme.of(context).colorScheme.onSurface,
+              leading: Icon(
+                icon,
+                size: 22,
+                color: selected == id
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              title: Text(
+                title(id),
+                style: TextStyle(
+                  fontWeight: selected == id
+                      ? FontWeight.w600
+                      : FontWeight.w400,
+                ),
+              ),
               subtitle: Text(summary(id)),
               onTap: () => setState(() => category = id),
             )

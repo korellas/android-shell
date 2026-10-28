@@ -172,6 +172,10 @@ class RecordListPage extends StatelessWidget {
                     subtitle: Text('${usage(record)}개 호스트에서 사용'),
                     onTap: () => edit(context, record),
                     trailing: TildeItemMenu<String>(
+                      title: '${record['name']}',
+                      icon: kind == RecordKind.profile
+                          ? Icons.terminal_outlined
+                          : Icons.person_outline,
                       onSelected: (value) => action(context, record, value),
                       itemBuilder: (_) => [
                         const PopupMenuItem(value: 'edit', child: Text('편집')),
@@ -209,6 +213,10 @@ class RecordListPage extends StatelessWidget {
                     ),
                     onTap: () => edit(context, record),
                     trailing: TildeItemMenu<String>(
+                      title: '${record['name']}',
+                      icon: kind == RecordKind.profile
+                          ? Icons.terminal_outlined
+                          : Icons.person_outline,
                       onSelected: (value) => action(context, record, value),
                       itemBuilder: (_) => [
                         const PopupMenuItem(value: 'edit', child: Text('편집')),
@@ -406,6 +414,8 @@ class _KeyPageState extends State<KeyPage> {
         title: const Text('SSH 키'),
         actions: [
           TildeItemMenu<String>(
+            title: 'SSH 키 가져오기',
+            icon: Icons.key_outlined,
             onSelected: (action) async {
               if (action == 'file') {
                 await runEngine(context, engine, 'key.import');
@@ -491,6 +501,8 @@ class _KeyPageState extends State<KeyPage> {
                           : (_) => keyAction(key, 'load'),
                     ),
                     TildeItemMenu<String>(
+                      title: '${key['nickname']}',
+                      icon: Icons.key_outlined,
                       tooltip: '${key['nickname']} 옵션',
                       onSelected: (action) => keyAction(key, action),
                       itemBuilder: (_) => [
@@ -1119,6 +1131,8 @@ class SchemesPage extends StatelessWidget {
                                     ).colorScheme.primary,
                                   ),
                                 TildeItemMenu<String>(
+                                  title: '${scheme['name']}',
+                                  icon: Icons.palette_outlined,
                                   tooltip: '${scheme['name']} 옵션',
                                   onSelected: (value) =>
                                       action(context, scheme, value),
@@ -1305,6 +1319,8 @@ class _PalettePageState extends State<PalettePage> {
         title: Text('${widget.scheme['name']}'),
         actions: [
           TildeItemMenu<String>(
+            title: '${widget.scheme['name']}',
+            icon: Icons.palette_outlined,
             onSelected: menu,
             itemBuilder: (_) => [
               if (editable)
