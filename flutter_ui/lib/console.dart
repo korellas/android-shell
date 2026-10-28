@@ -216,28 +216,19 @@ class _ConsolePageState extends State<ConsolePage> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.tonalIcon(
-                        onPressed: () => Navigator.pop(c, false),
-                        icon: const Icon(Icons.pause_circle_outline),
-                        label: const Text('연결 유지'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Theme.of(c).colorScheme.error,
-                        ),
-                        onPressed: () => Navigator.pop(c, true),
-                        icon: const Icon(Icons.link_off_outlined),
-                        label: const Text('세션 종료'),
-                      ),
-                    ),
-                  ],
-                ),
+                tildeActionButtons(c, [
+                  FilledButton.icon(
+                    onPressed: () => Navigator.pop(c, false),
+                    icon: const Icon(Icons.pause_circle_outline),
+                    label: const Text('연결 유지'),
+                  ),
+                  FilledButton.icon(
+                    style: tildeDangerButtonStyle(c),
+                    onPressed: () => Navigator.pop(c, true),
+                    icon: const Icon(Icons.link_off_outlined),
+                    label: const Text('세션 종료'),
+                  ),
+                ]),
               ],
             ),
           ),
@@ -286,27 +277,31 @@ class _ConsolePageState extends State<ConsolePage> {
       return;
     }
     if (action == 'resize') {
+      final targetId = id;
       final size = await askText(
         actionsContext,
-        '터미널 크기 (행 x 열, 빈 값은 자동)',
+        '터미널 크기 · 열×행',
         initial: '',
+        hintText: '80×24 · 빈 값은 자동',
       );
       if (size == null || !mounted) return;
-      final parts = size.toLowerCase().split('x');
-      if (size.isNotEmpty &&
+      final parts = size.trim().toLowerCase().replaceAll('×', 'x').split('x');
+      if (size.trim().isNotEmpty &&
           (parts.length != 2 ||
               int.tryParse(parts.first.trim()) == null ||
               int.tryParse(parts.last.trim()) == null ||
               (int.tryParse(parts.first.trim()) ?? 0) <= 0 ||
               (int.tryParse(parts.last.trim()) ?? 0) <= 0)) {
         ScaffoldMessenger.of(actionsContext).showSnackBar(
-          const SnackBar(content: Text('‘24x80’처럼 행x열로 입력해 주세요.')),
+          const SnackBar(content: Text('‘80×24’처럼 열×행으로 입력해 주세요.')),
         );
         return;
       }
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted || id != targetId) return;
       terminalKey.currentState?.resize(
-        rows: size.isEmpty ? null : int.parse(parts.first.trim()),
-        columns: size.isEmpty ? null : int.parse(parts.last.trim()),
+        rows: size.trim().isEmpty ? null : int.parse(parts.last.trim()),
+        columns: size.trim().isEmpty ? null : int.parse(parts.first.trim()),
       );
       return;
     }
@@ -314,20 +309,17 @@ class _ConsolePageState extends State<ConsolePage> {
       await command('session.font', {'increase': action == 'fontUp'});
       return;
     }
-    if (action == 'text' || action == 'editPaste') {
+    if (action == 'text') {
       final target = engine.terminalSession(id);
       if (target?.sessionOpen != true) return;
-      final initial = action == 'editPaste'
-          ? (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? ''
-          : '';
       if (!mounted) return;
       final text = await askText(
         actionsContext,
         '${session['nickname'] ?? '터미널'}로 전송',
         action: '전송',
         maxWidth: 640,
-        initial: initial,
         multiline: true,
+        showPasteAction: true,
       );
       await WidgetsBinding.instance.endOfFrame;
       if (text != null &&
@@ -467,21 +459,10 @@ class _ConsolePageState extends State<ConsolePage> {
 
     Widget tile(String value, String label, IconData icon) => SizedBox(
       width: MediaQuery.textScalerOf(c).scale(15) > 21 ? double.infinity : 148,
-      child: FilledButton.tonal(
+      child: TildeActionTile(
+        label: label,
+        icon: icon,
         onPressed: () => action(value),
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 72),
-          backgroundColor: Theme.of(c).colorScheme.surfaceContainerHigh,
-          foregroundColor: Theme.of(c).colorScheme.onSurface,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 22),
-            const SizedBox(height: 8),
-            Text(label),
-          ],
-        ),
       ),
     );
     return Material(
@@ -545,13 +526,6 @@ class _ConsolePageState extends State<ConsolePage> {
                     ? selectMenuAction('titlebarhide')
                     : action('titlebarhide'),
               ),
-              if (connected)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.edit_note_outlined, size: 22),
-                  title: const Text('편집 후 전송'),
-                  onTap: () => action('editPaste'),
-                ),
               if (connected && session['canForward'] == true)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -576,32 +550,23 @@ class _ConsolePageState extends State<ConsolePage> {
                   onTap: () => action('reconnect'),
                 ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.tonalIcon(
-                      onPressed:
-                          connectionTarget['hostId'] == null &&
-                              connectionTarget['uri'] == null
-                          ? null
-                          : () => action('newSession'),
-                      icon: const Icon(Icons.library_add_outlined),
-                      label: const Text('새 세션'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Theme.of(c).colorScheme.error,
-                      ),
-                      onPressed: () => action('disconnect'),
-                      icon: const Icon(Icons.link_off_outlined),
-                      label: Text(connected ? '연결 끊기' : '닫기'),
-                    ),
-                  ),
-                ],
-              ),
+              tildeActionButtons(c, [
+                FilledButton.tonalIcon(
+                  onPressed:
+                      connectionTarget['hostId'] == null &&
+                          connectionTarget['uri'] == null
+                      ? null
+                      : () => action('newSession'),
+                  icon: const Icon(Icons.library_add_outlined),
+                  label: const Text('새 세션'),
+                ),
+                FilledButton.icon(
+                  style: tildeDangerButtonStyle(c),
+                  onPressed: () => action('disconnect'),
+                  icon: const Icon(Icons.link_off_outlined),
+                  label: Text(connected ? '연결 끊기' : '닫기'),
+                ),
+              ]),
             ],
           ),
         ),
@@ -954,9 +919,9 @@ class _ConsolePageState extends State<ConsolePage> {
                                                 100
                                           : null,
                                       color: progress['state'] == 'ERROR'
-                                          ? tildeCoral
+                                          ? theme.colorScheme.error
                                           : progress['state'] == 'WARNING'
-                                          ? tildeSand
+                                          ? theme.colorScheme.tertiary
                                           : theme.colorScheme.primary,
                                     ),
                                   for (final banner in rows(session['banners']))

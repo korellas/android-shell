@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'engine.dart';
 import 'tilde_design.dart';
+import 'tilde_controls.dart';
 import 'editors.dart';
 import 'management.dart';
 import 'console.dart';
@@ -267,59 +268,125 @@ Future<String?> askText(
   String? Function(String?)? validator,
   String action = '적용',
   double maxWidth = 440,
-}) async {
-  var value = initial;
+  String? hintText,
+  bool showPasteAction = false,
+}) => showTildeSheet<String>(
+  context: context,
+  isScrollControlled: true,
+  maxWidth: maxWidth,
+  builder: (_) => _TextPrompt(
+    title: title,
+    initial: initial,
+    password: password,
+    multiline: multiline,
+    keyboardType: keyboardType,
+    validator: validator,
+    action: action,
+    hintText: hintText,
+    showPasteAction: showPasteAction,
+  ),
+);
+
+class _TextPrompt extends StatefulWidget {
+  final String title, initial, action;
+  final bool password, multiline, showPasteAction;
+  final String? hintText;
+  final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
+  const _TextPrompt({
+    required this.title,
+    required this.initial,
+    required this.password,
+    required this.multiline,
+    required this.keyboardType,
+    required this.validator,
+    required this.action,
+    required this.hintText,
+    required this.showPasteAction,
+  });
+  @override
+  State<_TextPrompt> createState() => _TextPromptState();
+}
+
+class _TextPromptState extends State<_TextPrompt> {
   final form = GlobalKey<FormState>();
-  return showTildeSheet<String>(
-    context: context,
-    isScrollControlled: true,
-    maxWidth: maxWidth,
-    builder: (c) => SafeArea(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          0,
-          24,
-          24 + MediaQuery.viewInsetsOf(c).bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(c).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            Form(
-              key: form,
-              child: TextFormField(
-                keyboardType: keyboardType,
-                validator: validator,
-                initialValue: initial,
-                onChanged: (text) => value = text,
-                autofocus: true,
-                obscureText: password,
-                maxLines: multiline ? 8 : 1,
-                minLines: multiline ? 3 : 1,
-              ),
+  late final controller = TextEditingController(text: widget.initial);
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> paste() async {
+    final text = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
+    if (!mounted || text == null) return;
+    final selection = controller.selection;
+    final start = selection.isValid ? selection.start : controller.text.length;
+    final end = selection.isValid ? selection.end : controller.text.length;
+    controller.value = TextEditingValue(
+      text: controller.text.replaceRange(start, end, text),
+      selection: TextSelection.collapsed(offset: start + text.length),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        0,
+        24,
+        24 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.title, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+          Form(
+            key: form,
+            child: TextFormField(
+              controller: controller,
+              keyboardType: widget.keyboardType,
+              validator: widget.validator,
+              decoration: InputDecoration(hintText: widget.hintText),
+              autofocus: true,
+              obscureText: widget.password,
+              maxLines: widget.multiline ? 8 : 1,
+              minLines: widget.multiline ? 3 : 1,
             ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
               children: [
+                if (widget.showPasteAction)
+                  TextButton.icon(
+                    onPressed: paste,
+                    icon: const Icon(Icons.content_paste_outlined, size: 18),
+                    label: const Text('붙여넣기'),
+                  ),
                 TextButton(
-                  onPressed: () => Navigator.pop(c),
+                  onPressed: () => Navigator.pop(context),
                   child: const Text('취소'),
                 ),
-                const SizedBox(width: 8),
                 FilledButton(
                   onPressed: () {
-                    if (form.currentState!.validate()) Navigator.pop(c, value);
+                    if (form.currentState!.validate()) {
+                      Navigator.pop(context, controller.text);
+                    }
                   },
-                  child: Text(action),
+                  child: Text(widget.action),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     ),
   );
@@ -740,27 +807,10 @@ class _ShellHomeState extends State<ShellHome> {
                           width: largeText
                               ? constraints.maxWidth
                               : (constraints.maxWidth - 16) / 3,
-                          child: FilledButton.tonal(
+                          child: TildeActionTile(
+                            label: label,
+                            icon: icon,
                             onPressed: () => Navigator.pop(c, value),
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(0, 72),
-                              padding: const EdgeInsets.all(8),
-                            ),
-                            child: Flex(
-                              direction: largeText
-                                  ? Axis.horizontal
-                                  : Axis.vertical,
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(icon, size: 22),
-                                SizedBox(
-                                  width: largeText ? 8 : 0,
-                                  height: largeText ? 0 : 8,
-                                ),
-                                Text(label),
-                              ],
-                            ),
                           ),
                         ),
                     ],
@@ -782,32 +832,23 @@ class _ShellHomeState extends State<ShellHome> {
                   onTap: () => Navigator.pop(c, value),
                 ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  if (engine
-                      .list('sessions')
-                      .any((s) => s['hostId'] == host['id'])) ...[
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.pop(c, 'disconnect'),
-                        icon: const Icon(Icons.link_off_outlined),
-                        label: const Text('연결 끊기'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Theme.of(c).colorScheme.error,
-                      ),
-                      onPressed: () => Navigator.pop(c, 'delete'),
-                      icon: const Icon(Icons.delete_outline),
-                      label: const Text('삭제'),
-                    ),
+              tildeActionButtons(c, [
+                if (engine
+                    .list('sessions')
+                    .any((s) => s['hostId'] == host['id']))
+                  FilledButton.icon(
+                    style: tildeDangerButtonStyle(c),
+                    onPressed: () => Navigator.pop(c, 'disconnect'),
+                    icon: const Icon(Icons.link_off_outlined),
+                    label: const Text('연결 끊기'),
                   ),
-                ],
-              ),
+                FilledButton.icon(
+                  style: tildeDangerButtonStyle(c),
+                  onPressed: () => Navigator.pop(c, 'delete'),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('삭제'),
+                ),
+              ]),
             ],
           ),
         ),
@@ -912,7 +953,11 @@ class _ShellHomeState extends State<ShellHome> {
                           context,
                         ).colorScheme.surfaceContainerLow,
                         selectedColor: Theme.of(context).colorScheme.onSurface,
-                        leading: TildeHostTile(host: tileHost, size: 56),
+                        leading: TildeHostTile(
+                          host: tileHost,
+                          size: 56,
+                          sessionCount: count,
+                        ),
                         title: Row(
                           children: [
                             Expanded(
@@ -922,7 +967,11 @@ class _ShellHomeState extends State<ShellHome> {
                               ),
                             ),
                             if (host['favorite'] == true)
-                              const Icon(Icons.star, size: 16),
+                              Icon(
+                                Icons.star,
+                                size: 16,
+                                color: Theme.of(context).colorScheme.tertiary,
+                              ),
                           ],
                         ),
                         subtitle: Text(
@@ -934,9 +983,6 @@ class _ShellHomeState extends State<ShellHome> {
                             fontSize: 13,
                           ),
                         ),
-                        trailing: count >= 2
-                            ? Text('$count', semanticsLabel: '세션 $count개')
-                            : null,
                         onTap: () => wide && !shortcut
                             ? _selectHost(host)
                             : _connect(host),

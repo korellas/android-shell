@@ -83,7 +83,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('복사'), findsOneWidget);
     expect(find.text('편집 후 전송'), findsNothing);
-    expect(find.widgetWithText(TextButton, 'tab'), findsNothing);
+    expect(find.widgetWithText(TextButton, 'Tab'), findsNothing);
     await tester.tap(find.byType(TerminalView));
     await tester.sendKeyEvent(LogicalKeyboardKey.keyA, character: 'a');
     input.paste('blocked');
@@ -132,7 +132,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.tap(find.widgetWithText(TextButton, 'tab'));
+    await tester.tap(find.widgetWithText(TextButton, 'Tab'));
     expect(output.join(), '한\t');
   });
 
@@ -169,7 +169,7 @@ void main() {
     await tester.pumpAndSettle();
     output.clear();
     await tester.tap(find.byType(TerminalView), warnIfMissed: false);
-    expect(find.widgetWithText(TextButton, 'tab'), findsNothing);
+    expect(find.widgetWithText(TextButton, 'Tab'), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyC, character: 'c');
     input.sendText('blocked');
     expect(output, isEmpty);
@@ -261,7 +261,7 @@ void main() {
       expect(find.byKey(const ValueKey('terminal-keycap-↑')), findsNothing);
       expect(
         tester
-            .getSize(find.byKey(const ValueKey('terminal-keycap-tab')))
+            .getSize(find.byKey(const ValueKey('terminal-keycap-Tab')))
             .height,
         48,
       );

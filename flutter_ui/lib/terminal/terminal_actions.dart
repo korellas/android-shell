@@ -331,15 +331,31 @@ class _TerminalActionsState extends State<TerminalActions> {
                     () => _selectRows(0, widget.terminal.buffer.height - 1),
                   ),
                   _option('보이는 화면 선택', _selectVisible),
-                  _option(
-                    '줄 단위 선택',
-                    () =>
-                        widget.controller.setSelectionMode(SelectionMode.line),
-                  ),
-                  _option(
-                    '블록 선택',
-                    () =>
-                        widget.controller.setSelectionMode(SelectionMode.block),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('선택 단위'),
+                        const SizedBox(height: 8),
+                        SegmentedButton<SelectionMode>(
+                          segments: const [
+                            ButtonSegment(
+                              value: SelectionMode.line,
+                              label: Text('줄'),
+                            ),
+                            ButtonSegment(
+                              value: SelectionMode.block,
+                              label: Text('블록'),
+                            ),
+                          ],
+                          selected: {widget.controller.selectionMode},
+                          showSelectedIcon: false,
+                          onSelectionChanged: (value) =>
+                              widget.controller.setSelectionMode(value.single),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ],

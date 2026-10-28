@@ -249,7 +249,7 @@ ThemeData tildeTheme(
       ),
     ),
     popupMenuTheme: PopupMenuThemeData(
-      color: s2,
+      color: s3,
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
@@ -294,7 +294,7 @@ ThemeData tildeTheme(
       contentTextStyle: TextStyle(
         fontFamily: 'Pretendard',
         color: fg,
-        fontSize: 13,
+        fontSize: 14,
       ),
       actionTextColor: accent,
       behavior: SnackBarBehavior.floating,
@@ -423,7 +423,13 @@ class TildeProgress extends StatelessWidget {
 class TildeHostTile extends StatelessWidget {
   final EngineRecord host;
   final double size;
-  const TildeHostTile({super.key, required this.host, this.size = 40});
+  final int sessionCount;
+  const TildeHostTile({
+    super.key,
+    required this.host,
+    this.size = 40,
+    this.sessionCount = 0,
+  });
   @override
   Widget build(BuildContext context) {
     final name = '${host['nickname'] ?? host['hostname'] ?? ''}'.trim();
@@ -470,7 +476,7 @@ class TildeHostTile extends StatelessWidget {
             'ERROR' => '오류',
             'DISCONNECTED' => '연결 안 됨',
             _ => '',
-          }}',
+          }}${sessionCount > 1 ? ' · 세션 $sessionCount개' : ''}',
       child: SizedBox.square(
         dimension: size,
         child: Stack(
@@ -485,27 +491,57 @@ class TildeHostTile extends StatelessWidget {
               child: Text(
                 initials.toLowerCase(),
                 style: TextStyle(
+                  fontFamily: 'Pretendard',
                   fontSize: size * .36,
                   fontWeight: FontWeight.w600,
                   color: color,
                 ),
               ),
             ),
-            if (status != null && status != 'UNKNOWN')
+            if (sessionCount > 1 || status != null && status != 'UNKNOWN')
               Positioned(
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  width: 14,
-                  height: 14,
+                  constraints: BoxConstraints(
+                    minWidth: sessionCount > 1 ? 22 : 14,
+                    minHeight: sessionCount > 1 ? 22 : 14,
+                  ),
+                  padding: sessionCount > 1
+                      ? const EdgeInsets.symmetric(horizontal: 5, vertical: 2)
+                      : EdgeInsets.zero,
                   decoration: BoxDecoration(
                     color: dot,
-                    shape: BoxShape.circle,
+                    shape: sessionCount > 1
+                        ? BoxShape.rectangle
+                        : BoxShape.circle,
+                    borderRadius: sessionCount > 1
+                        ? BorderRadius.circular(16)
+                        : null,
                     border: Border.all(
                       color: Theme.of(context).colorScheme.surface,
                       width: 3,
                     ),
                   ),
+                  child: sessionCount > 1
+                      ? Text(
+                          '$sessionCount',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: switch (status) {
+                              'ERROR' => Theme.of(context).colorScheme.onError,
+                              'UNREAD_OUTPUT' => Theme.of(
+                                context,
+                              ).colorScheme.onTertiary,
+                              'CONNECTED' => Theme.of(
+                                context,
+                              ).colorScheme.onPrimary,
+                              _ => Theme.of(context).colorScheme.surface,
+                            },
+                          ),
+                        )
+                      : null,
                 ),
               ),
           ],
