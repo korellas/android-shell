@@ -249,7 +249,7 @@ void main() {
   }
   testWidgets('vertical gesture setting has one heading', (tester) async {
     await open(tester, '제스처', 840, 1, Brightness.light);
-    expect(find.text('위아래로 밀면'), findsOneWidget);
+    expect(find.text('두 손가락으로 위아래로 밀면'), findsOneWidget);
   });
   for (final width in [320.0, 720.0, 840.0, 1280.0]) {
     for (final scale in [1.0, 2.0]) {

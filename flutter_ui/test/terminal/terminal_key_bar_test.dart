@@ -112,9 +112,6 @@ void main() {
     expect(cap('Ctrl'), colors.primary);
     input.setModifiers(ctrl: false);
     input.stickyModifiers = 'alt';
-    await tester.tap(find.text('Alt'));
-    await tester.pump();
-    expect(cap('Alt'), colors.primary);
     await tester.tap(find.text('Ctrl'));
     await tester.pump();
     expect(cap('Ctrl'), colors.primaryContainer);
@@ -174,7 +171,7 @@ void main() {
       ),
     );
     expect(tester.getSize(find.byType(TerminalKeyBar)).height, 44);
-    for (final label in ['Esc', 'Ctrl', '↑', 'Fn', 'Tab']) {
+    for (final label in ['Esc', 'Ctrl', '/', 'Fn', 'Tab']) {
       final button = find.ancestor(
         of: find.byKey(ValueKey('terminal-keycap-$label')),
         matching: find.byType(TextButton),
@@ -187,8 +184,8 @@ void main() {
       const Size(44, 36),
     );
     expect(
-      tester.getSize(find.byKey(const ValueKey('terminal-keycap-↑'))),
-      const Size(38, 36),
+      tester.getSize(find.byKey(const ValueKey('terminal-keycap-/'))),
+      const Size(44, 36),
     );
     expect(
       tester.getSize(find.byKey(const ValueKey('terminal-keycap-Fn'))),
@@ -227,7 +224,7 @@ void main() {
         ),
       ),
     );
-    for (final label in ['Esc', 'Ctrl', 'Alt', 'Tab']) {
+    for (final label in ['Esc', 'Ctrl', '/', 'Tab']) {
       final text = tester.renderObject<RenderParagraph>(find.text(label));
       expect(text.didExceedMaxLines, isFalse, reason: label);
       final painter = TextPainter(
@@ -276,17 +273,16 @@ void main() {
           .isSelected,
       Tristate.isTrue,
     );
-    await tester.tap(find.text('Alt'));
     await tester.tap(find.text('Tab'));
     await tester.tap(find.text('Esc'));
     expect(sent, [
-      (TerminalKey.tab, true, true, false),
-      (TerminalKey.escape, true, true, false),
+      (TerminalKey.tab, true, false, false),
+      (TerminalKey.escape, true, false, false),
     ]);
-    expect(modifiers.last, (true, true, false));
+    expect(modifiers.last, (true, false, false));
     await tester.tap(find.text('Ctrl'));
     await tester.tap(find.text('Tab'));
-    expect(sent.last, (TerminalKey.tab, false, true, false));
+    expect(sent.last, (TerminalKey.tab, false, false, false));
   });
 
   testWidgets('disabled bar emits no key, modifier or keyboard callbacks', (
@@ -306,7 +302,7 @@ void main() {
         ),
       ),
     );
-    for (final label in ['Ctrl', 'Alt', 'Tab', 'Esc', 'Fn']) {
+    for (final label in ['Ctrl', '/', 'Tab', 'Esc', 'Fn']) {
       await tester.tap(find.text(label));
     }
     await tester.tap(find.byTooltip('키보드 전환'));
@@ -322,8 +318,8 @@ void main() {
         home: Scaffold(
           body: TerminalKeyBar(
             input: input,
-            order: const ['HOME', 'UP', 'FUNCTION_KEYS', 'ALT'],
-            hidden: const {'UP', 'ALT'},
+            order: const ['HOME', 'SLASH', 'FUNCTION_KEYS', 'COLON'],
+            hidden: const {'SLASH', 'COLON'},
             groupFunctionKeys: false,
             onKey: (key, _, _, _) => sent.add(key),
             onToggleKeyboard: () {},

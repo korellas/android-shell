@@ -70,7 +70,8 @@ internal fun SettingsUiState.toWire(): Wire = mapOf(
     "fonts" to TerminalFont.entries.map { mapOf("value" to it.name, "label" to it.displayName) },
     "terminalKeys" to terminalBarLayout.visibleKeys.flatMap { key ->
         when (key) {
-            TerminalBarKey.ALT -> listOf(mapOf("name" to key.name, "label" to key.label, "modifier" to 4))
+            TerminalBarKey.SLASH, TerminalBarKey.COLON, TerminalBarKey.DASH, TerminalBarKey.PIPE, TerminalBarKey.TILDE ->
+                listOf(mapOf("name" to key.name, "label" to key.label, "text" to key.label))
 
             TerminalBarKey.FUNCTION_KEYS -> {
                 val functions = (1..12).map { mapOf("name" to "F$it", "label" to "F$it", "key" to VTermKey.FUNCTION_0 + it) }
@@ -82,10 +83,6 @@ internal fun SettingsUiState.toWire(): Wire = mapOf(
                     "name" to key.name,
                     "label" to key.label,
                     "key" to when (key) {
-                        TerminalBarKey.UP -> VTermKey.UP
-                        TerminalBarKey.DOWN -> VTermKey.DOWN
-                        TerminalBarKey.LEFT -> VTermKey.LEFT
-                        TerminalBarKey.RIGHT -> VTermKey.RIGHT
                         TerminalBarKey.HOME -> VTermKey.HOME
                         TerminalBarKey.END -> VTermKey.END
                         TerminalBarKey.PAGE_UP -> VTermKey.PAGEUP

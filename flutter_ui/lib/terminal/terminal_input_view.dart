@@ -186,7 +186,28 @@ class _TerminalInputViewState extends State<TerminalInputView> {
                 widget.input.paste(data!.text!);
               }
             },
-            onTapUp: (_, _) {
+            onTapUp: (_, cell) {
+              if (widget.keyboardEnabled &&
+                  widget.terminal.mouseMode == MouseMode.none &&
+                  widget.controller.selectionFor(widget.terminal.buffer) ==
+                      null) {
+                final buffer = widget.terminal.buffer;
+                final row = buffer.absoluteCursorY;
+                if (cell.y == row && !widget.terminal.isUsingAltBuffer) {
+                  final line = buffer.lines[row];
+                  var target = cell.x.clamp(0, buffer.viewWidth - 1);
+                  if (target > 0 && line.getWidth(target - 1) == 2) target--;
+                  final left = target < buffer.cursorX;
+                  final start = left ? target : buffer.cursorX;
+                  final end = left ? buffer.cursorX : target;
+                  for (var column = start; column < end; column++) {
+                    if (column > 0 && line.getWidth(column - 1) == 2) continue;
+                    widget.input.sendKey(
+                      left ? TerminalKey.arrowLeft : TerminalKey.arrowRight,
+                    );
+                  }
+                }
+              }
               if (widget.keyboardEnabled) {
                 if (widget.onRequestKeyboard != null) {
                   widget.onRequestKeyboard!();

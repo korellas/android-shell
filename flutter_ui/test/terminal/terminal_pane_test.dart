@@ -271,61 +271,77 @@ void main() {
       );
     },
   );
-  testWidgets(
-    'shared terminal preserves swipe page gestures and font shortcuts',
-    (tester) async {
-      final swipes = <int>[];
-      final fonts = <bool>[];
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: TerminalPane(
-              terminal: terminal,
-              controller: selection,
-              input: input,
-              pageGesture: true,
-              onSwipe: swipes.add,
-              onFontSize: fonts.add,
-              volumeFont: true,
-            ),
+  testWidgets('two-finger gestures preserve session and page navigation', (
+    tester,
+  ) async {
+    final swipes = <int>[];
+    final fonts = <bool>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TerminalPane(
+            terminal: terminal,
+            controller: selection,
+            input: input,
+            pageGesture: true,
+            onSwipe: swipes.add,
+            onFontSize: fonts.add,
+            volumeFont: true,
           ),
         ),
-      );
-      await tester.pumpAndSettle();
-      final rect = tester.getRect(find.byType(TerminalView));
-      await tester.dragFrom(rect.center, const Offset(-200, 0));
-      await tester.pumpAndSettle();
-      expect(swipes, [1]);
-      output.clear();
-      final point = Offset(rect.left + 20, rect.center.dy);
-      final gesture = await tester.startGesture(point);
-      await gesture.moveBy(const Offset(0, -20));
-      await tester.pump();
-      await gesture.moveBy(const Offset(0, -150));
-      await gesture.up();
-      await tester.pumpAndSettle();
-      expect(output.join(), contains('\x1b[6~'));
-      output.clear();
-      final first = await tester.startGesture(point);
-      final second = await tester.startGesture(
-        point + const Offset(25, 0),
-        pointer: 2,
-      );
-      await first.moveBy(const Offset(0, -150));
-      await first.up();
-      await second.up();
-      await tester.pumpAndSettle();
-      expect(output, isEmpty);
-      selection.setSelection(
-        terminal.buffer.createAnchor(0, 0),
-        terminal.buffer.createAnchor(2, 0),
-      );
-      await tester.pumpAndSettle();
-      await tester.dragFrom(point, const Offset(0, -150));
-      await tester.pumpAndSettle();
-      expect(output, isEmpty);
-      await tester.sendKeyEvent(LogicalKeyboardKey.audioVolumeUp);
-      expect(fonts, [true]);
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    final rect = tester.getRect(find.byType(TerminalView));
+    final swipe = await tester.startGesture(rect.center);
+    final swipeSecond = await tester.startGesture(
+      rect.center + const Offset(0, 30),
+      pointer: 2,
+    );
+    await swipe.moveBy(const Offset(-200, 0));
+    await swipeSecond.moveBy(const Offset(-200, 0));
+    await swipe.up();
+    await swipeSecond.up();
+    await tester.pumpAndSettle();
+    expect(swipes, [1]);
+    output.clear();
+    final point = Offset(rect.left + 20, rect.center.dy);
+    final gesture = await tester.startGesture(point);
+    final pageSecond = await tester.startGesture(
+      point + const Offset(25, 0),
+      pointer: 2,
+    );
+    await gesture.moveBy(const Offset(0, -20));
+    await pageSecond.moveBy(const Offset(0, -20));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, -150));
+    await pageSecond.moveBy(const Offset(0, -150));
+    await gesture.up();
+    await pageSecond.up();
+    await tester.pumpAndSettle();
+    expect(output.join(), contains('\x1b[6~'));
+    output.clear();
+    final first = await tester.startGesture(point);
+    final second = await tester.startGesture(
+      point + const Offset(25, 0),
+      pointer: 2,
+    );
+    await first.moveBy(const Offset(0, -150));
+    await first.up();
+    await second.up();
+    await tester.pumpAndSettle();
+    expect(output.join(), isNot(contains('\x1b[A')));
+    expect(output.join(), isNot(contains('\x1b[B')));
+    output.clear();
+    selection.setSelection(
+      terminal.buffer.createAnchor(0, 0),
+      terminal.buffer.createAnchor(2, 0),
+    );
+    await tester.pumpAndSettle();
+    await tester.dragFrom(point, const Offset(0, -150));
+    await tester.pumpAndSettle();
+    expect(output, isEmpty);
+    await tester.sendKeyEvent(LogicalKeyboardKey.audioVolumeUp);
+    expect(fonts, [true]);
+  });
 }

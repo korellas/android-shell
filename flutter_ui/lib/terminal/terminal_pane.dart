@@ -80,10 +80,48 @@ class TerminalPaneState extends State<TerminalPane> {
   Timer? _keyHideTimer;
   bool _keysVisible = true;
   Offset _drag = Offset.zero;
-  final _gestureKey = GlobalKey();
   final Set<int> _pointers = {};
-  bool _pageCancelled = false;
-  double _pageDrag = 0;
+  bool _multiTouch = false;
+
+  bool _canDrag() =>
+      widget.enabled &&
+      widget.controller.selectionFor(widget.terminal.buffer) == null;
+
+  void _moveCursor(Offset delta, {required bool horizontal}) {
+    if (!_canDrag()) return;
+    final render = _terminalKey.currentState?.renderTerminal;
+    if (render == null) return;
+    if (_multiTouch && !horizontal && !widget.pageGesture) {
+      if (_scroll.hasClients) {
+        _scroll.jumpTo(
+          (_scroll.offset - delta.dy).clamp(
+            _scroll.position.minScrollExtent,
+            _scroll.position.maxScrollExtent,
+          ),
+        );
+      }
+      return;
+    }
+    _drag += delta;
+    if (_multiTouch && horizontal) return;
+    final step = _multiTouch
+        ? render.cellSize.height * 5
+        : math.max(
+            24.0,
+            horizontal ? render.cellSize.width * 2 : render.cellSize.height,
+          );
+    final distance = horizontal ? _drag.dx : _drag.dy;
+    final count = (distance / step).truncate();
+    final key = _multiTouch
+        ? (count < 0 ? TerminalKey.pageDown : TerminalKey.pageUp)
+        : horizontal
+        ? (count < 0 ? TerminalKey.arrowLeft : TerminalKey.arrowRight)
+        : (count < 0 ? TerminalKey.arrowUp : TerminalKey.arrowDown);
+    for (var i = 0; i < count.abs(); i++) {
+      widget.input.sendKey(key);
+    }
+    _drag -= horizontal ? Offset(count * step, 0) : Offset(0, count * step);
+  }
 
   void _interaction({bool scrolling = false}) {
     _keyHideTimer?.cancel();
@@ -314,111 +352,87 @@ class TerminalPaneState extends State<TerminalPane> {
           onEdit: _edit,
           onPaste: widget.input.paste,
           onShare: widget.onShare,
-          child: GestureDetector(
-            onHorizontalDragStart: widget.onSwipe == null
-                ? null
-                : (_) {
-                    _drag = Offset.zero;
-                  },
-            onHorizontalDragUpdate: widget.onSwipe == null
-                ? null
-                : (details) {
-                    _drag += details.delta;
-                  },
-            onHorizontalDragEnd: widget.onSwipe == null
-                ? null
-                : (_) {
-                    if (!widget.enabled ||
-                        widget.controller.selectionFor(
-                              widget.terminal.buffer,
-                            ) !=
-                            null) {
-                      return;
-                    }
-                    final threshold = math.max(54, context.size!.width * .18);
-                    if (_drag.dx.abs() >= threshold &&
-                        _drag.dx.abs() >= _drag.dy.abs() * 1.5) {
-                      widget.onSwipe!(_drag.dx < 0 ? 1 : -1);
-                    }
-                  },
-            child: Listener(
-              onPointerDown: (event) {
-                _interaction();
-                _pointers.add(event.pointer);
-                if (_pointers.length > 1) _pageCancelled = true;
+          child: Listener(
+            onPointerDown: (event) {
+              _interaction();
+              if (_pointers.isEmpty) _multiTouch = false;
+              _pointers.add(event.pointer);
+              if (_pointers.length > 1) {
+                _multiTouch = true;
+                _drag = Offset.zero;
+              }
+            },
+            onPointerUp: (event) => _pointers.remove(event.pointer),
+            onPointerCancel: (event) => _pointers.remove(event.pointer),
+            onPointerMove: (_) => _interaction(scrolling: true),
+            child: RawGestureDetector(
+              gestures: {
+                _CursorHorizontalDrag:
+                    GestureRecognizerFactoryWithHandlers<_CursorHorizontalDrag>(
+                      () => _CursorHorizontalDrag(),
+                      (recognizer) => recognizer
+                        ..canStart = _canDrag
+                        ..multitouchDragStrategy =
+                            MultitouchDragStrategy.averageBoundaryPointers
+                        ..dragStartBehavior = DragStartBehavior.down
+                        ..onStart = (_) {
+                          _drag = Offset.zero;
+                        }
+                        ..onUpdate = (details) {
+                          _moveCursor(details.delta, horizontal: true);
+                        }
+                        ..onEnd = (_) {
+                          if (!_canDrag() ||
+                              !_multiTouch ||
+                              widget.onSwipe == null) {
+                            return;
+                          }
+                          final threshold = math.max(
+                            54,
+                            context.size!.width * .18,
+                          );
+                          if (_drag.dx.abs() >= threshold) {
+                            widget.onSwipe!(_drag.dx < 0 ? 1 : -1);
+                          }
+                        },
+                    ),
+                _CursorVerticalDrag:
+                    GestureRecognizerFactoryWithHandlers<_CursorVerticalDrag>(
+                      () => _CursorVerticalDrag(),
+                      (recognizer) => recognizer
+                        ..canStart = _canDrag
+                        ..multitouchDragStrategy =
+                            MultitouchDragStrategy.averageBoundaryPointers
+                        ..dragStartBehavior = DragStartBehavior.down
+                        ..onStart = (_) {
+                          _drag = Offset.zero;
+                        }
+                        ..onUpdate = (details) {
+                          _moveCursor(details.delta, horizontal: false);
+                        },
+                    ),
               },
-              onPointerUp: (event) => _pointers.remove(event.pointer),
-              onPointerCancel: (event) => _pointers.remove(event.pointer),
-              onPointerMove: (_) => _interaction(scrolling: true),
-              child: RawGestureDetector(
-                key: _gestureKey,
-                gestures: {
-                  if (widget.pageGesture)
-                    _PageDragRecognizer:
-                        GestureRecognizerFactoryWithHandlers<
-                          _PageDragRecognizer
-                        >(() => _PageDragRecognizer(), (recognizer) {
-                          recognizer
-                            ..canStart = (event) {
-                              final box =
-                                  _gestureKey.currentContext?.findRenderObject()
-                                      as RenderBox?;
-                              return widget.enabled &&
-                                  box != null &&
-                                  _pointers.length <= 1 &&
-                                  widget.controller.selectionFor(
-                                        widget.terminal.buffer,
-                                      ) ==
-                                      null &&
-                                  box.globalToLocal(event.position).dx <=
-                                      box.size.width / 3;
-                            }
-                            ..dragStartBehavior = DragStartBehavior.down
-                            ..onStart = (_) {
-                              _pageCancelled = _pointers.length > 1;
-                              _pageDrag = 0;
-                            }
-                            ..onUpdate = (details) {
-                              if (_pageCancelled || !widget.enabled) return;
-                              _pageDrag -= details.delta.dy;
-                              final render =
-                                  _terminalKey.currentState?.renderTerminal;
-                              if (render == null) return;
-                              final step = render.cellSize.height * 5;
-                              final pages = (_pageDrag / step).truncate();
-                              for (var i = 0; i < pages.abs(); i++) {
-                                widget.input.sendKey(
-                                  pages > 0
-                                      ? TerminalKey.pageDown
-                                      : TerminalKey.pageUp,
-                                );
-                              }
-                              _pageDrag -= pages * step;
-                            };
-                        }),
+              child: TerminalInputView(
+                terminal: widget.terminal,
+                controller: widget.controller,
+                input: widget.input,
+                terminalViewKey: _terminalKey,
+                focusNode: widget.focusNode,
+                scrollController: _scroll,
+                keyboardEnabled: widget.enabled,
+                autoResize: _autoResize,
+                onKeyEvent: _keyEvent,
+                onRequestKeyboard: () {
+                  if (!_keyboardVisible) {
+                    toggleKeyboard();
+                  } else {
+                    widget.input.requestKeyboard();
+                  }
                 },
-                child: TerminalInputView(
-                  terminal: widget.terminal,
-                  controller: widget.controller,
-                  input: widget.input,
-                  terminalViewKey: _terminalKey,
-                  focusNode: widget.focusNode,
-                  scrollController: _scroll,
-                  keyboardEnabled: widget.enabled,
-                  autoResize: _autoResize,
-                  onKeyEvent: _keyEvent,
-                  onRequestKeyboard: () {
-                    if (!_keyboardVisible) {
-                      toggleKeyboard();
-                    } else {
-                      widget.input.requestKeyboard();
-                    }
-                  },
-                  padding: widget.padding,
-                  showSoftKeyboard: _keyboardVisible,
-                  theme: widget.theme,
-                  textStyle: widget.textStyle,
-                ),
+                padding: widget.padding,
+                showSoftKeyboard: _keyboardVisible,
+                theme: widget.theme,
+                textStyle: widget.textStyle,
               ),
             ),
           ),
@@ -440,11 +454,11 @@ class TerminalPaneState extends State<TerminalPane> {
           order:
               widget.keyOrder ??
               const [
-                'ALT',
-                'UP',
-                'DOWN',
-                'LEFT',
-                'RIGHT',
+                'SLASH',
+                'COLON',
+                'DASH',
+                'PIPE',
+                'TILDE',
                 'HOME',
                 'END',
                 'PAGE_UP',
@@ -526,12 +540,26 @@ class _SelectionEditorState extends State<_SelectionEditor> {
   );
 }
 
-class _PageDragRecognizer extends VerticalDragGestureRecognizer {
-  bool Function(PointerDownEvent)? canStart;
+class _CursorHorizontalDrag extends HorizontalDragGestureRecognizer {
+  _CursorHorizontalDrag()
+    : super(
+        supportedDevices: {PointerDeviceKind.touch, PointerDeviceKind.stylus},
+      );
+  bool Function()? canStart;
 
   @override
   bool isPointerAllowed(PointerEvent event) =>
-      event is PointerDownEvent &&
-      (canStart?.call(event) ?? false) &&
-      super.isPointerAllowed(event);
+      (canStart?.call() ?? false) && super.isPointerAllowed(event);
+}
+
+class _CursorVerticalDrag extends VerticalDragGestureRecognizer {
+  _CursorVerticalDrag()
+    : super(
+        supportedDevices: {PointerDeviceKind.touch, PointerDeviceKind.stylus},
+      );
+  bool Function()? canStart;
+
+  @override
+  bool isPointerAllowed(PointerEvent event) =>
+      (canStart?.call() ?? false) && super.isPointerAllowed(event);
 }
