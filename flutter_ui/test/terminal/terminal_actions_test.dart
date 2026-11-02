@@ -53,7 +53,11 @@ void main() {
         .setMockMethodCallHandler(SystemChannels.platform, null);
   });
 
-  Future<void> mount(WidgetTester tester, {bool enabled = true}) async {
+  Future<void> mount(
+    WidgetTester tester, {
+    bool enabled = true,
+    bool inputEnabled = true,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -66,6 +70,7 @@ void main() {
                 controller: controller,
                 terminalViewKey: viewKey,
                 enabled: enabled,
+                inputEnabled: inputEnabled,
                 onEdit: (text) async {
                   expect(controller.selection, isNull);
                   edits.add(text);
@@ -133,37 +138,54 @@ void main() {
     expect(controller.selection, isNull);
   });
 
-  testWidgets(
-    'overflow uses the same popup for paste share and selection controls',
-    (tester) async {
-      await mount(tester);
-      terminal.write('first\r\nsecond');
-      await select(tester, const CellOffset(0, 0), const CellOffset(3, 0));
-      await tester.tap(find.byTooltip('선택 메뉴 더보기'));
-      await tester.pump();
-      expect(find.text('복사'), findsOneWidget);
-      await tester.tap(find.text('공유'));
-      expect(shares, ['fir']);
-      await tester.pump();
-      await tester.tap(find.byTooltip('선택 메뉴 더보기'));
-      await tester.pump();
-      await tester.ensureVisible(find.text('블록'));
-      await tester.tap(find.text('블록'));
-      await tester.pumpAndSettle();
-      expect(controller.selectionMode, SelectionMode.block);
-      expect(find.text('선택 단위'), findsOneWidget);
-      await tester.ensureVisible(find.text('줄'));
-      await tester.tap(find.text('줄'));
-      await tester.pumpAndSettle();
-      expect(controller.selectionMode, SelectionMode.line);
-      clipboard = 'exact paste\n';
-      await tester.ensureVisible(find.text('붙여넣기'));
-      await tester.tap(find.text('붙여넣기'));
-      await tester.pump();
-      expect(pastes, ['exact paste\n']);
-      expect(controller.selection, isNull);
-    },
-  );
+  testWidgets('overflow opens a popup without resizing the selection toolbar', (
+    tester,
+  ) async {
+    await mount(tester);
+    terminal.write('first\r\nsecond');
+    await select(tester, const CellOffset(0, 0), const CellOffset(3, 0));
+    expect(find.text('붙여넣기'), findsNothing);
+    final toolbar = find.byKey(const ValueKey('terminal-selection-menu'));
+    final before = tester.getRect(toolbar);
+    await tester.tap(find.byTooltip('선택 메뉴 더보기'));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(toolbar), before);
+    expect(find.byType(SegmentedButton<SelectionMode>), findsNothing);
+    expect(find.text('줄 전체 선택'), findsOneWidget);
+    expect(find.text('블록 선택'), findsOneWidget);
+    await tester.tap(find.text('블록 선택'));
+    await tester.pumpAndSettle();
+    expect(controller.selectionMode, SelectionMode.block);
+    expect(find.text('블록 선택'), findsNothing);
+    expect(find.text('복사'), findsOneWidget);
+    await tester.tap(find.byTooltip('선택 메뉴 더보기'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(find.text('블록 선택'), findsNothing);
+    expect(find.text('복사'), findsOneWidget);
+    await tester.tap(find.byTooltip('선택 메뉴 더보기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('공유'));
+    await tester.pumpAndSettle();
+    expect(shares, ['fir']);
+    expect(controller.selection, isNull);
+    expect(find.text('복사'), findsNothing);
+  });
+
+  testWidgets('empty long press offers only paste', (tester) async {
+    await mount(tester);
+    clipboard = 'exact paste\n';
+    await tester.longPressAt(
+      tester.getBottomRight(find.byType(TerminalView)) - const Offset(20, 20),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('붙여넣기'), findsOneWidget);
+    expect(find.byTooltip('선택 메뉴 더보기'), findsNothing);
+    await tester.tap(find.text('붙여넣기'));
+    await tester.pumpAndSettle();
+    expect(pastes, ['exact paste\n']);
+  });
 
   testWidgets('select line and all use terminal buffer bounds', (tester) async {
     await mount(tester);
@@ -171,7 +193,7 @@ void main() {
     await select(tester, const CellOffset(1, 1), const CellOffset(4, 1));
     await tester.tap(find.byTooltip('선택 메뉴 더보기'));
     await tester.pump();
-    await tester.tap(find.text('줄 선택'));
+    await tester.tap(find.text('줄 전체 선택'));
     await tester.pump();
     expect(terminal.buffer.getText(controller.selection).trim(), 'second');
     await tester.tap(find.byTooltip('선택 메뉴 더보기'));
@@ -342,6 +364,39 @@ void main() {
       expect(terminal.listeners, isEmpty);
     },
   );
+
+  for (final inputEnabled in [true, false]) {
+    testWidgets(
+      'selection handle magnifies its boundary (input=$inputEnabled)',
+      (tester) async {
+        await mount(tester, inputEnabled: inputEnabled);
+        terminal.write('first row\r\nsecond row\r\nthird row');
+        await select(tester, const CellOffset(1, 1), const CellOffset(4, 2));
+        final drag = await tester.startGesture(
+          tester.getCenter(find.bySemanticsLabel('선택 끝')),
+        );
+        await drag.moveBy(const Offset(35, 0));
+        await tester.pump();
+        await tester.pump();
+        expect(find.byType(RawMagnifier), findsOneWidget);
+        expect(find.text('복사'), findsNothing);
+        final render = viewKey.currentState!.renderTerminal;
+        final end =
+            render.localToGlobal(render.getOffset(controller.selection!.end)) +
+            Offset(0, render.cellSize.height / 2);
+        final focal =
+            tester.getCenter(find.byType(RawMagnifier)) +
+            tester
+                .widget<RawMagnifier>(find.byType(RawMagnifier))
+                .focalPointOffset;
+        expect((focal - end).distance, lessThan(.01));
+        await drag.up();
+        await tester.pumpAndSettle();
+        expect(find.byType(RawMagnifier), findsNothing);
+        expect(find.text('복사'), findsOneWidget);
+      },
+    );
+  }
 
   testWidgets('disabled actions do not expose a menu or callbacks', (
     tester,

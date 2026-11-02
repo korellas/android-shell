@@ -46,6 +46,27 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets(
+    'desktop uses the physical keyboard without an auxiliary key row',
+    (tester) async {
+      await open(tester);
+      expect(find.text('Esc'), findsNothing);
+      expect(find.text('Ctrl'), findsNothing);
+      expect(find.text('Fn'), findsNothing);
+      expect(find.text('Tab'), findsNothing);
+      expect(find.byTooltip('키보드 전환'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      expect(output.join(), '\t\x03');
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.windows,
+      TargetPlatform.macOS,
+    }),
+  );
+
   testWidgets('ended output remains selectable and scrollable without bytes', (
     tester,
   ) async {
@@ -245,6 +266,8 @@ void main() {
       await key.currentState!.viewAction('paste');
       await tester.pumpAndSettle();
       expect(find.text('위험할 수 있는 내용 붙여넣기'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.textContaining('⏎'), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, '붙여넣기'));
       await tester.pumpAndSettle();
       expect(output.join(), startsWith('\x1b[200~hello'));

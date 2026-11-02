@@ -35,6 +35,7 @@ class TerminalActions extends StatefulWidget {
     this.onShare,
     this.enabled = true,
     this.inputEnabled = true,
+    this.magnifyCursor = false,
   });
 
   final Terminal terminal;
@@ -46,6 +47,7 @@ class TerminalActions extends StatefulWidget {
   final void Function(String text)? onShare;
   final bool enabled;
   final bool inputEnabled;
+  final bool magnifyCursor;
 
   @override
   State<TerminalActions> createState() => _TerminalActionsState();
@@ -59,7 +61,7 @@ class _TerminalActionsState extends State<TerminalActions> {
   Offset? _contextPoint;
   ScrollPosition? _scrollPosition;
   CellOffset? _touchedCell;
-  bool _overflow = false;
+  final _overflow = MenuController();
   bool _refreshPending = false;
   bool _forceRefresh = false;
   bool _draggingHandle = false;
@@ -89,7 +91,7 @@ class _TerminalActionsState extends State<TerminalActions> {
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_refresh);
       widget.controller.addListener(_refresh);
-      _overflow = false;
+      _overflow.close();
     }
     if (!widget.enabled ||
         !widget.inputEnabled ||
@@ -100,7 +102,7 @@ class _TerminalActionsState extends State<TerminalActions> {
       _draggingHandle = false;
       _handleDragOffset = null;
       _touchedCell = null;
-      _overflow = false;
+      _overflow.close();
       _geometry = null;
       _longPressTimer?.cancel();
       _contextPoint = null;
@@ -138,7 +140,7 @@ class _TerminalActionsState extends State<TerminalActions> {
           _stopHandleScroll();
           _draggingHandle = false;
           _handleDragOffset = null;
-          _overflow = false;
+          _overflow.close();
           _touchedCell = null;
         }
       });
@@ -149,9 +151,10 @@ class _TerminalActionsState extends State<TerminalActions> {
   ({Rect viewport, Offset begin, Offset end, double cellHeight})?
   _measureGeometry() {
     final selection = _selection;
-    final render = widget.terminalViewKey.currentState?.renderTerminal;
+    final view = widget.terminalViewKey.currentState;
+    final render = view?.renderTerminal;
     final stack = _stackKey.currentContext?.findRenderObject() as RenderBox?;
-    if (selection == null ||
+    if ((selection == null && !widget.magnifyCursor) ||
         render == null ||
         !render.hasSize ||
         stack == null ||
@@ -159,6 +162,15 @@ class _TerminalActionsState extends State<TerminalActions> {
       return null;
     }
     final origin = render.localToGlobal(Offset.zero, ancestor: stack);
+    if (selection == null) {
+      final cursor = stack.globalToLocal(view!.globalCursorRect.center);
+      return (
+        viewport: (origin & render.size).intersect(Offset.zero & stack.size),
+        begin: cursor,
+        end: cursor,
+        cellHeight: render.cellSize.height,
+      );
+    }
     return (
       viewport: (origin & render.size).intersect(Offset.zero & stack.size),
       begin: render.localToGlobal(
@@ -265,115 +277,189 @@ class _TerminalActionsState extends State<TerminalActions> {
     );
   }
 
-  Widget _option(String label, VoidCallback action) {
-    return TextButton(
-      onPressed: () {
-        if (!widget.enabled) return;
-        setState(() => _overflow = false);
-        action();
-      },
-      style: TextButton.styleFrom(
-        minimumSize: const Size(double.infinity, 48),
-        alignment: Alignment.centerLeft,
+  Widget _menu() {
+    final selected = _selection != null && !_selection!.isCollapsed;
+    final colors = Theme.of(context).colorScheme;
+    final actionStyle = TextButton.styleFrom(
+      minimumSize: const Size(0, 36),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      foregroundColor: colors.onSurface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
       ),
+    );
+    Widget action(String label, IconData icon, VoidCallback onPressed) =>
+        TextButton(
+          onPressed: onPressed,
+          style: actionStyle,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 6,
+            children: [
+              Icon(icon, size: 18),
+              Text(label, maxLines: 1, softWrap: false),
+            ],
+          ),
+        );
+    Widget option(
+      String label,
+      IconData icon,
+      VoidCallback onPressed, {
+      Widget? trailing,
+    }) => MenuItemButton(
+      leadingIcon: Icon(icon, size: 20),
+      trailingIcon: trailing,
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 14),
+        ),
+        visualDensity: VisualDensity.standard,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: WidgetStatePropertyAll(colors.onSurface),
+        iconColor: WidgetStatePropertyAll(colors.onSurfaceVariant),
+        textStyle: WidgetStatePropertyAll(
+          Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontSize: 14, height: 1.4),
+        ),
+      ),
+      onPressed: widget.enabled ? onPressed : null,
       child: Text(label),
     );
-  }
-
-  Widget _menu() {
     return ExcludeFocus(
-      child: SizedBox(
-        key: const ValueKey('terminal-selection-menu'),
-        width: 264,
-        child: Material(
+      child: MenuAnchor(
+        controller: _overflow,
+        consumeOutsideTap: true,
+        crossAxisUnconstrained: false,
+        alignmentOffset: const Offset(-212, 6),
+        style: MenuStyle(
+          alignment: Alignment.bottomRight,
+          fixedSize: const WidgetStatePropertyAll(Size.fromWidth(212)),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(vertical: 6),
+          ),
+          backgroundColor: WidgetStatePropertyAll(
+            colors.surfaceContainerHighest,
+          ),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          side: const WidgetStatePropertyAll(BorderSide.none),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        onOpen: () => setState(() {}),
+        onClose: () {
+          if (mounted) setState(() {});
+        },
+        menuChildren: [
+          option('줄 전체 선택', Icons.segment, _selectLine),
+          option('보이는 화면 선택', Icons.crop_free, _selectVisible),
+          option(
+            '전체 선택',
+            Icons.select_all,
+            () => _selectRows(0, widget.terminal.buffer.height - 1),
+          ),
+          const Divider(height: 13),
+          option(
+            '블록 선택',
+            Icons.view_column_outlined,
+            () => widget.controller.setSelectionMode(
+              widget.controller.selectionMode == SelectionMode.block
+                  ? SelectionMode.line
+                  : SelectionMode.block,
+            ),
+            trailing: widget.controller.selectionMode == SelectionMode.block
+                ? Icon(Icons.check, color: colors.primary, size: 18)
+                : null,
+          ),
+          if (widget.onShare != null) ...[
+            const Divider(height: 13),
+            option('공유', Icons.share_outlined, () {
+              final text = _selectedText();
+              if (text == null) return;
+              setState(() => _contextPoint = null);
+              widget.controller.clearSelection();
+              widget.onShare!(text);
+            }),
+          ],
+        ],
+        builder: (context, menu, child) => Material(
+          key: const ValueKey('terminal-selection-menu'),
           elevation: 4,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(selected ? 12 : 20),
           clipBehavior: Clip.antiAlias,
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          child: SingleChildScrollView(
-            child: Column(
+          color: colors.surfaceContainerHighest,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: 4,
+              vertical: selected ? 4 : 2,
+            ),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
+              spacing: 2,
               children: [
-                if (widget.inputEnabled)
-                  _option('붙여넣기', () => unawaited(_paste())),
-                if (_selection != null && !_selection!.isCollapsed)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton.icon(
-                          onPressed: _copy,
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            textStyle: const TextStyle(fontSize: 13),
-                          ),
-                          icon: const Icon(
-                            Icons.content_copy_outlined,
-                            size: 18,
-                          ),
-                          label: const Text('복사'),
-                        ),
-                      ),
-                      if (widget.inputEnabled)
-                        Expanded(
-                          flex: 2,
-                          child: TextButton.icon(
-                            onPressed: _edit,
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                              ),
-                              textStyle: const TextStyle(fontSize: 13),
-                            ),
-                            icon: const Icon(Icons.send_outlined, size: 18),
-                            label: const Text('편집 후 전송'),
-                          ),
-                        ),
-                      IconButton(
-                        tooltip: '선택 메뉴 더보기',
-                        onPressed: () => setState(() => _overflow = !_overflow),
-                        icon: Icon(
-                          _overflow ? Icons.expand_less : Icons.more_vert,
-                        ),
-                      ),
-                    ],
-                  ),
-                if (_overflow) ...[
-                  if (widget.onShare != null)
-                    _option('공유', () {
-                      final text = _selectedText();
-                      if (text != null) widget.onShare!(text);
-                    }),
-                  _option('줄 선택', _selectLine),
-                  _option(
-                    '전체 선택',
-                    () => _selectRows(0, widget.terminal.buffer.height - 1),
-                  ),
-                  _option('보이는 화면 선택', _selectVisible),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: 2,
                       children: [
-                        const Text('선택 단위'),
-                        const SizedBox(height: 8),
-                        SegmentedButton<SelectionMode>(
-                          segments: const [
-                            ButtonSegment(
-                              value: SelectionMode.line,
-                              label: Text('줄'),
+                        if (!selected && widget.inputEnabled)
+                          action(
+                            '붙여넣기',
+                            Icons.content_paste_outlined,
+                            () => unawaited(_paste()),
+                          ),
+                        if (selected) ...[
+                          action(
+                            '복사',
+                            Icons.content_copy_outlined,
+                            () => unawaited(_copy()),
+                          ),
+                          if (widget.inputEnabled)
+                            action(
+                              '편집 후 전송',
+                              Icons.send_outlined,
+                              () => unawaited(_edit()),
                             ),
-                            ButtonSegment(
-                              value: SelectionMode.block,
-                              label: Text('블록'),
-                            ),
-                          ],
-                          selected: {widget.controller.selectionMode},
-                          showSelectedIcon: false,
-                          onSelectionChanged: (value) =>
-                              widget.controller.setSelectionMode(value.single),
-                        ),
+                        ],
                       ],
                     ),
+                  ),
+                ),
+                if (selected) ...[
+                  SizedBox(
+                    height: 20,
+                    child: VerticalDivider(
+                      width: 1,
+                      color: colors.outlineVariant,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '선택 메뉴 더보기',
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size(36, 36),
+                      minimumSize: const Size(36, 36),
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      backgroundColor: menu.isOpen
+                          ? colors.primaryContainer
+                          : null,
+                      foregroundColor: menu.isOpen
+                          ? colors.primary
+                          : colors.onSurfaceVariant,
+                    ),
+                    onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+                    icon: const Icon(Icons.more_vert, size: 20),
                   ),
                 ],
               ],
@@ -385,7 +471,11 @@ class _TerminalActionsState extends State<TerminalActions> {
   }
 
   Widget _handle(bool extent, Offset point, Rect viewport, double cellHeight) {
-    final top = extent ? point.dy + cellHeight : point.dy - 48;
+    const knobSize = 14.0;
+    final centerY = extent
+        ? point.dy + cellHeight + knobSize / 2
+        : point.dy - knobSize / 2;
+    final top = centerY - 24;
     final left = point.dx - 24;
     return Positioned(
       left: left.clamp(
@@ -410,7 +500,13 @@ class _TerminalActionsState extends State<TerminalActions> {
                 render.getOffset(cell);
           },
           onPanStart: (_) {
-            if (widget.enabled) setState(() => _draggingHandle = true);
+            if (widget.enabled) {
+              _overflow.close();
+              setState(() {
+                _dragExtent = extent;
+                _draggingHandle = true;
+              });
+            }
           },
           onPanUpdate: (details) =>
               _updateHandleDrag(extent, details.globalPosition),
@@ -420,10 +516,10 @@ class _TerminalActionsState extends State<TerminalActions> {
             width: 48,
             height: 48,
             child: Align(
-              alignment: extent ? Alignment.topCenter : Alignment.bottomCenter,
+              alignment: Alignment.center,
               child: Icon(
                 Icons.circle,
-                size: 14,
+                size: knobSize,
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
@@ -500,6 +596,50 @@ class _TerminalActionsState extends State<TerminalActions> {
     if (mounted) setState(() => _draggingHandle = false);
   }
 
+  Widget _magnifier(Offset focalPoint, Rect viewport) {
+    const lens = Size(120, 56);
+    final left = (focalPoint.dx - lens.width / 2)
+        .clamp(
+          viewport.left,
+          math.max(viewport.left, viewport.right - lens.width),
+        )
+        .toDouble();
+    final top = (focalPoint.dy - lens.height - 24)
+        .clamp(
+          viewport.top,
+          math.max(viewport.top, viewport.bottom - lens.height),
+        )
+        .toDouble();
+    final center = Offset(left + lens.width / 2, top + lens.height / 2);
+    return Positioned(
+      left: left,
+      top: top,
+      child: IgnorePointer(
+        child: ExcludeSemantics(
+          child: RawMagnifier(
+            size: lens,
+            magnificationScale: 1.75,
+            focalPointOffset: focalPoint - center,
+            clipBehavior: Clip.hardEdge,
+            decoration: MagnifierDecoration(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Theme.of(context).colorScheme.outline),
+              ),
+              shadows: const [
+                BoxShadow(
+                  color: Color(0x40000000),
+                  blurRadius: 8,
+                  offset: Offset(0, 3),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     _scheduleGeometry();
@@ -532,8 +672,13 @@ class _TerminalActionsState extends State<TerminalActions> {
               child: CustomSingleChildLayout(
                 delegate: _SelectionMenuLayout(
                   viewport: geometry.viewport,
-                  point: geometry.end,
-                  cellHeight: geometry.cellHeight,
+                  point: Offset(
+                    (geometry.begin.dx + geometry.end.dx) / 2,
+                    math.min(geometry.begin.dy, geometry.end.dy),
+                  ),
+                  cellHeight:
+                      (geometry.begin.dy - geometry.end.dy).abs() +
+                      geometry.cellHeight,
                 ),
                 child: _menu(),
               ),
@@ -554,6 +699,16 @@ class _TerminalActionsState extends State<TerminalActions> {
                 child: _menu(),
               ),
             ),
+          ),
+        if (widget.enabled &&
+            geometry != null &&
+            (_draggingHandle || widget.magnifyCursor))
+          _magnifier(
+            _draggingHandle
+                ? (_dragExtent ? geometry.end : geometry.begin) +
+                      Offset(0, geometry.cellHeight / 2)
+                : geometry.begin,
+            geometry.viewport,
           ),
       ],
     );
@@ -605,7 +760,9 @@ class _SelectionMenuLayout extends SingleChildLayoutDelegate {
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    final visible = viewport.intersect(Offset.zero & constraints.biggest);
+    final visible = viewport
+        .intersect(Offset.zero & constraints.biggest)
+        .deflate(8);
     return BoxConstraints.loose(
       Size(math.max(0, visible.width), math.max(0, visible.height)),
     );
@@ -613,12 +770,12 @@ class _SelectionMenuLayout extends SingleChildLayoutDelegate {
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
-    final visible = viewport.intersect(Offset.zero & size);
-    final below = point.dy + cellHeight + 48 + 8;
-    final above = point.dy - childSize.height - 48 - 8;
+    final visible = viewport.intersect(Offset.zero & size).deflate(8);
+    final below = point.dy + cellHeight + 18;
+    final above = point.dy - childSize.height - 18;
     final y = below + childSize.height <= visible.bottom ? below : above;
     return Offset(
-      point.dx.clamp(
+      (point.dx - childSize.width / 2).clamp(
         visible.left,
         math.max(visible.left, visible.right - childSize.width),
       ),

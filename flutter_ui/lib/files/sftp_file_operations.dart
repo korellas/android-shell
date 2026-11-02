@@ -1,0 +1,91 @@
+// Copyright 2026 Kenny Root
+// SPDX-License-Identifier: Apache-2.0
+import 'package:dartssh2/dartssh2.dart';
+import 'transfer.dart';
+
+String? remoteNameError(String? name) {
+  if (name == null || name.trim().isEmpty) return '이름을 입력하세요.';
+  if (name == '.' ||
+      name == '..' ||
+      name.contains('/') ||
+      name.contains(r'\') ||
+      name.contains('\x00')) {
+    return '이름에 경로 구분자나 . 또는 ..를 사용할 수 없습니다.';
+  }
+  return null;
+}
+
+class SftpFileOperations {
+  SftpFileOperations(this.files);
+  final SftpClient files;
+  static const _timeout = Duration(seconds: 30);
+
+  String _namedPath(String directory, String name) {
+    final error = remoteNameError(name);
+    if (error != null) throw ArgumentError(error);
+    return remoteChild(directory, name);
+  }
+
+  Future<void> _ensureAvailable(String path) async {
+    try {
+      await files.stat(path, followLink: false).timeout(_timeout);
+    } on SftpStatusError catch (error) {
+      if (error.code == SftpStatusCode.noSuchFile) return;
+      rethrow;
+    }
+    throw StateError('같은 이름의 파일이나 폴더가 있습니다.');
+  }
+
+  Future<void> rename(String directory, String oldName, String newName) async {
+    if (oldName == newName) return;
+    final destination = _namedPath(directory, newName);
+    await _ensureAvailable(destination);
+    await files
+        .rename(remoteChild(directory, oldName), destination, overwrite: false)
+        .timeout(_timeout);
+  }
+
+  Future<void> move(String source, String destination) async {
+    if (destination == source || destination.startsWith('$source/')) {
+      throw StateError('자기 자신이나 하위 폴더로 이동할 수 없습니다.');
+    }
+    await _ensureAvailable(destination);
+    await files.rename(source, destination, overwrite: false).timeout(_timeout);
+  }
+
+  Future<void> createDirectory(String directory, String name) async {
+    final path = _namedPath(directory, name);
+    await _ensureAvailable(path);
+    await files.mkdir(path).timeout(_timeout);
+  }
+
+  Future<int> delete(
+    String path, {
+    required TransferControl control,
+    void Function(int)? onDeleted,
+  }) async {
+    if (path.isEmpty || path == '/') throw ArgumentError('루트 폴더는 삭제할 수 없습니다.');
+    var deleted = 0;
+    Future<void> remove(String path) async {
+      await control.ready;
+      final attrs = await files.stat(path, followLink: false).timeout(_timeout);
+      control.check();
+      if (attrs.isDirectory) {
+        final entries = await files.listdir(path).timeout(_timeout);
+        for (final entry in entries) {
+          if (entry.filename == '.' || entry.filename == '..') continue;
+          await remove(remoteChild(path, entry.filename));
+        }
+        control.check();
+        await files.rmdir(path).timeout(_timeout);
+      } else {
+        await files.remove(path).timeout(_timeout);
+      }
+      deleted++;
+      onDeleted?.call(deleted);
+    }
+
+    await remove(path);
+    return deleted;
+  }
+}

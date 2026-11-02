@@ -2,7 +2,7 @@
 
 The shared application dependencies are pinned in `../pubspec.yaml` and `../pubspec.lock`. The shared terminal and SSH kernel use xterm2 and dartssh2 as application dependencies. The xterm2 Git revision pins the proposed paint extension while its upstream PR is reviewed. The application entry point remains `lib/main.dart`.
 
-The agreed migration targets SSH on Android first. SOCKS4 and Telnet are excluded, the local shell remains Android-specific, and iOS platform work is deferred. Mosh and advertising are outside this stage.
+SOCKS4 and Telnet are excluded, and the local shell remains Android-specific. Mosh and advertising are outside this stage.
 
 ## Run
 
@@ -12,12 +12,15 @@ From `flutter_ui`:
 flutter analyze
 flutter test
 python3 validation/run_ssh_tests.py
+python3 validation/run_ssh_tests.py --ios-simulator <booted-simulator-uuid>
 flutter test validation/ssh_probe_test.dart
 flutter test validation/terminal_compatibility_test.dart
 flutter build apk --debug --target=validation/ssh_probe.dart
 ```
 
 The OpenSSH runner requires a Unix account, OpenSSH server/client tools and Flutter. It generates temporary host/client keys, binds its disposable server to `0.0.0.0`, and forces every connection through a restricted test process. It does not change system SSH configuration or authorized keys. The runner stops the server in a finally block and cleans its temporary directory on normal completion or a reported test failure. Do not run it as root.
+
+The iOS simulator mode runs the native credential protection and shared SSH engine against that server, including credential tamper rejection, restoring saved hosts, explicit server trust, and Korean terminal input/output. Prepare the generated runner with the paired build before running it. This verifies simulator behavior; signing and physical-device checks are separate.
 
 The protocol tests cover pinned host verification, rejection before authentication/execution, public-key authentication, asynchronous external signing, PTY dimensions, ordered UTF-8 input, forwarding, hop chains, compression and reconnects. They exercise both `SshSession` and the application `AppSshSession` adapter. The external signer test uses a software test key; it does not prove Android Keystore or biometric integration. Password and keyboard-interactive authentication still require separate validation.
 

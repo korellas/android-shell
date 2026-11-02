@@ -16,11 +16,13 @@
  */
 
 import 'dart:async';
+import 'package:dartssh2/dartssh2.dart' show SSHIdentity;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'ssh/app_session.dart';
 import 'ssh/enrollment.dart';
 import 'platform/key_manager.dart';
+import 'platform/ssh_keys.dart' show SshPlatformCall;
 import 'terminal/app_terminal_session.dart';
 import 'terminal/local_session.dart';
 
@@ -31,14 +33,24 @@ List<EngineRecord> rows(Object? value) =>
     value is List ? value.map(row).toList() : [];
 
 class AndroidEngine extends ChangeNotifier {
-  AndroidEngine({AppSshTransportFactory? sshTransportFactory})
-    : _sshTransportFactory = sshTransportFactory;
+  AndroidEngine({
+    AppSshTransportFactory? sshTransportFactory,
+    SshPlatformCall? platformCall,
+    Future<List<SSHIdentity>> Function({required int id})? identityLoader,
+  }) : _sshTransportFactory = sshTransportFactory,
+       _platformCall = platformCall,
+       _identityLoader = identityLoader;
   final AppSshTransportFactory? _sshTransportFactory;
+  final SshPlatformCall? _platformCall;
+  final Future<List<SSHIdentity>> Function({required int id})? _identityLoader;
   static const channel = MethodChannel('dev.korellas.androidshell/engine');
   static const events = EventChannel('dev.korellas.androidshell/events');
   EngineRecord state = {};
   EngineRecord _nativeState = {};
-  late final KeyManager _keys = KeyManager(_platformQuery);
+  late final KeyManager _keys = KeyManager(
+    _platformQuery,
+    identityLoader: _identityLoader,
+  );
   late final SshEnrollmentController _enrollment = SshEnrollmentController(
     onChanged: _sessionChanged,
     keys: () => list('keys').where((key) => key['supported'] != false).toList(),
@@ -71,6 +83,30 @@ class AndroidEngine extends ChangeNotifier {
   AppTerminalSession? terminalSession(int id) => _sessions[id];
   AppSshSession? sshSession(int id) =>
       _sessions[id] is AppSshSession ? _sessions[id] as AppSshSession : null;
+
+  Future<AppSshSession> createFileConnection(
+    int hostId, {
+    required VoidCallback onChanged,
+  }) async {
+    final prepared = row(await _platformQuery('ssh.prepare', {'id': hostId}));
+    final host = row(prepared['host']);
+    if (host['protocol'] != 'ssh') {
+      throw const EngineException('SSH 호스트에서 파일 전송을 사용할 수 있습니다.');
+    }
+    prepared['host'] = {...host, 'wantSession': false};
+    for (final config in [prepared, ...rows(prepared['jumps'])]) {
+      config['keys'] = _keys.decorateKeys(rows(config['keys']));
+    }
+    return AppSshSession(
+      id: ++_nextSessionId,
+      prepared: prepared,
+      platform: _platformQuery,
+      onChanged: onChanged,
+      loadStoredIdentities: _keys.identities,
+      transportFactory: _sshTransportFactory,
+    );
+  }
+
   final _localEvents = const EventChannel(
     'dev.korellas.androidshell/local_pty_events',
   ).receiveBroadcastStream();
@@ -378,6 +414,10 @@ class AndroidEngine extends ChangeNotifier {
   EngineRecord get preferences => row(state['preferences']);
   bool get ready => state['ready'] == true;
   Future<void> start() async {
+    if (_platformCall != null) {
+      await refresh();
+      return;
+    }
     _runtime.setMethodCallHandler((call) async {
       if (call.method == 'disconnectAll') await query('session.disconnectAll');
     });
@@ -449,7 +489,7 @@ class AndroidEngine extends ChangeNotifier {
     try {
       do {
         _again = false;
-        final snapshot = row(await channel.invokeMethod<Object?>('snapshot'));
+        final snapshot = row(await _platformQuery('snapshot'));
         if (_closed) return;
         _nativeState = snapshot;
         if (_nativeState['ready'] == true) {
@@ -461,6 +501,9 @@ class AndroidEngine extends ChangeNotifier {
       } while (_again && !_closed);
     } on PlatformException catch (e) {
       error = e.message ?? e.code;
+      if (!_closed) notifyListeners();
+    } on EngineException catch (e) {
+      error = e.message;
       if (!_closed) notifyListeners();
     } finally {
       _refreshing = false;
@@ -652,6 +695,7 @@ class AndroidEngine extends ChangeNotifier {
     Map<String, Object?> args = const {},
   ]) async {
     try {
+      if (_platformCall != null) return await _platformCall(method, args);
       final runtimeMethod =
           method.startsWith('local.') ||
           method.startsWith('runtime.') ||
@@ -679,7 +723,7 @@ class AndroidEngine extends ChangeNotifier {
   void dispose() {
     _closed = true;
     _subscription?.cancel();
-    _runtime.setMethodCallHandler(null);
+    if (_platformCall == null) _runtime.setMethodCallHandler(null);
     for (final session in _sessions.values) {
       unawaited(session.dispose());
     }

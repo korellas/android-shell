@@ -479,6 +479,13 @@ class AppSshSession implements AppTerminalSession {
     }
   }
 
+  Future<SftpClient> openSftp() {
+    if (!connected || _transport == null) {
+      throw StateError('SSH session is not connected');
+    }
+    return _transport!.openSftp();
+  }
+
   bool get canEnroll =>
       connected &&
       _enrollmentHost != null &&

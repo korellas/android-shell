@@ -192,11 +192,14 @@ class SftpClient {
   /// (version "1"), this method uses it to perform an atomic rename with
   /// POSIX semantics (replace destination if it exists). Otherwise, it falls
   /// back to the standard SFTP `SSH_FXP_RENAME` request.
-  Future<void> rename(String oldPath, String newPath) async {
+  /// Set [overwrite] to false to use the standard SFTP rename, which refuses
+  /// an existing destination, including one created after a client-side check.
+  Future<void> rename(String oldPath, String newPath,
+      {bool overwrite = true}) async {
     // Prefer OpenSSH's posix-rename extension when available.
     final hs = await handshake;
     final extVersion = hs.extensions['posix-rename@openssh.com'];
-    if (extVersion != null) {
+    if (extVersion != null && overwrite) {
       try {
         await _checkExtension('posix-rename@openssh.com', '1');
         final payload =

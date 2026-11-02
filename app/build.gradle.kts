@@ -1,4 +1,3 @@
-import io.github.reactivecircus.appversioning.toSemVer
 import org.gradle.api.tasks.testing.Test
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -14,10 +13,7 @@ plugins {
 
 appVersioning {
     tagFilter.set("v[0-9].*")
-    overrideVersionCode { gitTag, _, _ ->
-        val semVer = gitTag.toSemVer()
-        semVer.major * 10000000 + semVer.minor * 100000 + semVer.patch * 1000 + gitTag.commitsSinceLatestTag
-    }
+    overrideVersionCode { _, _, _ -> 11100061 }
     overrideVersionName { gitTag, _, _ ->
         if (gitTag.commitsSinceLatestTag != 0) {
             "git-${gitTag.rawTagName}-${gitTag.commitsSinceLatestTag}-g${gitTag.commitHash}"
@@ -92,6 +88,7 @@ android {
 
     buildTypes {
         release {
+            applicationIdSuffix = ".debug"
             manifestPlaceholders["memtagMode"] = "async"
             isShrinkResources = true
             isMinifyEnabled = true

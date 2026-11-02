@@ -16,6 +16,7 @@
  */
 
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'engine.dart';
@@ -28,6 +29,7 @@ import 'management.dart';
 import 'package:xterm2/xterm.dart';
 import 'terminal/terminal_pane.dart';
 import 'terminal/terminal_prompt.dart';
+import 'terminal/session_tabs.dart';
 
 class ConsolePage extends StatefulWidget {
   final AndroidEngine engine;
@@ -61,6 +63,36 @@ class _ConsolePageState extends State<ConsolePage> {
   Timer? titleTimer;
   bool titleHidden = false;
   bool menuOpen = false;
+  bool _tabSwitchPressed = false;
+  bool get _desktop =>
+      defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+
+  KeyEventResult _sessionKeyEvent(FocusNode node, KeyEvent event) {
+    if (!_desktop || event.logicalKey != LogicalKeyboardKey.tab) {
+      return KeyEventResult.ignored;
+    }
+    if (event is KeyUpEvent && _tabSwitchPressed) {
+      _tabSwitchPressed = false;
+      return KeyEventResult.handled;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    if (event is KeyUpEvent ||
+        !keyboard.isControlPressed ||
+        keyboard.isAltPressed ||
+        keyboard.isMetaPressed) {
+      return KeyEventResult.ignored;
+    }
+    _tabSwitchPressed = true;
+    final tabs = engine.list('sessions');
+    if (tabs.isNotEmpty) {
+      final current = tabs.indexWhere((tab) => tab['id'] == id);
+      final next = (current + (keyboard.isShiftPressed ? -1 : 1)) % tabs.length;
+      select(tabs[next]['id'] as int);
+    }
+    return KeyEventResult.handled;
+  }
+
   void interaction() {
     titleTimer?.cancel();
     if (mounted && titleHidden) setState(() => titleHidden = false);
@@ -87,10 +119,17 @@ class _ConsolePageState extends State<ConsolePage> {
         'owner': routeOwner,
         'visible': current,
       });
+      if (current && _desktop && engine.state['selectedSession'] != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) changed();
+        });
+      }
     }
   }
 
   void select(int target) {
+    if (target == id) return;
+    engine.terminalSession(id)?.input.finishComposition();
     setState(() {
       id = target;
       terminalKey = GlobalKey<TerminalPaneState>();
@@ -119,17 +158,22 @@ class _ConsolePageState extends State<ConsolePage> {
   @override
   void dispose() {
     titleTimer?.cancel();
+    engine.removeListener(changed);
     engine.query('session.visibility', {
       'id': id,
       'owner': routeOwner,
       'visible': false,
     });
-    engine.removeListener(changed);
     super.dispose();
   }
 
   void changed() {
     if (!mounted) return;
+    final selected = engine.state['selectedSession'] as int?;
+    if (_desktop && visible == true && selected != null) {
+      select(selected);
+      unawaited(engine.invoke('session.consumeSelection'));
+    }
     rememberSession();
     if (widget.startKeySetup && !setupOpened && session['canEnroll'] == true) {
       setupOpened = true;
@@ -175,6 +219,46 @@ class _ConsolePageState extends State<ConsolePage> {
       runEngine(actionsContext, engine, method, {'id': id, ...args});
   bool leaving = false;
   bool exitPromptOpen = false;
+  bool closingTab = false;
+
+  Future<void> closeTab(int targetId) async {
+    if (closingTab || leaving) return;
+    final target = engine
+        .list('sessions')
+        .where((record) => record['id'] == targetId)
+        .firstOrNull;
+    if (target == null) return;
+    closingTab = true;
+    try {
+      if ((target['open'] == true || target['connecting'] == true) &&
+          !await confirm(
+            actionsContext,
+            '세션 종료',
+            '${target['nickname'] ?? '터미널'} 연결을 종료할까요?',
+            action: '종료',
+          )) {
+        return;
+      }
+      if (!mounted) return;
+      await engine.invoke('session.disconnect', {'id': targetId});
+      if (!mounted || id != targetId) return;
+      final remaining = engine
+          .list('sessions')
+          .where((record) => record['id'] != targetId)
+          .toList();
+      if (remaining.isEmpty) {
+        await leave();
+      } else {
+        select(remaining.first['id'] as int);
+      }
+    } catch (error) {
+      if (mounted) {
+        showEngineFailure(actionsContext, error, summary: '연결을 닫지 못했습니다');
+      }
+    } finally {
+      closingTab = false;
+    }
+  }
 
   Future<void> requestLeave() async {
     if (leaving || exitPromptOpen) return;
@@ -453,13 +537,33 @@ class _ConsolePageState extends State<ConsolePage> {
       unawaited(selectMenuAction(value));
     }
 
-    Widget tile(String value, String label, IconData icon) => SizedBox(
-      width: MediaQuery.textScalerOf(c).scale(15) > 21 ? double.infinity : 148,
-      child: TildeActionTile(
-        label: label,
-        icon: icon,
-        onPressed: () => action(value),
+    Widget group(String label) => Padding(
+      padding: const EdgeInsets.fromLTRB(0, 16, 0, 6),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          label,
+          style: Theme.of(c).textTheme.labelMedium?.copyWith(
+            color: Theme.of(c).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
+    );
+    Widget entry(
+      String value,
+      String label,
+      IconData icon, {
+      String? subtitle,
+      bool enabled = true,
+      bool navigates = false,
+    }) => ListTile(
+      contentPadding: EdgeInsets.zero,
+      enabled: enabled,
+      leading: Icon(icon, size: 22),
+      title: Text(label),
+      subtitle: subtitle == null ? null : Text(subtitle),
+      trailing: navigates ? const Icon(Icons.chevron_right) : null,
+      onTap: enabled ? () => action(value) : null,
     );
     return Material(
       color: Theme.of(c).colorScheme.surfaceContainerLow,
@@ -484,26 +588,23 @@ class _ConsolePageState extends State<ConsolePage> {
                       )
                     : null,
               ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  if (connected)
-                    tile('paste', '붙여넣기', Icons.content_paste_outlined),
-                  if (connected)
-                    tile('text', '텍스트 입력', Icons.edit_note_outlined),
-                  tile('urls', '링크', Icons.link_outlined),
-                  if (connected)
-                    tile(
-                      'resize',
+              const Divider(),
+              if (connected) ...[
+                group('입력'),
+                entry('paste', '붙여넣기', Icons.content_paste_outlined),
+                entry('text', '텍스트 입력', Icons.edit_note_outlined),
+              ],
+              group('보기'),
+              entry('urls', '링크', Icons.link_outlined),
+              if (connected)
+                entry(
+                  'resize',
+                  '터미널 크기',
+                  Icons.aspect_ratio_outlined,
+                  subtitle:
                       '${session['columns'] ?? '열'}×${session['rows'] ?? '행'}',
-                      Icons.aspect_ratio_outlined,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                  navigates: true,
+                ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 secondary: const Icon(Icons.fullscreen, size: 22),
@@ -522,47 +623,35 @@ class _ConsolePageState extends State<ConsolePage> {
                     ? selectMenuAction('titlebarhide')
                     : action('titlebarhide'),
               ),
+              group('연결'),
               if (connected && session['canForward'] == true)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.swap_horiz, size: 22),
-                  title: const Text('포트 포워딩'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => action('forwards'),
-                ),
+                entry('forwards', '포트 포워딩', Icons.swap_horiz, navigates: true),
               if (session['canEnroll'] == true)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.key_outlined, size: 22),
-                  title: const Text('이 서버에 키 등록'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => action('enroll'),
+                entry(
+                  'enroll',
+                  '이 서버에 키 등록',
+                  Icons.key_outlined,
+                  navigates: true,
                 ),
               if (!leaving && !connected && session['connecting'] != true)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.refresh),
-                  title: const Text('다시 연결'),
-                  onTap: () => action('reconnect'),
-                ),
-              const SizedBox(height: 16),
-              tildeActionButtons(c, [
-                FilledButton.tonalIcon(
-                  onPressed:
-                      connectionTarget['hostId'] == null &&
-                          connectionTarget['uri'] == null
-                      ? null
-                      : () => action('newSession'),
-                  icon: const Icon(Icons.library_add_outlined),
-                  label: const Text('새 세션'),
-                ),
-                FilledButton.icon(
-                  style: tildeDangerButtonStyle(c),
-                  onPressed: () => action('disconnect'),
-                  icon: const Icon(Icons.link_off_outlined),
-                  label: Text(connected ? '연결 끊기' : '닫기'),
-                ),
-              ]),
+                entry('reconnect', '다시 연결', Icons.refresh),
+              entry(
+                'newSession',
+                '새 세션',
+                Icons.add_box_outlined,
+                enabled:
+                    connectionTarget['hostId'] != null ||
+                    connectionTarget['uri'] != null,
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Divider(),
+              ),
+              entry(
+                'disconnect',
+                connected ? '연결 끊기' : '닫기',
+                connected ? Icons.link_off_outlined : Icons.close,
+              ),
             ],
           ),
         ),
@@ -648,11 +737,13 @@ class _ConsolePageState extends State<ConsolePage> {
     final progressVisible =
         progress.isNotEmpty && progress['state'] != 'HIDDEN';
     final showProgress = session['connecting'] == true || progressVisible;
-    final showTitle = !(titleHidden && prefs['titlebarhide'] == true);
-    final toolbarHeight = showTitle ? 44.0 : 0.0;
+    final desktop = _desktop;
+    final showTitle =
+        desktop || !(titleHidden && prefs['titlebarhide'] == true);
+    final toolbarHeight = showTitle ? (desktop ? 48.0 : 44.0) : 0.0;
     final contentTop = toolbarHeight + (showProgress ? 2 : 0);
     final connectionLog = session['connectionLog'] as List?;
-    return Theme(
+    final content = Theme(
       data: theme,
       child: Builder(
         builder: (context) {
@@ -769,6 +860,10 @@ class _ConsolePageState extends State<ConsolePage> {
                                             controller:
                                                 commonSession.controller,
                                             input: commonSession.input,
+                                            onKeyEvent: _sessionKeyEvent,
+                                            onShare: (text) => unawaited(
+                                              command('share', {'text': text}),
+                                            ),
                                             enabled:
                                                 engine.ready &&
                                                 commonSession.sessionOpen &&
@@ -840,64 +935,86 @@ class _ConsolePageState extends State<ConsolePage> {
                                 top: 0,
                                 left: 0,
                                 right: 0,
-                                height: 44,
+                                height: toolbarHeight,
                                 child: AppBar(
-                                  toolbarHeight: 44,
+                                  toolbarHeight: toolbarHeight,
                                   primary: false,
                                   backgroundColor: background,
                                   foregroundColor: theme.colorScheme.onSurface,
                                   systemOverlayStyle: overlays,
                                   automaticallyImplyLeading: false,
                                   leading: IconButton(
-                                    tooltip: '뒤로',
-                                    icon: const Icon(Icons.arrow_back),
-                                    onPressed: requestLeave,
+                                    tooltip: desktop ? '기기 목록' : '뒤로',
+                                    icon: Icon(
+                                      desktop
+                                          ? Icons.dns_outlined
+                                          : Icons.arrow_back,
+                                    ),
+                                    onPressed: desktop
+                                        ? () => leave()
+                                        : requestLeave,
                                   ),
                                   titleSpacing: 0,
-                                  title: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: Row(
-                                      children: [
-                                        for (final target in engine.list(
-                                          'sessions',
-                                        ))
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              right: 4,
-                                            ),
-                                            child: TextButton(
-                                              style: TextButton.styleFrom(
-                                                minimumSize: const Size(0, 44),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                    ),
-                                                backgroundColor:
-                                                    target['id'] == id
-                                                    ? theme
-                                                          .colorScheme
-                                                          .surfaceContainerHigh
-                                                    : null,
-                                                foregroundColor:
-                                                    target['id'] == id
-                                                    ? theme
-                                                          .colorScheme
-                                                          .onSurface
-                                                    : theme
-                                                          .colorScheme
-                                                          .onSurfaceVariant,
-                                              ),
-                                              onPressed: () =>
-                                                  select(target['id'] as int),
-                                              child: Text(
-                                                '${target['nickname'] ?? '터미널'}',
-                                                maxLines: 1,
-                                              ),
-                                            ),
+                                  title: desktop
+                                      ? DesktopSessionTabs(
+                                          sessions: engine.list('sessions'),
+                                          selectedId: id,
+                                          onSelect: select,
+                                          onClose: (target) =>
+                                              unawaited(closeTab(target)),
+                                          onNew: () => unawaited(
+                                            selectMenuAction('newSession'),
                                           ),
-                                      ],
-                                    ),
-                                  ),
+                                        )
+                                      : SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Row(
+                                            children: [
+                                              for (final target in engine.list(
+                                                'sessions',
+                                              ))
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        right: 4,
+                                                      ),
+                                                  child: TextButton(
+                                                    style: TextButton.styleFrom(
+                                                      minimumSize: const Size(
+                                                        0,
+                                                        44,
+                                                      ),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 12,
+                                                          ),
+                                                      backgroundColor:
+                                                          target['id'] == id
+                                                          ? theme
+                                                                .colorScheme
+                                                                .surfaceContainerHigh
+                                                          : null,
+                                                      foregroundColor:
+                                                          target['id'] == id
+                                                          ? theme
+                                                                .colorScheme
+                                                                .onSurface
+                                                          : theme
+                                                                .colorScheme
+                                                                .onSurfaceVariant,
+                                                    ),
+                                                    onPressed: () => select(
+                                                      target['id'] as int,
+                                                    ),
+                                                    child: Text(
+                                                      '${target['nickname'] ?? '터미널'}',
+                                                      maxLines: 1,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
                                   actions: [popup()],
                                 ),
                               ),
@@ -1092,6 +1209,11 @@ class _ConsolePageState extends State<ConsolePage> {
           );
         },
       ),
+    );
+    return Focus(
+      canRequestFocus: false,
+      onKeyEvent: _sessionKeyEvent,
+      child: content,
     );
   }
 }

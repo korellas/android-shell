@@ -135,12 +135,100 @@ void main() {
     expect(find.text('붙여넣기'), findsNothing);
   });
 
-  testWidgets('symbols replace Alt and arrows and repeat after a delay', (
+  testWidgets('cursor swipe magnifies the actual cursor until release', (
+    tester,
+  ) async {
+    await mount(tester);
+    terminal.write('cursor');
+    await tester.pumpAndSettle();
+    final drag = await tester.startGesture(
+      tester.getCenter(find.byType(TerminalView)),
+    );
+    await drag.moveBy(const Offset(72, 0));
+    await tester.pumpAndSettle();
+    expect(find.byType(RawMagnifier), findsOneWidget);
+    final view = tester.state<TerminalViewState>(find.byType(TerminalView));
+    Offset focalPoint() =>
+        tester.getCenter(find.byType(RawMagnifier)) +
+        tester.widget<RawMagnifier>(find.byType(RawMagnifier)).focalPointOffset;
+    expect(
+      (focalPoint() - view.globalCursorRect.center).distance,
+      lessThan(.01),
+    );
+    terminal.write('\x1b[3;8H');
+    await tester.pumpAndSettle();
+    expect(
+      (focalPoint() - view.globalCursorRect.center).distance,
+      lessThan(.01),
+    );
+    await drag.up();
+    await tester.pumpAndSettle();
+    expect(find.byType(RawMagnifier), findsNothing);
+  });
+
+  testWidgets('restored direction buttons send negotiated arrow sequences', (
+    tester,
+  ) async {
+    await mount(tester);
+    expect(find.byTooltip('Left'), findsNothing);
+    expect(find.byTooltip('Right'), findsNothing);
+    for (final direction in ['Up', 'Down']) {
+      await tester.tap(find.byTooltip(direction));
+    }
+    expect(output.join(), '\x1b[A\x1b[B');
+    output.clear();
+    terminal.write('\x1b[?1h');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Up'));
+    expect(output.single, '\x1bOA');
+    output.clear();
+    final hold = await tester.startGesture(
+      tester.getCenter(find.byTooltip('Down')),
+    );
+    await tester.pump(const Duration(milliseconds: 450));
+    expect(output.length, greaterThan(1));
+    expect(output.every((s) => s == '\x1bOB'), true);
+    await hold.up();
+    final count = output.length;
+    await tester.pump(const Duration(seconds: 1));
+    expect(output.length, count);
+  });
+
+  testWidgets(
+    'cancel disable and a second finger dismiss cursor magnification',
+    (tester) async {
+      await mount(tester);
+      final center = tester.getCenter(find.byType(TerminalView));
+      final drag = await tester.startGesture(center);
+      await drag.moveBy(const Offset(72, 0));
+      await tester.pumpAndSettle();
+      expect(find.byType(RawMagnifier), findsOneWidget);
+      final second = await tester.startGesture(
+        center + const Offset(0, 30),
+        pointer: 2,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(RawMagnifier), findsNothing);
+      await second.up();
+      await drag.cancel();
+      final next = await tester.startGesture(center);
+      await next.moveBy(const Offset(0, 72));
+      await tester.pumpAndSettle();
+      expect(find.byType(RawMagnifier), findsOneWidget);
+      await mount(tester, enabled: false);
+      expect(find.byType(RawMagnifier), findsNothing);
+      await next.cancel();
+      await tester.pumpWidget(const SizedBox());
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('symbols and restored arrows repeat after a delay', (
     tester,
   ) async {
     await mount(tester);
     expect(find.text('Alt'), findsNothing);
-    expect(find.byTooltip('Up'), findsNothing);
+    expect(find.byTooltip('Up'), findsOneWidget);
     await tester.tap(find.text('/'));
     await tester.tap(find.text(':'));
     expect(output.join(), '/:');

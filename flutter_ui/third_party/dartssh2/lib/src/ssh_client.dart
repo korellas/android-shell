@@ -7,6 +7,7 @@ import 'package:dartssh2/src/http/http_client.dart';
 import 'package:dartssh2/src/sftp/sftp_client.dart';
 import 'package:dartssh2/src/forward/dynamic_forward.dart';
 import 'package:dartssh2/src/ssh_algorithm.dart';
+import 'package:dartssh2/src/ssh_aes_gcm.dart';
 import 'package:dartssh2/src/ssh_agent.dart';
 import 'package:dartssh2/src/ssh_channel.dart';
 import 'package:dartssh2/src/ssh_channel_id.dart';
@@ -315,6 +316,7 @@ class SSHClient {
     this.printDebug,
     this.printTrace,
     this.algorithms = const SSHAlgorithms(),
+    SSHAesGcmFactory? aesGcmFactory,
     this.onVerifyHostKey,
     this.identities,
     this.hostbasedIdentities,
@@ -352,6 +354,7 @@ class SSHClient {
       printDebug: printDebug,
       printTrace: printTrace,
       algorithms: algorithms,
+      aesGcmFactory: aesGcmFactory,
       compression: compression,
       onVerifyHostKey: onVerifyHostKey,
       onReady: _handleTransportReady,

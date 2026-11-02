@@ -34,24 +34,28 @@ class TerminalKeyBar extends StatefulWidget {
     required this.onToggleKeyboard,
     this.enabled = true,
     this.onModifiersChanged,
-    this.order = const [
-      'SLASH',
-      'COLON',
-      'DASH',
-      'PIPE',
-      'TILDE',
-      'HOME',
-      'END',
-      'PAGE_UP',
-      'PAGE_DOWN',
-      'INSERT',
-      'DELETE',
-      'FUNCTION_KEYS',
-    ],
+    this.order = defaultOrder,
     this.hidden = const {},
     this.keyHeight = 36,
     this.groupFunctionKeys = true,
   });
+
+  static const defaultOrder = [
+    'UP',
+    'DOWN',
+    'SLASH',
+    'COLON',
+    'DASH',
+    'PIPE',
+    'TILDE',
+    'HOME',
+    'END',
+    'PAGE_UP',
+    'PAGE_DOWN',
+    'INSERT',
+    'DELETE',
+    'FUNCTION_KEYS',
+  ];
 
   final void Function(TerminalKey key, bool ctrl, bool alt, bool shift) onKey;
   final TerminalInputController input;
@@ -274,6 +278,8 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
       });
     }
     final entry = switch (id) {
+      'UP' => ('↑', 'Up', TerminalKey.arrowUp),
+      'DOWN' => ('↓', 'Down', TerminalKey.arrowDown),
       'HOME' => ('Home', 'Home', TerminalKey.home),
       'END' => ('End', 'End', TerminalKey.end),
       'PAGE_UP' => ('PgUp', 'Page up', TerminalKey.pageUp),

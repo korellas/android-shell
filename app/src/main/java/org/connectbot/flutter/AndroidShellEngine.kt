@@ -157,6 +157,7 @@ internal class AndroidShellEngine(
     }
 
     private suspend fun execute(method: String, args: Wire): Any? {
+        if (method in setOf("file.pickUpload", "file.prepareDownload", "file.finishTransfer")) return fileTransferOperation(method, args)
         if (method.startsWith("key.storage")) return keyStorageOperation(method, args)
         if (method.startsWith("ssh.") || method == "session.prepare") return sshPlatformOperation(method, args)
         return when (method) {

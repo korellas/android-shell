@@ -15,8 +15,21 @@ with info_path.open("rb") as stream:
     info = plistlib.load(stream)
 info["CFBundleDisplayName"] = "Tilde"
 info["CFBundleName"] = "Tilde"
+info["NSLocalNetworkUsageDescription"] = "SSH 서버에 연결하고 개발 중인 앱을 디버깅합니다."
 with info_path.open("wb") as stream:
     plistlib.dump(info, stream)
+
+native_source = Path(__file__).resolve().parents[2] / "flutter_ui" / "platform" / "ios" / "AppDelegate.swift"
+shutil.copyfile(native_source, runner / "AppDelegate.swift")
+project_path = runner.parent / "Runner.xcodeproj" / "project.pbxproj"
+project = project_path.read_text()
+project = project.replace("AppDelegate.m", "AppDelegate.swift")
+project = project.replace("lastKnownFileType = sourcecode.c.objc; path = AppDelegate.swift;",
+                          "lastKnownFileType = sourcecode.swift; path = AppDelegate.swift;")
+project = project.replace("\t\t\t\t97C146F31CF9000F007C117D /* main.m in Sources */,\n", "")
+if "SWIFT_VERSION = " not in project:
+    project = project.replace("CURRENT_PROJECT_VERSION = ", "SWIFT_VERSION = 5.0;\n\t\t\t\tCURRENT_PROJECT_VERSION = ")
+project_path.write_text(project)
 icons = runner / "Assets.xcassets" / "AppIcon.appiconset"
 for item in json.loads((icons / "Contents.json").read_text())["images"]:
     target = icons / item["filename"]

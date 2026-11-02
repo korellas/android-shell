@@ -3,6 +3,7 @@
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -25,6 +26,7 @@ class TerminalPane extends StatefulWidget {
     this.enabled = true,
     this.onShare,
     this.onSwipe,
+    this.onKeyEvent,
     this.pageGesture = false,
     this.initialRows,
     this.initialColumns,
@@ -52,6 +54,7 @@ class TerminalPane extends StatefulWidget {
   final bool enabled;
   final void Function(String)? onShare;
   final ValueChanged<int>? onSwipe;
+  final FocusOnKeyEventCallback? onKeyEvent;
   final bool pageGesture;
   final int? initialRows;
   final int? initialColumns;
@@ -82,6 +85,7 @@ class TerminalPaneState extends State<TerminalPane> {
   Offset _drag = Offset.zero;
   final Set<int> _pointers = {};
   bool _multiTouch = false;
+  bool _cursorDragging = false;
 
   bool _canDrag() =>
       widget.enabled &&
@@ -135,6 +139,8 @@ class TerminalPaneState extends State<TerminalPane> {
 
   KeyEventResult _keyEvent(FocusNode node, KeyEvent event) {
     _interaction();
+    final result = widget.onKeyEvent?.call(node, event);
+    if (result != null && result != KeyEventResult.ignored) return result;
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final keyboard = HardwareKeyboard.instance;
     final chord = keyboard.isControlPressed && keyboard.isShiftPressed;
@@ -176,30 +182,80 @@ class TerminalPaneState extends State<TerminalPane> {
       widget.input.installPasteGuard(this, _confirmPaste);
     }
     widget.input.stickyModifiers = widget.stickyModifiers;
+    if (!widget.enabled ||
+        oldWidget.terminal != widget.terminal ||
+        oldWidget.controller != widget.controller) {
+      _cursorDragging = false;
+    }
+  }
+
+  void _startCursorDrag() {
+    _drag = Offset.zero;
+    if (!_multiTouch && _canDrag()) setState(() => _cursorDragging = true);
+  }
+
+  void _endCursorDrag() {
+    if (_cursorDragging) setState(() => _cursorDragging = false);
   }
 
   Future<bool> _confirmPaste(String text) async {
     if (!mounted) return false;
-    final lines = '\n'.allMatches(text.replaceAll('\r\n', '\n')).length + 1;
-    return await showDialog<bool>(
+    final normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final lines = '\n'.allMatches(normalized).length + 1;
+    return await showTildeSheet<bool>(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('위험할 수 있는 내용 붙여넣기'),
-            content: Text(
-              lines > 1
-                  ? '$lines개 줄을 터미널에 붙여넣으면 명령이 즉시 실행될 수 있습니다.'
-                  : '제어 문자가 포함되어 있어 터미널 동작이나 명령 실행을 유발할 수 있습니다.',
+          isScrollControlled: true,
+          builder: (c) => SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '위험할 수 있는 내용 붙여넣기',
+                  style: Theme.of(c).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  lines > 1
+                      ? '$lines개 줄을 터미널에 붙여넣으면 명령이 즉시 실행될 수 있습니다.'
+                      : '제어 문자가 포함되어 있어 터미널 동작이나 명령 실행을 유발할 수 있습니다.',
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(c).colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    normalized.replaceAll('\n', '⏎\n'),
+                    maxLines: 6,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: tildeMono,
+                      fontSize: 13,
+                      height: 1.6,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(c, false),
+                      child: const Text('취소'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(c, true),
+                      child: const Text('붙여넣기'),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('취소'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('붙여넣기'),
-              ),
-            ],
           ),
         ) ??
         false;
@@ -349,6 +405,7 @@ class TerminalPaneState extends State<TerminalPane> {
           controller: widget.controller,
           terminalViewKey: _terminalKey,
           inputEnabled: widget.enabled,
+          magnifyCursor: _cursorDragging && !_multiTouch,
           onEdit: _edit,
           onPaste: widget.input.paste,
           onShare: widget.onShare,
@@ -359,11 +416,18 @@ class TerminalPaneState extends State<TerminalPane> {
               _pointers.add(event.pointer);
               if (_pointers.length > 1) {
                 _multiTouch = true;
+                _endCursorDrag();
                 _drag = Offset.zero;
               }
             },
-            onPointerUp: (event) => _pointers.remove(event.pointer),
-            onPointerCancel: (event) => _pointers.remove(event.pointer),
+            onPointerUp: (event) {
+              _pointers.remove(event.pointer);
+              if (_pointers.isEmpty) _endCursorDrag();
+            },
+            onPointerCancel: (event) {
+              _pointers.remove(event.pointer);
+              _endCursorDrag();
+            },
             onPointerMove: (_) => _interaction(scrolling: true),
             child: RawGestureDetector(
               gestures: {
@@ -376,12 +440,14 @@ class TerminalPaneState extends State<TerminalPane> {
                             MultitouchDragStrategy.averageBoundaryPointers
                         ..dragStartBehavior = DragStartBehavior.down
                         ..onStart = (_) {
-                          _drag = Offset.zero;
+                          _startCursorDrag();
                         }
                         ..onUpdate = (details) {
                           _moveCursor(details.delta, horizontal: true);
                         }
+                        ..onCancel = _endCursorDrag
                         ..onEnd = (_) {
+                          _endCursorDrag();
                           if (!_canDrag() ||
                               !_multiTouch ||
                               widget.onSwipe == null) {
@@ -405,11 +471,15 @@ class TerminalPaneState extends State<TerminalPane> {
                             MultitouchDragStrategy.averageBoundaryPointers
                         ..dragStartBehavior = DragStartBehavior.down
                         ..onStart = (_) {
-                          _drag = Offset.zero;
+                          _startCursorDrag();
                         }
                         ..onUpdate = (details) {
                           _moveCursor(details.delta, horizontal: false);
-                        },
+                        }
+                        ..onEnd = (_) {
+                          _endCursorDrag();
+                        }
+                        ..onCancel = _endCursorDrag,
                     ),
               },
               child: TerminalInputView(
@@ -438,44 +508,31 @@ class TerminalPaneState extends State<TerminalPane> {
           ),
         ),
       ),
-      Visibility(
-        visible: widget.enabled && (_keysVisible || widget.alwaysVisibleKeys),
-        maintainState: true,
-        child: TerminalKeyBar(
-          key: ObjectKey(widget.input),
-          input: widget.input,
-          hapticFeedback: widget.hapticFeedback,
-          showKeyboardToggle: widget.showKeyboardToggle,
-          enabled: widget.enabled,
-          onToggleKeyboard: () {
-            _interaction();
-            toggleKeyboard();
-          },
-          order:
-              widget.keyOrder ??
-              const [
-                'SLASH',
-                'COLON',
-                'DASH',
-                'PIPE',
-                'TILDE',
-                'HOME',
-                'END',
-                'PAGE_UP',
-                'PAGE_DOWN',
-                'INSERT',
-                'DELETE',
-                'FUNCTION_KEYS',
-              ],
-          hidden: widget.hiddenKeys,
-          keyHeight: widget.keyHeight,
-          groupFunctionKeys: widget.groupFunctionKeys,
-          onKey: (key, ctrl, alt, shift) {
-            _interaction();
-            widget.input.sendKey(key, ctrl: ctrl, alt: alt, shift: shift);
-          },
+      if (defaultTargetPlatform != TargetPlatform.windows &&
+          defaultTargetPlatform != TargetPlatform.macOS)
+        Visibility(
+          visible: widget.enabled && (_keysVisible || widget.alwaysVisibleKeys),
+          maintainState: true,
+          child: TerminalKeyBar(
+            key: ObjectKey(widget.input),
+            input: widget.input,
+            hapticFeedback: widget.hapticFeedback,
+            showKeyboardToggle: widget.showKeyboardToggle,
+            enabled: widget.enabled,
+            onToggleKeyboard: () {
+              _interaction();
+              toggleKeyboard();
+            },
+            order: widget.keyOrder ?? TerminalKeyBar.defaultOrder,
+            hidden: widget.hiddenKeys,
+            keyHeight: widget.keyHeight,
+            groupFunctionKeys: widget.groupFunctionKeys,
+            onKey: (key, ctrl, alt, shift) {
+              _interaction();
+              widget.input.sendKey(key, ctrl: ctrl, alt: alt, shift: shift);
+            },
+          ),
         ),
-      ),
     ],
   );
 }

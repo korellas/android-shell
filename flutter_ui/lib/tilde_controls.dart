@@ -695,56 +695,132 @@ class _ColorWheelPainter extends CustomPainter {
   bool shouldRepaint(_ColorWheelPainter old) => old.hsv != hsv;
 }
 
+class TildeMenuLabel extends StatelessWidget {
+  const TildeMenuLabel(
+    this.label,
+    this.icon, {
+    super.key,
+    this.danger = false,
+    this.selected = false,
+  });
+  final String label;
+  final IconData icon;
+  final bool danger, selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: danger ? colors.error : colors.onSurfaceVariant,
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(color: danger ? colors.error : colors.onSurface),
+          ),
+        ),
+        if (selected) ...[
+          const SizedBox(width: 12),
+          Icon(Icons.check, size: 20, color: colors.primary),
+        ],
+      ],
+    );
+  }
+}
+
 class TildeItemMenu<T> extends StatelessWidget {
   final PopupMenuItemBuilder<T> itemBuilder;
   final ValueChanged<T>? onSelected;
   final String tooltip;
   final String title;
+  final String? subtitle;
   final IconData icon;
   const TildeItemMenu({
     super.key,
     required this.itemBuilder,
     required this.title,
     required this.icon,
+    this.subtitle,
     this.onSelected,
     this.tooltip = '메뉴',
   });
+
+  static Future<R?> show<R>(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    String? subtitle,
+    required PopupMenuItemBuilder<R> itemBuilder,
+  }) => showTildeSheet<R>(
+    context: context,
+    isScrollControlled: true,
+    builder: (c) => SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(c).height * .85,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Theme.of(c).colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 20),
+                ),
+                title: Text(title, style: Theme.of(c).textTheme.titleMedium),
+                subtitle: subtitle == null ? null : Text(subtitle),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Divider(),
+              ),
+              for (final item in itemBuilder(c))
+                if (item is PopupMenuItem<R>)
+                  ListTile(
+                    enabled: item.enabled,
+                    title: item.child,
+                    onTap: !item.enabled
+                        ? null
+                        : () {
+                            item.onTap?.call();
+                            Navigator.pop(c, item.value);
+                          },
+                  )
+                else if (item is PopupMenuDivider)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Divider(),
+                  ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => IconButton(
     tooltip: tooltip,
     icon: const Icon(Icons.more_vert),
     onPressed: () async {
-      final selected = await showTildeSheet<T>(
-        context: context,
-        builder: (c) => SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: Icon(icon),
-                  title: Text(title, style: Theme.of(c).textTheme.titleMedium),
-                ),
-                const SizedBox(height: 8),
-                for (final item in itemBuilder(c))
-                  if (item is PopupMenuItem<T>)
-                    ListTile(
-                      enabled: item.enabled,
-                      title: item.child,
-                      onTap: !item.enabled
-                          ? null
-                          : () {
-                              item.onTap?.call();
-                              Navigator.pop(c, item.value);
-                            },
-                    )
-                  else if (item is PopupMenuDivider)
-                    const Divider(),
-              ],
-            ),
-          ),
-        ),
+      final selected = await show<T>(
+        context,
+        title: title,
+        icon: icon,
+        subtitle: subtitle,
+        itemBuilder: itemBuilder,
       );
       if (selected != null) onSelected?.call(selected);
     },

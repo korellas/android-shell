@@ -16,14 +16,17 @@
  */
 
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'engine.dart';
+import 'platform/ios_platform.dart';
 import 'tilde_design.dart';
 import 'tilde_controls.dart';
 import 'editors.dart';
 import 'management.dart';
 import 'console.dart';
+import 'files/file_browser.dart';
 
 void main() => runApp(const AndroidShellApp());
 
@@ -35,7 +38,11 @@ class AndroidShellApp extends StatefulWidget {
 }
 
 class _AndroidShellAppState extends State<AndroidShellApp> {
-  late final engine = widget.engine ?? AndroidEngine();
+  late final engine =
+      widget.engine ??
+      (defaultTargetPlatform == TargetPlatform.iOS
+          ? createIosEngine()
+          : AndroidEngine());
   @override
   void initState() {
     super.initState();
@@ -468,6 +475,7 @@ class _ShellHomeState extends State<ShellHome> {
   final Set<String> _answered = {};
   int? _setupHostId;
   int? _intentSession;
+  bool _desktopConsoleOpen = false;
   int? _menuHostId;
   String _quickUri = '';
   int? _selectedHostId;
@@ -527,6 +535,13 @@ class _ShellHomeState extends State<ShellHome> {
     if (id == null) _intentSession = null;
     if (id != null && id != _intentSession) {
       _intentSession = id;
+      final desktop =
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.macOS;
+      // Desktop tabs share one console route so a session's input controller
+      // cannot be attached by another offstage terminal view.
+      if (desktop && _desktopConsoleOpen) return;
+      if (desktop) _desktopConsoleOpen = true;
       final selected = engine
           .list('sessions')
           .where((s) => s['id'] == id)
@@ -535,7 +550,7 @@ class _ShellHomeState extends State<ShellHome> {
       _setupHostId = null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          Navigator.of(context).push(
+          final closed = Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => ConsolePage(
                 engine: engine,
@@ -544,6 +559,15 @@ class _ShellHomeState extends State<ShellHome> {
               ),
             ),
           );
+          if (desktop) {
+            unawaited(
+              closed.whenComplete(() {
+                _desktopConsoleOpen = false;
+                _intentSession = null;
+                if (mounted) _changed();
+              }),
+            );
+          }
           unawaited(engine.invoke('session.consumeSelection'));
         }
       });
@@ -620,6 +644,17 @@ class _ShellHomeState extends State<ShellHome> {
       await _hostMenu(host, 'edit');
       return;
     }
+    if (host['protocol'] == 'ssh' && !newSession) {
+      final mode = await askAction(context, '${host['nickname']} 접속', const [
+        ('ssh', 'SSH 터미널'),
+        ('files', '파일 전송 (SFTP)'),
+      ]);
+      if (!mounted || mode == null) return;
+      if (mode == 'files') {
+        _page(FileBrowserPage(engine: engine, host: host));
+        return;
+      }
+    }
     // Native selectedSession is the single owner of navigation after connection.
     await runEngine(context, engine, 'connect', {
       'id': host['id'],
@@ -640,8 +675,12 @@ class _ShellHomeState extends State<ShellHome> {
 
   Future<void> _homeMenu(String action) async {
     switch (action) {
-      case 'sort':
-        await runEngine(context, engine, 'host.sort');
+      case 'sortColor':
+      case 'sortName':
+        if ((engine.state['sortedByColor'] == true) !=
+            (action == 'sortColor')) {
+          await runEngine(context, engine, 'host.sort');
+        }
       case 'settings':
         await engine.refresh();
         if (mounted) _page(SettingsPage(engine: engine));
@@ -662,6 +701,8 @@ class _ShellHomeState extends State<ShellHome> {
 
   Future<void> _hostMenu(EngineRecord host, String action) async {
     switch (action) {
+      case 'files':
+        _page(FileBrowserPage(engine: engine, host: host));
       case 'newSession':
         await _connect(host, newSession: true);
       case 'favorite':
@@ -721,100 +762,66 @@ class _ShellHomeState extends State<ShellHome> {
   Future<void> _showHostMenu(EngineRecord host, [Offset? finger]) async {
     HapticFeedback.selectionClick();
     setState(() => _menuHostId = host['id'] as int);
-    final selected = await showTildeSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      builder: (c) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: TildeHostTile(host: host, size: 56),
-                title: Text(
-                  '${host['nickname']}',
-                  style: Theme.of(c).textTheme.titleMedium,
-                ),
-                subtitle: Text(
-                  hostAddress(host),
-                  style: TextStyle(
-                    fontFamily: host['protocol'] == 'local'
-                        ? 'Pretendard'
-                        : tildeMono,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final largeText =
-                      MediaQuery.textScalerOf(context).scale(14) > 21;
-                  return Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final (value, label, icon) in [
-                        if (canConnectHost(host))
-                          ('newSession', '새 세션', Icons.library_add_outlined),
-                        ('edit', '편집', Icons.edit_outlined),
-                        (
-                          'favorite',
-                          '즐겨찾기',
-                          host['favorite'] == true
-                              ? Icons.star
-                              : Icons.star_border,
-                        ),
-                      ])
-                        SizedBox(
-                          width: largeText
-                              ? constraints.maxWidth
-                              : (constraints.maxWidth - 16) / 3,
-                          child: TildeActionTile(
-                            label: label,
-                            icon: icon,
-                            onPressed: () => Navigator.pop(c, value),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              for (final (value, label, icon) in [
-                if (canConnectHost(host))
-                  ('duplicate', '복제', Icons.file_copy_outlined),
-                if (host['protocol'] == 'ssh')
-                  ('forwards', '포트 포워딩', Icons.swap_horiz),
-              ])
-                ListTile(
-                  leading: Icon(icon, size: 22),
-                  title: Text(label),
-                  onTap: () => Navigator.pop(c, value),
-                ),
-              const SizedBox(height: 16),
-              tildeActionButtons(c, [
-                if (engine
-                    .list('sessions')
-                    .any((s) => s['hostId'] == host['id']))
-                  FilledButton.icon(
-                    style: tildeDangerButtonStyle(c),
-                    onPressed: () => Navigator.pop(c, 'disconnect'),
-                    icon: const Icon(Icons.link_off_outlined),
-                    label: const Text('연결 끊기'),
-                  ),
-                FilledButton.icon(
-                  style: tildeDangerButtonStyle(c),
-                  onPressed: () => Navigator.pop(c, 'delete'),
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('삭제'),
-                ),
-              ]),
-            ],
+    final sessions = engine
+        .list('sessions')
+        .where((s) => s['hostId'] == host['id'])
+        .length;
+    final selected = await TildeItemMenu.show<String>(
+      context,
+      title: '${host['nickname']}',
+      subtitle: '${hostAddress(host)}${sessions > 0 ? ' · 세션 $sessions' : ''}',
+      icon: host['protocol'] == 'local' ? Icons.terminal : Icons.dns_outlined,
+      itemBuilder: (c) => [
+        if (host['protocol'] == 'ssh')
+          const PopupMenuItem(
+            value: 'files',
+            child: TildeMenuLabel('파일 전송 (SFTP)', Icons.folder_outlined),
+          ),
+        if (canConnectHost(host))
+          const PopupMenuItem(
+            value: 'newSession',
+            child: TildeMenuLabel('새 세션', Icons.add_box_outlined),
+          ),
+        const PopupMenuItem(
+          value: 'edit',
+          child: TildeMenuLabel('편집', Icons.edit_outlined),
+        ),
+        PopupMenuItem(
+          value: 'favorite',
+          child: TildeMenuLabel(
+            '즐겨찾기',
+            Icons.star_border,
+            selected: host['favorite'] == true,
           ),
         ),
-      ),
+        if (canConnectHost(host))
+          const PopupMenuItem(
+            value: 'duplicate',
+            child: TildeMenuLabel('복제', Icons.content_copy_outlined),
+          ),
+        if (host['protocol'] == 'ssh')
+          const PopupMenuItem(
+            value: 'forwards',
+            child: Row(
+              children: [
+                Expanded(child: TildeMenuLabel('포트 포워딩', Icons.swap_horiz)),
+                Icon(Icons.chevron_right, size: 20),
+              ],
+            ),
+          ),
+        if (sessions > 0) ...[
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'disconnect',
+            child: TildeMenuLabel('연결 끊기', Icons.link_off_outlined),
+          ),
+        ],
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: 'delete',
+          child: TildeMenuLabel('삭제', Icons.delete_outline, danger: true),
+        ),
+      ],
     );
     if (mounted) setState(() => _menuHostId = null);
     if (selected != null && mounted) await _hostMenu(host, selected);
@@ -988,17 +995,48 @@ class _ShellHomeState extends State<ShellHome> {
                   tooltip: '메뉴',
                   icon: const Icon(Icons.more_vert),
                   onPressed: () async {
-                    final action = await askAction(context, 'Tilde', [
-                      (
-                        'sort',
-                        engine.state['sortedByColor'] == true
-                            ? '이름순 정렬'
-                            : '색상순 정렬',
-                      ),
-                      ('settings', '설정'),
-                      ('disconnect', '연결 모두 끊기'),
-                      ('help', '도움말'),
-                    ]);
+                    final action = await TildeItemMenu.show<String>(
+                      context,
+                      title: 'Tilde',
+                      icon: Icons.tune,
+                      itemBuilder: (c) => [
+                        const PopupMenuItem(enabled: false, child: Text('정렬')),
+                        PopupMenuItem(
+                          value: 'sortColor',
+                          child: TildeMenuLabel(
+                            '색상순',
+                            Icons.palette_outlined,
+                            selected: engine.state['sortedByColor'] == true,
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'sortName',
+                          child: TildeMenuLabel(
+                            '이름순',
+                            Icons.sort_by_alpha,
+                            selected: engine.state['sortedByColor'] != true,
+                          ),
+                        ),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem(
+                          value: 'settings',
+                          child: TildeMenuLabel('설정', Icons.settings_outlined),
+                        ),
+                        const PopupMenuItem(
+                          value: 'help',
+                          child: TildeMenuLabel('도움말', Icons.help_outline),
+                        ),
+                        const PopupMenuDivider(),
+                        PopupMenuItem(
+                          value: 'disconnect',
+                          enabled: engine.list('sessions').isNotEmpty,
+                          child: const TildeMenuLabel(
+                            '연결 모두 끊기',
+                            Icons.link_off_outlined,
+                          ),
+                        ),
+                      ],
+                    );
                     if (action != null && mounted) await _homeMenu(action);
                   },
                 ),

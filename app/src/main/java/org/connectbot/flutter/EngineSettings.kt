@@ -83,6 +83,8 @@ internal fun SettingsUiState.toWire(): Wire = mapOf(
                     "name" to key.name,
                     "label" to key.label,
                     "key" to when (key) {
+                        TerminalBarKey.UP -> VTermKey.UP
+                        TerminalBarKey.DOWN -> VTermKey.DOWN
                         TerminalBarKey.HOME -> VTermKey.HOME
                         TerminalBarKey.END -> VTermKey.END
                         TerminalBarKey.PAGE_UP -> VTermKey.PAGEUP

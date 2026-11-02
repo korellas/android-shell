@@ -59,16 +59,31 @@ class TerminalBarLayoutTest {
     }
 
     @Test
-    fun legacyLayoutDropsNavigationKeysAndAddsSymbols() {
+    fun legacyLayoutRetainsNavigationKeysAndAddsSymbols() {
         prefs.edit {
             clear()
             putString(PreferenceConstants.TERMINAL_BAR_ORDER, "ALT,UP,DOWN,LEFT,RIGHT,HOME,END")
             putStringSet(PreferenceConstants.TERMINAL_BAR_HIDDEN, setOf("ALT", "UP", "HOME"))
         }
         val layout = TerminalBarLayout.load(prefs)
-        assertEquals(TerminalBarKey.entries.take(7), layout.order.take(7))
+        assertEquals(listOf(TerminalBarKey.SLASH, TerminalBarKey.UP, TerminalBarKey.DOWN, TerminalBarKey.PIPE, TerminalBarKey.TILDE, TerminalBarKey.HOME, TerminalBarKey.END), layout.order.take(7))
         assertEquals(TerminalBarKey.entries.toSet(), layout.order.toSet())
-        assertEquals(setOf(TerminalBarKey.HOME), layout.hidden)
+        assertEquals(setOf(TerminalBarKey.UP, TerminalBarKey.HOME), layout.hidden)
+    }
+
+    @Test
+    fun restoresDirectionsBeforeExistingKeysWithoutChangingTheirOrderOrHiddenState() {
+        prefs.edit {
+            clear()
+            putString(PreferenceConstants.TERMINAL_BAR_ORDER, "COLON,SLASH,HOME")
+            putStringSet(PreferenceConstants.TERMINAL_BAR_HIDDEN, setOf("SLASH"))
+        }
+        val layout = TerminalBarLayout.load(prefs)
+        assertEquals(TerminalBarKey.directions, layout.order.take(TerminalBarKey.directions.size))
+        assertEquals(listOf(TerminalBarKey.COLON, TerminalBarKey.SLASH, TerminalBarKey.HOME), layout.order.drop(TerminalBarKey.directions.size).take(3))
+        assertEquals(setOf(TerminalBarKey.SLASH), layout.hidden)
+        layout.save(prefs)
+        assertEquals(layout, TerminalBarLayout.load(prefs))
     }
 
     @Test
@@ -82,7 +97,7 @@ class TerminalBarLayoutTest {
         assertEquals(36, layout.keyHeight)
         assertEquals(TerminalBarKey.entries.toSet(), layout.order.toSet())
         assertEquals(layout.order.size, layout.order.distinct().size)
-        assertEquals(listOf(TerminalBarKey.DELETE, TerminalBarKey.SLASH), layout.order.take(2))
+        assertEquals(listOf(TerminalBarKey.DELETE, TerminalBarKey.SLASH), layout.order.filterNot { it in TerminalBarKey.directions }.take(2))
         assertEquals(setOf(TerminalBarKey.SLASH), layout.hidden)
     }
 }

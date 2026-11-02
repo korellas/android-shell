@@ -124,6 +124,7 @@ class SshSession {
     this.onState,
     this.onError,
     this.wantShell = true,
+    this.aesGcmFactory,
     SshPty pty = const SshPty(),
     this.operationTimeout = const Duration(seconds: 30),
   }) : endpoints = List.unmodifiable(endpoints),
@@ -136,6 +137,7 @@ class SshSession {
   final void Function(SshSessionState)? onState;
   final void Function(Object, StackTrace)? onError;
   final bool wantShell;
+  final SSHAesGcmFactory? aesGcmFactory;
   final Duration operationTimeout;
   SshPty _pty;
   SshSessionState get state => _state;
@@ -218,6 +220,7 @@ class SshSession {
                   return loaded;
                 },
           algorithms: endpoint.algorithms,
+          aesGcmFactory: aesGcmFactory,
           compression: endpoint.compression,
           onVerifyHostKey: (type, fingerprint) async {
             if (_closing) return false;
@@ -381,6 +384,8 @@ class SshSession {
       );
     }
   }
+
+  Future<SftpClient> openSftp() => _client.sftp();
 
   Future<SshCommandResult> execute(
     String command, {
