@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Run the candidate SSH contract against a disposable local OpenSSH server."""
 import argparse
+import base64
 import json
 import os
 from pathlib import Path
@@ -78,6 +79,7 @@ class EchoServer(socketserver.ThreadingTCPServer):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--compression", choices=("yes", "no"), default="yes")
+    parser.add_argument("--ios-simulator", help="Run the native iOS smoke test on a booted simulator UUID")
     args = parser.parse_args()
     flutter = shutil.which("flutter")
     sshd = shutil.which("sshd") or "/usr/sbin/sshd"
@@ -154,6 +156,24 @@ LogLevel ERROR
                 else:
                     raise RuntimeError("OpenSSH did not become ready.")
                 environment = dict(os.environ, TILDE_SSH_TEST_CONFIG=str(settings))
+                if args.ios_simulator:
+                    defines = root / "simulator-defines.json"
+                    defines.write_text(json.dumps({
+                        "host": "127.0.0.1", "port": str(port), "username": username,
+                        "fingerprint": fingerprint,
+                        "keyPemBase64": base64.b64encode((root / "client").read_bytes()).decode(),
+                    }))
+                    defines.chmod(0o600)
+                    result = subprocess.run(
+                        [flutter, "run", "--no-pub", "-d", args.ios_simulator,
+                         "--target=validation/ios_platform_smoke.dart",
+                         f"--dart-define-from-file={defines}"],
+                        cwd=Path(__file__).resolve().parent.parent,
+                        env=environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                        text=True, timeout=300,
+                    )
+                    print(result.stdout)
+                    return 0 if result.returncode == 0 and "TILDE_IOS_SMOKE_PASS" in result.stdout else 1
                 result = subprocess.run(
                     [flutter, "test", "--no-pub", "validation/ssh_protocol_test.dart", "--reporter", "expanded"],
                     cwd=Path(__file__).resolve().parent.parent,

@@ -113,6 +113,39 @@ void main() {
     expect(output.join(), '한글 ');
   });
 
+  testWidgets('empty IME composition starts without resetting native state', (
+    tester,
+  ) async {
+    await open(tester);
+    tester.testTextInput.log.clear();
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: '  ',
+        selection: TextSelection.collapsed(offset: 2),
+        composing: TextRange(start: 2, end: 2),
+      ),
+    );
+    expect(output, isEmpty);
+    expect(
+      tester.testTextInput.log.where(
+        (call) => call.method == 'TextInput.setEditingState',
+      ),
+      isEmpty,
+      reason:
+          'Windows begins composing with an empty range; resetting it '
+          'ends composition in the native text input model.',
+    );
+    edit(tester, 'ㅇ', composingStart: 0);
+    edit(tester, '야', composingStart: 0);
+    edit(tester, '야ㅇ', composingStart: 1);
+    edit(tester, '야이', composingStart: 1);
+    edit(tester, '야임', composingStart: 1);
+    edit(tester, '야임ㅁ', composingStart: 2);
+    edit(tester, '야임마', composingStart: 2);
+    edit(tester, '야임마');
+    expect(output.join(), '야임마');
+  });
+
   testWidgets('emoji and combining prefixes preserve UTF16 offsets', (
     tester,
   ) async {
@@ -122,6 +155,36 @@ void main() {
     edit(tester, '😀e\u0301한');
     expect(output.join(), '😀e\u0301한');
   });
+
+  testWidgets(
+    'Windows syllable commits keep the native buffer across IME restarts',
+    (tester) async {
+      await open(tester);
+      tester.testTextInput.log.clear();
+      edit(tester, '야', composingStart: 0);
+      edit(tester, '야');
+      edit(tester, '야', composingStart: 1);
+      edit(tester, '야이', composingStart: 1);
+      edit(tester, '야임', composingStart: 1);
+      edit(tester, '야임');
+      edit(tester, '야임', composingStart: 2);
+      edit(tester, '야임ㅁ', composingStart: 2);
+      edit(tester, '야임마', composingStart: 2);
+      edit(tester, '야임마');
+      edit(tester, '야임마 ');
+      expect(output.join(), '야임마 ');
+      expect(
+        tester.testTextInput.log.where(
+          (call) => call.method == 'TextInput.setEditingState',
+        ),
+        isEmpty,
+      );
+      input.sendKey(TerminalKey.enter);
+      edit(tester, '다음');
+      expect(output.join(), '야임마 \r다음');
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 
   testWidgets('canceling preedit preserves the committed prefix', (
     tester,
@@ -274,14 +337,20 @@ void main() {
     expect(tester.getTopLeft(find.text('한')).dy, closeTo(cursor.top, 1));
   });
 
-  testWidgets('hardware Tab commits preedit before upstream key translation', (
-    tester,
-  ) async {
-    await open(tester);
-    edit(tester, '한', composingStart: 0);
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    expect(output.join(), '한\t');
-  });
+  testWidgets(
+    'hardware Tab commits preedit before upstream key translation',
+    (tester) async {
+      await open(tester);
+      edit(tester, '한', composingStart: 0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      expect(output.join(), '한\t');
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.windows,
+      TargetPlatform.macOS,
+    }),
+  );
 
   testWidgets('hardware Ctrl, Alt and arrows retain terminal encoding', (
     tester,

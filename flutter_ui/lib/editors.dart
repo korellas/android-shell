@@ -533,10 +533,22 @@ class _RecordEditorState extends State<RecordEditor> {
             description: '이 키로 인증하기 전에 허용 여부를 묻습니다',
           ),
         if (draft['supported'] == true)
-          const ListTile(
-            leading: Icon(Icons.fingerprint),
-            title: Text('Android Keystore P-256 키'),
-            subtitle: Text('비밀키는 기기 밖으로 내보낼 수 없습니다'),
+          ListTile(
+            leading: Icon(
+              draft['type'] == 'IMPORTED'
+                  ? Icons.file_open_outlined
+                  : Icons.fingerprint,
+            ),
+            title: Text(
+              draft['type'] == 'IMPORTED'
+                  ? '가져온 개인키'
+                  : 'Android Keystore P-256 키',
+            ),
+            subtitle: Text(
+              draft['type'] == 'IMPORTED'
+                  ? '가져온 개인키 파일로 인증합니다'
+                  : '비밀키는 기기 밖으로 내보낼 수 없습니다',
+            ),
           ),
         if (draft['supported'] != true)
           ListTile(
@@ -578,7 +590,7 @@ class _RecordEditorState extends State<RecordEditor> {
         return [
           choices('protocol', '연결 방식', [
             ('ssh', 'SSH'),
-            ('local', '로컬'),
+            if (engine.state['platform'] != 'ios') ('local', '로컬'),
           ], preserveUnknown: false),
           if (!supportedHost)
             settingsNote(

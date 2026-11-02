@@ -20,20 +20,21 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'ssh_keys.dart';
 
-/// Manages public metadata for device-bound Android Keystore SSH keys.
+/// Manages public SSH key metadata and platform authentication.
 ///
-/// Private key bytes never cross the platform boundary. Historical software
-/// keys remain visible so the user can inspect and delete them, but they are
+/// Android private key bytes never cross the platform boundary. Historical
+/// Android software keys remain visible for inspection and deletion but are
 /// not eligible for authentication or private-key operations.
 class KeyManager {
-  KeyManager(this.call);
+  KeyManager(this.call, {this.identityLoader});
   final SshPlatformCall call;
+  final Future<List<SSHIdentity>> Function({required int id})? identityLoader;
 
   Map<String, Object?> get state => const {};
   List<Map<String, Object?>> get pendingStartup => const [];
 
   Future<List<SSHIdentity>> identities({required int id}) =>
-      SshKeyAdapter(call).identities(id: id);
+      identityLoader?.call(id: id) ?? SshKeyAdapter(call).identities(id: id);
 
   List<Map<String, Object?>> decorateKeys(List<Map<String, Object?>> keys) => [
     for (final key in keys) _decorate(key),
@@ -88,6 +89,8 @@ class KeyManager {
   Future<Object?> operation(String method, Map<String, Object?> args) async {
     final id = (args['id'] as num?)?.toInt();
     switch (method) {
+      case 'key.import':
+        return call('key.storageImport', args);
       case 'key.delete':
         return call('key.storageDelete', {'id': id});
       case 'key.generate':

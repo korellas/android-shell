@@ -119,6 +119,45 @@ void main() {
         .setMockMethodCallHandler(SystemChannels.platform, null);
   });
 
+  testWidgets('selection popup shares the exact selected terminal text', (
+    tester,
+  ) async {
+    final engine = UiEngineFixture()
+      ..state = {
+        'ready': true,
+        'sessions': [
+          {'id': 101, 'hostId': 7, 'nickname': 'mac', 'open': true},
+        ],
+        'preferences': {'fullscreen': true, 'titlebarhide': false},
+      };
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          calls.add(call);
+          return call.method == 'snapshot' ? engine.state : null;
+        });
+    await tester.pumpWidget(
+      MaterialApp(home: ConsolePage(engine: engine, sessionId: 101)),
+    );
+    await tester.pumpAndSettle();
+    final session = engine.terminalSession(101)!;
+    session.terminal.write('tmp_uizip');
+    session.controller.setSelection(
+      session.terminal.buffer.createAnchor(0, 0),
+      session.terminal.buffer.createAnchor(9, 0),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('선택 메뉴 더보기'));
+    await tester.pumpAndSettle();
+    expect(find.text('공유'), findsOneWidget);
+    await tester.tap(find.text('공유'));
+    await tester.pumpAndSettle();
+    expect(calls.singleWhere((c) => c.method == 'share').arguments, {
+      'id': 101,
+      'text': 'tmp_uizip',
+    });
+    expect(session.controller.selection, isNull);
+  });
+
   for (final toolbar in [false, true]) {
     testWidgets(
       'authentication back asks before ending its session (toolbar=$toolbar)',
@@ -130,6 +169,8 @@ void main() {
         await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Research'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('SSH 터미널'));
         await tester.pumpAndSettle();
         if (toolbar) {
           await tester.tap(find.byTooltip('뒤로'));
@@ -252,6 +293,8 @@ void main() {
             expect(engine.list('sessions'), isEmpty);
             await tester.tap(find.text('Research'));
             await tester.pumpAndSettle();
+            await tester.tap(find.text('SSH 터미널'));
+            await tester.pumpAndSettle();
             expect(
               tester.widget<ConsolePage>(find.byType(ConsolePage)).sessionId,
               102,
@@ -280,6 +323,8 @@ void main() {
       await tester.pumpWidget(AndroidShellApp(engine: engine));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Research'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('SSH 터미널'));
       await tester.pumpAndSettle();
       expect(find.byType(Dialog), findsNothing);
       expect(find.byType(BottomSheet), findsNothing);
@@ -311,6 +356,8 @@ void main() {
       await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Research'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('SSH 터미널'));
       await tester.pumpAndSettle();
       expect(
         tester.widget<TextField>(find.byType(TextField)).obscureText,
@@ -497,9 +544,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('server.test 서버 키 확인'), findsOneWidget);
       expect(find.text('SHA256:example'), findsOneWidget);
-      await tester.tap(find.byType(DropdownButton<String>));
+      expect(find.byType(SegmentedButton<Object?>), findsOneWidget);
+      await tester.tap(find.text('Art'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('MD5').last);
+      expect(find.text('random-art'), findsOneWidget);
+      await tester.tap(find.text('Bubble'));
+      await tester.pumpAndSettle();
+      expect(find.text('bubble-babble'), findsOneWidget);
+      await tester.tap(find.text('MD5'));
       await tester.pumpAndSettle();
       expect(find.text('MD5:example'), findsOneWidget);
       await tester.tap(find.text('서버 키 신뢰'));
@@ -520,6 +572,8 @@ void main() {
     await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('SSH 터미널'));
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -542,6 +596,8 @@ void main() {
     await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('SSH 터미널'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('뒤로'));
     await tester.pumpAndSettle();
@@ -843,6 +899,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Research'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('SSH 터미널'));
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('터미널 메뉴'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('연결 끊기'));
@@ -920,6 +978,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Research'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('SSH 터미널'));
+      await tester.pumpAndSettle();
       for (final value in ['80×24', '100x30']) {
         await tester.tap(find.byTooltip('터미널 메뉴'));
         await tester.pumpAndSettle();
@@ -950,6 +1010,8 @@ void main() {
     await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('SSH 터미널'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('터미널 메뉴'));
     await tester.pumpAndSettle();
@@ -989,6 +1051,8 @@ void main() {
     await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('SSH 터미널'));
     await tester.pumpAndSettle();
     expect(find.byType(ConsolePage), findsOneWidget);
     expect(tester.takeException(), isNull);

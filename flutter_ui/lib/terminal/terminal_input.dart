@@ -3,6 +3,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 // Reuse the pinned xterm2 key map so IME chords use its keyboard protocols.
@@ -257,8 +258,9 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
     final wasComposing = _composingText.isNotEmpty;
     _value = value;
     final range = value.composing;
+    // Windows starts IME composition with a valid, empty range. Resetting it
+    // here ends composition in the native text input model.
     if (range.isValid &&
-        !range.isCollapsed &&
         range.start >= _initialValue.text.length &&
         range.end <= value.text.length) {
       final prefixEnd = range.start.clamp(
@@ -281,7 +283,13 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
         _committed.isEmpty) {
       terminal.keyInput(TerminalKey.backspace);
     }
-    _reset();
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      // Windows can end and restart composing between syllables while keeping
+      // the same native text buffer. Resetting it races those queued updates.
+      _setComposing('');
+    } else {
+      _reset();
+    }
   }
 
   void _sendCommitted(String text) {

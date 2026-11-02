@@ -725,6 +725,33 @@ void main() {
       harness.dispose();
     });
 
+    test('non-overwriting rename skips the advertised POSIX extension',
+        () async {
+      final harness = _SftpHarness();
+      await harness.nextOutgoingPacket();
+      harness.sendResponsePacket(
+          SftpVersionPacket(3, {'posix-rename@openssh.com': '1'}));
+      await harness.client.handshake;
+
+      final renameFuture =
+          harness.client.rename('/tmp/a', '/tmp/b', overwrite: false);
+      final packet = await harness.nextOutgoingPacket();
+      final rename = SftpRenamePacket.decode(packet);
+      expect(rename.oldPath, '/tmp/a');
+      expect(rename.newPath, '/tmp/b');
+
+      harness.sendResponsePacket(
+        SftpStatusPacket(
+          requestId: rename.requestId,
+          code: SftpStatusCode.ok,
+          message: 'ok',
+        ),
+      );
+
+      await renameFuture;
+      harness.dispose();
+    });
+
     test('downloadToRandomAccess writes out-of-order chunks at offset',
         () async {
       final harness = _SftpHarness();

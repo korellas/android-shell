@@ -21,6 +21,8 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 
 enum class TerminalBarKey(val label: String) {
+    UP("↑"),
+    DOWN("↓"),
     SLASH("/"),
     COLON(":"),
     DASH("-"),
@@ -33,6 +35,11 @@ enum class TerminalBarKey(val label: String) {
     INSERT("Ins"),
     DELETE("Del"),
     FUNCTION_KEYS("F1–F12"),
+    ;
+
+    companion object {
+        val directions = listOf(UP, DOWN)
+    }
 }
 
 data class TerminalBarLayout(
@@ -62,17 +69,16 @@ data class TerminalBarLayout(
             val order = savedOrder.split(",").mapNotNull { name ->
                 when (name) {
                     "ALT" -> TerminalBarKey.SLASH
-                    "UP" -> TerminalBarKey.COLON
-                    "DOWN" -> TerminalBarKey.DASH
                     "LEFT" -> TerminalBarKey.PIPE
                     "RIGHT" -> TerminalBarKey.TILDE
                     else -> TerminalBarKey.entries.find { it.name == name }
                 }
             }.distinct()
+            val restoredDirections = TerminalBarKey.directions.filterNot { it in order }
             val hidden = prefs.getStringSet(PreferenceConstants.TERMINAL_BAR_HIDDEN, emptySet()).orEmpty()
             return TerminalBarLayout(
                 keyHeight = prefs.getInt(PreferenceConstants.TERMINAL_BAR_HEIGHT, DEFAULT_KEY_HEIGHT).takeIf { it in heights } ?: DEFAULT_KEY_HEIGHT,
-                order = order + TerminalBarKey.entries.filterNot { it in order },
+                order = restoredDirections + order + TerminalBarKey.entries.filterNot { it in order || it in restoredDirections },
                 hidden = TerminalBarKey.entries.filter { it.name in hidden }.toSet(),
                 groupFunctionKeys = prefs.getBoolean(PreferenceConstants.TERMINAL_BAR_FN, true),
             )

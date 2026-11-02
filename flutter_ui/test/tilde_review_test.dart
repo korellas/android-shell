@@ -192,6 +192,8 @@ void main() {
     await open(tester, ShellHome(engine: engine));
     await tester.tap(find.text('home-nas').first);
     await tester.pumpAndSettle();
+    await tester.tap(find.text('SSH 터미널'));
+    await tester.pumpAndSettle();
     expect(find.text('home-nas에 연결하지 못했습니다'), findsOneWidget);
     expect(find.textContaining('connect failed:'), findsNothing);
     await tester.tap(find.text('자세히'));

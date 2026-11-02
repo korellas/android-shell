@@ -141,6 +141,47 @@ class RecordListPage extends StatelessWidget {
     }
   }
 
+  List<PopupMenuEntry<String>> items(EngineRecord record) => [
+    const PopupMenuItem(
+      value: 'edit',
+      child: TildeMenuLabel('편집', Icons.edit_outlined),
+    ),
+    if (kind == RecordKind.profile) ...[
+      PopupMenuItem(
+        value: 'default',
+        child: TildeMenuLabel(
+          '앱 기본값',
+          Icons.task_alt,
+          selected: record['id'] == engine.preferences['defaultProfileId'],
+        ),
+      ),
+      const PopupMenuItem(
+        value: 'duplicate',
+        child: TildeMenuLabel('복제', Icons.content_copy_outlined),
+      ),
+    ],
+    if (kind != RecordKind.profile ||
+        record['id'] != engine.preferences['defaultProfileId']) ...[
+      const PopupMenuDivider(),
+      const PopupMenuItem(
+        value: 'delete',
+        child: TildeMenuLabel('삭제', Icons.delete_outline, danger: true),
+      ),
+    ],
+  ];
+
+  Future<void> showMenu(BuildContext context, EngineRecord record) async {
+    final value = await TildeItemMenu.show<String>(
+      context,
+      title: '${record['name']}',
+      icon: kind == RecordKind.profile
+          ? Icons.terminal_outlined
+          : Icons.person_outline,
+      itemBuilder: (_) => items(record),
+    );
+    if (value != null && context.mounted) await action(context, record, value);
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: engine,
@@ -170,16 +211,14 @@ class RecordListPage extends StatelessWidget {
                     title: Text('${record['username']}'),
                     subtitle: Text('${usage(record)}개 호스트에서 사용'),
                     onTap: () => edit(context, record),
+                    onLongPress: () => showMenu(context, record),
                     trailing: TildeItemMenu<String>(
                       title: '${record['name']}',
                       icon: kind == RecordKind.profile
                           ? Icons.terminal_outlined
                           : Icons.person_outline,
                       onSelected: (value) => action(context, record, value),
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'edit', child: Text('편집')),
-                        const PopupMenuItem(value: 'delete', child: Text('삭제')),
-                      ],
+                      itemBuilder: (_) => items(record),
                     ),
                   ),
                 ]),
@@ -211,32 +250,14 @@ class RecordListPage extends StatelessWidget {
                           : '${record['username']}',
                     ),
                     onTap: () => edit(context, record),
+                    onLongPress: () => showMenu(context, record),
                     trailing: TildeItemMenu<String>(
                       title: '${record['name']}',
                       icon: kind == RecordKind.profile
                           ? Icons.terminal_outlined
                           : Icons.person_outline,
                       onSelected: (value) => action(context, record, value),
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'edit', child: Text('편집')),
-                        if (kind == RecordKind.profile) ...[
-                          const PopupMenuItem(
-                            value: 'default',
-                            child: Text('앱 기본값으로 사용'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'duplicate',
-                            child: Text('복제'),
-                          ),
-                        ],
-                        if (kind != RecordKind.profile ||
-                            record['id'] !=
-                                engine.preferences['defaultProfileId'])
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Text('삭제'),
-                          ),
-                      ],
+                      itemBuilder: (_) => items(record),
                     ),
                   ),
               ]),
@@ -256,6 +277,28 @@ class KeyPage extends StatefulWidget {
 
 class _KeyPageState extends State<KeyPage> {
   AndroidEngine get engine => widget.engine;
+
+  Future<void> importKeyFile() async {
+    final path = await runEngine(context, engine, 'document.pick');
+    if (path is! String || !mounted) return;
+    final password = await askText(
+      context,
+      '개인키 암호',
+      password: true,
+      hintText: '암호가 없으면 비워두세요.',
+      action: '추가',
+    );
+    if (password == null || !mounted) return;
+    await runEngine(context, engine, 'key.import', {
+      'path': path,
+      'password': password,
+      'nickname': Uri.file(
+        path,
+        windows: engine.state['platform'] == 'windows',
+      ).pathSegments.last,
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -306,13 +349,50 @@ class _KeyPageState extends State<KeyPage> {
     }
   }
 
+  List<PopupMenuEntry<String>> items(EngineRecord key) => [
+    const PopupMenuItem(
+      value: 'edit',
+      child: TildeMenuLabel('편집', Icons.edit_outlined),
+    ),
+    if (key['publicKey'] != null) ...[
+      const PopupMenuItem(
+        value: 'copy.public',
+        child: TildeMenuLabel('공개키 복사', Icons.content_copy_outlined),
+      ),
+      const PopupMenuItem(
+        value: 'export.public',
+        child: TildeMenuLabel('공개키 파일 저장', Icons.download_outlined),
+      ),
+    ],
+    const PopupMenuDivider(),
+    const PopupMenuItem(
+      value: 'delete',
+      child: TildeMenuLabel('삭제', Icons.delete_outline, danger: true),
+    ),
+  ];
+
+  Future<void> showMenu(EngineRecord key) async {
+    final value = await TildeItemMenu.show<String>(
+      context,
+      title: '${key['nickname']}',
+      subtitle: '${key['displayType'] ?? key['type']}',
+      icon: Icons.key_outlined,
+      itemBuilder: (_) => items(key),
+    );
+    if (value != null && mounted) await keyAction(key, value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = row(engine.state['keyState']);
+    final ios = engine.state['platform'] == 'ios';
+    final fileKeys = ios || engine.state['platform'] == 'windows';
     return Scaffold(
       appBar: AppBar(title: const Text('SSH 키')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: row(engine.state['generation'])['biometricAvailable'] == true
+        onPressed: fileKeys
+            ? importKeyFile
+            : row(engine.state['generation'])['biometricAvailable'] == true
             ? () => showTildeSheet<void>(
                 context: context,
                 isScrollControlled: true,
@@ -324,7 +404,7 @@ class _KeyPageState extends State<KeyPage> {
               )
             : null,
         icon: const Icon(Icons.add),
-        label: const Text('새 키'),
+        label: Text(fileKeys ? '키 파일 추가' : '새 키'),
       ),
       body: ListView(
         children: [
@@ -344,7 +424,11 @@ class _KeyPageState extends State<KeyPage> {
             ),
           settingsNote(
             context,
-            '개인키는 Android Keystore에서 생성되며 기기 밖으로 내보낼 수 없습니다. 기존 개인키는 사용 중지 상태로 보존됩니다.',
+            ios
+                ? '가져온 개인키는 앱의 보호된 저장소에서 사용합니다. 저장한 키 암호는 iOS Keychain으로 보호합니다.'
+                : fileKeys
+                ? '개인키 파일은 원래 위치에서 사용합니다. 저장한 키 암호는 Windows 계정으로 보호합니다.'
+                : '개인키는 Android Keystore에서 생성되며 기기 밖으로 내보낼 수 없습니다. 기존 개인키는 사용 중지 상태로 보존됩니다.',
           ),
           settingsSection(context, 'SSH 키', [
             for (final key in engine.list('keys'))
@@ -356,9 +440,10 @@ class _KeyPageState extends State<KeyPage> {
                 ),
                 title: Text('${key['nickname']}'),
                 subtitle: Text(
-                  '${key['displayType'] ?? key['type']}${key['supported'] == true ? ' · Android Keystore' : ' · ${key['supportMessage'] ?? '사용 중지'}'}',
+                  '${key['displayType'] ?? key['type']}${key['supported'] == true ? ' · ${key['providerLabel'] ?? 'Android Keystore'}' : ' · ${key['supportMessage'] ?? '사용 중지'}'}',
                 ),
                 onTap: () => keyAction(key, 'edit'),
+                onLongPress: () => showMenu(key),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -367,20 +452,7 @@ class _KeyPageState extends State<KeyPage> {
                       icon: Icons.key_outlined,
                       tooltip: '${key['nickname']} 옵션',
                       onSelected: (action) => keyAction(key, action),
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'edit', child: Text('편집')),
-                        if (key['publicKey'] != null)
-                          const PopupMenuItem(
-                            value: 'copy.public',
-                            child: Text('공개키 복사'),
-                          ),
-                        if (key['publicKey'] != null)
-                          const PopupMenuItem(
-                            value: 'export.public',
-                            child: Text('공개키 파일 저장'),
-                          ),
-                        const PopupMenuItem(value: 'delete', child: Text('삭제')),
-                      ],
+                      itemBuilder: (_) => items(key),
                     ),
                   ],
                 ),
@@ -473,11 +545,26 @@ class _ForwardsPageState extends State<ForwardsPage> {
   }
 
   Future<void> menu(EngineRecord forward) async {
-    final action = await askAction(context, '${forward['nickname']}', [
-      ('edit', '편집'),
-      ('copy', '복제'),
-      ('delete', '삭제'),
-    ]);
+    final action = await TildeItemMenu.show<String>(
+      context,
+      title: '${forward['nickname']}',
+      icon: Icons.swap_horiz,
+      itemBuilder: (_) => const [
+        PopupMenuItem(
+          value: 'edit',
+          child: TildeMenuLabel('편집', Icons.edit_outlined),
+        ),
+        PopupMenuItem(
+          value: 'copy',
+          child: TildeMenuLabel('복제', Icons.content_copy_outlined),
+        ),
+        PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'delete',
+          child: TildeMenuLabel('삭제', Icons.delete_outline, danger: true),
+        ),
+      ],
+    );
     if (action == null || !mounted) return;
     if (action == 'edit') {
       await edit(forward);
@@ -527,7 +614,7 @@ class _ForwardsPageState extends State<ForwardsPage> {
                     ? '${sessions.where((s) => s['id'] == sessionId).first['nickname']}'
                     : '접속 시 기본값',
               ),
-              trailing: const Icon(Icons.expand_more),
+              trailing: const Icon(Icons.chevron_right),
               onTap: () async {
                 final choice = await pickTildeOption(context, '제어할 세션', [
                   (null, '접속 시 기본값'),
@@ -570,8 +657,11 @@ class _ForwardsPageState extends State<ForwardsPage> {
               ),
               onTap: () => edit(f),
               onLongPress: () => menu(f),
-              trailing: live
-                  ? Switch(
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (live)
+                    Switch(
                       value: f['type'] != 'dynamic4' && f['enabled'] == true,
                       onChanged: f['type'] == 'dynamic4'
                           ? null
@@ -589,8 +679,14 @@ class _ForwardsPageState extends State<ForwardsPage> {
                               );
                               await load();
                             },
-                    )
-                  : null,
+                    ),
+                  IconButton(
+                    tooltip: '${f['nickname']} 옵션',
+                    icon: const Icon(Icons.more_vert),
+                    onPressed: () => menu(f),
+                  ),
+                ],
+              ),
             ),
         ],
       ),
@@ -728,6 +824,57 @@ class KnownHostsPage extends StatelessWidget {
 class SchemesPage extends StatelessWidget {
   final AndroidEngine engine;
   const SchemesPage({super.key, required this.engine});
+  List<PopupMenuEntry<String>> items(EngineRecord scheme) => [
+    const PopupMenuItem(
+      value: 'use',
+      child: TildeMenuLabel('사용', Icons.check_circle_outline),
+    ),
+    if ((scheme['id'] as int) >= 0) ...[
+      const PopupMenuItem(
+        value: 'edit',
+        child: TildeMenuLabel('팔레트 편집', Icons.tune),
+      ),
+      const PopupMenuItem(
+        value: 'duplicate',
+        child: TildeMenuLabel('복제', Icons.content_copy_outlined),
+      ),
+      const PopupMenuItem(
+        value: 'copyEdit',
+        child: TildeMenuLabel('복제해 편집', Icons.edit_note_outlined),
+      ),
+    ] else
+      const PopupMenuItem(
+        value: 'copyEdit',
+        child: TildeMenuLabel('복제', Icons.content_copy_outlined),
+      ),
+    const PopupMenuItem(
+      value: 'export',
+      child: TildeMenuLabel('내보내기', Icons.ios_share),
+    ),
+    if ((scheme['id'] as int) >= 0) ...[
+      const PopupMenuItem(
+        value: 'rename',
+        child: TildeMenuLabel('이름 변경', Icons.drive_file_rename_outline),
+      ),
+      const PopupMenuDivider(),
+      const PopupMenuItem(
+        value: 'delete',
+        child: TildeMenuLabel('삭제', Icons.delete_outline, danger: true),
+      ),
+    ],
+  ];
+
+  Future<void> showMenu(BuildContext context, EngineRecord scheme) async {
+    final value = await TildeItemMenu.show<String>(
+      context,
+      title: '${scheme['name']}',
+      subtitle: (scheme['id'] as int) < 0 ? '기본 테마' : '사용자 테마',
+      icon: Icons.palette_outlined,
+      itemBuilder: (_) => items(scheme),
+    );
+    if (value != null && context.mounted) await action(context, scheme, value);
+  }
+
   Future<void> action(
     BuildContext context,
     EngineRecord scheme,
@@ -890,24 +1037,7 @@ class SchemesPage extends StatelessWidget {
                       ),
                     ),
                     child: InkWell(
-                      onLongPress: () async {
-                        final choice = await askAction(
-                          context,
-                          '${scheme['name']}',
-                          [
-                            ('use', '사용'),
-                            ('copyEdit', '복제해 편집'),
-                            ('export', '내보내기'),
-                            if ((scheme['id'] as int) >= 0) ...[
-                              ('edit', '편집'),
-                              ('delete', '삭제'),
-                            ],
-                          ],
-                        );
-                        if (choice != null && context.mounted) {
-                          await action(context, scheme, choice);
-                        }
-                      },
+                      onLongPress: () => showMenu(context, scheme),
                       onTap: () => runEngine(
                         context,
                         engine,
@@ -990,39 +1120,7 @@ class SchemesPage extends StatelessWidget {
                                   tooltip: '${scheme['name']} 옵션',
                                   onSelected: (value) =>
                                       action(context, scheme, value),
-                                  itemBuilder: (_) => [
-                                    const PopupMenuItem(
-                                      value: 'use',
-                                      child: Text('사용'),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'copyEdit',
-                                      child: Text('복제해 편집'),
-                                    ),
-                                    if ((scheme['id'] as int) >= 0)
-                                      const PopupMenuItem(
-                                        value: 'edit',
-                                        child: Text('팔레트 편집'),
-                                      ),
-                                    const PopupMenuItem(
-                                      value: 'duplicate',
-                                      child: Text('복제'),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'export',
-                                      child: Text('내보내기'),
-                                    ),
-                                    if ((scheme['id'] as int) >= 0) ...[
-                                      const PopupMenuItem(
-                                        value: 'rename',
-                                        child: Text('이름 변경'),
-                                      ),
-                                      const PopupMenuItem(
-                                        value: 'delete',
-                                        child: Text('삭제'),
-                                      ),
-                                    ],
-                                  ],
+                                  itemBuilder: (_) => items(scheme),
                                 ),
                               ],
                             ),
@@ -1123,39 +1221,19 @@ class _PalettePageState extends State<PalettePage> {
   }
 
   Future<void> menu(String value) async {
-    if (value == 'rename') {
-      final name = await askText(
-        context,
-        '테마 이름',
-        initial: '${widget.scheme['name']}',
-      );
-      if (name != null && mounted) {
-        await runEngine(context, widget.engine, 'scheme.rename', {
-          'id': widget.scheme['id'],
-          'name': name,
-        });
-        if (mounted) Navigator.pop(context);
-      }
-    } else if (value == 'export') {
-      final text = await runEngine(context, widget.engine, 'scheme.export', {
-        'id': widget.scheme['id'],
+    if (value != 'export') return;
+    final text = await runEngine(context, widget.engine, 'scheme.export', {
+      'id': widget.scheme['id'],
+    });
+    if (text == null || !mounted) return;
+    final uri = await runEngine(context, widget.engine, 'document.create', {
+      'name': '${widget.scheme['name']}.json',
+    });
+    if (uri != null && mounted) {
+      await runEngine(context, widget.engine, 'document.write', {
+        'uri': uri,
+        'text': text,
       });
-      if (text == null || !mounted) return;
-      final uri = await runEngine(context, widget.engine, 'document.create', {
-        'name': '${widget.scheme['name']}.json',
-      });
-      if (uri != null && mounted) {
-        await runEngine(context, widget.engine, 'document.write', {
-          'uri': uri,
-          'text': text,
-        });
-      }
-    } else if (await confirm(context, '테마 삭제', '이 테마를 삭제할까요?', action: '삭제') &&
-        mounted) {
-      await runEngine(context, widget.engine, 'scheme.delete', {
-        'id': widget.scheme['id'],
-      });
-      if (mounted) Navigator.pop(context);
     }
   }
 
@@ -1176,12 +1254,11 @@ class _PalettePageState extends State<PalettePage> {
             title: '${widget.scheme['name']}',
             icon: Icons.palette_outlined,
             onSelected: menu,
-            itemBuilder: (_) => [
-              if (editable)
-                const PopupMenuItem(value: 'rename', child: Text('이름 변경')),
-              const PopupMenuItem(value: 'export', child: Text('내보내기')),
-              if (editable)
-                const PopupMenuItem(value: 'delete', child: Text('삭제')),
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'export',
+                child: TildeMenuLabel('내보내기', Icons.ios_share),
+              ),
             ],
           ),
         ],

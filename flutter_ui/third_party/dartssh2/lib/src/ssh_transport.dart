@@ -212,6 +212,7 @@ class SSHTransport {
     this.printDebug,
     this.printTrace,
     this.algorithms = const SSHAlgorithms(),
+    this.aesGcmFactory,
     this.compression = false,
     this.onVerifyHostKey,
     this.onReady,
@@ -224,6 +225,17 @@ class SSHTransport {
     }
     _initSocket();
     _startHandshake();
+  }
+
+  /// Optional platform AES-GCM implementation. Errors never retry in Dart.
+  final SSHAesGcmFactory? aesGcmFactory;
+  SSHAesGcm? _localAesGcm, _remoteAesGcm;
+
+  void _disposeAesGcm() {
+    _localAesGcm?.dispose();
+    _remoteAesGcm?.dispose();
+    _localAesGcm = null;
+    _remoteAesGcm = null;
   }
 
   /// A completer that completes when the transport is closed or terminated,
@@ -640,8 +652,16 @@ class SSHTransport {
     required Uint8List input,
     required bool forEncryption,
   }) {
-    final cipher = GCMBlockCipher(AESEngine());
     final nonce = _nonceForSequence(iv, sequence);
+    final factory = aesGcmFactory;
+    if (factory != null) {
+      final cipher = forEncryption
+          ? (_localAesGcm ??= factory(key))
+          : (_remoteAesGcm ??= factory(key));
+      return cipher.process(
+          nonce: nonce, aad: aad, input: input, encrypt: forEncryption);
+    }
+    final cipher = GCMBlockCipher(AESEngine());
     cipher.init(
       forEncryption,
       AEADParameters(KeyParameter(key), 128, nonce, aad),
@@ -675,6 +695,7 @@ class SSHTransport {
     _socketSubscription?.cancel();
     _socketSubscription = null;
     _disposeCompression();
+    _disposeAesGcm();
     _doneCompleter.complete();
     _failPendingRekey(
       SSHStateError('Transport closed before the key exchange completed'),
@@ -690,6 +711,7 @@ class SSHTransport {
     _socketSubscription?.cancel();
     _socketSubscription = null;
     _disposeCompression();
+    _disposeAesGcm();
     _doneCompleter.completeError(error, stackTrace ?? StackTrace.current);
     _failPendingRekey(error, stackTrace ?? StackTrace.current);
     socket.destroy();
@@ -1273,6 +1295,8 @@ class SSHTransport {
 
   /// Derives and applies the encryption and MAC keys for local-to-remote communication.
   void _applyLocalKeys() {
+    _localAesGcm?.dispose();
+    _localAesGcm = null;
     _resetLocalCompression();
     final cipherType = isClient ? _clientCipherType : _serverCipherType;
     if (cipherType == null) throw StateError('No cipher type selected');
@@ -1343,6 +1367,8 @@ class SSHTransport {
 
   /// Derives and applies the decryption and MAC keys for remote-to-local communication.
   void _applyRemoteKeys() {
+    _remoteAesGcm?.dispose();
+    _remoteAesGcm = null;
     _resetRemoteCompression();
     final cipherType = isClient ? _serverCipherType : _clientCipherType;
     if (cipherType == null) throw StateError('No cipher type selected');

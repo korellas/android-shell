@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../engine.dart';
 import '../tilde_design.dart';
+import '../tilde_controls.dart';
 
 /// Authentication belongs to its console and leaves other sessions accessible.
 class TerminalPrompt extends StatefulWidget {
@@ -129,24 +130,29 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                     ),
                   ],
                 ),
-                DropdownButton<String>(
-                  value: fingerprint,
-                  isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(value: 'sha256', child: Text('SHA-256')),
-                    DropdownMenuItem(
-                      value: 'randomArt',
-                      child: Text('Random Art'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'bubblebabble',
-                      child: Text('Bubblebabble'),
-                    ),
-                    DropdownMenuItem(value: 'md5', child: Text('MD5')),
+                tildeSegments(
+                  context,
+                  '지문 형식',
+                  const [
+                    ('sha256', 'SHA-256'),
+                    ('md5', 'MD5'),
+                    ('randomArt', 'Art'),
+                    ('bubblebabble', 'Bubble'),
                   ],
-                  onChanged: enabled
-                      ? (value) => setState(() => fingerprint = value!)
+                  fingerprint,
+                  enabled
+                      ? (value) => setState(() => fingerprint = value as String)
                       : null,
+                  labels: const {
+                    'randomArt': Tooltip(
+                      message: 'Random Art',
+                      child: Text('Art'),
+                    ),
+                    'bubblebabble': Tooltip(
+                      message: 'Bubblebabble',
+                      child: Text('Bubble'),
+                    ),
+                  },
                 ),
                 const Text('이 서버 키를 신뢰하고 계속할까요?'),
               ] else
