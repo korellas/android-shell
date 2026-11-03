@@ -57,6 +57,8 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
   final _console = GlobalKey<ConsolePageState>();
   final _search = TextEditingController();
   final _activeTabKey = GlobalKey();
+  final _pageNavigator = GlobalKey<NavigatorState>();
+  bool _pageOpen = false;
   double? _lastWidth;
   final _searchFocus = FocusNode();
   String _active = 'home';
@@ -97,7 +99,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
 
   void _changed() {
     if (!mounted) return;
-    final current = ModalRoute.of(context)?.isCurrent != false;
+    final current = !_pageOpen && ModalRoute.of(context)?.isCurrent != false;
     final selected = engine.state['selectedSession'] as int?;
     setState(() {
       for (final session in engine.list('sessions')) {
@@ -151,6 +153,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted &&
           active.kind == _TabKind.terminal &&
+          !_pageOpen &&
           ModalRoute.of(context)?.isCurrent != false) {
         engine.terminalSession(_terminalId!)?.input.requestKeyboard();
       }
@@ -166,7 +169,11 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     });
   }
 
-  void _select(_WorkspaceTab tab) {
+  Future<void> _select(_WorkspaceTab tab) async {
+    if (_pageOpen) {
+      await _pageNavigator.currentState?.maybePop();
+      if (!mounted || _pageOpen) return;
+    }
     if (_active == tab.id) return;
     final previous = _terminalId;
     if (active.kind == _TabKind.terminal) {
@@ -499,14 +506,52 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     }
   }
 
-  Future<void> _page(Widget page) =>
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+  Future<void> _page(Widget page) async {
+    if (!nativeWindow) {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => page));
+      return;
+    }
+    if (_pageOpen) return;
+    setState(() => _pageOpen = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    try {
+      await _pageNavigator.currentState!.push(
+        MaterialPageRoute<void>(builder: (_) => page),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _pageOpen = false);
+        _focusActive();
+      }
+    }
+  }
+
+  Future<void> _newTab() async {
+    await _select(active);
+    if (!mounted || _pageOpen) return;
+    final host = engine
+        .list('hosts')
+        .where((h) => h['id'] == (active.hostId ?? _hostId))
+        .firstOrNull;
+    if (host != null) {
+      await _connect(host, newSession: true);
+    } else {
+      setState(() => _showSidebar = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _searchFocus.requestFocus();
+      });
+    }
+  }
+
   final _handledKeys = <LogicalKeyboardKey>{};
   KeyEventResult _key(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent && _handledKeys.remove(event.logicalKey)) {
       return KeyEventResult.handled;
     }
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent || _pageOpen) return KeyEventResult.ignored;
     final key = event.logicalKey, kb = HardwareKeyboard.instance;
     if (kb.isControlPressed && key == LogicalKeyboardKey.keyB) {
       setState(
@@ -527,16 +572,18 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     } else if (kb.isControlPressed && key == LogicalKeyboardKey.comma) {
       _page(SettingsPage(engine: engine));
     } else if (kb.isControlPressed && key == LogicalKeyboardKey.tab) {
-      final i = _tabs.indexOf(active);
-      _select(_tabs[(i + (kb.isShiftPressed ? -1 : 1)) % _tabs.length]);
+      final tabs = _tabs.where((tab) => tab.kind != _TabKind.home).toList();
+      if (tabs.isNotEmpty) {
+        final i = tabs.indexOf(active);
+        final next = i < 0
+            ? (kb.isShiftPressed ? tabs.length - 1 : 0)
+            : (i + (kb.isShiftPressed ? -1 : 1)) % tabs.length;
+        _select(tabs[next]);
+      }
     } else if (kb.isControlPressed &&
         kb.isShiftPressed &&
         key == LogicalKeyboardKey.keyT) {
-      final host = engine
-          .list('hosts')
-          .where((h) => h['id'] == (active.hostId ?? _hostId))
-          .firstOrNull;
-      if (host != null) unawaited(_connect(host, newSession: true));
+      unawaited(_newTab());
     } else if (key == LogicalKeyboardKey.f11) {
       unawaited(
         runEngine(context, engine, 'settings.update', {
@@ -565,54 +612,37 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (!nativeWindow)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: TildeWordmark(size: 23),
+            ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+            padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
             child: Row(
               children: [
-                if (!nativeWindow)
-                  const Expanded(
-                    child: FittedBox(
-                      alignment: Alignment.centerLeft,
-                      fit: BoxFit.scaleDown,
-                      child: TildeWordmark(size: 23),
+                Expanded(
+                  child: TextField(
+                    controller: _search,
+                    focusNode: _searchFocus,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      hintText: '호스트 검색',
+                      prefixIcon: Tooltip(
+                        message: '호스트 검색 또는 SSH 주소 입력 (Ctrl K)',
+                        child: Icon(Icons.search, size: 18),
+                      ),
                     ),
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: _submit,
                   ),
-                TextButton.icon(
+                ),
+                IconButton(
+                  tooltip: '호스트 추가',
                   onPressed: () => _edit(),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('새 호스트'),
+                  icon: const Icon(Icons.add, size: 20),
                 ),
               ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              controller: _search,
-              focusNode: _searchFocus,
-              decoration: const InputDecoration(
-                isDense: true,
-                hintText: '검색 또는 ssh user@host',
-                prefixIcon: Icon(Icons.search, size: 18),
-                suffixIcon: Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Text(
-                    'Ctrl K',
-                    style: TextStyle(fontFamily: tildeMono, fontSize: 11),
-                  ),
-                ),
-              ),
-              onChanged: (_) => setState(() {}),
-              onSubmitted: _submit,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Text(
-              '호스트',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
             ),
           ),
           Expanded(
@@ -738,14 +768,21 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     _ => Icons.terminal_outlined,
   };
   Widget _tabStrip(bool sidebar, {Widget? dragRegion}) {
+    final tabs = _tabs.where((tab) => tab.kind != _TabKind.home).toList();
+    final colors = Theme.of(context).colorScheme;
+    Widget button(String tooltip, IconData icon, VoidCallback action) =>
+        SizedBox(
+          width: 40,
+          child: IconButton(
+            tooltip: tooltip,
+            onPressed: action,
+            icon: Icon(icon, size: 19),
+          ),
+        );
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: colors.outlineVariant)),
       ),
       padding: dragRegion == null
           ? EdgeInsets.zero
@@ -753,164 +790,140 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final tabWidth = math.min(
-            _tabs.length * 180.0,
+            tabs.length * 180.0,
             math.max(
               0.0,
               constraints.maxWidth -
+                  80 -
                   40 -
-                  88 -
                   48 -
                   (active.kind == _TabKind.terminal ? 40 : 0),
             ),
           );
           return Row(
             children: [
-              if (!sidebar || dragRegion != null)
-                IconButton(
-                  tooltip: '호스트 목록 (Ctrl B)',
-                  onPressed: () => setState(() => _showSidebar = !sidebar),
-                  icon: dragRegion == null
-                      ? const Icon(Icons.menu)
-                      : const TildeMark(size: 28),
-                ),
-              Flexible(
-                fit: dragRegion == null ? FlexFit.tight : FlexFit.loose,
+              button(
+                '호스트 목록 (Ctrl B)',
+                Icons.vertical_split_outlined,
+                () => setState(() => _showSidebar = !sidebar),
+              ),
+              Semantics(
+                key: const ValueKey('workspace-tab-home'),
+                selected: _active == 'home',
                 child: SizedBox(
-                  width: dragRegion == null ? null : tabWidth,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      for (final tab in _tabs)
-                        MouseRegion(
-                          onEnter: (_) => setState(() => _hoverTab = tab.id),
-                          onExit: (_) => setState(() => _hoverTab = null),
-                          child: Material(
-                            color: tab.id == _active
-                                ? (dragRegion == null
-                                      ? Theme.of(
-                                          context,
-                                        ).colorScheme.surfaceContainerHigh
-                                      : Theme.of(context).colorScheme.surface)
-                                : Colors.transparent,
-                            borderRadius: dragRegion == null
-                                ? null
-                                : const BorderRadius.vertical(
-                                    top: Radius.circular(8),
+                  width: 40,
+                  child: IconButton(
+                    tooltip: '홈',
+                    isSelected: _active == 'home',
+                    onPressed: () => _select(_tabs.first),
+                    icon: const Icon(Icons.home_outlined, size: 19),
+                    selectedIcon: const Icon(Icons.home, size: 19),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: tabWidth,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (final tab in tabs)
+                      MouseRegion(
+                        onEnter: (_) => setState(() => _hoverTab = tab.id),
+                        onExit: (_) => setState(() => _hoverTab = null),
+                        child: Material(
+                          color: tab.id == _active
+                              ? (dragRegion == null
+                                    ? colors.surfaceContainerHigh
+                                    : colors.surface)
+                              : Colors.transparent,
+                          borderRadius: dragRegion == null
+                              ? null
+                              : const BorderRadius.vertical(
+                                  top: Radius.circular(8),
+                                ),
+                          child: Semantics(
+                            key: ValueKey('workspace-tab-${tab.id}'),
+                            selected: tab.id == _active,
+                            child: InkWell(
+                              key: tab.id == _active ? _activeTabKey : null,
+                              onTap: () => _select(tab),
+                              child: SizedBox(
+                                width: 180,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 12,
+                                    right: 4,
                                   ),
-                            child: Semantics(
-                              key: ValueKey('workspace-tab-${tab.id}'),
-                              selected: tab.id == _active,
-                              child: InkWell(
-                                key: tab.id == _active ? _activeTabKey : null,
-                                onTap: () => _select(tab),
-                                child: ConstrainedBox(
-                                  constraints: dragRegion == null
-                                      ? const BoxConstraints(
-                                          minWidth: 86,
-                                          maxWidth: 210,
-                                        )
-                                      : const BoxConstraints.tightFor(
-                                          width: 180,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _icon(tab),
+                                        size: 16,
+                                        color: tab.id == _active
+                                            ? colors.primary
+                                            : colors.onSurfaceVariant,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          tab.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 13.5,
+                                          ),
                                         ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(left: 12),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          _icon(tab),
-                                          size: 16,
-                                          color: dragRegion == null
-                                              ? null
-                                              : tab.id == _active
-                                              ? Theme.of(
-                                                  context,
-                                                ).colorScheme.primary
-                                              : Theme.of(
-                                                  context,
-                                                ).colorScheme.onSurfaceVariant,
+                                      ),
+                                      if (tab.dirty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 8,
+                                          ),
+                                          child: Icon(
+                                            Icons.circle,
+                                            size: 6,
+                                            color: colors.tertiary,
+                                          ),
                                         ),
-                                        const SizedBox(width: 8),
-                                        Flexible(
-                                          child: Text(
-                                            tab.title,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 13.5,
+                                      Opacity(
+                                        opacity:
+                                            tab.id == _active ||
+                                                _hoverTab == tab.id
+                                            ? 1
+                                            : 0,
+                                        child: SizedBox(
+                                          width: 32,
+                                          child: IconButton(
+                                            tooltip: '${tab.title} 탭 닫기',
+                                            onPressed: () => _close(tab),
+                                            icon: const Icon(
+                                              Icons.close,
+                                              size: 14,
                                             ),
                                           ),
                                         ),
-                                        if (tab.dirty)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              left: 8,
-                                            ),
-                                            child: Icon(
-                                              Icons.circle,
-                                              size: 6,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.tertiary,
-                                            ),
-                                          ),
-                                        if (tab.kind != _TabKind.home)
-                                          Opacity(
-                                            opacity:
-                                                tab.id == _active ||
-                                                    _hoverTab == tab.id
-                                                ? 1
-                                                : 0,
-                                            child: IconButton(
-                                              tooltip: '${tab.title} 탭 닫기',
-                                              onPressed: () => _close(tab),
-                                              icon: const Icon(
-                                                Icons.close,
-                                                size: 14,
-                                              ),
-                                            ),
-                                          )
-                                        else
-                                          const SizedBox(width: 12),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
-              Tooltip(
-                message: '새 탭 (Ctrl Shift T)',
-                child: TextButton.icon(
-                  onPressed: () {
-                    final host = engine
-                        .list('hosts')
-                        .where((h) => h['id'] == (active.hostId ?? _hostId))
-                        .firstOrNull;
-                    if (host != null) {
-                      _connect(host, newSession: true);
-                    } else {
-                      _searchFocus.requestFocus();
-                    }
-                  },
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('새 탭'),
-                ),
-              ),
-              if (dragRegion != null) Expanded(child: dragRegion),
+              button('새 탭 (Ctrl Shift T)', Icons.add, () => _newTab()),
               if (active.kind == _TabKind.terminal)
                 Builder(
-                  builder: (anchor) => IconButton(
-                    tooltip: '터미널 메뉴',
-                    onPressed: () => _console.currentState?.openMenu(anchor),
-                    icon: const Icon(Icons.more_horiz),
+                  builder: (anchor) => button(
+                    '터미널 메뉴',
+                    Icons.more_horiz,
+                    () => _console.currentState?.openMenu(anchor),
                   ),
                 ),
+              Expanded(child: dragRegion ?? const SizedBox.shrink()),
             ],
           );
         },
@@ -933,7 +946,8 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     final sidebar = _showSidebar ?? MediaQuery.sizeOf(context).width >= 720;
     final terminal = active.kind == _TabKind.terminal;
     final pages = _tabs.where((t) => t.kind != _TabKind.terminal).toList();
-    final currentRoute = ModalRoute.of(context)?.isCurrent ?? true;
+    final currentRoute =
+        !_pageOpen && (ModalRoute.of(context)?.isCurrent ?? true);
     final workspace = Row(
       children: [
         if (sidebar) ...[_sidebar(hosts), const VerticalDivider(width: 1)],
@@ -997,7 +1011,20 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
               ? WindowsWindowFrame(
                   titleBar: (dragRegion) =>
                       _tabStrip(sidebar, dragRegion: dragRegion),
-                  child: workspace,
+                  child: Stack(
+                    children: [
+                      workspace,
+                      if (_pageOpen)
+                        Positioned.fill(
+                          child: Navigator(
+                            key: _pageNavigator,
+                            onGenerateRoute: (_) => MaterialPageRoute<void>(
+                              builder: (_) => const SizedBox.shrink(),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 )
               : workspace,
         ),

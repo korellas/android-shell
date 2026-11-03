@@ -1,6 +1,7 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
 import 'package:android_shell_ui/main.dart';
+import 'package:android_shell_ui/engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,7 @@ void main() {
     for (final (family, path) in [
       ('Pretendard', 'assets/fonts/Pretendard-Regular.ttf'),
       ('JetBrainsMono', 'assets/fonts/JetBrainsMono-Regular.ttf'),
+      ('D2Coding', 'assets/fonts/D2Coding-Regular.ttf'),
       ('MaterialIcons', 'fonts/MaterialIcons-Regular.otf'),
     ]) {
       await (FontLoader(family)..addFont(rootBundle.load(path))).load();
@@ -20,8 +22,14 @@ void main() {
   });
   const channel = MethodChannel('dev.korellas.tilde/windows');
   final calls = <MethodCall>[];
+  late UiEngineFixture engine;
   setUp(() {
     calls.clear();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(AndroidEngine.channel, (call) async {
+          if (call.method == 'snapshot') return engine.state;
+          return null;
+        });
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
           calls.add(call);
@@ -31,21 +39,35 @@ void main() {
           return null;
         });
   });
-  tearDown(
-    () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null),
-  );
-  Future<void> open(WidgetTester tester, {double width = 1280}) async {
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(AndroidEngine.channel, null);
+  });
+  Future<void> open(
+    WidgetTester tester, {
+    double width = 1280,
+    bool sessions = false,
+  }) async {
     tester.view.physicalSize = Size(width, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final engine = UiEngineFixture()
+    engine = UiEngineFixture(fontFamily: 'D2Coding')
       ..state = {
         'ready': true,
         'platform': 'windows',
-        'hosts': [],
-        'sessions': [],
+        'preferences': <String, dynamic>{},
+        'hosts': [
+          if (sessions) {'id': 7, 'nickname': 'NAS', 'protocol': 'ssh'},
+        ],
+        'sessions': [
+          if (sessions) ...[
+            {'id': 101, 'hostId': 7, 'nickname': 'NAS', 'open': true},
+            {'id': 102, 'hostId': 7, 'nickname': 'NAS', 'open': true},
+          ],
+        ],
       };
     await tester.pumpWidget(
       MaterialApp(
@@ -55,6 +77,78 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'home and new tab are compact controls and tab closes align at the edge',
+    (tester) async {
+      await open(tester, sessions: true);
+      final home = find.byKey(const ValueKey('workspace-tab-home'));
+      expect(tester.getSize(home).width, lessThanOrEqualTo(44));
+      expect(find.descendant(of: home, matching: find.text('홈')), findsNothing);
+      expect(find.text('새 탭'), findsNothing);
+      final tab = find.byKey(const ValueKey('workspace-tab-session-101'));
+      await tester.tap(tab);
+      await tester.pumpAndSettle();
+      await capture(tester, 'windows-tabs-with-sessions');
+      final close = find.byTooltip('NAS · 1 탭 닫기');
+      expect(
+        tester.getRect(tab).right - tester.getRect(close).right,
+        inInclusiveRange(0, 8),
+      );
+      expect(
+        tester.getRect(find.byTooltip('터미널 메뉴')).left,
+        greaterThan(
+          tester.getRect(find.byTooltip('새 탭 (Ctrl Shift T)')).right - 1,
+        ),
+      );
+      expect(find.text('Ctrl K'), findsNothing);
+      expect(find.text('검색 또는 ssh user@host'), findsNothing);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      for (final id in [102, 101]) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<Semantics>(
+                find.byKey(ValueKey('workspace-tab-session-$id')),
+              )
+              .properties
+              .selected,
+          isTrue,
+        );
+      }
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
+
+  testWidgets(
+    'settings keep the window chrome and tabs available',
+    (tester) async {
+      await open(tester, width: 1440);
+      await tester.tap(find.text('설정'));
+      await tester.pumpAndSettle();
+      await capture(tester, 'windows-settings');
+      expect(find.byTooltip('창 닫기'), findsOneWidget);
+      expect(find.byKey(const ValueKey('workspace-tab-home')), findsOneWidget);
+      final navigation = tester.getRect(
+        find.byKey(const ValueKey('settings-navigation')),
+      );
+      final detail = tester.getRect(
+        find.byKey(const ValueKey('settings-detail')),
+      );
+      expect(navigation.width, 320);
+      expect(detail.width, lessThanOrEqualTo(640));
+      expect(detail.left - navigation.right, inInclusiveRange(16, 25));
+      await tester.tap(find.byKey(const ValueKey('workspace-tab-home')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('settings-navigation')), findsNothing);
+      expect(find.byKey(const ValueKey('workspace-sidebar')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
 
   testWidgets(
     'Windows tabs share the top row with caption buttons above the sidebar',

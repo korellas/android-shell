@@ -1186,7 +1186,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 data: Theme.of(context).copyWith(
                   listTileTheme: Theme.of(
                     context,
-                  ).listTileTheme.copyWith(minTileHeight: 52),
+                  ).listTileTheme.copyWith(minTileHeight: 56),
                 ),
                 child: contentView,
               )
@@ -1226,7 +1226,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 ? Row(
                     children: [
                       SizedBox(
-                        width: 264,
+                        key: const ValueKey('settings-navigation'),
+                        width: tildePointer(context) ? 320 : 264,
                         child: categories(switch (selected) {
                           'fonts' => 'display',
                           'bar' => 'keyboard',
@@ -1235,10 +1236,19 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       const VerticalDivider(width: 1),
                       Expanded(
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 640),
-                            child: detail,
+                        child: Padding(
+                          padding: tildePointer(context)
+                              ? const EdgeInsets.symmetric(horizontal: 24)
+                              : EdgeInsets.zero,
+                          child: Align(
+                            alignment: tildePointer(context)
+                                ? Alignment.topLeft
+                                : Alignment.center,
+                            child: ConstrainedBox(
+                              key: const ValueKey('settings-detail'),
+                              constraints: const BoxConstraints(maxWidth: 640),
+                              child: detail,
+                            ),
                           ),
                         ),
                       ),
