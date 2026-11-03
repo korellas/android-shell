@@ -106,6 +106,53 @@ void main() {
     expect(output.join(), 'first\rsecond');
   });
 
+  testWidgets(
+    'iOS hardware IME can replace text without a composing range',
+    (tester) async {
+      await open(tester);
+      tester.testTextInput.log.clear();
+      edit(tester, 'ㅎ');
+      expect(
+        tester.testTextInput.log.where(
+          (call) => call.method == 'TextInput.setEditingState',
+        ),
+        isEmpty,
+        reason:
+            'Resetting the native buffer cancels iOS selection-based composition.',
+      );
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '  ㅎ',
+          selection: TextSelection(baseOffset: 1, extentOffset: 3),
+        ),
+      );
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: ' ',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      edit(tester, '하');
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '  하',
+          selection: TextSelection(baseOffset: 1, extentOffset: 3),
+        ),
+      );
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: ' ',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+      );
+      edit(tester, '한');
+      expect(output.join(), 'ㅎ\x7f하\x7f한');
+      input.sendKey(TerminalKey.enter);
+      expect(output.join(), 'ㅎ\x7f하\x7f한\r');
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+  );
+
   testWidgets('committed prefix is sent while the next syllable composes', (
     tester,
   ) async {

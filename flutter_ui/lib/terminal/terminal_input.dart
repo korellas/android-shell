@@ -284,9 +284,10 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
         _committed.isEmpty) {
       terminal.keyInput(TerminalKey.backspace);
     }
-    if (defaultTargetPlatform == TargetPlatform.windows) {
-      // Windows can end and restart composing between syllables while keeping
-      // the same native text buffer. Resetting it races those queued updates.
+    if (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.iOS) {
+      // Native IMEs can revise inserted text between composition updates.
+      // iOS hardware input also uses selection edits without a composing range.
       _setComposing('');
     } else {
       _reset();
