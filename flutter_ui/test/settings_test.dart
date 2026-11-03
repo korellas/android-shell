@@ -220,13 +220,8 @@ void main() {
     await open(tester);
     await tester.tap(find.text('터미널'));
     await tester.pumpAndSettle();
-    final increase = tester.widget<IconButton>(
-      find.ancestor(
-        of: find.byTooltip('좌우 여백 늘리기'),
-        matching: find.byType(IconButton),
-      ),
-    );
-    expect(increase.onPressed, isNull);
+    expect(find.text('24'), findsOneWidget);
+    expect(find.byTooltip('좌우 여백 늘리기'), findsNothing);
     expect(changes, isEmpty);
   });
   testWidgets(

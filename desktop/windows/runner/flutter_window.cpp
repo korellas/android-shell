@@ -4,6 +4,7 @@
 
 #include <optional>
 #include <shobjidl.h>
+#include <shellapi.h>
 #include "utils.h"
 
 #include "flutter/generated_plugin_registrant.h"
@@ -81,6 +82,64 @@ bool FlutterWindow::OnCreate() {
   files_channel_->SetMethodCallHandler(
       [this](const flutter::MethodCall<flutter::EncodableValue>& call,
              std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name() == "setFullscreen") {
+          bool enabled = false;
+          if (const auto* args = std::get_if<flutter::EncodableMap>(call.arguments())) {
+            const auto entry = args->find(flutter::EncodableValue("enabled"));
+            if (entry != args->end()) {
+              if (const auto* value = std::get_if<bool>(&entry->second)) enabled = *value;
+            }
+          }
+          if (enabled != fullscreen_) {
+            if (enabled) {
+              MONITORINFO monitor = {};
+              monitor.cbSize = sizeof(monitor);
+              window_placement_.length = sizeof(window_placement_);
+              if (!GetWindowPlacement(GetHandle(), &window_placement_) ||
+                  !GetMonitorInfoW(MonitorFromWindow(GetHandle(), MONITOR_DEFAULTTONEAREST), &monitor)) {
+                result->Error("fullscreen", "Could not read the window placement");
+                return;
+              }
+              window_style_ = GetWindowLongPtrW(GetHandle(), GWL_STYLE);
+              SetWindowLongPtrW(GetHandle(), GWL_STYLE, window_style_ & ~WS_OVERLAPPEDWINDOW);
+              SetWindowPos(GetHandle(), HWND_TOP, monitor.rcMonitor.left, monitor.rcMonitor.top,
+                           monitor.rcMonitor.right - monitor.rcMonitor.left,
+                           monitor.rcMonitor.bottom - monitor.rcMonitor.top,
+                           SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+            } else {
+              SetWindowLongPtrW(GetHandle(), GWL_STYLE, window_style_);
+              SetWindowPlacement(GetHandle(), &window_placement_);
+              SetWindowPos(GetHandle(), nullptr, 0, 0, 0, 0,
+                           SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+            }
+            fullscreen_ = enabled;
+          }
+          result->Success();
+          return;
+        }
+        if (call.method_name() == "openUrl" || call.method_name() == "openFolder") {
+          std::string target;
+          if (const auto* args = std::get_if<flutter::EncodableMap>(call.arguments())) {
+            const auto entry = args->find(flutter::EncodableValue(call.method_name() == "openUrl" ? "url" : "path"));
+            if (entry != args->end()) {
+              if (const auto* value = std::get_if<std::string>(&entry->second)) target = *value;
+            }
+          }
+          const int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, target.data(), static_cast<int>(target.size()), nullptr, 0);
+          if (length == 0) { result->Error("invalid_target", "No target was provided"); return; }
+          std::wstring wide(length, L'\0');
+          MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, target.data(), static_cast<int>(target.size()), wide.data(), length);
+          SHELLEXECUTEINFOW info = {};
+          info.cbSize = sizeof(info);
+          info.fMask = SEE_MASK_ASYNCOK | SEE_MASK_FLAG_NO_UI;
+          info.hwnd = GetHandle();
+          info.lpVerb = L"open";
+          info.lpFile = wide.c_str();
+          info.nShow = SW_SHOWNORMAL;
+          if (ShellExecuteExW(&info)) result->Success();
+          else result->Error("open_target", "Windows could not open the target");
+          return;
+        }
         if (call.method_name() != "openFile" && call.method_name() != "saveFile" && call.method_name() != "chooseDirectory") {
           result->NotImplemented();
           return;

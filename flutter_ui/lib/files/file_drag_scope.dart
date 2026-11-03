@@ -29,6 +29,7 @@ class FileDragScope extends InheritedWidget {
     this.copyRemoteFiles,
     this.readSetting,
     this.writeSetting,
+    this.revealFolder,
   });
   final Widget Function(Widget, List<SftpName>, FileExport?)?
   selectionDragBuilder;
@@ -40,6 +41,7 @@ class FileDragScope extends InheritedWidget {
   copyRemoteFiles;
   final Future<Object?> Function(String)? readSetting;
   final Future<void> Function(String, Object)? writeSetting;
+  final Future<void> Function(String)? revealFolder;
   final FileDropBuilder dropBuilder;
   final FileDragBuilder dragBuilder;
   static FileDragScope? of(BuildContext context) =>
@@ -52,5 +54,6 @@ class FileDragScope extends InheritedWidget {
       targetDropBuilder != oldWidget.targetDropBuilder ||
       chooseDirectory != oldWidget.chooseDirectory ||
       readSetting != oldWidget.readSetting ||
-      writeSetting != oldWidget.writeSetting;
+      writeSetting != oldWidget.writeSetting ||
+      revealFolder != oldWidget.revealFolder;
 }

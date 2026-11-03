@@ -20,7 +20,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xterm2/xterm.dart';
 import 'package:android_shell_ui/terminal/terminal_pane.dart';
 
 import 'ui_engine_fixture.dart';
@@ -348,50 +347,59 @@ void main() {
     await capture(tester, 'host-menu-day');
   });
   testWidgets(
-    'wide home selects without connecting and protects unsaved edits',
+    'desktop editor tabs retain drafts and guard closing',
     (tester) async {
       await open(tester, ShellHome(engine: engine), width: 1280);
-      await tester.tap(find.text('home-nas'));
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pumpAndSettle();
-      expect(find.byType(RecordEditor), findsOneWidget);
-      expect(calls.where((c) => c.method == 'connect'), isEmpty);
-      await capture(tester, 'home-wide');
-      await tester.tap(
-        find
-            .descendant(
-              of: find.byType(RecordEditor),
-              matching: find.text('연결'),
-            )
-            .first,
-      );
+      expect(find.text('터미널 열기'), findsOneWidget);
+      await tester.tap(find.text('편집').first);
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('nickname:0')),
         'changed',
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('dev-box'));
-      await tester.pump(const Duration(milliseconds: 350));
+      await tester.tap(find.byKey(const ValueKey('workspace-host-8')));
+      await tester.pumpAndSettle();
+      expect(find.text('변경 사항 버리기'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('workspace-tab-editor-7')));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(
+                of: find.byKey(const ValueKey('nickname:0')),
+                matching: find.byType(EditableText),
+              ),
+            )
+            .controller
+            .text,
+        'changed',
+      );
+      await tester.tap(find.byTooltip('home-nas 편집 탭 닫기'));
       await tester.pumpAndSettle();
       expect(find.text('변경 사항 버리기'), findsOneWidget);
-      expect(find.byType(Dialog), findsOneWidget);
       await tester.tap(find.text('계속 편집'));
       await tester.pumpAndSettle();
-      expect(find.text('changed'), findsOneWidget);
-      await tester.tap(find.text('dev-box'));
-      await tester.pump(const Duration(milliseconds: 350));
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(
+                of: find.byKey(const ValueKey('nickname:0')),
+                matching: find.byType(EditableText),
+              ),
+            )
+            .controller
+            .text,
+        'changed',
+      );
+      await tester.tap(find.byTooltip('home-nas 편집 탭 닫기'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('버리기'));
       await tester.pumpAndSettle();
-      expect(
-        find.descendant(
-          of: find.byType(RecordEditor),
-          matching: find.text('dev-box'),
-        ),
-        findsOneWidget,
-      );
+      expect(find.byType(RecordEditor, skipOffstage: false), findsNothing);
+      expect(calls.where((c) => c.method == 'connect'), isEmpty);
     },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
   testWidgets('horizontal gesture choice disables the competing action', (
     tester,
@@ -444,43 +452,26 @@ void main() {
   });
 
   testWidgets(
-    'wide console menu stays open while the terminal remains usable',
+    'pointer terminal menu is anchored and preserves viewport size',
     (tester) async {
       await open(
         tester,
         ConsolePage(engine: engine, sessionId: 101),
         width: 1000,
       );
-      final output = <String>[];
-      final terminal = engine.terminalSession(101)!.terminal;
-      terminal.onOutput = output.add;
-      const sample = 'admin@home-nas:~\$ ';
-      terminal.writeText(sample, 0, sample.length);
-      final full = tester.getSize(find.byType(TerminalPane)).width;
+      final width = tester.getSize(find.byType(TerminalPane)).width;
       await tester.tap(find.byTooltip('터미널 메뉴'));
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsNothing);
       expect(find.byType(Dialog), findsNothing);
-      expect(tester.getSize(find.byType(TerminalPane)).width, full - 360);
-      await capture(tester, 'console-side-menu');
-      await tester.tap(find.byType(TerminalView));
-      await tester.pumpAndSettle();
-      tester.testTextInput.updateEditingValue(
-        const TextEditingValue(
-          text: '  pwd',
-          selection: TextSelection.collapsed(offset: 5),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(output.join(), 'pwd');
       expect(find.text('전체 화면'), findsOneWidget);
-      expect(find.text('조합 모드'), findsNothing);
-      await tester.tap(find.byTooltip('닫기'));
+      expect(tester.getSize(find.byType(TerminalPane)).width, width);
+      await tester.tapAt(const Offset(10, 300));
       await tester.pumpAndSettle();
-      expect(tester.getSize(find.byType(TerminalPane)).width, full);
-      await tester.pumpWidget(const SizedBox());
-      engine.dispose();
+      expect(find.text('전체 화면'), findsNothing);
+      expect(tester.getSize(find.byType(TerminalPane)).width, width);
     },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
   testWidgets('large phone host menu keeps actions reachable', (tester) async {
     await open(tester, ShellHome(engine: engine), width: 320, scale: 2);
@@ -492,73 +483,57 @@ void main() {
     await capture(tester, 'host-menu-large-text');
   });
   testWidgets(
-    'folding a focused dirty host editor retains its draft and guarded back',
+    'resizing a desktop editor preserves its draft and guards its tab',
     (tester) async {
       await open(tester, ShellHome(engine: engine), width: 1000);
-      await tester.tap(find.text('home-nas'));
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find
-            .descendant(
-              of: find.byType(RecordEditor),
-              matching: find.text('연결'),
-            )
-            .first,
-      );
+      await tester.tap(find.text('편집').first);
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('nickname:0')),
         'retained draft',
       );
+      await tester.pumpAndSettle();
       final state = tester.state(find.byType(RecordEditor));
       tester.view.physicalSize = const Size(390, 900);
       await tester.pumpAndSettle();
       expect(tester.state(find.byType(RecordEditor)), same(state));
       expect(find.text('retained draft'), findsOneWidget);
-      await tester.tap(find.byTooltip('뒤로'));
+      await tester.tap(find.byTooltip('home-nas 편집 탭 닫기'));
       await tester.pumpAndSettle();
       expect(find.text('변경 사항 버리기'), findsOneWidget);
       await tester.tap(find.text('계속 편집'));
       await tester.pumpAndSettle();
       expect(find.text('retained draft'), findsOneWidget);
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      expect(find.text('변경 사항 버리기'), findsOneWidget);
-      await tester.tap(find.text('버리기'));
-      await tester.pumpAndSettle();
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      expect(find.byType(RecordEditor), findsNothing);
-      expect(find.byType(TextField), findsOneWidget);
     },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
-  testWidgets('embedded host save keeps a newer favorite snapshot', (
-    tester,
-  ) async {
-    await open(tester, ShellHome(engine: engine), width: 1000);
-    await tester.tap(find.text('home-nas'));
-    await tester.pump(const Duration(milliseconds: 350));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('home-nas 메뉴'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('즐겨찾기'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find
-          .descendant(of: find.byType(RecordEditor), matching: find.text('연결'))
-          .first,
-    );
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('nickname:0')), 'renamed');
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('저장'));
-    await tester.pumpAndSettle();
-    final saved =
-        calls.singleWhere((c) => c.method == 'host.save').arguments as Map;
-    expect(saved['favorite'], true);
-    expect(saved['nickname'], 'renamed');
-  });
+  testWidgets(
+    'embedded host save keeps a newer favorite snapshot',
+    (tester) async {
+      await open(tester, ShellHome(engine: engine), width: 1000);
+      await tester.tap(find.text('편집').first);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('nickname:0')),
+        'renamed',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('workspace-host-7')),
+        buttons: 2,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('즐겨찾기에 추가'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('저장'));
+      await tester.pumpAndSettle();
+      final saved =
+          calls.singleWhere((c) => c.method == 'host.save').arguments as Map;
+      expect(saved['favorite'], true);
+      expect(saved['nickname'], 'renamed');
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
   testWidgets(
     'mobile paste restores common terminal ownership after closing the menu',
     (tester) async {
@@ -729,28 +704,23 @@ void main() {
       await capture(tester, 'keybar-editor-wide');
     },
   );
-  testWidgets('display owns palette swatches and a native font-name preview', (
-    tester,
-  ) async {
-    await open(tester, SettingsPage(engine: engine));
-    await tester.tap(find.text('화면'));
-    await tester.pumpAndSettle();
-    expect(
-      find.byWidgetPredicate(
-        (w) =>
-            w.key is ValueKey<String> &&
-            (w.key as ValueKey<String>).value.startsWith('scheme-swatch-'),
-      ),
-      findsWidgets,
-    );
-    expect(
-      calls.where(
-        (c) =>
-            c.method == 'settings.preview' &&
-            c.arguments['sampleText'] == 'JetBrains Mono' &&
-            c.arguments['fontFamily'] == 'JETBRAINS_MONO',
-      ),
-      isNotEmpty,
-    );
-  });
+  testWidgets(
+    'display renders portable terminal and font previews without duplicate swatches',
+    (tester) async {
+      await open(tester, SettingsPage(engine: engine));
+      await tester.tap(find.text('화면'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key as ValueKey<String>).value.startsWith('scheme-swatch-'),
+        ),
+        findsNothing,
+      );
+      expect(find.text('JetBrains Mono'), findsWidgets);
+      expect(find.textContaining('한글.md'), findsOneWidget);
+      expect(calls.where((c) => c.method == 'settings.preview'), isEmpty);
+    },
+  );
 }

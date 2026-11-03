@@ -146,15 +146,9 @@ void main() {
       );
       await tester.longPress(find.text('기본 프로필'));
       await tester.pumpAndSettle();
-      expect(labels(tester), ['편집', '앱 기본값', '복제']);
-      expect(
-        tester
-            .widget<TildeMenuLabel>(
-              find.widgetWithText(TildeMenuLabel, '앱 기본값'),
-            )
-            .selected,
-        true,
-      );
+      expect(labels(tester), ['편집', '복제']);
+      expect(find.text('앱 기본값'), findsNothing);
+      expect(find.text('삭제'), findsNothing);
       await capture(tester, 'profile-menu-$scale');
       expect(tester.takeException(), isNull);
     });

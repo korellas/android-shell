@@ -368,9 +368,8 @@ void main() {
             ),
           );
           check();
-          await tester.enterText(find.byType(TextField), '한국어');
-          await tester.pumpAndSettle();
-          expect(find.text('유니코드 · 여러 언어와 한글을 사용하는 서버'), findsNothing);
+          expect(find.byType(TextField), findsNothing);
+          expect(find.text('유니코드 · 여러 언어와 한글을 사용하는 서버'), findsOneWidget);
           check();
           await open(
             const Scaffold(
@@ -379,7 +378,7 @@ void main() {
           );
           check();
           await tester.enterText(find.byType(TextField), 'bad');
-          await tester.tap(find.text('사용'));
+          await tester.tap(find.text('적용'));
           await tester.pumpAndSettle();
           check();
         },

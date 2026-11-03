@@ -26,6 +26,7 @@ import 'tilde_controls.dart';
 import 'editors.dart';
 import 'management.dart';
 import 'console.dart';
+import 'desktop_workspace.dart';
 import 'files/file_browser.dart';
 
 void main() => runApp(const AndroidShellApp());
@@ -99,44 +100,92 @@ Future<dynamic> runEngine(
         summary: method == 'connect'
             ? '${engine.list('hosts').where((h) => h['id'] == args['id']).firstOrNull?['nickname'] ?? '서버'}에 연결하지 못했습니다'
             : '작업을 완료하지 못했습니다',
+        retry: method == 'connect'
+            ? () async {
+                await runEngine(context, engine, method, args);
+              }
+            : null,
       );
     }
     return null;
   }
 }
 
-Future<void> showErrorDetails(BuildContext context, Object error) =>
-    showTildeSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (c) => SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('오류 상세', style: Theme.of(c).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            SelectableText(
-              error is EngineException
-                  ? error.details ?? error.message
-                  : '$error',
-              style: const TextStyle(
-                fontFamily: 'Pretendard',
-                fontFamilyFallback: ['Pretendard'],
-                fontSize: 13,
-              ),
+Future<void> showErrorDetails(
+  BuildContext context,
+  Object error, {
+  String summary = '작업을 완료하지 못했습니다',
+  Future<void> Function()? retry,
+}) => showTildeSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  useSafeArea: true,
+  builder: (c) => SingleChildScrollView(
+    padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(summary, style: Theme.of(c).textTheme.titleLarge),
+        const SizedBox(height: 16),
+
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(c).colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: SelectableText(
+            error is EngineException
+                ? error.details ?? error.message
+                : '$error',
+            style: const TextStyle(
+              fontFamily: tildeMono,
+              fontFamilyFallback: tildeMonoFallback,
+              fontSize: 12.5,
             ),
-          ],
+          ),
         ),
-      ),
-    );
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            children: [
+              TextButton.icon(
+                onPressed: () => Clipboard.setData(
+                  ClipboardData(
+                    text: error is EngineException
+                        ? error.details ?? error.message
+                        : '$error',
+                  ),
+                ),
+                icon: const Icon(Icons.content_copy_outlined, size: 18),
+                label: const Text('복사'),
+              ),
+              if (retry != null)
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(c);
+                    unawaited(retry());
+                  },
+                  child: const Text('다시 연결'),
+                ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  ),
+);
 
 void showEngineFailure(
   BuildContext context,
   Object error, {
   String summary = '작업을 완료하지 못했습니다',
+  Future<void> Function()? retry,
 }) {
   final colors = Theme.of(context).colorScheme;
   ScaffoldMessenger.of(context).showSnackBar(
@@ -151,7 +200,8 @@ void showEngineFailure(
       action: SnackBarAction(
         label: '자세히',
         textColor: colors.primary,
-        onPressed: () => showErrorDetails(context, error),
+        onPressed: () =>
+            showErrorDetails(context, error, summary: summary, retry: retry),
       ),
     ),
   );
@@ -235,36 +285,6 @@ Future<void> exportTildeHosts(
   }
 }
 
-Future<String?> askAction(
-  BuildContext context,
-  String title,
-  List<(String, String)> actions,
-) => showTildeSheet<String>(
-  context: context,
-  showDragHandle: true,
-  builder: (context) => SafeArea(
-    child: SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(title, style: Theme.of(context).textTheme.titleLarge),
-            ),
-            for (final (action, label) in actions)
-              ListTile(
-                title: Text(label),
-                onTap: () => Navigator.pop(context, action),
-              ),
-          ],
-        ),
-      ),
-    ),
-  ),
-);
-
 Future<String?> askText(
   BuildContext context,
   String title, {
@@ -273,7 +293,7 @@ Future<String?> askText(
   bool multiline = false,
   TextInputType? keyboardType,
   String? Function(String?)? validator,
-  String action = '적용',
+  String action = '확인',
   double maxWidth = 440,
   String? hintText,
   bool showPasteAction = false,
@@ -336,64 +356,81 @@ class _TextPromptState extends State<_TextPrompt> {
     );
   }
 
+  void submit() {
+    if (form.currentState!.validate()) Navigator.pop(context, controller.text);
+  }
+
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        0,
-        24,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(widget.title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 16),
-          Form(
-            key: form,
-            child: TextFormField(
-              controller: controller,
-              keyboardType: widget.keyboardType,
-              validator: widget.validator,
-              decoration: InputDecoration(hintText: widget.hintText),
-              autofocus: true,
-              obscureText: widget.password,
-              maxLines: widget.multiline ? 8 : 1,
-              minLines: widget.multiline ? 3 : 1,
+  Widget build(BuildContext context) => CallbackShortcuts(
+    bindings: {
+      const SingleActivator(LogicalKeyboardKey.enter, control: true): submit,
+    },
+    child: SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          0,
+          24,
+          24 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            Form(
+              key: form,
+              child: TextFormField(
+                controller: controller,
+                onChanged: widget.multiline ? (_) => setState(() {}) : null,
+                onFieldSubmitted: widget.multiline ? null : (_) => submit(),
+                keyboardType: widget.keyboardType,
+                validator: widget.validator,
+                decoration: InputDecoration(hintText: widget.hintText),
+                autofocus: true,
+                obscureText: widget.password,
+                maxLines: widget.multiline ? 8 : 1,
+                minLines: widget.multiline ? 3 : 1,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (widget.showPasteAction)
-                  TextButton.icon(
-                    onPressed: paste,
-                    icon: const Icon(Icons.content_paste_outlined, size: 18),
-                    label: const Text('붙여넣기'),
+            if (widget.multiline)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '${controller.text.split('\n').length}줄 · Enter는 줄바꿈, Ctrl Enter는 보내기',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (widget.showPasteAction)
+                    TextButton.icon(
+                      onPressed: paste,
+                      icon: const Icon(Icons.content_paste_outlined, size: 18),
+                      label: const Text('붙여넣기'),
+                    ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('취소'),
                   ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('취소'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    if (form.currentState!.validate()) {
-                      Navigator.pop(context, controller.text);
-                    }
-                  },
-                  child: Text(widget.action),
-                ),
-              ],
+                  FilledButton(
+                    onPressed: () {
+                      submit();
+                    },
+                    child: Text(widget.action),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );
@@ -429,6 +466,7 @@ Future<bool> confirm(
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
+                  autofocus: tildePointer(c),
                   style: destructive
                       ? FilledButton.styleFrom(
                           backgroundColor: Theme.of(c).colorScheme.error,
@@ -475,22 +513,9 @@ class _ShellHomeState extends State<ShellHome> {
   final Set<String> _answered = {};
   int? _setupHostId;
   int? _intentSession;
-  bool _desktopConsoleOpen = false;
   int? _menuHostId;
   String _quickUri = '';
   int? _selectedHostId;
-  Future<bool> Function()? _leaveHost;
-  Future<void> _selectHost(EngineRecord host) async {
-    if (_selectedHostId == host['id']) return;
-    if (_leaveHost != null && !await _leaveHost!()) return;
-    if (mounted) {
-      setState(() {
-        _selectedHostId = host['id'] as int;
-        _leaveHost = null;
-      });
-    }
-  }
-
   void _quickConnect(String value) {
     if (value.trim().isNotEmpty) {
       runEngine(context, engine, 'connect', {'uri': value.trim()});
@@ -531,17 +556,11 @@ class _ShellHomeState extends State<ShellHome> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _presentPrompt();
     });
+    if (tildePointer(context)) return;
     final id = engine.state['selectedSession'] as int?;
     if (id == null) _intentSession = null;
     if (id != null && id != _intentSession) {
       _intentSession = id;
-      final desktop =
-          defaultTargetPlatform == TargetPlatform.windows ||
-          defaultTargetPlatform == TargetPlatform.macOS;
-      // Desktop tabs share one console route so a session's input controller
-      // cannot be attached by another offstage terminal view.
-      if (desktop && _desktopConsoleOpen) return;
-      if (desktop) _desktopConsoleOpen = true;
       final selected = engine
           .list('sessions')
           .where((s) => s['id'] == id)
@@ -550,7 +569,7 @@ class _ShellHomeState extends State<ShellHome> {
       _setupHostId = null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          final closed = Navigator.of(context).push(
+          Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => ConsolePage(
                 engine: engine,
@@ -559,15 +578,6 @@ class _ShellHomeState extends State<ShellHome> {
               ),
             ),
           );
-          if (desktop) {
-            unawaited(
-              closed.whenComplete(() {
-                _desktopConsoleOpen = false;
-                _intentSession = null;
-                if (mounted) _changed();
-              }),
-            );
-          }
           unawaited(engine.invoke('session.consumeSelection'));
         }
       });
@@ -640,20 +650,12 @@ class _ShellHomeState extends State<ShellHome> {
   }
 
   Future<void> _connect(EngineRecord host, {bool newSession = false}) async {
+    if (MediaQuery.sizeOf(context).width >= 720) {
+      setState(() => _selectedHostId = host['id'] as int);
+    }
     if (!canConnectHost(host)) {
       await _hostMenu(host, 'edit');
       return;
-    }
-    if (host['protocol'] == 'ssh' && !newSession) {
-      final mode = await askAction(context, '${host['nickname']} 접속', const [
-        ('ssh', 'SSH 터미널'),
-        ('files', '파일 전송 (SFTP)'),
-      ]);
-      if (!mounted || mode == null) return;
-      if (mode == 'files') {
-        _page(FileBrowserPage(engine: engine, host: host));
-        return;
-      }
     }
     // Native selectedSession is the single owner of navigation after connection.
     await runEngine(context, engine, 'connect', {
@@ -662,7 +664,7 @@ class _ShellHomeState extends State<ShellHome> {
     });
   }
 
-  void _page(Widget page) =>
+  Future<void> _page(Widget page) =>
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   Future<void> _setupHost(EngineRecord host) async {
     Navigator.of(context).popUntil((route) => route.isFirst);
@@ -723,6 +725,7 @@ class _ShellHomeState extends State<ShellHome> {
           context,
           '복제할 호스트 이름',
           initial: '${host['nickname']} 복사',
+          action: '복제',
         );
         if (name != null && mounted) {
           await runEngine(context, engine, 'host.duplicate', {
@@ -769,6 +772,8 @@ class _ShellHomeState extends State<ShellHome> {
     final selected = await TildeItemMenu.show<String>(
       context,
       title: '${host['nickname']}',
+      leading: TildeHostTile(host: host, size: 48),
+      position: finger,
       subtitle: '${hostAddress(host)}${sessions > 0 ? ' · 세션 $sessions' : ''}',
       icon: host['protocol'] == 'local' ? Icons.terminal : Icons.dns_outlined,
       itemBuilder: (c) => [
@@ -907,7 +912,7 @@ class _ShellHomeState extends State<ShellHome> {
                     child: GestureDetector(
                       onLongPressStart: (details) =>
                           _showHostMenu(host, details.globalPosition),
-                      onDoubleTap: wide ? () => _connect(host) : null,
+                      onDoubleTap: null,
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
                         minTileHeight: 80,
@@ -948,7 +953,7 @@ class _ShellHomeState extends State<ShellHome> {
                             fontSize: 13,
                           ),
                         ),
-                        onTap: () => wide ? _selectHost(host) : _connect(host),
+                        onTap: () => _connect(host),
                       ),
                     ),
                   ),
@@ -969,8 +974,12 @@ class _ShellHomeState extends State<ShellHome> {
   @override
   Widget build(BuildContext context) {
     if (!engine.ready) return AppGate(engine: engine);
+    if (tildePointer(context)) return DesktopWorkspace(engine: engine);
     final hosts = engine.list('hosts');
     final wide = MediaQuery.sizeOf(context).width >= 720;
+    if (wide && !hosts.any((host) => host['id'] == _selectedHostId)) {
+      _selectedHostId = hosts.firstOrNull?['id'] as int?;
+    }
     final selected = hosts.where((h) => h['id'] == _selectedHostId).firstOrNull;
     final list = Column(
       children: [
@@ -979,109 +988,95 @@ class _ShellHomeState extends State<ShellHome> {
       ],
     );
     return Scaffold(
-      appBar: !wide && selected != null
-          ? null
-          : AppBar(
-              title: const TildeWordmark(),
-              actions: [
-                IconButton(
-                  tooltip: '호스트 추가',
-                  onPressed: () => _page(
-                    RecordEditor(engine: engine, kind: RecordKind.host),
+      appBar: AppBar(
+        title: const TildeWordmark(),
+        actions: [
+          IconButton(
+            tooltip: '호스트 추가',
+            onPressed: () =>
+                _page(RecordEditor(engine: engine, kind: RecordKind.host)),
+            icon: const Icon(Icons.add),
+          ),
+          IconButton(
+            tooltip: '메뉴',
+            icon: const Icon(Icons.more_vert),
+            onPressed: () async {
+              final action = await TildeItemMenu.show<String>(
+                context,
+                title: '',
+                icon: Icons.tune,
+                itemBuilder: (c) => [
+                  const PopupMenuItem(enabled: false, child: Text('정렬')),
+                  PopupMenuItem(
+                    value: 'sortColor',
+                    child: TildeMenuLabel(
+                      '색상순',
+                      Icons.palette_outlined,
+                      selected: engine.state['sortedByColor'] == true,
+                    ),
                   ),
-                  icon: const Icon(Icons.add),
-                ),
-                IconButton(
-                  tooltip: '메뉴',
-                  icon: const Icon(Icons.more_vert),
-                  onPressed: () async {
-                    final action = await TildeItemMenu.show<String>(
-                      context,
-                      title: 'Tilde',
-                      icon: Icons.tune,
-                      itemBuilder: (c) => [
-                        const PopupMenuItem(enabled: false, child: Text('정렬')),
-                        PopupMenuItem(
-                          value: 'sortColor',
-                          child: TildeMenuLabel(
-                            '색상순',
-                            Icons.palette_outlined,
-                            selected: engine.state['sortedByColor'] == true,
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'sortName',
-                          child: TildeMenuLabel(
-                            '이름순',
-                            Icons.sort_by_alpha,
-                            selected: engine.state['sortedByColor'] != true,
-                          ),
-                        ),
-                        const PopupMenuDivider(),
-                        const PopupMenuItem(
-                          value: 'settings',
-                          child: TildeMenuLabel('설정', Icons.settings_outlined),
-                        ),
-                        const PopupMenuItem(
-                          value: 'help',
-                          child: TildeMenuLabel('도움말', Icons.help_outline),
-                        ),
-                        const PopupMenuDivider(),
-                        PopupMenuItem(
-                          value: 'disconnect',
-                          enabled: engine.list('sessions').isNotEmpty,
-                          child: const TildeMenuLabel(
-                            '연결 모두 끊기',
-                            Icons.link_off_outlined,
-                          ),
-                        ),
-                      ],
-                    );
-                    if (action != null && mounted) await _homeMenu(action);
-                  },
-                ),
-              ],
-            ),
+                  PopupMenuItem(
+                    value: 'sortName',
+                    child: TildeMenuLabel(
+                      '이름순',
+                      Icons.sort_by_alpha,
+                      selected: engine.state['sortedByColor'] != true,
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(
+                    value: 'settings',
+                    child: TildeMenuLabel('설정', Icons.settings_outlined),
+                  ),
+                  const PopupMenuItem(
+                    value: 'help',
+                    child: TildeMenuLabel('도움말', Icons.help_outline),
+                  ),
+                  const PopupMenuDivider(),
+                  if (engine.list('sessions').isNotEmpty)
+                    PopupMenuItem(
+                      value: 'disconnect',
+                      child: const TildeMenuLabel(
+                        '연결 모두 끊기',
+                        Icons.link_off_outlined,
+                      ),
+                    ),
+                ],
+              );
+              if (action != null && mounted) await _homeMenu(action);
+            },
+          ),
+        ],
+      ),
       body: Row(
         children: [
           SizedBox(
             width: wide
                 ? (MediaQuery.sizeOf(context).width >= 1000 ? 380 : 320)
-                : selected == null
-                ? MediaQuery.sizeOf(context).width
-                : 0,
-            child: wide || selected == null ? list : null,
+                : MediaQuery.sizeOf(context).width,
+            child: list,
           ),
-          SizedBox(width: wide ? 1 : 0, child: const VerticalDivider(width: 1)),
-          Expanded(
-            child: selected == null
-                ? const SizedBox.shrink()
-                : Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 640),
-                      child: RecordEditor(
-                        key: ValueKey(selected['id']),
-                        engine: engine,
-                        kind: RecordKind.host,
-                        record: selected,
-                        embedded: true,
-                        registerLeaveGuard: (guard) => _leaveHost = guard,
-                        onSetup: _setupHost,
-                        onClose: () async {
-                          if (_leaveHost != null && !await _leaveHost!()) {
-                            return;
-                          }
-                          if (mounted) {
-                            setState(() {
-                              _selectedHostId = null;
-                              _leaveHost = null;
-                            });
-                          }
-                        },
+          if (wide) ...[
+            const VerticalDivider(width: 1),
+            Expanded(
+              child: selected == null
+                  ? const SizedBox.shrink()
+                  : HostSummary(
+                      engine: engine,
+                      host: selected,
+                      onConnect: () => _connect(selected),
+                      onFiles: () => _page(
+                        FileBrowserPage(engine: engine, host: selected),
                       ),
+                      onEdit: () => _hostMenu(selected, 'edit'),
+                      onMenu: (_) => _showHostMenu(selected),
+                      onForwards: () =>
+                          _page(ForwardsPage(engine: engine, host: selected)),
+                      onSelectSession: (id) =>
+                          _page(ConsolePage(engine: engine, sessionId: id)),
                     ),
-                  ),
-          ),
+            ),
+          ],
         ],
       ),
     );

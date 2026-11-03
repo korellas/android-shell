@@ -137,14 +137,14 @@ void main() {
     expect(find.text('터미널 프로필 관리'), findsOneWidget);
     await tester.tap(find.text('터미널 프로필 관리'));
     await tester.pumpAndSettle();
-    expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(find.byTooltip('프로필 추가'), findsOneWidget);
   });
   testWidgets('host menus expose grouped actions without a second menu', (
     tester,
   ) async {
     await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
-    await tester.longPress(find.text('Research'));
+    await tester.longPress(find.text('Research').first);
     await tester.pumpAndSettle();
     expect(find.text('추가 기능'), findsNothing);
     expect(find.text('연결 끊기'), findsNothing);
@@ -181,8 +181,8 @@ void main() {
   testWidgets('saved native hosts are available in Flutter', (tester) async {
     await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
-    expect(find.text('Research'), findsOneWidget);
-    expect(find.text('alice@example.test'), findsOneWidget);
+    expect(find.text('Research'), findsWidgets);
+    expect(find.text('alice@example.test'), findsWidgets);
   });
   testWidgets(
     'home keeps saved connections central without a management drawer',
@@ -219,7 +219,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
       await tester.pumpAndSettle();
-      await tester.longPress(find.text('Research'));
+      await tester.longPress(find.text('Research').first);
       await tester.pumpAndSettle();
       expect(find.text('접속 자동화'), findsNothing);
       expect(find.text('즐겨찾기'), findsOneWidget);
@@ -263,7 +263,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
-    await tester.longPress(find.text('Research'));
+    await tester.longPress(find.text('Research').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('편집'));
     await tester.pumpAndSettle();
@@ -282,7 +282,7 @@ void main() {
     await tester.tap(find.text('버리기'));
     await tester.pumpAndSettle();
     expect(find.text('Renamed'), findsNothing);
-    expect(find.text('Research'), findsOneWidget);
+    expect(find.text('Research'), findsWidgets);
   });
   testWidgets(
     'wide host editing keeps categories beside the connection fields',
@@ -293,9 +293,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
       await tester.pumpAndSettle();
-      await tester.longPress(find.text('Research'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('편집'));
+      await tester.tap(find.text('편집').first);
       await tester.pumpAndSettle();
       expect(find.text('인증'), findsOneWidget);
       expect(find.text('세션'), findsOneWidget);
@@ -305,6 +303,7 @@ void main() {
       expect(find.byKey(const ValueKey('hostname:0')), findsNothing);
       expect(find.text('프로필 관리'), findsOneWidget);
     },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
   testWidgets('file import refreshes connections and reports completion', (
     tester,
@@ -367,7 +366,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
       await tester.pumpAndSettle();
-      final context = tester.element(find.text('Research'));
+      final context = tester.element(find.text('Research').first);
       expect(Theme.of(context).colorScheme.primary, const Color(0xff006e5f));
       expect(Theme.of(context).colorScheme.surface, const Color(0xfff6f5f0));
     },
@@ -377,17 +376,10 @@ void main() {
   ) async {
     await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Research'));
+    await tester.tap(find.text('Research').first);
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
-    expect(find.byType(RecordEditor), findsOneWidget);
-    expect(find.text('Research에 연결하지 못했습니다'), findsNothing);
-    await tester.tap(
-      find
-          .descendant(of: find.byType(RecordEditor), matching: find.text('연결'))
-          .last,
-    );
-    await tester.pumpAndSettle();
+    expect(find.byType(RecordEditor), findsNothing);
     expect(find.text('Research에 연결하지 못했습니다'), findsOneWidget);
     await tester.tap(find.text('자세히'));
     await tester.pumpAndSettle();

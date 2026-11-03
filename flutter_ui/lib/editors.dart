@@ -17,6 +17,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'engine.dart';
 import 'tilde_design.dart';
 import 'tilde_controls.dart';
@@ -43,6 +44,8 @@ class RecordEditor extends StatefulWidget {
   final Future<void> Function(EngineRecord host)? onSetup;
   final bool embedded;
   final VoidCallback? onClose;
+  final ValueChanged<bool>? onDirtyChanged;
+  final ValueChanged<EngineRecord>? onSaved;
   final void Function(Future<bool> Function())? registerLeaveGuard;
   const RecordEditor({
     super.key,
@@ -54,6 +57,8 @@ class RecordEditor extends StatefulWidget {
     this.onSetup,
     this.embedded = false,
     this.onClose,
+    this.onDirtyChanged,
+    this.onSaved,
     this.registerLeaveGuard,
   });
   @override
@@ -68,6 +73,15 @@ class _RecordEditorState extends State<RecordEditor> {
   late EngineRecord originalDraft;
   String? error;
   int passwordRevision = 0;
+  bool? _reportedDirty;
+  String _buildingHostCategory = 'connection';
+  final _fieldCategories = <String, String>{},
+      _fieldLabels = <String, String>{};
+  void trackField(String key, String label) {
+    _fieldCategories[key] = _buildingHostCategory;
+    _fieldLabels[key] = label;
+  }
+
   AndroidEngine get engine => widget.engine;
   @override
   void initState() {
@@ -103,7 +117,24 @@ class _RecordEditorState extends State<RecordEditor> {
   }
 
   void engineChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    if (widget.embedded && widget.kind == RecordKind.host) {
+      final current = engine
+          .list('hosts')
+          .where((host) => host['id'] == draft['id'])
+          .firstOrNull;
+      if (current != null) mergeRecord(current);
+    }
+    setState(() {});
+  }
+
+  void mergeRecord(EngineRecord record) {
+    for (final entry in record.entries) {
+      if (draft[entry.key] == originalDraft[entry.key]) {
+        draft[entry.key] = entry.value;
+      }
+      originalDraft[entry.key] = entry.value;
+    }
   }
 
   @override
@@ -122,64 +153,94 @@ class _RecordEditorState extends State<RecordEditor> {
     bool enabled = true,
     bool multiline = false,
     String? hint,
-  }) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-    child: TextFormField(
-      key: ValueKey(
-        key == 'username'
-            ? '$key:${draft['identityId']}'
-            : key == 'password'
-            ? '$key:$passwordRevision'
-            : '$key:$draftRevision',
+  }) {
+    trackField(key, label);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            key: ValueKey(
+              key == 'username'
+                  ? '$key:${draft['identityId']}'
+                  : key == 'password'
+                  ? '$key:$passwordRevision'
+                  : '$key:$draftRevision',
+            ),
+            enabled: enabled,
+            autocorrect: !password,
+            enableSuggestions: !password,
+            initialValue: '${draft[key] ?? ''}',
+            obscureText: password,
+            minLines: multiline ? 3 : 1,
+            maxLines: multiline ? 6 : 1,
+            keyboardType: number
+                ? const TextInputType.numberWithOptions(signed: true)
+                : multiline
+                ? TextInputType.multiline
+                : password
+                ? TextInputType.visiblePassword
+                : TextInputType.text,
+            decoration: InputDecoration(
+              hintText: hint,
+              isDense: tildePointer(context),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: tildePointer(context) ? 9 : 14,
+              ),
+            ),
+            errorBuilder: (context, error) => Text(error),
+            validator: (value) {
+              if (required && (value ?? '').trim().isEmpty) {
+                return '$label 항목을 입력하세요.';
+              }
+              if (number &&
+                  (value ?? '').isNotEmpty &&
+                  int.tryParse(value!) == null) {
+                return '정수를 입력하세요.';
+              }
+              if (number &&
+                  (value ?? '').isNotEmpty &&
+                  [
+                    'port',
+                    'sourcePort',
+                    'destPort',
+                    'moshPort',
+                  ].contains(key)) {
+                final n = int.tryParse(value!)!;
+                if (n < (key == 'moshPort' ? 0 : 1) || n > 65535) {
+                  return '포트 범위를 확인하세요.';
+                }
+              }
+              return null;
+            },
+            onChanged: (value) => setState(() {
+              final previous = '${draft[key] ?? ''}';
+              draft[key] = number
+                  ? (value.isEmpty ? null : int.tryParse(value))
+                  : (optional && value.isEmpty ? null : value);
+              if (widget.kind == RecordKind.host &&
+                  key == 'hostname' &&
+                  value.length - previous.length > 1) {
+                parseAddress(value);
+              }
+            }),
+          ),
+        ],
       ),
-      enabled: enabled,
-      autocorrect: !password,
-      enableSuggestions: !password,
-      initialValue: '${draft[key] ?? ''}',
-      obscureText: password,
-      minLines: multiline ? 3 : 1,
-      maxLines: multiline ? 6 : 1,
-      keyboardType: number
-          ? const TextInputType.numberWithOptions(signed: true)
-          : multiline
-          ? TextInputType.multiline
-          : password
-          ? TextInputType.visiblePassword
-          : TextInputType.text,
-      decoration: InputDecoration(labelText: label, hintText: hint),
-      errorBuilder: (context, error) => Text(error),
-      validator: (value) {
-        if (required && (value ?? '').trim().isEmpty) {
-          return '$label 항목을 입력하세요.';
-        }
-        if (number &&
-            (value ?? '').isNotEmpty &&
-            int.tryParse(value!) == null) {
-          return '정수를 입력하세요.';
-        }
-        if (number &&
-            (value ?? '').isNotEmpty &&
-            ['port', 'sourcePort', 'destPort', 'moshPort'].contains(key)) {
-          final n = int.tryParse(value!)!;
-          if (n < (key == 'moshPort' ? 0 : 1) || n > 65535) {
-            return '포트 범위를 확인하세요.';
-          }
-        }
-        return null;
-      },
-      onChanged: (value) => setState(() {
-        final previous = '${draft[key] ?? ''}';
-        draft[key] = number
-            ? (value.isEmpty ? null : int.tryParse(value))
-            : (optional && value.isEmpty ? null : value);
-        if (widget.kind == RecordKind.host &&
-            key == 'hostname' &&
-            value.length - previous.length > 1) {
-          parseAddress(value);
-        }
-      }),
-    ),
-  );
+    );
+  }
+
   void parseAddress(String input) {
     if (!input.contains('@') &&
         !input.contains('://') &&
@@ -200,13 +261,16 @@ class _RecordEditorState extends State<RecordEditor> {
     draftRevision++;
   }
 
-  Widget toggle(String key, String label, {String? description}) =>
-      SwitchListTile(
-        title: Text(label),
-        subtitle: description == null ? null : Text(description),
-        value: draft[key] == true,
-        onChanged: (value) => setState(() => draft[key] = value),
-      );
+  Widget toggle(String key, String label, {String? description}) {
+    trackField(key, label);
+    return SwitchListTile(
+      title: Text(label),
+      subtitle: description == null ? null : Text(description),
+      value: draft[key] == true,
+      onChanged: (value) => setState(() => draft[key] = value),
+    );
+  }
+
   Widget choices(
     String key,
     String label,
@@ -215,6 +279,7 @@ class _RecordEditorState extends State<RecordEditor> {
     bool forceList = false,
     bool preserveUnknown = true,
   }) {
+    trackField(key, label);
     final current = draft[key] ?? options.firstOrNull?.$1;
     final values = [...options];
     if (preserveUnknown &&
@@ -233,21 +298,23 @@ class _RecordEditorState extends State<RecordEditor> {
 
     return !forceList && values.length <= 4
         ? tildeSegments(context, label, values, current, change)
-        : ListTile(
-            title: Text(label),
-            subtitle: Text(
-              values.where((v) => v.$1 == current).firstOrNull?.$2 ?? '선택',
+        : Builder(
+            builder: (anchor) => ListTile(
+              title: Text(label),
+              subtitle: Text(
+                values.where((v) => v.$1 == current).firstOrNull?.$2 ?? '선택',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final result = await pickTildeOption(
+                  anchor,
+                  label,
+                  values,
+                  current,
+                );
+                if (result != null && mounted) change(result.$1);
+              },
             ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              final result = await pickTildeOption(
-                context,
-                label,
-                values,
-                current,
-              );
-              if (result != null && mounted) change(result.$1);
-            },
           );
   }
 
@@ -288,7 +355,7 @@ class _RecordEditorState extends State<RecordEditor> {
     subtitles: {
       for (final key in engine.list('keys'))
         key['id']:
-            '${key['displayType'] ?? key['type']} · ${key['fingerprint'] ?? ''}',
+            '${key['displayType'] ?? key['type']} · ${tildeShortFingerprint('${key['fingerprint'] ?? ''}')}',
     },
   );
 
@@ -302,7 +369,7 @@ class _RecordEditorState extends State<RecordEditor> {
     ),
     if (widget.kind == RecordKind.host)
       const Padding(
-        padding: EdgeInsets.only(bottom: 8),
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
         child: Text('이 기기에 암호화해 보관합니다. 다른 기기로 복원하면 다시 입력해야 합니다.'),
       ),
     if (draft['hasPassword'] == true)
@@ -431,33 +498,17 @@ class _RecordEditorState extends State<RecordEditor> {
       section('포워딩', [
         text('nickname', '포워딩 이름', required: true),
         choices('type', '방식', [
-          ('local', 'L · 로컬'),
-          ('remote', 'R · 원격'),
-          ('dynamic5', 'D · SOCKS5'),
+          ('local', '로컬'),
+          ('remote', '원격'),
+          ('dynamic5', 'SOCKS5'),
         ], preserveUnknown: false),
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  draft['type'] == 'remote' ? '원격 서버' : '이 기기',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const Icon(Icons.arrow_forward),
-              Expanded(
-                child: Text(
-                  draft['type'].toString().startsWith('dynamic')
-                      ? 'SOCKS 프록시'
-                      : draft['type'] == 'remote'
-                      ? '이 기기'
-                      : '원격 서버',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ],
-          ),
+          child: Text(switch (draft['type']) {
+            'remote' => '서버의 포트로 들어온 연결을 이 기기의 주소로 보냅니다.',
+            'local' => '이 기기의 포트로 들어온 연결을 서버 쪽 주소로 보냅니다.',
+            _ => '이 기기에 SOCKS5 프록시를 엽니다.',
+          }),
         ),
         if (draft['type'] == 'dynamic4')
           settingsNote(
@@ -469,9 +520,9 @@ class _RecordEditorState extends State<RecordEditor> {
             Expanded(
               flex: 2,
               child: draft['type'] == 'remote'
-                  ? text('sourceAddr', '대기 주소', required: true)
+                  ? text('sourceAddr', '서버에서 받을 주소', required: true)
                   : const ListTile(
-                      title: Text('대기 주소'),
+                      title: Text('이 기기에서 받을 주소'),
                       subtitle: Text('127.0.0.1 · 이 기기에서만 접근'),
                     ),
             ),
@@ -509,9 +560,27 @@ class _RecordEditorState extends State<RecordEditor> {
         if (draft['fingerprint'] != null)
           Padding(
             padding: const EdgeInsets.all(16),
-            child: SelectableText(
-              '${draft['fingerprint']}',
-              style: const TextStyle(fontFamily: tildeMono, fontSize: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    tildeShortFingerprint('${draft['fingerprint']}'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: tildeMono,
+                      fontFamilyFallback: tildeMonoFallback,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Clipboard.setData(
+                    ClipboardData(text: '${draft['fingerprint']}'),
+                  ),
+                  child: const Text('지문 복사'),
+                ),
+              ],
             ),
           ),
         if (draft['publicKey'] != null)
@@ -567,12 +636,7 @@ class _RecordEditorState extends State<RecordEditor> {
     if (!widget.embedded || widget.record?['id'] != oldWidget.record?['id']) {
       return;
     }
-    for (final entry in widget.record!.entries) {
-      if (draft[entry.key] == originalDraft[entry.key]) {
-        draft[entry.key] = entry.value;
-      }
-      originalDraft[entry.key] = entry.value;
-    }
+    if (widget.record != null) mergeRecord(widget.record!);
   }
 
   bool get savedHost =>
@@ -581,6 +645,7 @@ class _RecordEditorState extends State<RecordEditor> {
   bool get sshHost => draft['protocol'] == 'ssh';
   bool get supportedHost => canConnectHost(draft);
   List<Widget> hostFields(String category) {
+    _buildingHostCategory = category;
     Widget group(String title, List<Widget> widgets) =>
         settingsSection(context, title, widgets);
     void page(Widget child) =>
@@ -597,14 +662,51 @@ class _RecordEditorState extends State<RecordEditor> {
               context,
               '${draft['protocol']} 연결은 지원하지 않습니다. SSH 또는 로컬로 변경하세요.',
             ),
-          text('nickname', '호스트 이름', required: true),
+          if (!wideEditor) text('nickname', '호스트 이름', required: true),
+          if (wideEditor && draft['protocol'] == 'local')
+            text('nickname', '이름', required: true),
           if (draft['protocol'] != 'local') ...[
-            text('hostname', '서버 주소', required: true, hint: 'user@host:port'),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Text('user@host:port를 붙여 넣으면 나눠서 채웁니다'),
+            if (wideEditor)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: text(
+                      'username',
+                      '사용자 이름',
+                      enabled: draft['identityId'] == null,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 4,
+                    child: text(
+                      'hostname',
+                      '서버 주소',
+                      required: true,
+                      hint: 'user@host:port',
+                    ),
+                  ),
+                  SizedBox(
+                    width: 104,
+                    child: text('port', '포트', number: true, required: true),
+                  ),
+                ],
+              )
+            else ...[
+              text('hostname', '서버 주소', required: true, hint: 'user@host:port'),
+              text('port', '포트', number: true, required: true),
+            ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'user@host:port를 주소 칸에 붙여 넣으면 나눠서 채웁니다.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
-            text('port', '포트', number: true, required: true),
+            if (wideEditor) text('nickname', '이름', required: true),
             group('고급', [
               choices('ipVersion', 'IP 주소', [
                 ('IPV4_AND_IPV6', '자동'),
@@ -668,9 +770,9 @@ class _RecordEditorState extends State<RecordEditor> {
                 passwordRevision++;
               }),
             ),
-            if (identity == null)
+            if (identity == null && !wideEditor)
               text('username', '사용자 이름')
-            else
+            else if (identity != null)
               ListTile(
                 title: Text('${identity['name']} 계정을 씁니다'),
                 subtitle: Text(
@@ -870,25 +972,23 @@ class _RecordEditorState extends State<RecordEditor> {
         .firstOrNull;
     void page(Widget page) =>
         Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
-    Widget quick(String title, IconData icon, VoidCallback action) => SizedBox(
-      width: 132,
-      child: FilledButton.tonal(
-        onPressed: saving ? null : action,
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 72),
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-          foregroundColor: Theme.of(context).colorScheme.onSurface,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 22),
-            const SizedBox(height: 8),
-            Text(title),
-          ],
-        ),
-      ),
-    );
+    Widget quick(String title, IconData icon, VoidCallback action) =>
+        FilledButton.tonal(
+          onPressed: saving ? null : action,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, 72),
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 22),
+              const SizedBox(height: 8),
+              Text(title),
+            ],
+          ),
+        );
     final identity = <Widget>[
       Center(child: TildeHostTile(host: draft, size: 80)),
       const SizedBox(height: 16),
@@ -909,26 +1009,44 @@ class _RecordEditorState extends State<RecordEditor> {
       ),
       const SizedBox(height: 24),
       if (savedHost)
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            if (supportedHost)
-              quick(
-                '새 세션',
-                Icons.library_add_outlined,
-                () => connectSavedHost(newSession: true),
-              ),
-            if (supportedHost)
-              quick('복제', Icons.file_copy_outlined, duplicateHost),
-            if (sshHost)
-              quick(
-                '포워딩',
-                Icons.swap_horiz,
-                () => page(ForwardsPage(engine: engine, host: draft)),
-              ),
-          ],
+        Builder(
+          builder: (context) {
+            final actions = <Widget>[
+              if (supportedHost)
+                quick(
+                  '새 세션',
+                  Icons.library_add_outlined,
+                  () => connectSavedHost(newSession: true),
+                ),
+              if (supportedHost)
+                quick('복제', Icons.file_copy_outlined, duplicateHost),
+              if (sshHost)
+                quick(
+                  '포워딩',
+                  Icons.swap_horiz,
+                  () => page(ForwardsPage(engine: engine, host: draft)),
+                ),
+            ];
+            return MediaQuery.textScalerOf(context).scale(15) > 21
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final action in actions)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: action,
+                        ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      for (final (index, action) in actions.indexed) ...[
+                        if (index > 0) const SizedBox(width: 8),
+                        Expanded(child: action),
+                      ],
+                    ],
+                  );
+          },
         ),
       const SizedBox(height: 24),
     ];
@@ -985,15 +1103,6 @@ class _RecordEditorState extends State<RecordEditor> {
           onTap: () =>
               page(KnownHostsPage(engine: engine, hostId: draft['id'] as int)),
         ),
-      if (savedHost)
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(
-            '호스트 삭제',
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-          onTap: deleteHost,
-        ),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1021,17 +1130,10 @@ class _RecordEditorState extends State<RecordEditor> {
   }
 
   Future<void> connectSavedHost({bool newSession = false}) async {
-    if (!mapEquals(originalDraft, draft)) {
-      final action = await askAction(context, '변경 사항이 있습니다', [
-        ('save', '저장하고 연결'),
-        ('stored', '저장된 설정으로 연결'),
-      ]);
-      if (action == null || !mounted) return;
-      if (action == 'save' && !await save(close: false)) return;
-    }
+    if (!mapEquals(originalDraft, draft) && !await save(close: false)) return;
     if (!mounted) return;
     final id = draft['id'];
-    Navigator.of(context).popUntil((r) => r.isFirst);
+    if (!widget.embedded) Navigator.of(context).popUntil((r) => r.isFirst);
     await runEngine(context, engine, 'connect', {
       'id': id,
       if (newSession) 'newSession': true,
@@ -1043,6 +1145,7 @@ class _RecordEditorState extends State<RecordEditor> {
       context,
       '복제할 이름',
       initial: '${draft['nickname']} 복사',
+      action: '복제',
     );
     if (name != null && mounted) {
       await runEngine(context, engine, 'host.duplicate', {
@@ -1058,13 +1161,20 @@ class _RecordEditorState extends State<RecordEditor> {
       engine,
       draft,
       onDeleted: () {
-        if (mounted && !widget.embedded) Navigator.pop(context);
+        if (mounted) {
+          if (widget.embedded) {
+            setState(resetDraft);
+            widget.onClose?.call();
+          } else {
+            Navigator.pop(context);
+          }
+        }
       },
     );
   }
 
   bool get wideEditor =>
-      !widget.embedded && MediaQuery.sizeOf(context).width >= 720;
+      tildePointer(context) && MediaQuery.sizeOf(context).width >= 720;
   int get changeCount => {
     for (final key in {...originalDraft.keys, ...draft.keys})
       if (originalDraft[key] != draft[key] && !key.startsWith('_'))
@@ -1085,7 +1195,11 @@ class _RecordEditorState extends State<RecordEditor> {
     if (widget.kind == RecordKind.host && savedHost) {
       if (!wideEditor) setState(() => hostCategory = null);
     } else {
-      Navigator.pop(context);
+      if (widget.embedded) {
+        widget.onClose?.call();
+      } else {
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -1110,6 +1224,7 @@ class _RecordEditorState extends State<RecordEditor> {
   }
 
   Future<bool> save({bool close = true}) async {
+    if (saving) return false;
     if (widget.kind == RecordKind.host) {
       parseAddress('${draft['hostname'] ?? ''}');
     }
@@ -1127,8 +1242,13 @@ class _RecordEditorState extends State<RecordEditor> {
       final result = await engine.invoke('${widget.kind.name}.save', data);
       if (result is Map) draft = {...draft, ...row(result)};
       if (mounted) {
+        widget.onSaved?.call({...draft});
         if (close) {
-          Navigator.pop(context);
+          if (widget.embedded) {
+            widget.onClose?.call();
+          } else {
+            Navigator.pop(context);
+          }
         } else {
           final updated = engine
               .list('hosts')
@@ -1165,10 +1285,50 @@ class _RecordEditorState extends State<RecordEditor> {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final wide = !widget.embedded && constraints.maxWidth >= 720;
+      final pointer = tildePointer(context);
+      final wide = pointer && constraints.maxWidth >= 600;
       final host = widget.kind == RecordKind.host;
       final selected = hostCategory ?? (wide && host ? 'connection' : null);
+      if (host) {
+        for (final category in [
+          'connection',
+          'authentication',
+          'appearance',
+          'session',
+        ]) {
+          hostFields(category);
+        }
+      }
       final dirty = !mapEquals(originalDraft, draft);
+      if (_reportedDirty != dirty) {
+        _reportedDirty = dirty;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.onDirtyChanged?.call(dirty);
+        });
+      }
+      final hostMenu = TildeItemMenu<String>(
+        title: '${draft['nickname']}',
+        icon: Icons.dns_outlined,
+        onSelected: (action) {
+          if (action == 'delete') {
+            deleteHost();
+          } else {
+            duplicateHost();
+          }
+        },
+        itemBuilder: (_) => [
+          if (supportedHost)
+            const PopupMenuItem(
+              value: 'duplicate',
+              child: TildeMenuLabel('복제', Icons.content_copy_outlined),
+            ),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'delete',
+            child: TildeMenuLabel('호스트 삭제', Icons.delete_outline, danger: true),
+          ),
+        ],
+      );
       final details = Form(
         key: form,
         child: ListView(
@@ -1178,9 +1338,22 @@ class _RecordEditorState extends State<RecordEditor> {
             if (wide && host && selected != null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  hostCategoryTitle(selected),
-                  style: Theme.of(context).textTheme.titleLarge,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        hostCategoryTitle(selected),
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    if (supportedHost)
+                      OutlinedButton.icon(
+                        onPressed: saving ? null : connectSavedHost,
+                        icon: const Icon(Icons.terminal_outlined, size: 18),
+                        label: Text(dirty ? '저장하고 연결' : '연결'),
+                      ),
+                    if (savedHost) hostMenu,
+                  ],
                 ),
               ),
             if (error != null)
@@ -1199,96 +1372,241 @@ class _RecordEditorState extends State<RecordEditor> {
           ],
         ),
       );
-      return PopScope(
-        canPop:
-            !saving &&
-            !dirty &&
-            !(host && !wide && hostCategory != null) &&
-            !(widget.embedded && MediaQuery.sizeOf(context).width < 720),
-        onPopInvokedWithResult: (didPop, result) {
-          if (!didPop) back(wide);
+      return CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyS, control: true): () =>
+              save(close: !host),
         },
-        child: Scaffold(
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            leading:
-                widget.embedded &&
-                    hostCategory == null &&
-                    MediaQuery.sizeOf(context).width >= 720
+        child: PopScope(
+          canPop:
+              widget.embedded ||
+              !saving &&
+                  !dirty &&
+                  !(host && !wide && hostCategory != null) &&
+                  !(widget.embedded && MediaQuery.sizeOf(context).width < 720),
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop) back(wide);
+          },
+          child: Scaffold(
+            appBar: host && wide
                 ? null
-                : IconButton(
-                    tooltip: '뒤로',
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => back(wide),
+                : AppBar(
+                    actions: [if (host && savedHost) hostMenu],
+                    automaticallyImplyLeading: false,
+                    leading:
+                        widget.kind == RecordKind.forward ||
+                            widget.kind == RecordKind.identity ||
+                            pointer && host && wide
+                        ? null
+                        : widget.embedded &&
+                              hostCategory == null &&
+                              MediaQuery.sizeOf(context).width >= 720
+                        ? null
+                        : IconButton(
+                            tooltip: '뒤로',
+                            icon: const Icon(Icons.arrow_back),
+                            onPressed: () => back(wide),
+                          ),
+                    title: Text(
+                      host && !wide && selected != null
+                          ? hostCategoryTitle(selected)
+                          : widget.embedded
+                          ? '${draft['nickname'] ?? '새 호스트'} 편집'
+                          : '${kindTitle(widget.kind)} ${widget.record == null ? '추가' : '편집'}',
+                    ),
                   ),
-            title: Text(
-              host && !wide && selected != null
-                  ? hostCategoryTitle(selected)
-                  : widget.embedded
-                  ? ''
-                  : '${kindTitle(widget.kind)} ${widget.record == null ? '추가' : '편집'}',
-            ),
-          ),
-          bottomNavigationBar: dirty
-              ? TildeSaveBar(
-                  changes: changeCount,
-                  busy: saving,
-                  cancel: cancelEdits,
-                  save: () => save(close: !host),
-                  saveLabel:
-                      widget.kind == RecordKind.forward && widget.record == null
-                      ? '추가'
-                      : '저장',
-                )
-              : host && savedHost && selected == null
-              ? SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) => Align(
-                        alignment: Alignment.centerLeft,
-                        heightFactor: 1,
-                        child: SizedBox(
-                          width: widget.embedded && constraints.maxWidth >= 568
-                              ? (constraints.maxWidth - 20) / 2
-                              : double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: saving || !supportedHost
-                                ? null
-                                : connectSavedHost,
-                            icon: const Icon(Icons.terminal_outlined),
-                            label: const Text('연결'),
+            bottomNavigationBar: pointer && host && (!wide || dirty)
+                ? SafeArea(
+                    top: false,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              dirty
+                                  ? '${{for (final key in draft.keys)
+                                      if (draft[key] != originalDraft[key]) _fieldLabels[key] ?? '설정'}.join(', ')} 항목을 바꿨습니다.'
+                                  : '',
+                            ),
+                          ),
+                          if (dirty) ...[
+                            TextButton(
+                              onPressed: saving ? null : cancelEdits,
+                              child: const Text('되돌리기'),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: saving
+                                  ? null
+                                  : () => save(close: false),
+                              child: const Text('저장'),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          if (supportedHost && !wide)
+                            FilledButton(
+                              onPressed: saving ? null : connectSavedHost,
+                              child: Text(dirty ? '저장하고 연결' : '연결'),
+                            ),
+                        ],
+                      ),
+                    ),
+                  )
+                : dirty
+                ? TildeSaveBar(
+                    changes: changeCount,
+                    busy: saving,
+                    cancel: cancelEdits,
+                    save: () => save(close: !host),
+                    saveLabel:
+                        widget.kind == RecordKind.forward &&
+                            widget.record == null
+                        ? '추가'
+                        : '저장',
+                  )
+                : host && savedHost && selected == null
+                ? SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) => Align(
+                          alignment: Alignment.centerLeft,
+                          heightFactor: 1,
+                          child: SizedBox(
+                            width:
+                                widget.embedded && constraints.maxWidth >= 568
+                                ? (constraints.maxWidth - 20) / 2
+                                : double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: saving || !supportedHost
+                                  ? null
+                                  : connectSavedHost,
+                              icon: const Icon(Icons.terminal_outlined),
+                              label: const Text('연결'),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                )
-              : null,
-          body: host && wide
-              ? Row(
-                  children: [
-                    SizedBox(width: 320, child: hostCategories(selected)),
-                    const VerticalDivider(width: 1),
-                    Expanded(
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 640),
-                          child: details,
+                  )
+                : null,
+            body: host && wide
+                ? Row(
+                    children: [
+                      SizedBox(
+                        width: 176,
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                            horizontal: 8,
+                          ),
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 4, 8, 20),
+                              child: Row(
+                                children: [
+                                  TildeHostTile(host: draft, size: 32),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${draft['nickname'] ?? '새 호스트'}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        Text(
+                                          hostAddress(draft),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                fontFamily: tildeMono,
+                                                fontFamilyFallback:
+                                                    tildeMonoFallback,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            for (final category in [
+                              'connection',
+                              if (sshHost) 'authentication',
+                              'appearance',
+                              'session',
+                            ])
+                              ListTile(
+                                minTileHeight: 36,
+                                selected: selected == category,
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(hostCategoryTitle(category)),
+                                    ),
+                                    if (_fieldCategories.entries.any(
+                                      (entry) =>
+                                          entry.value == category &&
+                                          draft[entry.key] !=
+                                              originalDraft[entry.key],
+                                    ))
+                                      Icon(
+                                        Icons.circle,
+                                        size: 5,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.tertiary,
+                                      ),
+                                  ],
+                                ),
+                                onTap: () =>
+                                    setState(() => hostCategory = category),
+                              ),
+                          ],
                         ),
                       ),
+                      const VerticalDivider(width: 1),
+                      Expanded(
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 640),
+                            child: details,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : host && selected == null
+                ? hostCategories(null)
+                : Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 640),
+                      child: details,
                     ),
-                  ],
-                )
-              : host && selected == null
-              ? hostCategories(null)
-              : Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 640),
-                    child: details,
                   ),
-                ),
+          ),
         ),
       );
     },
@@ -1333,71 +1651,79 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
   bool busy = false;
   String? error;
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('새 SSH 키'),
-      leading: IconButton(
-        tooltip: '닫기',
-        icon: const Icon(Icons.close),
-        onPressed: busy ? null : () => Navigator.pop(context),
+  Widget build(BuildContext context) => Material(
+    color: Theme.of(context).colorScheme.surfaceContainerLow,
+    child: SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        0,
+        24,
+        24 + MediaQuery.viewInsetsOf(context).bottom,
       ),
-    ),
-    body: Form(
-      key: form,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          TextFormField(
-            decoration: const InputDecoration(labelText: '키 이름'),
-            validator: (v) => (v ?? '').trim().isEmpty ? '이름을 입력하세요.' : null,
-            onChanged: (v) => name = v,
-          ),
-          settingsNote(
-            context,
-            'P-256 개인키를 Android Keystore에 만들고 서명할 때마다 생체인증을 요구합니다. 개인키는 복사·내보내기·백업할 수 없습니다.',
-          ),
-          if (error != null)
-            ListTile(
-              title: const Text('키를 만들지 못했습니다'),
-              trailing: TextButton(
-                onPressed: () => showErrorDetails(context, error!),
-                child: const Text('자세히'),
-              ),
+      child: Form(
+        key: form,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('새 SSH 키', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 24),
+            const Text('키 이름', style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 8),
+            TextFormField(
+              decoration: const InputDecoration(),
+              validator: (v) => (v ?? '').trim().isEmpty ? '이름을 입력하세요.' : null,
+              onChanged: (v) => name = v,
             ),
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: busy
-                ? null
-                : () async {
-                    if (form.currentState?.validate() == false) return;
-                    setState(() {
-                      busy = true;
-                      error = null;
-                    });
-                    try {
-                      final generated = await widget.engine.invoke(
-                        'key.generate',
-                        {'nickname': name, 'type': 'EC', 'bits': 256},
-                      );
-                      if (context.mounted) {
-                        if (widget.returnGeneratedKey) {
-                          Navigator.pop(context, row(generated));
-                        } else {
-                          Navigator.pop(context);
+            settingsNote(
+              context,
+              'P-256 개인키를 Android Keystore에 만들고 서명할 때마다 생체인증을 요구합니다. 개인키는 복사·내보내기·백업할 수 없습니다.',
+            ),
+            if (error != null)
+              ListTile(
+                title: const Text('키를 만들지 못했습니다'),
+                trailing: TextButton(
+                  onPressed: () => showErrorDetails(context, error!),
+                  child: const Text('자세히'),
+                ),
+              ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      if (form.currentState?.validate() == false) return;
+                      setState(() {
+                        busy = true;
+                        error = null;
+                      });
+                      try {
+                        final generated = await widget.engine.invoke(
+                          'key.generate',
+                          {'nickname': name, 'type': 'EC', 'bits': 256},
+                        );
+                        if (context.mounted) {
+                          if (widget.returnGeneratedKey) {
+                            Navigator.pop(context, row(generated));
+                          } else {
+                            Navigator.pop(context);
+                          }
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          setState(() {
+                            busy = false;
+                            error = '$e';
+                          });
                         }
                       }
-                    } catch (e) {
-                      if (mounted) {
-                        setState(() {
-                          busy = false;
-                          error = '$e';
-                        });
-                      }
-                    }
-                  },
-            child: busy ? const TildeProgress.circular() : const Text('만들기'),
-          ),
-        ],
+                    },
+              child: busy
+                  ? const TildeProgress.circular()
+                  : const Text('키 만들기'),
+            ),
+          ],
+        ),
       ),
     ),
   );

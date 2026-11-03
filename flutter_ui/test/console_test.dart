@@ -170,7 +170,6 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Research'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('SSH 터미널'));
         await tester.pumpAndSettle();
         if (toolbar) {
           await tester.tap(find.byTooltip('뒤로'));
@@ -293,7 +292,6 @@ void main() {
             expect(engine.list('sessions'), isEmpty);
             await tester.tap(find.text('Research'));
             await tester.pumpAndSettle();
-            await tester.tap(find.text('SSH 터미널'));
             await tester.pumpAndSettle();
             expect(
               tester.widget<ConsolePage>(find.byType(ConsolePage)).sessionId,
@@ -324,7 +322,6 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Research'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('SSH 터미널'));
       await tester.pumpAndSettle();
       expect(find.byType(Dialog), findsNothing);
       expect(find.byType(BottomSheet), findsNothing);
@@ -357,7 +354,6 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Research'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('SSH 터미널'));
       await tester.pumpAndSettle();
       expect(
         tester.widget<TextField>(find.byType(TextField)).obscureText,
@@ -545,16 +541,16 @@ void main() {
       expect(find.text('server.test 서버 키 확인'), findsOneWidget);
       expect(find.text('SHA256:example'), findsOneWidget);
       expect(find.byType(SegmentedButton<Object?>), findsOneWidget);
-      await tester.tap(find.text('Art'));
+      await tester.tap(find.text('그림'));
       await tester.pumpAndSettle();
       expect(find.text('random-art'), findsOneWidget);
-      await tester.tap(find.text('Bubble'));
+      await tester.tap(find.text('단어'));
       await tester.pumpAndSettle();
       expect(find.text('bubble-babble'), findsOneWidget);
       await tester.tap(find.text('MD5'));
       await tester.pumpAndSettle();
       expect(find.text('MD5:example'), findsOneWidget);
-      await tester.tap(find.text('서버 키 신뢰'));
+      await tester.tap(find.text('신뢰하고 연결'));
       await tester.pumpAndSettle();
       expect(response, isTrue);
       expect(find.byType(Dialog), findsNothing);
@@ -573,7 +569,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('SSH 터미널'));
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -597,7 +592,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('SSH 터미널'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('뒤로'));
     await tester.pumpAndSettle();
@@ -899,7 +893,6 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Research'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('SSH 터미널'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('터미널 메뉴'));
       await tester.pumpAndSettle();
@@ -950,7 +943,7 @@ void main() {
     await tester.tap(find.text('붙여넣기'));
     await tester.pumpAndSettle();
     expect(
-      tester.getRect(find.widgetWithText(FilledButton, '적용')).right,
+      tester.getRect(find.widgetWithText(FilledButton, '확인')).right,
       tester.getRect(find.byType(TextFormField)).right,
       reason: 'Prompt actions stay aligned with the field trailing edge',
     );
@@ -960,7 +953,7 @@ void main() {
       field.controller!.selection,
       const TextSelection.collapsed(offset: 20),
     );
-    await tester.tap(find.text('적용'));
+    await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
     expect(result, 'start Clipboard text');
     expect(tester.takeException(), isNull);
@@ -978,7 +971,6 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Research'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('SSH 터미널'));
       await tester.pumpAndSettle();
       for (final value in ['80×24', '100x30']) {
         await tester.tap(find.byTooltip('터미널 메뉴'));
@@ -986,7 +978,7 @@ void main() {
         await tester.tap(find.byIcon(Icons.aspect_ratio_outlined));
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextFormField), value);
-        await tester.tap(find.text('적용'));
+        await tester.tap(find.text('크기 변경'));
         await tester.pumpAndSettle();
         final terminal = tester
             .widget<TerminalPane>(find.byType(TerminalPane))
@@ -1011,7 +1003,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('SSH 터미널'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('터미널 메뉴'));
     await tester.pumpAndSettle();
@@ -1034,7 +1025,7 @@ void main() {
     pane.terminal.onOutput = output.add;
     pane.terminal.setBracketedPasteMode(true);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('전송'));
+    await tester.tap(find.text('보내기'));
     await tester.pumpAndSettle();
     expect(output.join(), '\x1b[200~Clipboard text\x1b[201~');
     expect(calls.where((c) => c.method == 'session.sendText'), isEmpty);
@@ -1052,7 +1043,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('SSH 터미널'));
     await tester.pumpAndSettle();
     expect(find.byType(ConsolePage), findsOneWidget);
     expect(tester.takeException(), isNull);

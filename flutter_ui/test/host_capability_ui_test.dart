@@ -93,10 +93,12 @@ void main() {
       tester,
       RecordEditor(engine: engine, kind: RecordKind.host, record: host),
     );
+    await tester.tap(find.text('연결').first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('점프 호스트'));
     await tester.pumpAndSettle();
     expect(find.text('Other SSH'), findsOneWidget);
-    expect(find.text('Current SSH'), findsNothing);
+    expect(find.widgetWithText(ListTile, 'Current SSH'), findsNothing);
     expect(find.text('Local host'), findsNothing);
     expect(find.text('Old Mosh'), findsNothing);
   });
@@ -129,6 +131,8 @@ void main() {
         record: {...host, 'protocol': 'mosh'},
       ),
     );
+    await tester.tap(find.text('연결').first);
+    await tester.pumpAndSettle();
     expect(find.textContaining('mosh 연결은 지원하지 않습니다'), findsOneWidget);
     expect(find.text('새 세션'), findsNothing);
     expect(find.text('복제'), findsNothing);
@@ -162,9 +166,9 @@ void main() {
         {...host, 'protocol': 'telnet'},
       ];
       await open(tester, ShellHome(engine: engine));
-      await tester.tap(find.byTooltip('Current SSH 메뉴'));
+      await tester.tap(find.byTooltip('Current SSH 메뉴').first);
       await tester.pumpAndSettle();
-      expect(find.text('편집'), findsOneWidget);
+      expect(find.text('편집'), findsWidgets);
       expect(find.text('새 세션'), findsNothing);
       expect(find.text('복제'), findsNothing);
       expect(find.text('홈 화면에 추가'), findsNothing);

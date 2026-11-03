@@ -39,6 +39,9 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> update(BuildContext c, String key, dynamic value) =>
       runEngine(c, engine, 'settings.update', {'key': key, 'value': value});
 
+  String sidebarQuery = '';
+  int searchSelection = 0;
+  final searchFocus = FocusNode();
   String buildingCategory = 'display';
   final searchTargets = <String, (String, String)>{};
   final rowKeys = <String, GlobalKey>{};
@@ -47,6 +50,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void dispose() {
     highlightTimer?.cancel();
+    searchFocus.dispose();
     super.dispose();
   }
 
@@ -99,23 +103,25 @@ class _SettingsPageState extends State<SettingsPage> {
       label,
       !forceList && options.length <= 4
           ? tildeSegments(c, label, options, current, (v) => update(c, key, v))
-          : ListTile(
-              title: Text(label),
-              subtitle: Text(
-                options.where((v) => v.$1 == current).firstOrNull?.$2 ?? '선택',
+          : Builder(
+              builder: (anchor) => ListTile(
+                title: Text(label),
+                subtitle: Text(
+                  options.where((v) => v.$1 == current).firstOrNull?.$2 ?? '선택',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  final result = await pickTildeOption(
+                    anchor,
+                    label,
+                    options,
+                    current,
+                  );
+                  if (result != null && c.mounted) {
+                    await update(c, key, result.$1);
+                  }
+                },
               ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () async {
-                final result = await pickTildeOption(
-                  c,
-                  label,
-                  options,
-                  current,
-                );
-                if (result != null && c.mounted) {
-                  await update(c, key, result.$1);
-                }
-              },
             ),
     );
   }
@@ -158,7 +164,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> searchSettings() async {
+  void indexSettings() {
     searchTargets.clear();
     for (final id in [
       'display',
@@ -171,13 +177,26 @@ class _SettingsPageState extends State<SettingsPage> {
     ]) {
       fields(context, id);
     }
-    final options = [
-      for (final e in searchTargets.entries)
-        (e.key, '${e.value.$2} · ${title(e.value.$1)}'),
-    ];
-    final result = await pickTildeOption(context, '설정 검색', options, null);
+  }
+
+  Future<void> searchSettings([BuildContext? anchor]) async {
+    indexSettings();
+    final result = await pickTildeOption(
+      anchor ?? context,
+      '설정 검색',
+      [for (final e in searchTargets.entries) (e.key, e.value.$2)],
+      null,
+      navigation: true,
+      subtitles: {
+        for (final e in searchTargets.entries) e.key: title(e.value.$1),
+      },
+    );
     if (result == null || !mounted) return;
     final key = result.$1 as String;
+    navigateSetting(key);
+  }
+
+  void navigateSetting(String key) {
     setState(() {
       category = searchTargets[key]!.$1;
       highlighted = key;
@@ -246,47 +265,77 @@ class _SettingsPageState extends State<SettingsPage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
-        if (!wide)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: Text('설정', style: Theme.of(context).textTheme.headlineLarge),
-          ),
-        Material(
-          color: Theme.of(context).colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(10),
-          child: InkWell(
-            onTap: searchSettings,
-            borderRadius: BorderRadius.circular(10),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 48),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.search,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        '설정 검색',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+        if (tildePointer(context)) ...[
+          Focus(
+            onKeyEvent: (node, event) {
+              if (event is! KeyDownEvent) return KeyEventResult.ignored;
+              final results = searchTargets.entries
+                  .where(
+                    (e) => '${e.value.$2} ${title(e.value.$1)}'
+                        .toLowerCase()
+                        .contains(sidebarQuery.toLowerCase()),
+                  )
+                  .toList();
+              if (sidebarQuery.isEmpty || results.isEmpty) {
+                return KeyEventResult.ignored;
+              }
+              if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                setState(
+                  () =>
+                      searchSelection = (searchSelection + 1) % results.length,
+                );
+                return KeyEventResult.handled;
+              }
+              if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                setState(
+                  () =>
+                      searchSelection = (searchSelection - 1) % results.length,
+                );
+                return KeyEventResult.handled;
+              }
+              if (event.logicalKey == LogicalKeyboardKey.enter) {
+                navigateSetting(
+                  results[searchSelection.clamp(0, results.length - 1)].key,
+                );
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: TextField(
+              focusNode: searchFocus,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search, size: 18),
+                hintText: '설정 검색',
               ),
+              onChanged: (value) {
+                indexSettings();
+                setState(() {
+                  sidebarQuery = value;
+                  searchSelection = 0;
+                });
+              },
             ),
           ),
-        ),
-        const SizedBox(height: 20),
-        if (wide)
+          const SizedBox(height: 16),
+          if (sidebarQuery.isNotEmpty) ...[
+            for (final (index, e)
+                in searchTargets.entries
+                    .where(
+                      (e) => '${e.value.$2} ${title(e.value.$1)}'
+                          .toLowerCase()
+                          .contains(sidebarQuery.toLowerCase()),
+                    )
+                    .indexed)
+              ListTile(
+                selected: index == searchSelection,
+                title: tildeSearchLabel(context, e.value.$2, sidebarQuery),
+                subtitle: Text(title(e.value.$1)),
+                trailing: const Icon(Icons.chevron_right, size: 18),
+                onTap: () => navigateSetting(e.key),
+              ),
+          ],
+        ],
+        if (wide && sidebarQuery.isEmpty)
           for (final (id, icon) in items)
             ListTile(
               selected: selected == id,
@@ -309,10 +358,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       : FontWeight.w400,
                 ),
               ),
-              subtitle: Text(summary(id)),
+              subtitle: tildePointer(context) ? null : Text(summary(id)),
               onTap: () => setState(() => category = id),
             )
-        else
+        else if (sidebarQuery.isEmpty)
           LayoutBuilder(
             builder: (context, c) {
               final columns = MediaQuery.textScalerOf(context).scale(15) > 24
@@ -398,32 +447,14 @@ class _SettingsPageState extends State<SettingsPage> {
     return tracked(
       'terminalMargin',
       '좌우 여백',
-      Column(
-        children: [
-          TildeStepper(
-            title: '좌우 여백',
-            unit: '',
-            value: current,
-            max:
-                (engine.preferences['terminalMarginMax'] as num?)?.toInt() ??
-                24,
-            onChanged: (v) => update(c, 'terminalMargin', v),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Wrap(
-              spacing: 8,
-              children: [
-                for (final v in {0, 4, 8, 12, current})
-                  FilterChip(
-                    label: Text('$v'),
-                    selected: current == v,
-                    onSelected: (_) => update(c, 'terminalMargin', v),
-                  ),
-              ],
-            ),
-          ),
+      tildeSegments(
+        c,
+        '좌우 여백',
+        [
+          for (final v in {0, 4, 8, 12, current}) (v, '$v'),
         ],
+        current,
+        (v) => update(c, 'terminalMargin', v),
       ),
     );
   }
@@ -433,7 +464,7 @@ class _SettingsPageState extends State<SettingsPage> {
     '스크롤 기록',
     TildeStepper(
       title: '스크롤 기록',
-      unit: '행 · 500씩',
+      unit: '줄',
       value: int.tryParse('${engine.preferences['scrollback'] ?? 140}') ?? 140,
       step: 500,
       onChanged: (v) => update(c, 'scrollback', '$v'),
@@ -509,16 +540,19 @@ class _SettingsPageState extends State<SettingsPage> {
                           value: 'SYSTEM',
                           icon: Icon(Icons.brightness_auto_outlined),
                           tooltip: '시스템 테마',
+                          label: Text('자동'),
                         ),
                         ButtonSegment(
                           value: 'LIGHT',
                           icon: Icon(Icons.light_mode_outlined),
                           tooltip: '밝게',
+                          label: Text('밝게'),
                         ),
                         ButtonSegment(
                           value: 'DARK',
                           icon: Icon(Icons.dark_mode_outlined),
                           tooltip: '어둡게',
+                          label: Text('어둡게'),
                         ),
                       ],
                       selected: {'${p['themeMode'] ?? 'SYSTEM'}'},
@@ -540,27 +574,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    for (final value
-                        in ((scheme?['palette'] as List?) ??
-                                [
-                                  Theme.of(c).colorScheme.error.toARGB32(),
-                                  Theme.of(c).colorScheme.tertiary.toARGB32(),
-                                  Theme.of(c).colorScheme.primary.toARGB32(),
-                                ])
-                            .take(4))
-                      Padding(
-                        padding: const EdgeInsets.only(right: 3),
-                        child: Container(
-                          key: ValueKey('scheme-swatch-$value'),
-                          width: 8,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: Color((value as num).toInt()),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                        ),
-                      ),
-                    const SizedBox(width: 8),
                     if (!largeText)
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 112),
@@ -594,16 +607,35 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ]),
-          group('', [
-            choice(c, 'rotation', '화면 방향', [
-              ('Default', '시스템 따름'),
-              ('Automatic', '항상 회전'),
-              ('Force portrait', '세로'),
-              ('Force landscape', '가로'),
+          if (profile['id'] is int)
+            group('', [
+              tracked(
+                'fontSize',
+                '글자 크기',
+                TildeStepper(
+                  title: '글자 크기',
+                  unit: 'sp',
+                  value: (profile['fontSize'] as num? ?? 14).toInt(),
+                  min: 4,
+                  max: 72,
+                  onChanged: (value) => runEngine(c, engine, 'profile.save', {
+                    ...profile,
+                    'fontSize': value,
+                  }),
+                ),
+              ),
             ]),
-            toggle(c, 'fullscreen', '상태 표시줄 숨기기'),
-            toggle(c, 'titlebarhide', '제목 줄 자동 숨김'),
-          ]),
+          if (!tildePointer(c))
+            group('', [
+              choice(c, 'rotation', '화면 방향', [
+                ('Default', '자동'),
+                ('Automatic', '항상 회전'),
+                ('Force portrait', '세로'),
+                ('Force landscape', '가로'),
+              ]),
+              toggle(c, 'fullscreen', '상태 표시줄 숨기기'),
+              toggle(c, 'titlebarhide', '제목 줄 자동 숨김'),
+            ]),
         ];
       case 'keyboard':
         return [
@@ -747,13 +779,20 @@ class _SettingsPageState extends State<SettingsPage> {
             ]),
           ]),
           group('', [
-            toggle(
-              c,
-              'volumefont',
-              '볼륨 버튼으로 글자 크기',
-              icon: Icons.volume_up_outlined,
-            ),
-            toggle(c, 'bumpyarrows', '특수키 진동', icon: Icons.vibration_outlined),
+            if (!tildePointer(c))
+              toggle(
+                c,
+                'volumefont',
+                '볼륨 버튼으로 글자 크기',
+                icon: Icons.volume_up_outlined,
+              ),
+            if (!tildePointer(c))
+              toggle(
+                c,
+                'bumpyarrows',
+                '특수키 진동',
+                icon: Icons.vibration_outlined,
+              ),
           ]),
         ];
       case 'terminal':
@@ -779,7 +818,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 '${profile['emulation'] ?? 'xterm-256color'}',
                 style: const TextStyle(fontFamily: tildeMono),
               ),
-              trailing: const Text('기본'),
+              trailing: const Icon(Icons.check),
             ),
             for (final type in (p['customTerminalTypes'] as List? ?? []))
               ListTile(
@@ -787,16 +826,29 @@ class _SettingsPageState extends State<SettingsPage> {
                   '$type',
                   style: const TextStyle(fontFamily: tildeMono),
                 ),
-                trailing: IconButton(
-                  tooltip: '터미널 종류 삭제',
-                  icon: const Icon(Icons.close),
-                  onPressed: () => runEngine(c, engine, 'terminalType.delete', {
-                    'name': type,
-                  }),
+                trailing: TildeItemMenu<String>(
+                  title: '$type',
+                  icon: Icons.terminal_outlined,
+                  onSelected: (_) => runEngine(
+                    c,
+                    engine,
+                    'terminalType.delete',
+                    {'name': type},
+                  ),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: TildeMenuLabel(
+                        '삭제',
+                        Icons.delete_outline,
+                        danger: true,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             go('terminalType', '터미널 종류 추가', () async {
-              final name = await askText(c, '터미널 종류');
+              final name = await askText(c, '터미널 종류', action: '추가');
               if (name != null && c.mounted) {
                 await runEngine(c, engine, 'terminalType.add', {'name': name});
               }
@@ -1044,24 +1096,25 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             if (p['fontError'] != null) settingsNote(c, '${p['fontError']}'),
           ]),
-          group('추가', [
-            go(
-              'fontImport',
-              '폰트 파일 가져오기',
-              () => importFont(c),
-              enabled: p['fontBusy'] != true,
-              sub: '.ttf · .otf · .ttc',
-              icon: Icons.upload_file,
-            ),
-            go(
-              'fontSearch',
-              'Google Fonts에서 찾기',
-              () => googleFonts(c),
-              enabled: p['fontBusy'] != true,
-              sub: '고정폭 폰트만 보여 줍니다',
-              icon: Icons.travel_explore,
-            ),
-          ]),
+          if (!const {'windows', 'ios'}.contains(engine.state['platform']))
+            group('추가', [
+              go(
+                'fontImport',
+                '폰트 파일 가져오기',
+                () => importFont(c),
+                enabled: p['fontBusy'] != true,
+                sub: '.ttf · .otf · .ttc',
+                icon: Icons.upload_file,
+              ),
+              go(
+                'fontSearch',
+                'Google Fonts에서 찾기',
+                () => googleFonts(c),
+                enabled: p['fontBusy'] != true,
+                sub: '고정폭 폰트만 보여 줍니다',
+                icon: Icons.travel_explore,
+              ),
+            ]),
         ];
       default:
         return [];
@@ -1089,10 +1142,11 @@ class _SettingsPageState extends State<SettingsPage> {
         final selected = category ?? (wide ? 'display' : null);
         final content = fields(context, selected ?? 'display');
         final columns =
+            !tildePointer(context) &&
             constraints.maxWidth >= 1200 &&
             MediaQuery.textScalerOf(context).scale(15) <= 20 &&
             ['display', 'keyboard', 'gesture'].contains(selected);
-        final detail = selected == 'bar'
+        final contentView = selected == 'bar'
             ? TerminalBarPage(engine: engine, embedded: true)
             : ListView(
                 key: ValueKey(selected),
@@ -1126,6 +1180,16 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ],
               );
+        final detail = tildePointer(context)
+            ? Theme(
+                data: Theme.of(context).copyWith(
+                  listTileTheme: Theme.of(
+                    context,
+                  ).listTileTheme.copyWith(minTileHeight: 52),
+                ),
+                child: contentView,
+              )
+            : contentView;
         return PopScope(
           canPop:
               category == null || wide && !['fonts', 'bar'].contains(category),
@@ -1136,11 +1200,21 @@ class _SettingsPageState extends State<SettingsPage> {
             appBar: AppBar(
               title: Text(
                 !wide && selected == null
-                    ? ''
+                    ? '설정'
                     : !wide
                     ? title(selected!)
                     : '설정',
               ),
+              actions: [
+                if (!wide || !tildePointer(context))
+                  Builder(
+                    builder: (anchor) => IconButton(
+                      tooltip: '설정 검색',
+                      onPressed: () => searchSettings(anchor),
+                      icon: const Icon(Icons.search),
+                    ),
+                  ),
+              ],
               leading: IconButton(
                 tooltip: '뒤로',
                 icon: const Icon(Icons.arrow_back),
@@ -1151,7 +1225,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ? Row(
                     children: [
                       SizedBox(
-                        width: 320,
+                        width: 264,
                         child: categories(switch (selected) {
                           'fonts' => 'display',
                           'bar' => 'keyboard',
@@ -1594,17 +1668,18 @@ class HelpPage extends StatelessWidget {
               onTap: () => document(context, section, title),
             ),
         ]),
-        settingsSection(context, '진단', [
-          ListTile(
-            leading: const Icon(Icons.subject),
-            title: const Text('진단 로그'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push<void>(
-              context,
-              MaterialPageRoute(builder: (_) => LogsPage(engine: engine)),
+        if (!const {'windows', 'ios'}.contains(engine.state['platform']))
+          settingsSection(context, '진단', [
+            ListTile(
+              leading: const Icon(Icons.subject),
+              title: const Text('진단 로그'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push<void>(
+                context,
+                MaterialPageRoute(builder: (_) => LogsPage(engine: engine)),
+              ),
             ),
-          ),
-        ]),
+          ]),
       ],
     ),
   );
@@ -1618,7 +1693,21 @@ class LogsPage extends StatefulWidget {
 }
 
 class _LogsPageState extends State<LogsPage> {
-  String logs = '', search = '';
+  String logs = '', search = '', severity = '전체';
+  bool searching = false;
+  RegExpMatch? levelMatch(String line) => RegExp(
+    r'\b(TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\b|\s([VDIWEF])\s',
+  ).firstMatch(line);
+  String level(String line) {
+    final match = levelMatch(line);
+    return match?.group(1) ?? match?.group(2) ?? '';
+  }
+
+  bool matches(String line, String filter) => switch (filter) {
+    'WARN' => const {'WARN', 'W'}.contains(level(line)),
+    'ERROR' => const {'ERROR', 'FATAL', 'E', 'F'}.contains(level(line)),
+    _ => true,
+  };
   bool busy = true;
   String? error;
   @override
@@ -1644,46 +1733,98 @@ class _LogsPageState extends State<LogsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final compact =
-        MediaQuery.sizeOf(context).width <
-        MediaQuery.textScalerOf(context).scale(480);
-    final actions = <Widget>[
-      TextButton.icon(
-        label: const Text('새로고침'),
-        onPressed: busy ? null : load,
-        icon: const Icon(Icons.refresh),
-      ),
-      TextButton.icon(
-        label: const Text('공유'),
-        onPressed: logs.isEmpty
-            ? null
-            : () => runEngine(context, widget.engine, 'share', {'text': logs}),
-        icon: const Icon(Icons.share_outlined),
-      ),
-    ];
+    final lines = logs.split('\n').where((line) => line.isNotEmpty).toList();
+    final shown = lines
+        .where(
+          (line) =>
+              matches(line, severity) &&
+              line.toLowerCase().contains(search.toLowerCase()),
+        )
+        .toList();
     return Scaffold(
       appBar: AppBar(
         title: const Text('진단 로그'),
-        actions: compact ? null : actions,
+        actions: [
+          IconButton(
+            tooltip: '로그 검색',
+            onPressed: () => setState(() {
+              searching = !searching;
+              if (!searching) search = '';
+            }),
+            icon: const Icon(Icons.search),
+          ),
+          TildeItemMenu<String>(
+            title: '',
+            icon: Icons.more_vert,
+            onSelected: (value) async {
+              switch (value) {
+                case 'refresh':
+                  await load();
+                case 'share':
+                  if (logs.isNotEmpty) {
+                    await runEngine(context, widget.engine, 'share', {
+                      'text': logs,
+                    });
+                  }
+                case 'crash':
+                  await runEngine(context, widget.engine, 'logs.tombstone');
+              }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'refresh',
+                enabled: !busy,
+                child: const TildeMenuLabel('새로고침', Icons.refresh),
+              ),
+              PopupMenuItem(
+                value: 'share',
+                enabled: logs.isNotEmpty,
+                child: const TildeMenuLabel('공유', Icons.ios_share),
+              ),
+              const PopupMenuItem(
+                value: 'crash',
+                child: TildeMenuLabel('네이티브 크래시 기록 저장', Icons.save_alt),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Column(
         children: [
-          if (compact)
+          if (searching)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Wrap(spacing: 8, children: actions),
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                autofocus: true,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: '로그 검색',
+                ),
+                onChanged: (value) => setState(() => search = value),
               ),
             ),
           Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: '로그 검색',
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  for (final filter in ['전체', 'WARN', 'ERROR'])
+                    ChoiceChip(
+                      label: Text(
+                        '${switch (filter) {
+                          'WARN' => '경고',
+                          'ERROR' => '오류',
+                          _ => '전체',
+                        }} ${lines.where((line) => matches(line, filter)).length}',
+                      ),
+                      selected: severity == filter,
+                      showCheckmark: false,
+                      onSelected: (_) => setState(() => severity = filter),
+                    ),
+                ],
               ),
-              onChanged: (value) => setState(() => search = value),
             ),
           ),
           if (busy) const TildeProgress(),
@@ -1696,30 +1837,69 @@ class _LogsPageState extends State<LogsPage> {
               ),
             ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: SelectableText(
-                  logs
-                      .split('\n')
-                      .where(
-                        (line) =>
-                            line.toLowerCase().contains(search.toLowerCase()),
-                      )
-                      .join('\n'),
-                  style: const TextStyle(fontSize: 12.5),
-                ),
+            child: SelectionArea(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: shown.length,
+                itemBuilder: (context, index) {
+                  final line = shown[index], kind = level(line);
+                  const style = TextStyle(
+                    fontFamily: tildeMono,
+                    fontFamilyFallback: tildeMonoFallback,
+                    fontSize: 12.5,
+                    height: 1.6,
+                  );
+                  if (kind.isEmpty) return Text(line, style: style);
+                  final match = levelMatch(line)!;
+                  final at = match.start + (match.group(1) == null ? 1 : 0),
+                      prefix = line.substring(0, at).trim();
+                  final time =
+                      RegExp(
+                        r'\b\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?\b',
+                      ).firstMatch(prefix)?.group(0) ??
+                      prefix;
+                  final color =
+                      const {'ERROR', 'FATAL', 'E', 'F'}.contains(kind)
+                      ? Theme.of(context).colorScheme.error
+                      : const {'WARN', 'W'}.contains(kind)
+                      ? Theme.of(context).colorScheme.tertiary
+                      : Theme.of(context).colorScheme.onSurfaceVariant;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 96,
+                          child: Text(
+                            time,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: style.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 52,
+                          child: Text(
+                            kind,
+                            style: style.copyWith(color: color),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            line.substring(at + kind.length).trimLeft(),
+                            style: style,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: TextButton.icon(
-              onPressed: () =>
-                  runEngine(context, widget.engine, 'logs.tombstone'),
-              icon: const Icon(Icons.save_alt),
-              label: const Text('네이티브 크래시 기록 저장'),
             ),
           ),
         ],

@@ -264,7 +264,7 @@ void main() {
         width,
         2,
       );
-      await tester.tap(find.text('administrator'));
+      await tester.tap(find.textContaining('administrator'));
       await tester.pumpAndSettle();
       await capture(tester, 'account-edit-${width.toInt()}-2.0');
       expect(find.byType(RecordEditor), findsOneWidget);
@@ -279,16 +279,18 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
-  testWidgets('wide home selected detail retains list and editor', (
-    tester,
-  ) async {
-    await open(tester, ShellHome(engine: engine), 1280, 2);
-    await tester.tap(find.text('home-nas'));
-    await tester.pump(const Duration(milliseconds: 350));
-    await tester.pumpAndSettle();
-    await capture(tester, 'home-detail-1280-2.0');
-    expect(find.byType(RecordEditor), findsOneWidget);
-    expect(find.byTooltip('home-nas 메뉴'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'wide home selected detail retains list and editor',
+    (tester) async {
+      await open(tester, ShellHome(engine: engine), 1280, 2);
+      await tester.tap(find.text('home-nas').first);
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await capture(tester, 'home-detail-1280-2.0');
+      expect(find.text('터미널 열기'), findsOneWidget);
+      expect(find.byTooltip('home-nas 메뉴'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
 }

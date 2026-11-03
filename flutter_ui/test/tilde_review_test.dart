@@ -192,7 +192,6 @@ void main() {
     await open(tester, ShellHome(engine: engine));
     await tester.tap(find.text('home-nas').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('SSH 터미널'));
     await tester.pumpAndSettle();
     expect(find.text('home-nas에 연결하지 못했습니다'), findsOneWidget);
     expect(find.textContaining('connect failed:'), findsNothing);
@@ -202,7 +201,9 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     engine.dispose();
   });
-  testWidgets('loaded protected key uses unlocked icon', (tester) async {
+  testWidgets('key rows show one key icon without duplicating status', (
+    tester,
+  ) async {
     engine.state['keys'] = [
       {
         'id': 2,
@@ -213,7 +214,8 @@ void main() {
       },
     ];
     await open(tester, KeyPage(engine: engine));
-    expect(find.byIcon(Icons.lock_open_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.key_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.lock_open_outlined), findsNothing);
     expect(find.byIcon(Icons.lock_outline), findsNothing);
     await tester.pumpWidget(const SizedBox());
     engine.dispose();

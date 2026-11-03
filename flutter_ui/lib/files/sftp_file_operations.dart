@@ -89,3 +89,15 @@ class SftpFileOperations {
     return deleted;
   }
 }
+
+String remotePermissions(int? mode) {
+  if (mode == null) return '—';
+  final bits = [
+    for (var bit = 8; bit >= 0; bit--)
+      (mode & (1 << bit)) != 0 ? 'rwx'[(8 - bit) % 3] : '-',
+  ];
+  if ((mode & 0x800) != 0) bits[2] = bits[2] == 'x' ? 's' : 'S';
+  if ((mode & 0x400) != 0) bits[5] = bits[5] == 'x' ? 's' : 'S';
+  if ((mode & 0x200) != 0) bits[8] = bits[8] == 'x' ? 't' : 'T';
+  return bits.join();
+}

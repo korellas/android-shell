@@ -265,10 +265,15 @@ void main() {
       terminal.write('\x1b[?2004h');
       await key.currentState!.viewAction('paste');
       await tester.pumpAndSettle();
-      expect(find.text('위험할 수 있는 내용 붙여넣기'), findsOneWidget);
+      expect(find.textContaining('줄을 붙여 넣을까요?'), findsOneWidget);
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.textContaining('⏎'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, '붙여넣기'));
+      await tester.tap(
+        find.ancestor(
+          of: find.textContaining(RegExp(r'\d+줄 붙여넣기')),
+          matching: find.byType(FilledButton),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(output.join(), startsWith('\x1b[200~hello'));
       key.currentState!.resize(rows: 24, columns: 80);

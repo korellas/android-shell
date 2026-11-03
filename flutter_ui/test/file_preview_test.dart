@@ -29,21 +29,28 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
+      expect(find.text('저장'), findsNothing);
       await tester.tap(find.text('편집'));
       await tester.pump();
       await tester.enterText(find.byType(TextField), '수정');
-      await tester.tap(find.text('서버에 저장'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('저장'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('변경 내용은 유지됩니다.'), findsOneWidget);
+      await tester.tap(find.text('자세히'));
       await tester.pumpAndSettle();
       expect(find.textContaining('offline'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
       expect(
         tester.widget<TextField>(find.byType(TextField)).controller!.text,
         '수정',
       );
       fail = false;
-      await tester.tap(find.text('서버에 저장'));
+      await tester.tap(find.text('저장'));
       await tester.pumpAndSettle();
       expect(saved, [239, 187, 191, ...utf8.encode('수정')]);
-      expect(find.text('저장했습니다.'), findsOneWidget);
+      expect(find.textContaining('저장했습니다.'), findsOneWidget);
     },
   );
 }

@@ -34,6 +34,7 @@ Future<void> showIdentityEditor(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
+  maxWidth: 560,
   builder: (context) => SizedBox(
     height: MediaQuery.sizeOf(context).height * .88,
     child: ClipRRect(
@@ -57,6 +58,7 @@ Future<void> showForwardEditor(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
+  maxWidth: 560,
   builder: (context) => SizedBox(
     height: MediaQuery.sizeOf(context).height * .88,
     child: ClipRRect(
@@ -115,6 +117,7 @@ class RecordListPage extends StatelessWidget {
         context,
         '복제할 이름',
         initial: "${record['name']} 복사본",
+        action: '복제',
       );
       if (name != null && context.mounted) {
         await runEngine(context, engine, 'profile.duplicate', {
@@ -147,14 +150,15 @@ class RecordListPage extends StatelessWidget {
       child: TildeMenuLabel('편집', Icons.edit_outlined),
     ),
     if (kind == RecordKind.profile) ...[
-      PopupMenuItem(
-        value: 'default',
-        child: TildeMenuLabel(
-          '앱 기본값',
-          Icons.task_alt,
-          selected: record['id'] == engine.preferences['defaultProfileId'],
+      if (record['id'] != engine.preferences['defaultProfileId'])
+        PopupMenuItem(
+          value: 'default',
+          child: TildeMenuLabel(
+            '기본으로 지정',
+            Icons.task_alt,
+            selected: record['id'] == engine.preferences['defaultProfileId'],
+          ),
         ),
-      ),
       const PopupMenuItem(
         value: 'duplicate',
         child: TildeMenuLabel('복제', Icons.content_copy_outlined),
@@ -186,52 +190,35 @@ class RecordListPage extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: engine,
     builder: (context, _) {
-      final records = engine.list(
-        kind == RecordKind.profile ? 'profiles' : 'identities',
-      );
+      final profile = kind == RecordKind.profile;
+      final records = engine.list(profile ? 'profiles' : 'identities');
       return Scaffold(
         appBar: AppBar(
-          title: Text(kind == RecordKind.profile ? '터미널 프로필' : kindTitle(kind)),
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => edit(context),
-          icon: const Icon(Icons.add),
-          label: Text('${kindTitle(kind)} 추가'),
+          title: Text(profile ? '터미널 프로필' : kindTitle(kind)),
+          actions: [
+            IconButton(
+              tooltip: '${profile ? '프로필' : '계정'} 추가',
+              onPressed: () => edit(context),
+              icon: const Icon(Icons.add),
+            ),
+          ],
         ),
         body: ListView(
-          padding: const EdgeInsets.only(bottom: 104),
+          padding: const EdgeInsets.only(bottom: 24),
           children: [
-            if (kind == RecordKind.identity)
+            if (!profile && records.isEmpty)
               settingsNote(context, '여러 호스트에서 사용자 이름·키·비밀번호를 함께 사용합니다.'),
-            if (kind == RecordKind.identity)
-              for (final record in records)
-                settingsSection(context, '${record['name']}', [
-                  ListTile(
-                    leading: const Icon(Icons.person_outline),
-                    title: Text('${record['username']}'),
-                    subtitle: Text('${usage(record)}개 호스트에서 사용'),
-                    onTap: () => edit(context, record),
-                    onLongPress: () => showMenu(context, record),
-                    trailing: TildeItemMenu<String>(
-                      title: '${record['name']}',
-                      icon: kind == RecordKind.profile
-                          ? Icons.terminal_outlined
-                          : Icons.person_outline,
-                      onSelected: (value) => action(context, record, value),
-                      itemBuilder: (_) => items(record),
-                    ),
-                  ),
-                ]),
-            if (kind == RecordKind.profile)
-              settingsSection(context, '프로필', [
-                for (final record in records)
-                  ListTile(
-                    leading: kind == RecordKind.profile
+            for (final record in records)
+              Builder(
+                builder: (anchor) => GestureDetector(
+                  onSecondaryTapUp: (_) => showMenu(anchor, record),
+                  child: ListTile(
+                    leading: profile
                         ? SizedBox(
-                            width: 80,
-                            height: 52,
+                            width: 64,
+                            height: 40,
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(6),
                               child: TerminalPreview(
                                 engine: engine,
                                 framed: false,
@@ -245,22 +232,28 @@ class RecordListPage extends StatelessWidget {
                         : const Icon(Icons.person_outline),
                     title: Text('${record['name']}'),
                     subtitle: Text(
-                      kind == RecordKind.profile
-                          ? '${engine.list('schemes').where((s) => s['id'] == record['colorSchemeId']).firstOrNull?['name'] ?? '색상 테마'} · ${record['fontSize']}${record['id'] == engine.preferences['defaultProfileId'] ? ' · 앱 기본값' : ''}'
-                          : '${record['username']}',
+                      profile
+                          ? '${engine.list('schemes').where((s) => s['id'] == record['colorSchemeId']).firstOrNull?['name'] ?? '색상 테마'} · ${record['fontSize'] ?? ''}${record['id'] == engine.preferences['defaultProfileId'] ? ' · 기본' : ''}'
+                          : '${record['username'] ?? ''} · ${usage(record) == 0 ? '쓰는 호스트 없음' : '호스트 ${usage(record)}개'}',
                     ),
                     onTap: () => edit(context, record),
-                    onLongPress: () => showMenu(context, record),
-                    trailing: TildeItemMenu<String>(
-                      title: '${record['name']}',
-                      icon: kind == RecordKind.profile
-                          ? Icons.terminal_outlined
-                          : Icons.person_outline,
-                      onSelected: (value) => action(context, record, value),
-                      itemBuilder: (_) => items(record),
+                    onLongPress: () => showMenu(anchor, record),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TildeItemMenu<String>(
+                          title: '${record['name']}',
+                          icon: profile
+                              ? Icons.terminal_outlined
+                              : Icons.person_outline,
+                          onSelected: (value) => action(context, record, value),
+                          itemBuilder: (_) => items(record),
+                        ),
+                      ],
                     ),
                   ),
-              ]),
+                ),
+              ),
           ],
         ),
       );
@@ -371,9 +364,14 @@ class _KeyPageState extends State<KeyPage> {
     ),
   ];
 
-  Future<void> showMenu(EngineRecord key) async {
+  Future<void> showMenu(
+    BuildContext anchor,
+    EngineRecord key, [
+    Offset? position,
+  ]) async {
     final value = await TildeItemMenu.show<String>(
-      context,
+      anchor,
+      position: position,
       title: '${key['nickname']}',
       subtitle: '${key['displayType'] ?? key['type']}',
       icon: Icons.key_outlined,
@@ -397,10 +395,7 @@ class _KeyPageState extends State<KeyPage> {
                 context: context,
                 isScrollControlled: true,
                 useSafeArea: true,
-                builder: (c) => SizedBox(
-                  height: MediaQuery.sizeOf(c).height * .9,
-                  child: GenerateKeyPage(engine: engine),
-                ),
+                builder: (c) => GenerateKeyPage(engine: engine),
               )
             : null,
         icon: const Icon(Icons.add),
@@ -422,39 +417,42 @@ class _KeyPageState extends State<KeyPage> {
                 ),
               ),
             ),
-          settingsNote(
-            context,
-            ios
-                ? '가져온 개인키는 앱의 보호된 저장소에서 사용합니다. 저장한 키 암호는 iOS Keychain으로 보호합니다.'
-                : fileKeys
-                ? '개인키 파일은 원래 위치에서 사용합니다. 저장한 키 암호는 Windows 계정으로 보호합니다.'
-                : '개인키는 Android Keystore에서 생성되며 기기 밖으로 내보낼 수 없습니다. 기존 개인키는 사용 중지 상태로 보존됩니다.',
-          ),
+          if (engine.list('keys').isEmpty)
+            settingsNote(
+              context,
+              ios
+                  ? '가져온 개인키는 앱의 보호된 저장소에서 사용합니다. 저장한 키 암호는 iOS Keychain으로 보호합니다.'
+                  : fileKeys
+                  ? '개인키 파일은 원래 위치에서 사용합니다. 저장한 키 암호는 Windows 계정으로 보호합니다.'
+                  : '개인키는 Android Keystore에서 생성되며 기기 밖으로 내보낼 수 없습니다. 기존 개인키는 사용 중지 상태로 보존됩니다.',
+            ),
           settingsSection(context, 'SSH 키', [
             for (final key in engine.list('keys'))
-              ListTile(
-                leading: Icon(
-                  key['loaded'] == true
-                      ? Icons.lock_open_outlined
-                      : Icons.lock_outline,
-                ),
-                title: Text('${key['nickname']}'),
-                subtitle: Text(
-                  '${key['displayType'] ?? key['type']}${key['supported'] == true ? ' · ${key['providerLabel'] ?? 'Android Keystore'}' : ' · ${key['supportMessage'] ?? '사용 중지'}'}',
-                ),
-                onTap: () => keyAction(key, 'edit'),
-                onLongPress: () => showMenu(key),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TildeItemMenu<String>(
-                      title: '${key['nickname']}',
-                      icon: Icons.key_outlined,
-                      tooltip: '${key['nickname']} 옵션',
-                      onSelected: (action) => keyAction(key, action),
-                      itemBuilder: (_) => items(key),
+              Builder(
+                builder: (anchor) => GestureDetector(
+                  onSecondaryTapUp: (event) =>
+                      showMenu(anchor, key, event.globalPosition),
+                  child: ListTile(
+                    leading: const Icon(Icons.key_outlined),
+                    title: Text('${key['nickname']}'),
+                    subtitle: Text(
+                      '${key['displayType'] ?? key['type']}${key['supported'] == true ? ' · ${key['providerLabel'] ?? 'Android Keystore'}' : ' · ${key['supportMessage'] ?? '사용 중지'}'}',
                     ),
-                  ],
+                    onTap: () => keyAction(key, 'edit'),
+                    onLongPress: () => showMenu(anchor, key),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TildeItemMenu<String>(
+                          title: '${key['nickname']}',
+                          icon: Icons.key_outlined,
+                          tooltip: '${key['nickname']} 옵션',
+                          onSelected: (action) => keyAction(key, action),
+                          itemBuilder: (_) => items(key),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
           ]),
@@ -544,9 +542,14 @@ class _ForwardsPageState extends State<ForwardsPage> {
     await load();
   }
 
-  Future<void> menu(EngineRecord forward) async {
+  Future<void> menu(
+    BuildContext anchor,
+    EngineRecord forward, [
+    Offset? position,
+  ]) async {
     final action = await TildeItemMenu.show<String>(
-      context,
+      anchor,
+      position: position,
       title: '${forward['nickname']}',
       icon: Icons.swap_horiz,
       itemBuilder: (_) => const [
@@ -595,11 +598,15 @@ class _ForwardsPageState extends State<ForwardsPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text('${widget.host['nickname']} · 포워딩')),
-    floatingActionButton: FloatingActionButton.extended(
-      onPressed: () => edit(),
-      icon: const Icon(Icons.add),
-      label: const Text('포워딩 추가'),
+    appBar: AppBar(
+      title: Text('${widget.host['nickname']} · 포워딩'),
+      actions: [
+        IconButton(
+          tooltip: '포워딩 추가',
+          onPressed: () => edit(),
+          icon: const Icon(Icons.add),
+        ),
+      ],
     ),
     body: RefreshIndicator(
       onRefresh: load,
@@ -611,7 +618,7 @@ class _ForwardsPageState extends State<ForwardsPage> {
               title: const Text('제어할 세션'),
               subtitle: Text(
                 live
-                    ? '${sessions.where((s) => s['id'] == sessionId).first['nickname']}'
+                    ? '${sessions.where((s) => s['id'] == sessionId).first['nickname']} · 스위치를 바꾸면 즉시 적용됩니다'
                     : '접속 시 기본값',
               ),
               trailing: const Icon(Icons.chevron_right),
@@ -626,7 +633,7 @@ class _ForwardsPageState extends State<ForwardsPage> {
                 }
               },
             ),
-          if (live) settingsNote(context, '스위치는 선택한 세션에만 적용합니다.'),
+
           if (error != null)
             ListTile(
               title: const Text('포워딩을 불러오지 못했습니다'),
@@ -636,56 +643,61 @@ class _ForwardsPageState extends State<ForwardsPage> {
               ),
             ),
           for (final f in forwards)
-            ListTile(
-              leading: Text(
-                switch (f['type']) {
-                  'local' => 'L',
-                  'remote' => 'R',
-                  _ => 'D',
-                },
-                style: TextStyle(
-                  fontFamily: tildeMono,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              title: Text('${f['nickname']}'),
-              subtitle: Text(
-                f['type'] == 'dynamic4'
-                    ? 'SOCKS4 미지원 · 편집에서 SOCKS5로 변경하세요'
-                    : '${f['sourceAddr']}:${f['sourcePort']} → ${f['type'].toString().startsWith('dynamic') ? 'SOCKS5' : '${f['destAddr']}:${f['destPort']}'}',
-                style: const TextStyle(fontFamily: tildeMono, fontSize: 12),
-              ),
-              onTap: () => edit(f),
-              onLongPress: () => menu(f),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (live)
-                    Switch(
-                      value: f['type'] != 'dynamic4' && f['enabled'] == true,
-                      onChanged: f['type'] == 'dynamic4'
-                          ? null
-                          : (value) async {
-                              await runEngine(
-                                context,
-                                widget.engine,
-                                'forward.toggle',
-                                {
-                                  'hostId': widget.host['id'],
-                                  'sessionId': sessionId,
-                                  'id': f['id'],
-                                  'enabled': value,
-                                },
-                              );
-                              await load();
-                            },
-                    ),
-                  IconButton(
-                    tooltip: '${f['nickname']} 옵션',
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () => menu(f),
+            Builder(
+              builder: (anchor) => GestureDetector(
+                onSecondaryTapUp: (event) =>
+                    menu(anchor, f, event.globalPosition),
+                child: ListTile(
+                  leading: Chip(
+                    label: Text(switch (f['type']) {
+                      'local' => '로컬',
+                      'remote' => '원격',
+                      _ => 'SOCKS',
+                    }),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
                   ),
-                ],
+                  title: Text('${f['nickname']}'),
+                  subtitle: Text(
+                    f['type'] == 'dynamic4'
+                        ? 'SOCKS4 미지원 · 편집에서 SOCKS5로 변경하세요'
+                        : '${f['sourceAddr']}:${f['sourcePort']} → ${f['type'].toString().startsWith('dynamic') ? 'SOCKS5' : '${f['destAddr']}:${f['destPort']}'}',
+                    style: const TextStyle(fontFamily: tildeMono, fontSize: 12),
+                  ),
+                  onTap: () => edit(f),
+                  onLongPress: () => menu(anchor, f),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (live)
+                        Switch(
+                          value:
+                              f['type'] != 'dynamic4' && f['enabled'] == true,
+                          onChanged: f['type'] == 'dynamic4'
+                              ? null
+                              : (value) async {
+                                  await runEngine(
+                                    context,
+                                    widget.engine,
+                                    'forward.toggle',
+                                    {
+                                      'hostId': widget.host['id'],
+                                      'sessionId': sessionId,
+                                      'id': f['id'],
+                                      'enabled': value,
+                                    },
+                                  );
+                                  await load();
+                                },
+                        ),
+                      IconButton(
+                        tooltip: '${f['nickname']} 옵션',
+                        icon: const Icon(Icons.more_vert),
+                        onPressed: () => menu(anchor, f),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
         ],
@@ -698,122 +710,130 @@ class KnownHostsPage extends StatelessWidget {
   final AndroidEngine engine;
   final int? hostId;
   const KnownHostsPage({super.key, required this.engine, this.hostId});
+  Future<void> action(
+    BuildContext context,
+    EngineRecord host,
+    String value,
+  ) async {
+    if (value == 'copy') {
+      await Clipboard.setData(
+        ClipboardData(text: '${host['fingerprint'] ?? ''}'),
+      );
+      return;
+    }
+    if (value == 'detail') {
+      await showTildeSheet<void>(
+        context: context,
+        builder: (c) => Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${host['hostname']}:${host['port']}',
+                style: Theme.of(c).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              Text('${host['algorithm']}'),
+              const SizedBox(height: 8),
+              SelectableText(
+                '${host['fingerprint'] ?? ''}',
+                style: const TextStyle(
+                  fontFamily: tildeMono,
+                  fontFamilyFallback: tildeMonoFallback,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => action(c, host, 'copy'),
+                  child: const Text('지문 복사'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+    if (await confirm(
+          context,
+          '서버 키 신뢰 삭제',
+          '${host['hostname']}:${host['port']}\n다음 접속에서 서버 키를 다시 확인합니다.',
+          action: '서버 키 삭제',
+        ) &&
+        context.mounted) {
+      await runEngine(context, engine, 'knownHost.delete', {'id': host['id']});
+    }
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: engine,
     builder: (context, _) {
-      final groups = <String, List<EngineRecord>>{};
-      for (final h
-          in engine
-              .list('knownHosts')
-              .where((h) => hostId == null || h['hostId'] == hostId)) {
-        groups.putIfAbsent('${h['hostname']}:${h['port']}', () => []).add(h);
-      }
+      final hosts = engine
+          .list('knownHosts')
+          .where((host) => hostId == null || host['hostId'] == hostId)
+          .toList();
       return Scaffold(
         appBar: AppBar(title: const Text('신뢰한 서버 키')),
         body: ListView(
           padding: const EdgeInsets.only(bottom: 24),
           children: [
-            if (groups.isEmpty) settingsNote(context, '신뢰한 서버 키가 없습니다.'),
-            for (final group in groups.entries)
-              settingsSection(context, group.key, [
-                for (final host in group.value)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${host['algorithm']}'),
-                        const SizedBox(height: 8),
-                        SelectableText(
-                          '${host['fingerprint'] ?? ''}',
-                          style: const TextStyle(
-                            fontFamily: tildeMono,
-                            fontSize: 12,
-                          ),
-                        ),
-                        if (host['firstSeenAt'] is num)
-                          Text(
-                            DateTime.fromMillisecondsSinceEpoch(
-                              (host['firstSeenAt'] as num).toInt(),
-                            ).toLocal().toString(),
-                          ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton.icon(
-                              onPressed: host['fingerprint'] == null
-                                  ? null
-                                  : () => Clipboard.setData(
-                                      ClipboardData(
-                                        text: '${host['fingerprint']}',
-                                      ),
-                                    ),
-                              icon: const Icon(Icons.copy_outlined),
-                              label: const Text('복사'),
-                            ),
-                            TextButton.icon(
-                              style: TextButton.styleFrom(
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.error,
-                              ),
-                              onPressed: () async {
-                                final approved = await showTildeSheet<bool>(
-                                  context: context,
-                                  showDragHandle: true,
-                                  builder: (c) => SafeArea(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(24),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '서버 키 신뢰 삭제',
-                                            style: Theme.of(
-                                              c,
-                                            ).textTheme.titleLarge,
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Text(
-                                            '${group.key}\n이 작업은 되돌릴 수 없습니다. 다음 접속에서 서버 키를 다시 확인합니다.',
-                                          ),
-                                          const SizedBox(height: 16),
-                                          FilledButton(
-                                            style: FilledButton.styleFrom(
-                                              backgroundColor: Theme.of(
-                                                c,
-                                              ).colorScheme.error,
-                                            ),
-                                            onPressed: () =>
-                                                Navigator.pop(c, true),
-                                            child: const Text('서버 키 삭제'),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                                if (approved == true && context.mounted) {
-                                  await runEngine(
-                                    context,
-                                    engine,
-                                    'knownHost.delete',
-                                    {'id': host['id']},
-                                  );
-                                }
-                              },
-                              icon: const Icon(Icons.delete_outline),
-                              label: const Text('삭제'),
-                            ),
-                          ],
-                        ),
-                      ],
+            if (hosts.isEmpty) settingsNote(context, '신뢰한 서버 키가 없습니다.'),
+            for (final host in hosts)
+              ListTile(
+                title: Text(
+                  '${host['hostname']}:${host['port']} · ${host['algorithm']}',
+                ),
+                subtitle: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final text = '${host['fingerprint'] ?? ''}';
+                    final count = (constraints.maxWidth / 7.5).floor().clamp(
+                      12,
+                      text.length < 12 ? 12 : text.length,
+                    );
+                    final shown = text.length > count
+                        ? '${text.substring(0, count ~/ 2)}…${text.substring(text.length - count ~/ 2)}'
+                        : text;
+                    return Text(
+                      shown,
+                      maxLines: 1,
+                      style: const TextStyle(
+                        fontFamily: tildeMono,
+                        fontFamilyFallback: tildeMonoFallback,
+                        fontSize: 12,
+                      ),
+                    );
+                  },
+                ),
+                onTap: () => action(context, host, 'detail'),
+                trailing: TildeItemMenu<String>(
+                  title: '${host['hostname']}',
+                  icon: Icons.verified_user_outlined,
+                  onSelected: (value) => action(context, host, value),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'copy',
+                      child: TildeMenuLabel(
+                        '지문 복사',
+                        Icons.content_copy_outlined,
+                      ),
                     ),
-                  ),
-              ]),
+                    PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: TildeMenuLabel(
+                        '서버 키 신뢰 삭제',
+                        Icons.delete_outline,
+                        danger: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       );
@@ -821,9 +841,16 @@ class KnownHostsPage extends StatelessWidget {
   );
 }
 
-class SchemesPage extends StatelessWidget {
+class SchemesPage extends StatefulWidget {
   final AndroidEngine engine;
   const SchemesPage({super.key, required this.engine});
+  @override
+  State<SchemesPage> createState() => _SchemesPageState();
+}
+
+class _SchemesPageState extends State<SchemesPage> {
+  AndroidEngine get engine => widget.engine;
+  int? hover;
   List<PopupMenuEntry<String>> items(EngineRecord scheme) => [
     const PopupMenuItem(
       value: 'use',
@@ -835,12 +862,8 @@ class SchemesPage extends StatelessWidget {
         child: TildeMenuLabel('팔레트 편집', Icons.tune),
       ),
       const PopupMenuItem(
-        value: 'duplicate',
-        child: TildeMenuLabel('복제', Icons.content_copy_outlined),
-      ),
-      const PopupMenuItem(
         value: 'copyEdit',
-        child: TildeMenuLabel('복제해 편집', Icons.edit_note_outlined),
+        child: TildeMenuLabel('복제', Icons.content_copy_outlined),
       ),
     ] else
       const PopupMenuItem(
@@ -864,10 +887,27 @@ class SchemesPage extends StatelessWidget {
     ],
   ];
 
-  Future<void> showMenu(BuildContext context, EngineRecord scheme) async {
+  Future<void> showMenu(
+    BuildContext context,
+    EngineRecord scheme, [
+    Offset? position,
+  ]) async {
     final value = await TildeItemMenu.show<String>(
       context,
       title: '${scheme['name']}',
+      position: position,
+      leading: SizedBox(
+        width: 64,
+        height: 40,
+        child: TerminalPreview(
+          engine: engine,
+          framed: false,
+          overrides: {
+            'profile': {'colorSchemeId': scheme['id'], 'fontSize': 9},
+            'compact': true,
+          },
+        ),
+      ),
       subtitle: (scheme['id'] as int) < 0 ? '기본 테마' : '사용자 테마',
       icon: Icons.palette_outlined,
       itemBuilder: (_) => items(scheme),
@@ -890,8 +930,9 @@ class SchemesPage extends StatelessWidget {
     if (action == 'copyEdit') {
       final name = await askText(
         context,
-        '복사본 이름',
+        '복제할 테마 이름',
         initial: '${scheme['name']} 복사본',
+        action: '복제',
       );
       if (name == null || !context.mounted) return;
       final id = await runEngine(context, engine, 'scheme.duplicate', {
@@ -923,11 +964,12 @@ class SchemesPage extends StatelessWidget {
       );
       return;
     }
-    if (action == 'duplicate' || action == 'rename') {
+    if (action == 'rename') {
       final name = await askText(
         context,
         '테마 이름',
-        initial: '${scheme['name']}${action == 'duplicate' ? ' 복사' : ''}',
+        initial: '${scheme['name']}',
+        action: '이름 변경',
       );
       if (name != null && context.mounted) {
         await runEngine(context, engine, 'scheme.$action', {
@@ -961,6 +1003,22 @@ class SchemesPage extends StatelessWidget {
     }
   }
 
+  Future<void> createTheme(BuildContext context) async {
+    final name = await askText(context, '새 테마 이름', action: '만들기');
+    if (name == null || !context.mounted) return;
+    final id = await runEngine(context, engine, 'scheme.create', {
+      'name': name,
+      'sourceId': defaultProfile(engine)['colorSchemeId'] ?? -1,
+    });
+    if (id != null && context.mounted) {
+      final scheme = engine
+          .list('schemes')
+          .where((scheme) => scheme['id'] == id)
+          .firstOrNull;
+      if (scheme != null) await action(context, scheme, 'edit');
+    }
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: engine,
@@ -968,6 +1026,12 @@ class SchemesPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('색상 테마'),
         actions: [
+          if (tildePointer(context))
+            TextButton.icon(
+              onPressed: () => createTheme(context),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('새 테마'),
+            ),
           TextButton.icon(
             label: const Text('가져오기'),
             icon: const Icon(Icons.file_open_outlined),
@@ -986,151 +1050,189 @@ class SchemesPage extends StatelessWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final name = await askText(context, '새 테마 이름');
-          if (name != null && context.mounted) {
-            await runEngine(context, engine, 'scheme.create', {
-              'name': name,
-              'sourceId': defaultProfile(engine)['colorSchemeId'] ?? -1,
-            });
-          }
-        },
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: tildePointer(context)
+          ? null
+          : FloatingActionButton(
+              tooltip: '새 테마',
+              onPressed: () => createTheme(context),
+              child: const Icon(Icons.add),
+            ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-          final count = constraints.maxWidth < 360 || scale > 1.4
+          final pointer = tildePointer(context);
+          final count = pointer
+              ? ((constraints.maxWidth - 20) / 212).floor().clamp(1, 100)
+              : constraints.maxWidth < 360 || scale > 1.4
               ? 1
               : constraints.maxWidth > 900
               ? 3
               : 2;
           final selectedId = defaultProfile(engine)['colorSchemeId'];
-          return GridView.count(
-            crossAxisCount: count,
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            mainAxisExtent: 128 + scale * 64,
-            children: [
-              for (final scheme in [
-                ...engine
-                    .list('schemes')
-                    .where((s) => tildeBaseSchemeIds.contains(s['id'])),
-                ...engine
-                    .list('schemes')
-                    .where((s) => !tildeBaseSchemeIds.contains(s['id'])),
-              ])
-                Semantics(
-                  selected: scheme['id'] == selectedId,
-                  child: Card.filled(
-                    margin: EdgeInsets.zero,
-                    clipBehavior: Clip.antiAlias,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(
-                        color: scheme['id'] == selectedId
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.outlineVariant,
-                        width: scheme['id'] == selectedId ? 2 : 1,
-                      ),
-                    ),
-                    child: InkWell(
-                      onLongPress: () => showMenu(context, scheme),
-                      onTap: () => runEngine(
-                        context,
-                        engine,
-                        'settings.update',
-                        {'key': 'colorScheme', 'value': scheme['id']},
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: Container(
-                              color: paletteColor(scheme, 'background'),
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    r'~ $ ls',
-                                    style: TextStyle(
-                                      fontFamily: tildeMono,
-                                      fontSize: 12,
-                                      color: paletteColor(scheme, 'foreground'),
+          return Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: pointer ? count * 212.0 + 20 : constraints.maxWidth,
+              child: GridView.count(
+                crossAxisCount: count,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                mainAxisExtent: 128 + scale * 64,
+                children: [
+                  for (final scheme in [
+                    ...engine
+                        .list('schemes')
+                        .where((s) => tildeBaseSchemeIds.contains(s['id'])),
+                    ...engine
+                        .list('schemes')
+                        .where((s) => !tildeBaseSchemeIds.contains(s['id'])),
+                  ])
+                    MouseRegion(
+                      onEnter: (_) =>
+                          setState(() => hover = scheme['id'] as int),
+                      onExit: (_) => setState(() => hover = null),
+                      child: Semantics(
+                        selected: scheme['id'] == selectedId,
+                        child: GestureDetector(
+                          onSecondaryTapUp: (event) =>
+                              showMenu(context, scheme, event.globalPosition),
+                          child: Card.filled(
+                            margin: EdgeInsets.zero,
+                            clipBehavior: Clip.antiAlias,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                              ),
+                            ),
+                            child: InkWell(
+                              onLongPress: () => showMenu(context, scheme),
+                              onDoubleTap: pointer
+                                  ? () => action(context, scheme, 'use')
+                                  : null,
+                              onTap: pointer
+                                  ? () => setState(
+                                      () => hover = scheme['id'] as int,
+                                    )
+                                  : () => runEngine(
+                                      context,
+                                      engine,
+                                      'settings.update',
+                                      {
+                                        'key': 'colorScheme',
+                                        'value': scheme['id'],
+                                      },
                                     ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      for (final color
-                                          in (scheme['palette'] as List? ?? [])
-                                              .skip(1)
-                                              .take(4))
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: 4,
-                                          ),
-                                          child: Container(
-                                            width: 14,
-                                            height: 14,
-                                            decoration: BoxDecoration(
-                                              color: Color(
-                                                (color as num).toInt(),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      color: paletteColor(scheme, 'background'),
+                                      padding: const EdgeInsets.all(12),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            r'~ $ ls',
+                                            style: TextStyle(
+                                              fontFamily: tildeMono,
+                                              fontSize: 12,
+                                              color: paletteColor(
+                                                scheme,
+                                                'foreground',
                                               ),
-                                              borderRadius:
-                                                  BorderRadius.circular(7),
                                             ),
                                           ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              for (final color
+                                                  in (scheme['palette']
+                                                              as List? ??
+                                                          [])
+                                                      .skip(1)
+                                                      .take(4))
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        right: 4,
+                                                      ),
+                                                  child: Container(
+                                                    width: 14,
+                                                    height: 14,
+                                                    decoration: BoxDecoration(
+                                                      color: Color(
+                                                        (color as num).toInt(),
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            7,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 12),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            '${scheme['name']}',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.titleSmall,
+                                          ),
                                         ),
-                                    ],
+                                        if (scheme['id'] == selectedId)
+                                          Icon(
+                                            Icons.check_circle,
+                                            size: 20,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                          ),
+                                        Opacity(
+                                          opacity:
+                                              !pointer || hover == scheme['id']
+                                              ? 1
+                                              : 0,
+                                          child: TildeItemMenu<String>(
+                                            title: '${scheme['name']}',
+                                            icon: Icons.palette_outlined,
+                                            tooltip: '${scheme['name']} 옵션',
+                                            onSelected: (value) =>
+                                                action(context, scheme, value),
+                                            itemBuilder: (_) => items(scheme),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 12),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    '${scheme['name']}',
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleSmall,
-                                  ),
-                                ),
-                                if (scheme['id'] == selectedId)
-                                  Icon(
-                                    Icons.check_circle,
-                                    size: 20,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
-                                TildeItemMenu<String>(
-                                  title: '${scheme['name']}',
-                                  icon: Icons.palette_outlined,
-                                  tooltip: '${scheme['name']} 옵션',
-                                  onSelected: (value) =>
-                                      action(context, scheme, value),
-                                  itemBuilder: (_) => items(scheme),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
-            ],
+                ],
+              ),
+            ),
           );
         },
       ),
@@ -1202,6 +1304,7 @@ class _PalettePageState extends State<PalettePage> {
               _ => '커서 · 앱 강조색',
             },
       onPreview: preview,
+      swatches: [for (final color in colors) Color(color)],
     );
     if (!mounted) return;
     setState(() => palette = original);
@@ -1347,38 +1450,40 @@ class _PalettePageState extends State<PalettePage> {
           settingsSection(context, 'ANSI 팔레트', [
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  for (var i = 0; i < colors.length; i++)
-                    Semantics(
-                      label: 'ANSI $i 색상',
-                      button: true,
-                      child: InkWell(
-                        onTap: editable ? () => editColor(index: i) : null,
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          width: 56,
-                          height: 56,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Color(colors[i]),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '$i',
-                            style: TextStyle(
-                              color: Color(colors[i]).computeLuminance() > .4
-                                  ? Colors.black
-                                  : Colors.white,
-                              fontFamily: tildeMono,
+              child: LayoutBuilder(
+                builder: (context, constraints) => Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (var i = 0; i < colors.length; i++)
+                      Semantics(
+                        label: 'ANSI $i 색상',
+                        button: true,
+                        child: InkWell(
+                          onTap: editable ? () => editColor(index: i) : null,
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            width: (constraints.maxWidth - 56) / 8,
+                            height: 40,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Color(colors[i]),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '$i',
+                              style: TextStyle(
+                                color: Color(colors[i]).computeLuminance() > .4
+                                    ? Colors.black
+                                    : Colors.white,
+                                fontFamily: tildeMono,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ]),

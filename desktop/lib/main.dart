@@ -32,9 +32,15 @@ Future<void> main() async {
     protect: secrets.protect,
     unprotect: secrets.unprotect,
   );
+  final snapshot = await platform.call('snapshot', {}) as Map;
+  if ((snapshot['preferences'] as Map)['fullscreen'] == true) {
+    await channel.invokeMethod<void>('setFullscreen', {'enabled': true});
+  }
   runApp(
     WindowsFileDrag(
       chooseDirectory: () => channel.invokeMethod<String>('chooseDirectory'),
+      revealFolder: (path) =>
+          channel.invokeMethod<void>('openFolder', {'path': path}),
       readSetting: (key) async =>
           ((await platform.call('snapshot', {})) as Map)['preferences'][key],
       writeSetting: (key, value) async {

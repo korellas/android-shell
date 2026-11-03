@@ -29,6 +29,68 @@ const _defaultHost = <String, Object?>{
   'profileId': 1,
 };
 
+// Preset IDs match ColorSchemePresets.builtInSchemes on Android.
+const _baseSchemes = <EngineRecord>[
+  {
+    'id': -1,
+    'name': 'Tilde Night',
+    'description': 'Tilde dark terminal palette',
+    'isBuiltIn': true,
+    'foreground': 7,
+    'background': 0,
+    'foregroundColor': 0xffeae9e7,
+    'backgroundColor': 0xff13110f,
+    'cursorColor': 0xff6fd8c4,
+    'palette': [
+      0xff262421,
+      0xffff8577,
+      0xff8fd694,
+      0xffebc37a,
+      0xff7fb4f0,
+      0xffc9a2f2,
+      0xff6fd8c4,
+      0xffc9c6c1,
+      0xff4a4743,
+      0xffffa59a,
+      0xffade6b0,
+      0xfff4d69e,
+      0xffa3caf6,
+      0xffdabcf7,
+      0xff9be6d7,
+      0xfff4f3f1,
+    ],
+  },
+  {
+    'id': -9,
+    'name': 'Tilde Day',
+    'description': 'Tilde light terminal palette',
+    'isBuiltIn': true,
+    'foreground': 0,
+    'background': 15,
+    'foregroundColor': 0xff2e2b25,
+    'backgroundColor': 0xfff6f5f0,
+    'cursorColor': 0xff006e5f,
+    'palette': [
+      0xff2e2b25,
+      0xffc2362b,
+      0xff357344,
+      0xff8a641f,
+      0xff2b659c,
+      0xff7954a8,
+      0xff006e5f,
+      0xffd5d4cb,
+      0xff67635c,
+      0xffd64b40,
+      0xff4d925a,
+      0xffad812c,
+      0xff427eba,
+      0xff9971c7,
+      0xff259483,
+      0xfff6f5f0,
+    ],
+  },
+];
+
 class StoredPlatform {
   StoredPlatform({
     required this.file,
@@ -58,6 +120,7 @@ class StoredPlatform {
     'keys': [],
     'forwards': [],
     'knownHosts': [],
+    'schemes': [],
     'profiles': [Map<String, Object?>.of(_defaultProfile)],
     'preferences': {'defaultProfileId': 1, 'themeMode': 'DARK'},
   };
@@ -90,7 +153,18 @@ class StoredPlatform {
         throw FormatException('저장된 $field 설정이 올바르지 않습니다.');
       }
     }
-    _data = decoded;
+    if (decoded['schemes'] != null &&
+        (decoded['schemes'] is! List ||
+            (decoded['schemes'] as List).any(
+              (value) =>
+                  value is! Map ||
+                  value['palette'] is! List ||
+                  (value['palette'] as List).length != 16 ||
+                  (value['palette'] as List).any((color) => color is! int),
+            ))) {
+      throw const FormatException('저장된 색상 테마가 올바르지 않습니다.');
+    }
+    _data = {...decoded, 'schemes': decoded['schemes'] ?? []};
     final sealed = _data['secrets'] as String?;
     if (sealed != null) {
       _passwords = Map<String, dynamic>.from(
@@ -104,6 +178,7 @@ class StoredPlatform {
       'forwards',
       'knownHosts',
       'profiles',
+      'schemes',
     ]) {
       for (final record in _records(field)) {
         final id = record['id'];
@@ -171,6 +246,13 @@ class StoredPlatform {
       'platform': platform,
       'ready': true,
       'hardwareKeyboard': hardwareKeyboard,
+      'preferences': {
+        ..._preferences(),
+        'fontFamily': _preferences()['fontFamily'] ?? 'JETBRAINS_MONO',
+        'fonts': const [
+          {'value': 'JETBRAINS_MONO', 'label': 'JetBrains Mono'},
+        ],
+      },
       'terminalTypes': ['xterm-256color'],
       'encodings': ['UTF-8'],
       'defaults': {
@@ -191,16 +273,7 @@ class StoredPlatform {
             'hasPassword': _passwords.containsKey('identity:${identity['id']}'),
           },
       ],
-      'schemes': [
-        {
-          'id': -1,
-          'name': 'Tide Night',
-          'palette': [],
-          'foregroundColor': 0xffeae9e7,
-          'backgroundColor': 0xff13110f,
-          'cursorColor': 0xff6fd8c4,
-        },
-      ],
+      'schemes': [for (final scheme in _schemes) _scheme(scheme['id'])],
       'generation': {'biometricAvailable': false},
       'sessions': [],
       'prompts': [],
@@ -253,7 +326,11 @@ class StoredPlatform {
     return {
       'host': host,
       'profile': profile,
-      'scheme': {},
+      'scheme': _scheme(
+        _schemes.any((scheme) => scheme['id'] == profile['colorSchemeId'])
+            ? profile['colorSchemeId']
+            : -1,
+      ),
       'password':
           _passwords[identityId == null
               ? 'host:${host['id']}'
@@ -267,6 +344,201 @@ class StoredPlatform {
         'forwards',
       ).where((forward) => forward['hostId'] == host['id']).toList(),
     };
+  }
+
+  List<EngineRecord> get _schemes => [..._baseSchemes, ..._records('schemes')];
+  EngineRecord _scheme(Object? id) {
+    final value = _schemes.where((scheme) => scheme['id'] == id).firstOrNull;
+    if (value == null) throw ArgumentError('색상 테마를 찾을 수 없습니다.');
+    final palette = List<int>.from(value['palette'] as List);
+    final foreground =
+        value['foregroundColor'] ?? palette[value['foreground'] as int? ?? 7];
+    return {
+      ...value,
+      'palette': palette,
+      'foregroundColor': foreground,
+      'backgroundColor':
+          value['backgroundColor'] ?? palette[value['background'] as int? ?? 0],
+      'cursorColor': value['cursorColor'] ?? foreground,
+    };
+  }
+
+  String _schemeName(Object? value, {Object? except}) {
+    if (value is! String || value.trim().isEmpty) {
+      throw ArgumentError('테마 이름을 입력하세요.');
+    }
+    final name = value.trim();
+    if (_schemes.any(
+      (scheme) =>
+          scheme['id'] != except &&
+          '${scheme['name']}'.toLowerCase() == name.toLowerCase(),
+    )) {
+      throw ArgumentError('같은 이름의 테마가 있습니다.');
+    }
+    return name;
+  }
+
+  int _hexColor(Object? value) {
+    if (value is! String ||
+        !RegExp(r'^#?(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$').hasMatch(value)) {
+      throw const FormatException('색상은 3자리 또는 6자리 16진수여야 합니다.');
+    }
+    var hex = value.startsWith('#') ? value.substring(1) : value;
+    if (hex.length == 3) {
+      hex = hex.split('').map((digit) => '$digit$digit').join();
+    }
+    return 0xff000000 | int.parse(hex, radix: 16);
+  }
+
+  Future<Object?> _schemeOperation(
+    String method,
+    Map<String, Object?> args,
+  ) async {
+    final id = args['id'];
+    if (method == 'scheme.import') {
+      final decoded = jsonDecode(args['text'] as String);
+      if (decoded is! Map<String, dynamic> ||
+          decoded['name'] is! String ||
+          (decoded['name'] as String).trim().isEmpty ||
+          decoded['colors'] is! Map ||
+          (decoded['version'] ?? 1) != 1) {
+        throw const FormatException('색상 테마 파일 형식이 올바르지 않습니다.');
+      }
+      final foreground = decoded['foreground'] ?? 7,
+          background = decoded['background'] ?? 0;
+      if (foreground is! int ||
+          foreground < 0 ||
+          foreground > 15 ||
+          background is! int ||
+          background < 0 ||
+          background > 15) {
+        throw const FormatException('기본 색상 번호는 0–15여야 합니다.');
+      }
+      final palette = List<int>.filled(16, 0);
+      for (final entry in (decoded['colors'] as Map).entries) {
+        final index = int.tryParse('${entry.key}');
+        if (index == null || index < 0 || index > 15) {
+          throw const FormatException('ANSI 색상 번호는 0–15여야 합니다.');
+        }
+        palette[index] = _hexColor(entry.value);
+      }
+      final roles = <String, int>{};
+      for (final role in [
+        'foregroundColor',
+        'backgroundColor',
+        'cursorColor',
+      ]) {
+        if (decoded[role] != null) roles[role] = _hexColor(decoded[role]);
+      }
+      if (decoded['description'] != null && decoded['description'] is! String) {
+        throw const FormatException('테마 설명 형식이 올바르지 않습니다.');
+      }
+      final requested = (decoded['name'] as String).trim();
+      var name = requested, suffix = 1;
+      while (_schemes.any(
+        (scheme) => '${scheme['name']}'.toLowerCase() == name.toLowerCase(),
+      )) {
+        name = '$requested (${suffix++})';
+      }
+      final record = _upsert('schemes', {
+        'name': name,
+        'description': decoded['description'] ?? '',
+        'foreground': foreground,
+        'background': background,
+        'palette': palette,
+        ...roles,
+      });
+      await _save();
+      return record['id'];
+    }
+    if (method == 'scheme.create' || method == 'scheme.duplicate') {
+      final source = _scheme(
+        method == 'scheme.create' ? args['sourceId'] ?? -1 : id,
+      );
+      final record = _upsert('schemes', {
+        ...source,
+        'id': null,
+        'name': _schemeName(args['name']),
+        'description': args['description'] ?? '',
+        'isBuiltIn': false,
+      });
+      await _save();
+      return record['id'];
+    }
+    final scheme = _scheme(id);
+    if (method == 'scheme.palette') {
+      return {
+        'colors': scheme['palette'],
+        'foregroundColor': scheme['foregroundColor'],
+        'backgroundColor': scheme['backgroundColor'],
+        'cursorColor': scheme['cursorColor'],
+      };
+    }
+    if (method == 'scheme.export') {
+      String hex(int value) =>
+          '#${(value & 0xffffff).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+      return const JsonEncoder.withIndent('  ').convert({
+        'name': scheme['name'],
+        'description': scheme['description'] ?? '',
+        'version': 1,
+        'foreground': scheme['foreground'] ?? 7,
+        'background': scheme['background'] ?? 0,
+        for (final role in [
+          'foregroundColor',
+          'backgroundColor',
+          'cursorColor',
+        ])
+          role: hex(scheme[role] as int),
+        'colors': {
+          for (final (index, color) in (scheme['palette'] as List<int>).indexed)
+            '$index': hex(color),
+        },
+      });
+    }
+    if (id is! int || id < 0) throw ArgumentError('기본 테마는 복제한 뒤 편집하세요.');
+    final stored = _records(
+      'schemes',
+    ).firstWhere((record) => record['id'] == id);
+    for (final role in ['foregroundColor', 'backgroundColor', 'cursorColor']) {
+      if (stored[role] == null) scheme.remove(role);
+    }
+    switch (method) {
+      case 'scheme.rename':
+        scheme['name'] = _schemeName(args['name'], except: id);
+      case 'scheme.role':
+        final role = args['role'];
+        if (!const {'foreground', 'background', 'cursor'}.contains(role) ||
+            args['color'] is! int) {
+          throw ArgumentError('색상 역할을 확인하세요.');
+        }
+        scheme['${role}Color'] = (args['color'] as int) & 0xffffffff;
+      case 'scheme.color':
+        final index = args['index'];
+        if (index is! int || index < 0 || index > 15 || args['color'] is! int) {
+          throw ArgumentError('ANSI 색상 번호는 0–15여야 합니다.');
+        }
+        (scheme['palette'] as List<int>)[index] =
+            (args['color'] as int) & 0xffffffff;
+      case 'scheme.delete':
+        _remove('schemes', id);
+        _data['profiles'] = [
+          for (final profile in _records('profiles'))
+            {
+              ...profile,
+              if (profile['colorSchemeId'] == id) 'colorSchemeId': -1,
+            },
+        ];
+        if (_preferences()['colorScheme'] == id) {
+          _data['preferences'] = {..._preferences(), 'colorScheme': -1};
+        }
+        await _save();
+        return null;
+      default:
+        throw UnsupportedError('지원하지 않는 테마 작업입니다.');
+    }
+    _upsert('schemes', scheme);
+    await _save();
+    return null;
   }
 
   String _canonicalAlgorithm(Object? algorithm) => switch (algorithm) {
@@ -383,6 +655,7 @@ class StoredPlatform {
 
   Future<Object?> call(String method, Map<String, Object?> args) async {
     await _load();
+    if (method.startsWith('scheme.')) return _schemeOperation(method, args);
     switch (method) {
       case 'snapshot':
         return _snapshot();
@@ -540,6 +813,14 @@ class StoredPlatform {
         await _save();
         return null;
       case 'settings.update':
+        if (platform == 'windows' && args['key'] == 'fullscreen') {
+          await native('setFullscreen', {'enabled': args['value'] == true});
+        }
+        if (args['key'] == 'colorScheme') {
+          _scheme(args['value']);
+          final profile = _find('profiles', _preferences()['defaultProfileId']);
+          _upsert('profiles', {...profile, 'colorSchemeId': args['value']});
+        }
         _data['preferences'] = {
           ..._preferences(),
           args['key'] as String: args['value'],
@@ -554,6 +835,13 @@ class StoredPlatform {
       case 'file.prepareDownload':
       case 'file.finishTransfer':
         return _fileOperation(method, args);
+      case 'openUrl':
+        final uri = Uri.tryParse(args['url'] as String? ?? '');
+        if (uri == null ||
+            !const {'https', 'http', 'mailto'}.contains(uri.scheme)) {
+          throw ArgumentError('지원하지 않는 링크입니다.');
+        }
+        return native('openUrl', {'url': uri.toString()});
       case 'document.pick':
         return native('openFile', {});
       case 'document.create':

@@ -182,6 +182,8 @@ void main() {
         RecordEditor(engine: engine, kind: RecordKind.host, record: host),
         width: 1000,
       );
+      await tester.tap(find.text('연결').first);
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('hostname:0')),
         'bob@new.test:2202',
@@ -207,7 +209,7 @@ void main() {
     final field = find.byType(TextField);
     await tester.enterText(field, '112233');
     await tester.pump();
-    await tester.tap(find.text('취소'));
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(calls.where((c) => c.method == 'scheme.role'), isEmpty);
     expect(find.text('#6FD8C4'), findsOneWidget);
@@ -215,7 +217,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '112233');
     await tester.pump();
-    await tester.tap(find.text('사용'));
+    await tester.tap(find.text('적용'));
     await tester.pumpAndSettle();
     expect(calls.singleWhere((c) => c.method == 'scheme.role').arguments, {
       'id': 1,
@@ -239,7 +241,7 @@ void main() {
         });
     await open(tester, GenerateKeyPage(engine: engine));
     await tester.enterText(find.byType(TextFormField).first, 'Test key');
-    await tester.tap(find.text('만들기'));
+    await tester.tap(find.text('키 만들기'));
     await tester.pump();
     expect(tester.takeException(), isNull);
     expect(find.byType(TildeProgress), findsOneWidget);

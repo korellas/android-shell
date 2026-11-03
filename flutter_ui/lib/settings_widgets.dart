@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-import 'dart:typed_data';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'engine.dart';
+import 'tilde_design.dart';
 
 EngineRecord defaultProfile(AndroidEngine engine) =>
     engine
@@ -108,92 +108,111 @@ class TerminalPreview extends StatefulWidget {
 }
 
 class _TerminalPreviewState extends State<TerminalPreview> {
-  Object? requestKey;
-  Future<EngineRecord>? image;
+  String? _fontName;
+  Future<String>? _font;
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final p = widget.engine.preferences;
-      final profile = widget.overrides['profile'] is Map
-          ? row(widget.overrides['profile'])
-          : defaultProfile(widget.engine);
-      final scheme = widget.engine
-          .list('schemes')
-          .where((s) => s['id'] == profile['colorSchemeId'])
-          .firstOrNull;
-      final density = MediaQuery.devicePixelRatioOf(context);
-      final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-      final nextKey = (
-        constraints.maxWidth,
-        density,
-        scale,
-        p['fontFamily'],
-        profile.toString(),
-        scheme.toString(),
-        p['terminalMargin'],
-        widget.overrides.toString(),
-      );
-      if (requestKey != nextKey) {
-        requestKey = nextKey;
-        image = widget.engine
-            .query('settings.preview', {
-              'width': constraints.maxWidth,
-              'scale': density,
-              'textScale': scale,
-              ...widget.overrides,
-            })
-            .then(row);
-      }
-      return Semantics(
-        label: '색상 테마·글꼴·여백 미리보기',
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(widget.framed ? 16 : 0),
-            border: widget.framed
-                ? Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  )
-                : null,
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: FutureBuilder<EngineRecord>(
-            future: image,
-            builder: (context, snapshot) {
-              if (snapshot.data?['png'] is Uint8List) {
-                return Image.memory(
-                  snapshot.data!['png'] as Uint8List,
-                  width: constraints.maxWidth,
-                  height: (snapshot.data!['height'] as num).toDouble(),
-                  fit: BoxFit.fitWidth,
-                  gaplessPlayback: true,
-                );
-              }
-              return ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: widget.framed ? 100 : 30,
+  Widget build(BuildContext context) {
+    final preferences = widget.engine.preferences;
+    final profile = widget.overrides['profile'] is Map
+        ? row(widget.overrides['profile'])
+        : defaultProfile(widget.engine);
+    final scheme =
+        widget.engine
+            .list('schemes')
+            .where((s) => s['id'] == profile['colorSchemeId'])
+            .firstOrNull ??
+        const <String, dynamic>{};
+    final name =
+        '${widget.overrides['fontFamily'] ?? profile['fontFamily'] ?? preferences['fontFamily'] ?? 'JETBRAINS_MONO'}';
+    if (name != _fontName) {
+      _fontName = name;
+      _font = widget.engine.terminalFont(name);
+    }
+    Color color(String role, Color fallback) =>
+        widget.overrides['${role}Color'] is num
+        ? Color((widget.overrides['${role}Color'] as num).toInt())
+        : scheme.isEmpty
+        ? fallback
+        : paletteColor(scheme, role);
+    final foreground = color('foreground', const Color(0xffeae9e7));
+    final background = color('background', tildeNightBackground);
+    final palette = (scheme['palette'] as List? ?? []).cast<num>();
+    Color ansi(int index, Color fallback) =>
+        palette.length > index ? Color(palette[index].toInt()) : fallback;
+    final sample = widget.overrides['sampleText'] as String?;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact =
+            widget.overrides['compact'] == true ||
+            constraints.hasBoundedHeight && constraints.maxHeight <= 56;
+        final preview = Semantics(
+          label: '색상 테마·글꼴·여백 미리보기',
+          child: Container(
+            padding: EdgeInsets.all(widget.framed ? 16 : 6),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(widget.framed ? 12 : 6),
+            ),
+            alignment: Alignment.topLeft,
+            child: FutureBuilder<String>(
+              future: _font,
+              builder: (context, snapshot) => Text.rich(
+                TextSpan(
+                  children: sample != null
+                      ? [TextSpan(text: sample)]
+                      : [
+                          TextSpan(
+                            text: '~ \$ ls',
+                            style: TextStyle(color: color('cursor', tildeTide)),
+                          ),
+                          TextSpan(
+                            text: compact ? '  Aa' : '\nsrc  build  한글.md',
+                          ),
+                          if (!compact) ...[
+                            const TextSpan(text: '\n'),
+                            TextSpan(
+                              text: 'err ',
+                              style: TextStyle(color: ansi(1, tildeCoral)),
+                            ),
+                            TextSpan(
+                              text: 'ok ',
+                              style: TextStyle(
+                                color: ansi(2, const Color(0xffa8d68f)),
+                              ),
+                            ),
+                            TextSpan(
+                              text: 'warn',
+                              style: TextStyle(color: ansi(3, tildeSand)),
+                            ),
+                          ],
+                        ],
                 ),
-                child: Align(
-                  alignment: widget.framed
-                      ? Alignment.center
-                      : Alignment.centerLeft,
-                  child: Text(
-                    widget.overrides['sampleText'] is String
-                        ? widget.overrides['sampleText'] as String
-                        : snapshot.connectionState == ConnectionState.waiting
-                        ? '미리보기 불러오는 중…'
-                        : '미리보기를 표시할 수 없어요',
-                    maxLines: widget.framed ? null : 1,
-                    overflow: widget.framed ? null : TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+                maxLines: compact ? 1 : null,
+                overflow: compact ? TextOverflow.ellipsis : null,
+                textAlign: TextAlign.start,
+                style: TextStyle(
+                  fontFamily: snapshot.data ?? tildeMono,
+                  fontFamilyFallback: tildeMonoFallback,
+                  fontSize: compact
+                      ? 12
+                      : (profile['fontSize'] as num? ?? 14).toDouble(),
+                  height: 1.6,
+                  color: foreground,
                 ),
-              );
-            },
+              ),
+            ),
           ),
-        ),
-      );
-    },
-  );
+        );
+        return compact
+            ? FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.topLeft,
+                child: preview,
+              )
+            : preview;
+      },
+    );
+  }
 }
 
 class TerminalBarPreview extends StatefulWidget {

@@ -59,9 +59,9 @@ class _TerminalPromptState extends State<TerminalPrompt> {
         ? '생체인증'
         : '${prompt['instructions'] ?? ''}';
     return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -96,10 +96,12 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: '인증 전송',
-                    onPressed: enabled ? () => respond(text.text) : null,
-                    icon: const Icon(Icons.send_outlined),
+                  Tooltip(
+                    message: '인증 전송',
+                    child: TextButton(
+                      onPressed: enabled ? () => respond(text.text) : null,
+                      child: const Text('확인'),
+                    ),
                   ),
                   IconButton(
                     tooltip: '인증 취소',
@@ -118,7 +120,10 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                     Expanded(
                       child: SelectableText(
                         '${prompt[fingerprint] ?? ''}',
-                        style: const TextStyle(fontFamily: tildeMono),
+                        style: const TextStyle(
+                          fontFamily: tildeMono,
+                          fontFamilyFallback: tildeMonoFallback,
+                        ),
                       ),
                     ),
                     IconButton(
@@ -136,8 +141,8 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                   const [
                     ('sha256', 'SHA-256'),
                     ('md5', 'MD5'),
-                    ('randomArt', 'Art'),
-                    ('bubblebabble', 'Bubble'),
+                    ('randomArt', '그림'),
+                    ('bubblebabble', '단어'),
                   ],
                   fingerprint,
                   enabled
@@ -146,11 +151,11 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                   labels: const {
                     'randomArt': Tooltip(
                       message: 'Random Art',
-                      child: Text('Art'),
+                      child: Text('그림'),
                     ),
                     'bubblebabble': Tooltip(
                       message: 'Bubblebabble',
-                      child: Text('Bubble'),
+                      child: Text('단어'),
                     ),
                   },
                 ),
@@ -167,14 +172,14 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                 children: [
                   TextButton(
                     onPressed: enabled ? () => respond(false) : null,
-                    child: const Text('아니요'),
+                    child: Text(hostKey ? '연결 취소' : '아니요'),
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
                     onPressed: enabled ? () => respond(true) : null,
                     child: Text(
                       hostKey
-                          ? '서버 키 신뢰'
+                          ? '신뢰하고 연결'
                           : biometric
                           ? '인증'
                           : '예',
@@ -188,4 +193,104 @@ class _TerminalPromptState extends State<TerminalPrompt> {
       ),
     );
   }
+}
+
+class TerminalPromptSurface extends StatefulWidget {
+  const TerminalPromptSurface({
+    super.key,
+    required this.prompt,
+    required this.onResponse,
+    this.enabled = true,
+  });
+  final EngineRecord prompt;
+  final Future<void> Function(Object?) onResponse;
+  final bool enabled;
+  @override
+  State<TerminalPromptSurface> createState() => _TerminalPromptSurfaceState();
+}
+
+class _TerminalPromptSurfaceState extends State<TerminalPromptSurface> {
+  bool opening = false;
+  Route<dynamic>? route;
+  NavigatorState? navigator;
+  @override
+  void initState() {
+    super.initState();
+    schedule();
+  }
+
+  @override
+  void didUpdateWidget(covariant TerminalPromptSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.enabled && !oldWidget.enabled) schedule();
+  }
+
+  void schedule() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          widget.enabled &&
+          !opening &&
+          widget.prompt['type'] == 'hostKey') {
+        present();
+      }
+    });
+  }
+
+  Future<void> present() async {
+    opening = true;
+    var responded = false;
+    final response = widget.onResponse;
+    await showTildeSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (c) {
+        route = ModalRoute.of(c);
+        navigator = Navigator.of(c);
+        return SingleChildScrollView(
+          child: TerminalPrompt(
+            prompt: widget.prompt,
+            onResponse: (value) async {
+              responded = true;
+              try {
+                await response(value);
+              } finally {
+                final current = route, nav = navigator;
+                if (current?.isActive == true && nav?.mounted == true) {
+                  if (current!.isCurrent) {
+                    nav!.pop();
+                  } else {
+                    nav!.removeRoute(current);
+                  }
+                }
+              }
+            },
+          ),
+        );
+      },
+    );
+    if (!responded && mounted) {
+      await response(widget.prompt['type'] == 'string' ? null : false);
+    }
+    opening = false;
+  }
+
+  @override
+  void dispose() {
+    final current = route, nav = navigator;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (current?.isActive == true && nav?.mounted == true) {
+        nav!.removeRoute(current!);
+      }
+    });
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.prompt['type'] == 'hostKey'
+      ? const SizedBox.shrink()
+      : TerminalPrompt(
+          prompt: widget.prompt,
+          onResponse: widget.onResponse,
+          enabled: widget.enabled,
+        );
 }
