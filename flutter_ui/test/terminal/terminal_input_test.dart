@@ -147,8 +147,10 @@ void main() {
       );
       edit(tester, '한');
       expect(output.join(), 'ㅎ\x7f하\x7f한');
-      input.sendKey(TerminalKey.enter);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       expect(output.join(), 'ㅎ\x7f하\x7f한\r');
+      edit(tester, '글');
+      expect(output.join(), 'ㅎ\x7f하\x7f한\r글');
     },
     variant: const TargetPlatformVariant({TargetPlatform.iOS}),
   );
@@ -314,12 +316,21 @@ void main() {
     expect(output.join(), '한\t글!가\x1b[200~one\ntwo\x1b[201~');
   });
 
-  testWidgets('IME action commits before Enter', (tester) async {
-    await open(tester);
-    edit(tester, '한', composingStart: 0);
-    await tester.testTextInput.receiveAction(TextInputAction.newline);
-    expect(output.join(), '한\r');
-  });
+  testWidgets(
+    'IME action commits before Enter',
+    (tester) async {
+      await open(tester);
+      edit(tester, '한', composingStart: 0);
+      await tester.testTextInput.receiveAction(TextInputAction.newline);
+      expect(output.join(), '한\r');
+      edit(tester, '글');
+      expect(output.join(), '한\r글');
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
+  );
 
   testWidgets('sticky Ctrl applies canonical chords to IME text', (
     tester,
