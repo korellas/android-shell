@@ -21,6 +21,7 @@ import 'package:flutter/services.dart';
 import 'engine.dart';
 import 'tilde_controls.dart';
 import 'tilde_design.dart';
+import 'connection_status.dart';
 import 'editors.dart';
 import 'settings_widgets.dart';
 import 'main.dart';
@@ -840,6 +841,98 @@ class ConsolePageState extends State<ConsolePage> {
     ),
   );
 
+  Widget _loginPrompt(EngineRecord prompt) => TerminalPromptSurface(
+    key: ValueKey((id, prompt['token'])),
+    prompt: prompt,
+    enabled: visible == true,
+    onResponse: (value) async {
+      await runEngine(actionsContext, engine, 'prompt.respond', {
+        'sessionId': prompt['sessionId'],
+        'token': prompt['token'],
+        'value': value,
+      });
+    },
+  );
+
+  Widget _connectionStatus(EngineRecord? prompt) {
+    final phase = session['connectionPhase'] as String? ?? 'server';
+    final failed =
+        row(session['progress'])['state'] == 'ERROR' ||
+        session['ended'] == true;
+    final title = failed
+        ? switch (phase) {
+            'hostKey' => '서버 키를 확인하지 못했습니다',
+            'authentication' => '로그인하지 못했습니다',
+            'ready' => '터미널을 열지 못했습니다',
+            _ => '서버에 연결하지 못했습니다',
+          }
+        : '${session['nickname'] ?? '서버'}에 연결하는 중';
+    final host = engine
+        .list('hosts')
+        .where((host) => host['id'] == session['hostId'])
+        .firstOrNull;
+    final details = [
+      ...?session['connectionLog'] as List?,
+      if (row(session['progress'])['message'] != null)
+        row(session['progress'])['message'],
+    ].join('\n');
+    return ConnectionStatusView(
+      record: session,
+      title: title,
+      address:
+          session['connectionHost'] as String? ??
+          session['uri'] as String? ??
+          '',
+      finalStage: '터미널 열기',
+      failed: failed,
+      failureHint: failed
+          ? switch (phase) {
+              'hostKey' => '저장된 서버 키와 서버 관리자가 알려 준 지문을 확인하세요.',
+              'authentication' =>
+                '사용자 이름과 인증 정보를 확인하세요. SSH 키를 사용한다면 서버에 공개키가 등록되어 있어야 합니다.',
+              _ => '서버 주소와 포트, 네트워크 연결을 확인하세요.',
+            }
+          : null,
+      prompt: prompt == null ? null : _loginPrompt(prompt),
+      actions: [
+        if (failed || tildePointer(context))
+          TextButton(
+            onPressed: () => showErrorDetails(
+              actionsContext,
+              details,
+              summary: failed ? title : '연결 기록',
+              retry: failed ? () => menu('reconnect') : null,
+            ),
+            child: Text(failed ? '자세히' : '연결 기록'),
+          ),
+        if (failed && host != null)
+          OutlinedButton(
+            onPressed: () => Navigator.push<void>(
+              actionsContext,
+              MaterialPageRoute(
+                builder: (_) => RecordEditor(
+                  engine: engine,
+                  kind: RecordKind.host,
+                  record: host,
+                ),
+              ),
+            ),
+            child: const Text('호스트 편집'),
+          ),
+        if (failed)
+          FilledButton(
+            onPressed: () => menu('reconnect'),
+            child: const Text('다시 시도'),
+          )
+        else
+          TextButton(
+            onPressed: () => leave(disconnect: true),
+            child: const Text('취소'),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final prefs = engine.preferences;
@@ -886,13 +979,17 @@ class ConsolePageState extends State<ConsolePage> {
     final progressVisible =
         progress.isNotEmpty && progress['state'] != 'HIDDEN';
     final showProgress = session['connecting'] == true || progressVisible;
+    final connectionLog = session['connectionLog'] as List?;
+    final showConnection = connectionLog != null;
     final desktop = _desktop;
     final showTitle =
         !widget.embedded &&
-        (desktop || !(titleHidden && prefs['titlebarhide'] == true));
+        (showConnection ||
+            prompt != null ||
+            desktop ||
+            !(titleHidden && prefs['titlebarhide'] == true));
     final toolbarHeight = showTitle ? (desktop ? 48.0 : 44.0) : 0.0;
-    final contentTop = toolbarHeight + (showProgress ? 2 : 0);
-    final connectionLog = session['connectionLog'] as List?;
+    final contentTop = toolbarHeight;
     final content = Theme(
       data: theme,
       child: Builder(
@@ -1204,27 +1301,13 @@ class ConsolePageState extends State<ConsolePage> {
                                   actions: [popup()],
                                 ),
                               ),
-                            if (connectionLog != null)
+                            if (showConnection)
                               Positioned.fill(
                                 top: contentTop,
                                 bottom: MediaQuery.viewInsetsOf(context).bottom,
                                 child: ColoredBox(
                                   color: background,
-                                  child: SingleChildScrollView(
-                                    padding: const EdgeInsets.all(16),
-                                    child: SelectableText(
-                                      [
-                                        ...connectionLog,
-                                        if (progress['state'] == 'ERROR')
-                                          progress['message'],
-                                      ].join('\n'),
-                                      style: TextStyle(
-                                        fontFamily: tildeMono,
-                                        color: theme.colorScheme.onSurface,
-                                        height: 1.5,
-                                      ),
-                                    ),
-                                  ),
+                                  child: _connectionStatus(prompt),
                                 ),
                               ),
                             Positioned(
@@ -1234,7 +1317,7 @@ class ConsolePageState extends State<ConsolePage> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  if (showProgress)
+                                  if (showProgress && !showConnection)
                                     LinearProgressIndicator(
                                       minHeight: 2,
                                       value:
@@ -1309,7 +1392,9 @@ class ConsolePageState extends State<ConsolePage> {
                                 ],
                               ),
                             ),
-                            if (prompt != null && commonSession != null)
+                            if (!showConnection &&
+                                prompt != null &&
+                                commonSession != null)
                               Positioned(
                                 left: 0,
                                 right: 0,
@@ -1326,27 +1411,11 @@ class ConsolePageState extends State<ConsolePage> {
                                         0.7,
                                   ),
                                   child: SingleChildScrollView(
-                                    child: TerminalPromptSurface(
-                                      key: ValueKey((id, prompt['token'])),
-                                      prompt: prompt,
-                                      enabled: visible == true,
-                                      onResponse: (value) async {
-                                        await runEngine(
-                                          actionsContext,
-                                          engine,
-                                          'prompt.respond',
-                                          {
-                                            'sessionId': prompt['sessionId'],
-                                            'token': prompt['token'],
-                                            'value': value,
-                                          },
-                                        );
-                                      },
-                                    ),
+                                    child: _loginPrompt(prompt),
                                   ),
                                 ),
                               ),
-                            if (ended)
+                            if (ended && !showConnection)
                               Positioned(
                                 left: 0,
                                 right: 0,

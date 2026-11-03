@@ -803,6 +803,14 @@ class FileBrowserListingState extends State<FileBrowserListing> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final wide = tildePointer(context) && constraints.maxWidth >= 900;
+      final desktop = tildePointer(context);
+      final horizontalPadding = desktop ? 12.0 : 16.0;
+      final leadingExtent = !desktop && _selected.isNotEmpty
+          ? 48.0
+          : desktop
+          ? 18.0
+          : 24.0;
+      final actionExtent = desktop ? 40.0 : 48.0;
       final entries = _visible;
       final list = LayoutBuilder(
         builder: (context, listConstraints) {
@@ -824,7 +832,12 @@ class FileBrowserListingState extends State<FileBrowserListing> {
                 children: [
                   if (widget.showToolbar)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        8,
+                        horizontalPadding,
+                        12,
+                      ),
                       child: Row(
                         children: [
                           Expanded(
@@ -934,9 +947,24 @@ class FileBrowserListingState extends State<FileBrowserListing> {
                             ),
                     ),
                   if (details)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(42, 0, 76, 0),
-                      child: Row(
+                    ListTile(
+                      minTileHeight: desktop ? 32 : 40,
+                      minVerticalPadding: 0,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                      ),
+                      minLeadingWidth: leadingExtent,
+                      horizontalTitleGap: 12,
+                      dense: desktop,
+                      leading: SizedBox(width: leadingExtent),
+                      trailing: SizedBox(width: actionExtent * 2),
+                      titleTextStyle: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                      title: Row(
                         children: [
                           Expanded(
                             child: InkWell(
@@ -984,6 +1012,7 @@ class FileBrowserListingState extends State<FileBrowserListing> {
                         ],
                       ),
                     ),
+                  const Divider(height: 1),
                   Expanded(
                     child: Focus(
                       focusNode: _listFocus,
@@ -1008,18 +1037,13 @@ class FileBrowserListingState extends State<FileBrowserListing> {
                               itemCount: entries.length,
                               itemBuilder: (context, index) {
                                 final entry = entries[index];
-                                final desktop = {
-                                  TargetPlatform.windows,
-                                  TargetPlatform.macOS,
-                                  TargetPlatform.linux,
-                                }.contains(Theme.of(context).platform);
                                 final tile = ListTile(
                                   minTileHeight: desktop ? 36 : 56,
                                   minVerticalPadding: desktop ? 0 : 4,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: horizontalPadding,
                                   ),
-                                  minLeadingWidth: 18,
+                                  minLeadingWidth: leadingExtent,
                                   horizontalTitleGap: 12,
                                   dense: desktop,
                                   selected: _selected.contains(entry.filename),
@@ -1027,25 +1051,29 @@ class FileBrowserListingState extends State<FileBrowserListing> {
                                       .colorScheme
                                       .primaryContainer
                                       .withValues(alpha: .4),
-                                  leading: _selected.isNotEmpty && !desktop
-                                      ? Checkbox(
-                                          value: _selected.contains(
-                                            entry.filename,
+                                  leading: SizedBox(
+                                    width: leadingExtent,
+                                    child: _selected.isNotEmpty && !desktop
+                                        ? Checkbox(
+                                            value: _selected.contains(
+                                              entry.filename,
+                                            ),
+                                            onChanged: (_) => _select(
+                                              entry,
+                                              toggle: true,
+                                              range: false,
+                                            ),
+                                          )
+                                        : Icon(
+                                            entry.attr.isDirectory
+                                                ? Icons.folder_outlined
+                                                : entry.attr.isSymbolicLink
+                                                ? Icons.link
+                                                : Icons
+                                                      .insert_drive_file_outlined,
+                                            size: desktop ? 18 : 24,
                                           ),
-                                          onChanged: (_) => _select(
-                                            entry,
-                                            toggle: true,
-                                            range: false,
-                                          ),
-                                        )
-                                      : Icon(
-                                          entry.attr.isDirectory
-                                              ? Icons.folder_outlined
-                                              : entry.attr.isSymbolicLink
-                                              ? Icons.link
-                                              : Icons
-                                                    .insert_drive_file_outlined,
-                                        ),
+                                  ),
                                   title: GestureDetector(
                                     onDoubleTap:
                                         desktop && _editing != entry.filename
@@ -1157,40 +1185,47 @@ class FileBrowserListingState extends State<FileBrowserListing> {
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        entry.attr.isDirectory
-                                            ? const Icon(Icons.chevron_right)
-                                            : IconButton(
-                                                tooltip: '다운로드',
-                                                onPressed:
-                                                    widget.onDownload == null
-                                                    ? null
-                                                    : () => widget.onDownload!(
-                                                        entry,
-                                                      ),
-                                                icon: const Icon(
-                                                  Icons.download_outlined,
-                                                ),
-                                              ),
-                                        Builder(
-                                          builder: (buttonContext) => IconButton(
-                                            tooltip: '${entry.filename} 작업',
-                                            icon: const Icon(Icons.more_vert),
-                                            onPressed: () {
-                                              final box =
-                                                  buttonContext
-                                                          .findRenderObject()!
-                                                      as RenderBox;
-                                              _menu(
-                                                context,
-                                                entry,
-                                                box.localToGlobal(
-                                                  Offset(
-                                                    box.size.width,
-                                                    box.size.height,
+                                        SizedBox(
+                                          width: actionExtent,
+                                          child: entry.attr.isDirectory
+                                              ? const Icon(Icons.chevron_right)
+                                              : IconButton(
+                                                  tooltip: '다운로드',
+                                                  onPressed:
+                                                      widget.onDownload == null
+                                                      ? null
+                                                      : () =>
+                                                            widget.onDownload!(
+                                                              entry,
+                                                            ),
+                                                  icon: const Icon(
+                                                    Icons.download_outlined,
                                                   ),
                                                 ),
-                                              );
-                                            },
+                                        ),
+                                        SizedBox(
+                                          width: actionExtent,
+                                          child: Builder(
+                                            builder: (buttonContext) => IconButton(
+                                              tooltip: '${entry.filename} 작업',
+                                              icon: const Icon(Icons.more_vert),
+                                              onPressed: () {
+                                                final box =
+                                                    buttonContext
+                                                            .findRenderObject()!
+                                                        as RenderBox;
+                                                _menu(
+                                                  context,
+                                                  entry,
+                                                  box.localToGlobal(
+                                                    Offset(
+                                                      box.size.width,
+                                                      box.size.height,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
                                           ),
                                         ),
                                       ],

@@ -346,7 +346,7 @@ ThemeData tildeTheme(
     tooltipTheme: const TooltipThemeData(
       waitDuration: Duration(milliseconds: 500),
     ),
-    iconTheme: IconThemeData(size: pointer ? 18 : 24),
+    iconTheme: IconThemeData(size: pointer ? 18 : 24, color: fg),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: s3,
       contentTextStyle: TextStyle(
