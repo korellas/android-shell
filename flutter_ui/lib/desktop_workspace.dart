@@ -1,6 +1,8 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
 import 'dart:async';
+import 'dart:math' as math;
+import 'windows_window_frame.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'console.dart';
@@ -63,6 +65,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
   bool _consuming = false;
   String? _hoverHost, _hoverTab;
   AndroidEngine get engine => widget.engine;
+  bool get nativeWindow => engine.state['platform'] == 'windows';
   _WorkspaceTab get active =>
       _tabs.firstWhere((t) => t.id == _active, orElse: () => _tabs.first);
   @override
@@ -566,13 +569,14 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
             padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
             child: Row(
               children: [
-                const Expanded(
-                  child: FittedBox(
-                    alignment: Alignment.centerLeft,
-                    fit: BoxFit.scaleDown,
-                    child: TildeWordmark(size: 23),
+                if (!nativeWindow)
+                  const Expanded(
+                    child: FittedBox(
+                      alignment: Alignment.centerLeft,
+                      fit: BoxFit.scaleDown,
+                      child: TildeWordmark(size: 23),
+                    ),
                   ),
-                ),
                 TextButton.icon(
                   onPressed: () => _edit(),
                   icon: const Icon(Icons.add, size: 18),
@@ -733,7 +737,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     _TabKind.document => Icons.description_outlined,
     _ => Icons.terminal_outlined,
   };
-  Widget _tabStrip(bool sidebar) {
+  Widget _tabStrip(bool sidebar, {Widget? dragRegion}) {
     return Container(
       height: 40,
       decoration: BoxDecoration(
@@ -743,116 +747,173 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          if (!sidebar)
-            IconButton(
-              tooltip: '호스트 목록 (Ctrl B)',
-              onPressed: () => setState(() => _showSidebar = true),
-              icon: const Icon(Icons.menu),
+      padding: dragRegion == null
+          ? EdgeInsets.zero
+          : const EdgeInsets.only(top: 4),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tabWidth = math.min(
+            _tabs.length * 180.0,
+            math.max(
+              0.0,
+              constraints.maxWidth -
+                  40 -
+                  88 -
+                  48 -
+                  (active.kind == _TabKind.terminal ? 40 : 0),
             ),
-          Expanded(
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final tab in _tabs)
-                  MouseRegion(
-                    onEnter: (_) => setState(() => _hoverTab = tab.id),
-                    onExit: (_) => setState(() => _hoverTab = null),
-                    child: Material(
-                      color: tab.id == _active
-                          ? Theme.of(context).colorScheme.surfaceContainerHigh
-                          : Colors.transparent,
-                      child: Semantics(
-                        key: ValueKey('workspace-tab-${tab.id}'),
-                        selected: tab.id == _active,
-                        child: InkWell(
-                          key: tab.id == _active ? _activeTabKey : null,
-                          onTap: () => _select(tab),
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              minWidth: 86,
-                              maxWidth: 210,
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 12),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(_icon(tab), size: 16),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      tab.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 13.5),
+          );
+          return Row(
+            children: [
+              if (!sidebar || dragRegion != null)
+                IconButton(
+                  tooltip: '호스트 목록 (Ctrl B)',
+                  onPressed: () => setState(() => _showSidebar = !sidebar),
+                  icon: dragRegion == null
+                      ? const Icon(Icons.menu)
+                      : const TildeMark(size: 28),
+                ),
+              Flexible(
+                fit: dragRegion == null ? FlexFit.tight : FlexFit.loose,
+                child: SizedBox(
+                  width: dragRegion == null ? null : tabWidth,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      for (final tab in _tabs)
+                        MouseRegion(
+                          onEnter: (_) => setState(() => _hoverTab = tab.id),
+                          onExit: (_) => setState(() => _hoverTab = null),
+                          child: Material(
+                            color: tab.id == _active
+                                ? (dragRegion == null
+                                      ? Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerHigh
+                                      : Theme.of(context).colorScheme.surface)
+                                : Colors.transparent,
+                            borderRadius: dragRegion == null
+                                ? null
+                                : const BorderRadius.vertical(
+                                    top: Radius.circular(8),
+                                  ),
+                            child: Semantics(
+                              key: ValueKey('workspace-tab-${tab.id}'),
+                              selected: tab.id == _active,
+                              child: InkWell(
+                                key: tab.id == _active ? _activeTabKey : null,
+                                onTap: () => _select(tab),
+                                child: ConstrainedBox(
+                                  constraints: dragRegion == null
+                                      ? const BoxConstraints(
+                                          minWidth: 86,
+                                          maxWidth: 210,
+                                        )
+                                      : const BoxConstraints.tightFor(
+                                          width: 180,
+                                        ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(left: 12),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _icon(tab),
+                                          size: 16,
+                                          color: dragRegion == null
+                                              ? null
+                                              : tab.id == _active
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.primary
+                                              : Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            tab.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 13.5,
+                                            ),
+                                          ),
+                                        ),
+                                        if (tab.dirty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              left: 8,
+                                            ),
+                                            child: Icon(
+                                              Icons.circle,
+                                              size: 6,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.tertiary,
+                                            ),
+                                          ),
+                                        if (tab.kind != _TabKind.home)
+                                          Opacity(
+                                            opacity:
+                                                tab.id == _active ||
+                                                    _hoverTab == tab.id
+                                                ? 1
+                                                : 0,
+                                            child: IconButton(
+                                              tooltip: '${tab.title} 탭 닫기',
+                                              onPressed: () => _close(tab),
+                                              icon: const Icon(
+                                                Icons.close,
+                                                size: 14,
+                                              ),
+                                            ),
+                                          )
+                                        else
+                                          const SizedBox(width: 12),
+                                      ],
                                     ),
                                   ),
-                                  if (tab.dirty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 8),
-                                      child: Icon(
-                                        Icons.circle,
-                                        size: 6,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.tertiary,
-                                      ),
-                                    ),
-                                  if (tab.kind != _TabKind.home)
-                                    Opacity(
-                                      opacity:
-                                          tab.id == _active ||
-                                              _hoverTab == tab.id
-                                          ? 1
-                                          : 0,
-                                      child: IconButton(
-                                        tooltip: '${tab.title} 탭 닫기',
-                                        onPressed: () => _close(tab),
-                                        icon: const Icon(Icons.close, size: 14),
-                                      ),
-                                    )
-                                  else
-                                    const SizedBox(width: 12),
-                                ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
+                    ],
                   ),
-              ],
-            ),
-          ),
-          Tooltip(
-            message: '새 탭 (Ctrl Shift T)',
-            child: TextButton.icon(
-              onPressed: () {
-                final host = engine
-                    .list('hosts')
-                    .where((h) => h['id'] == (active.hostId ?? _hostId))
-                    .firstOrNull;
-                if (host != null) {
-                  _connect(host, newSession: true);
-                } else {
-                  _searchFocus.requestFocus();
-                }
-              },
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('새 탭'),
-            ),
-          ),
-          if (active.kind == _TabKind.terminal)
-            Builder(
-              builder: (anchor) => IconButton(
-                tooltip: '터미널 메뉴',
-                onPressed: () => _console.currentState?.openMenu(anchor),
-                icon: const Icon(Icons.more_horiz),
+                ),
               ),
-            ),
-        ],
+              Tooltip(
+                message: '새 탭 (Ctrl Shift T)',
+                child: TextButton.icon(
+                  onPressed: () {
+                    final host = engine
+                        .list('hosts')
+                        .where((h) => h['id'] == (active.hostId ?? _hostId))
+                        .firstOrNull;
+                    if (host != null) {
+                      _connect(host, newSession: true);
+                    } else {
+                      _searchFocus.requestFocus();
+                    }
+                  },
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('새 탭'),
+                ),
+              ),
+              if (dragRegion != null) Expanded(child: dragRegion),
+              if (active.kind == _TabKind.terminal)
+                Builder(
+                  builder: (anchor) => IconButton(
+                    tooltip: '터미널 메뉴',
+                    onPressed: () => _console.currentState?.openMenu(anchor),
+                    icon: const Icon(Icons.more_horiz),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -873,69 +934,72 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     final terminal = active.kind == _TabKind.terminal;
     final pages = _tabs.where((t) => t.kind != _TabKind.terminal).toList();
     final currentRoute = ModalRoute.of(context)?.isCurrent ?? true;
-    return Focus(
-      autofocus: true,
-      onKeyEvent: _key,
-      child: Scaffold(
-        body: SafeArea(
-          child: Row(
+    final workspace = Row(
+      children: [
+        if (sidebar) ...[_sidebar(hosts), const VerticalDivider(width: 1)],
+        Expanded(
+          child: Column(
             children: [
-              if (sidebar) ...[
-                _sidebar(hosts),
-                const VerticalDivider(width: 1),
-              ],
+              if (!nativeWindow) _tabStrip(sidebar),
               Expanded(
-                child: Column(
+                child: IndexedStack(
+                  index: terminal ? 0 : pages.indexOf(active) + 1,
                   children: [
-                    _tabStrip(sidebar),
-                    Expanded(
-                      child: IndexedStack(
-                        index: terminal ? 0 : pages.indexOf(active) + 1,
-                        children: [
-                          _terminalId == null
-                              ? const SizedBox.shrink()
-                              : TickerMode(
-                                  enabled: terminal && currentRoute,
-                                  child: ConsolePage(
-                                    key: _console,
-                                    engine: engine,
-                                    sessionId: _terminalId!,
-                                    embedded: true,
-                                    startKeySetup:
-                                        _setupSessionId == _terminalId,
-                                    onKeySetupOpened: () =>
-                                        setState(() => _setupSessionId = null),
-                                    active: terminal && currentRoute,
-                                    onSelectSession: (id) {
-                                      final tab = _tabs
-                                          .where((t) => t.sessionId == id)
-                                          .firstOrNull;
-                                      if (tab != null) _select(tab);
-                                    },
-                                    onWorkspaceKey: _key,
-                                    onClose: () => _close(
-                                      _tabs.firstWhere(
-                                        (t) => t.sessionId == _terminalId,
-                                      ),
-                                    ),
-                                    onGoHome: () => _select(_tabs.first),
-                                  ),
+                    _terminalId == null
+                        ? const SizedBox.shrink()
+                        : TickerMode(
+                            enabled: terminal && currentRoute,
+                            child: ConsolePage(
+                              key: _console,
+                              engine: engine,
+                              sessionId: _terminalId!,
+                              embedded: true,
+                              startKeySetup: _setupSessionId == _terminalId,
+                              onKeySetupOpened: () =>
+                                  setState(() => _setupSessionId = null),
+                              active: terminal && currentRoute,
+                              onSelectSession: (id) {
+                                final tab = _tabs
+                                    .where((t) => t.sessionId == id)
+                                    .firstOrNull;
+                                if (tab != null) _select(tab);
+                              },
+                              onWorkspaceKey: _key,
+                              onClose: () => _close(
+                                _tabs.firstWhere(
+                                  (t) => t.sessionId == _terminalId,
                                 ),
-                          for (final tab in pages)
-                            TickerMode(
-                              enabled: active.id == tab.id,
-                              child: tab.kind == _TabKind.home
-                                  ? _home(host)
-                                  : tab.child ?? const SizedBox.shrink(),
+                              ),
+                              onGoHome: () => _select(_tabs.first),
                             ),
-                        ],
+                          ),
+                    for (final tab in pages)
+                      TickerMode(
+                        enabled: active.id == tab.id,
+                        child: tab.kind == _TabKind.home
+                            ? _home(host)
+                            : tab.child ?? const SizedBox.shrink(),
                       ),
-                    ),
                   ],
                 ),
               ),
             ],
           ),
+        ),
+      ],
+    );
+    return Focus(
+      autofocus: true,
+      onKeyEvent: _key,
+      child: Scaffold(
+        body: SafeArea(
+          child: nativeWindow
+              ? WindowsWindowFrame(
+                  titleBar: (dragRegion) =>
+                      _tabStrip(sidebar, dragRegion: dragRegion),
+                  child: workspace,
+                )
+              : workspace,
         ),
       ),
     );
