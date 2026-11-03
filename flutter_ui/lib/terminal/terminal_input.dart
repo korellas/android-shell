@@ -277,8 +277,13 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
 
     final text = _textAfterSentinel(value.text);
     // An IME can clear its entire buffer when canceling local preedit.
-    // Retraction of committed text is handled by an explicit composing range.
-    if (text.isNotEmpty) _sendCommitted(text);
+    // An intact iOS sentinel also permits deleting the last committed character.
+    if (text.isNotEmpty ||
+        (defaultTargetPlatform == TargetPlatform.iOS &&
+            !wasComposing &&
+            value.text == _initialValue.text)) {
+      _sendCommitted(text);
+    }
     if (!wasComposing &&
         value.text.length < _initialValue.text.length &&
         _committed.isEmpty) {
@@ -361,6 +366,20 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
         keyboard.isControlPressed ||
         keyboard.isAltPressed ||
         keyboard.isMetaPressed;
+    if (_connected &&
+        held == null &&
+        !modified &&
+        !_ctrl &&
+        !_alt &&
+        !_shift &&
+        !keyboard.isShiftPressed &&
+        defaultTargetPlatform == TargetPlatform.iOS &&
+        event.logicalKey == LogicalKeyboardKey.backspace &&
+        (_value.text.length > _initialValue.text.length ||
+            _value.composing.isValid)) {
+      // UIKit owns deletion within its editing buffer, including Hangul preedit.
+      return KeyEventResult.skipRemainingHandlers;
+    }
     final character =
         event.character ??
         (event.logicalKey.keyLabel.runes.length == 1

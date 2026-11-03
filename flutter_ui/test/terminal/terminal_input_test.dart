@@ -155,6 +155,72 @@ void main() {
     variant: const TargetPlatformVariant({TargetPlatform.iOS}),
   );
 
+  testWidgets(
+    'iOS hardware Backspace lets the IME revise and remove its text',
+    (tester) async {
+      await open(tester);
+      edit(tester, '한');
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      expect(output.join(), '한');
+      edit(tester, '하');
+      expect(output.join(), '한\x7f하');
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      edit(tester, 'ㅎ');
+      expect(output.join(), '한\x7f하\x7fㅎ');
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      edit(tester, '');
+      expect(output.join(), '한\x7f하\x7fㅎ\x7f');
+      output.clear();
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      expect(output.join(), '\x7f');
+      edit(tester, '한글');
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      edit(tester, '한');
+      expect(output.join(), '\x7f한글\x7f');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(output.join(), '\x7f한글\x7f\r');
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+  );
+
+  testWidgets(
+    'iOS hardware Backspace preserves marked preedit',
+    (tester) async {
+      await open(tester);
+      edit(tester, '한', composingStart: 0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      expect(output, isEmpty);
+      expect(input.composingText, '한');
+      edit(tester, '하', composingStart: 0);
+      expect(input.composingText, '하');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(output.join(), '하\r');
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+  );
+
+  testWidgets(
+    'iOS modified Backspace retains terminal key encoding',
+    (tester) async {
+      await open(tester);
+      final expected = <String>['한'];
+      final reference = Terminal(onOutput: expected.add);
+      edit(tester, '한');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      reference.keyInput(TerminalKey.backspace, ctrl: true);
+      expect(output, expected);
+      edit(tester, '글');
+      expected.add('글');
+      input.setModifiers(alt: true);
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      reference.keyInput(TerminalKey.backspace, alt: true);
+      expect(output, expected);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+  );
+
   testWidgets('committed prefix is sent while the next syllable composes', (
     tester,
   ) async {
