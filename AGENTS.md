@@ -38,3 +38,22 @@ Do not overwrite unrelated local changes. Keep edits scoped to the requested beh
 ## CI Verification
 
 The reusable CI workflow owns the required task selection. Flutter checks and AAR builds run in its `flutter` job; Android consumers restore that job's Maven repository artifact. Common JVM tests run on OSS; Google runs its language-pack-specific unit tests. Both variants retain unit coverage, lint, release builds, lifecycle and migration device checks. Device variants run sequentially on one emulator. Code changes also run repository formatting, so a separate docs job is needed only for documentation-only changes.
+
+## Mink Store Distribution
+
+신규 배포와 앱 업데이트 완료에는 검증, 서명된 단일 APK 빌드, 개인용 Mink Store 등록 및 등록 확인까지 포함한다. 배포 전에 `/Users/korellas/git/appstore/AGENTS.md`를 읽는다. 기존 로컬 변경을 보존하고 GitHub Release나 직접 APK 전달 대신 Mink Store로 배포한다.
+
+기존 배포 APK의 applicationId와 서명 인증서를 유지한다. Tilde의 배포 패키지는 `dev.korellas.androidshell.flutter.debug`이며 release 빌드도 기존 suffix를 유지한다. `app/build.gradle.kts`의 `appVersioning.overrideVersionCode`를 스토어 및 기존 배포 APK의 versionCode보다 높인다. Git 커밋 수에만 의존해 업데이트 버전을 정하지 않는다.
+
+배포 키는 기존 APK의 인증서와 대조한다. 기존 키가 없거나 일치하지 않으면 배포를 중단하고 사용자에게 알린다. 새 키 생성, 다른 키로 재서명, 기기 앱 삭제로 해결하지 않는다. 기존 Android Debug 인증서로 배포한 APK를 업데이트할 때도 해당 기존 키를 그대로 사용한다. 키와 비밀번호는 Git이나 보고서에 기록하지 않는다.
+
+`flutter analyze`, `flutter test`, 관련 Gradle 단위 테스트, lint 및 형식을 검증한다. Flutter 변경은 위의 Android·iPad 빌드 지침도 따른다. 기존 키를 Gradle의 `keystoreFile`, `keystoreAlias`, `keystorePassword` 속성으로 전달하고 `./scripts/build-flutter-android.sh release`로 release AAR와 OSS host APK를 함께 빌드한다. 서명 속성은 로컬 환경에서 제공하고, 키 파일이 실제로 존재하는지 먼저 확인한다. AAB나 분할 APK 대신 `app/build/outputs/apk/oss/release/app-oss-release.apk`를 사용하고 APK에서 패키지, versionCode, 앱 이름과 서명을 검증한다.
+
+이 맥에서 실제 APK 절대 경로와 변경 내용을 사용해 실행한다.
+
+```sh
+/Users/korellas/git/appstore/storectl publish /Users/korellas/git/android_shell/app/build/outputs/apk/oss/release/app-oss-release.apk --name "Tilde" --notes "변경 내용"
+/Users/korellas/git/appstore/storectl list
+```
+
+목록에서 패키지, versionCode와 서명 인증서를 빌드 결과와 대조한다. 서버 재시작이나 휴대폰 접속 키 전달은 필요하지 않다. 사용자 접속·다운로드·보고서 링크는 항상 `korellas-mac.mink.lan`에 서비스의 포트와 경로를 붙인다. 컴파일, 서명, 스토어 등록, 기기 설치·실행 검증 결과는 구분해 보고한다.
