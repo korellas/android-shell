@@ -29,6 +29,14 @@ try {
         Copy-Item -LiteralPath (Join-Path $runtime $library) -Destination $bundle
     }
     Copy-Item -LiteralPath 'windows\runner\resources\app_icon.ico' -Destination (Join-Path $bundle 'Tilde.ico')
+    Copy-Item -LiteralPath '..\flutter_ui\assets\licenses\THIRD_PARTY_NOTICES.txt' -Destination $bundle
+    $licenseDirectory = Join-Path $bundle 'licenses'
+    New-Item -ItemType Directory -Path $licenseDirectory -Force | Out-Null
+    Copy-Item -LiteralPath '..\flutter_ui\assets\licenses\Microsoft-VC-Runtime.docx' -Destination $licenseDirectory
+    foreach ($notice in @('Pretendard-LICENSE.txt', 'JetBrainsMono-OFL.txt', 'D2Coding-OFL.txt')) {
+        Copy-Item -LiteralPath (Join-Path '..\flutter_ui\assets\fonts' $notice) -Destination $licenseDirectory
+    }
+    Copy-Item -LiteralPath '..\flutter_ui\assets\licenses\sources' -Destination $licenseDirectory -Recurse
     New-Item -ItemType Directory -Path artifacts -Force | Out-Null
     Compress-Archive -Path "$bundle\*" -DestinationPath 'artifacts\Tilde-Windows.zip' -Force
     Write-Output 'Built artifacts\Tilde-Windows.zip. Extract the whole archive and run Tilde.exe.'

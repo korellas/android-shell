@@ -1599,14 +1599,19 @@ class HelpPage extends StatelessWidget {
     String section,
     String title,
   ) async {
-    final value = await runEngine(context, engine, 'help.document', {
-      'section': section,
-    });
+    final bundle = DefaultAssetBundle.of(context);
+    final prefix = engine.state['platform'] == 'windows'
+        ? 'packages/android_shell_ui/'
+        : '';
+    final document = section == 'license'
+        ? bundle.loadString('${prefix}assets/licenses/THIRD_PARTY_NOTICES.txt')
+        : runEngine(context, engine, 'help.document', {'section': section});
+    final value = await document;
     if (value == null || !context.mounted) return;
     var text = '$value';
     if (section == 'license') {
       text +=
-          '\n\n${await rootBundle.loadString('assets/fonts/Pretendard-LICENSE.txt')}\n\n${await rootBundle.loadString('assets/fonts/JetBrainsMono-OFL.txt')}\n\n${await rootBundle.loadString('assets/fonts/D2Coding-OFL.txt')}';
+          '\n\n${await bundle.loadString('${prefix}assets/fonts/Pretendard-LICENSE.txt')}\n\n${await bundle.loadString('${prefix}assets/fonts/JetBrainsMono-OFL.txt')}\n\n${await bundle.loadString('${prefix}assets/fonts/D2Coding-OFL.txt')}';
     }
     if (!context.mounted) return;
     await Navigator.push<void>(

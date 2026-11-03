@@ -21,6 +21,9 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 flutter:
   assets:
+    - assets/licenses/THIRD_PARTY_NOTICES.txt
+    - assets/licenses/Microsoft-VC-Runtime.docx
+    - assets/licenses/sources/
     - assets/fonts/Pretendard-LICENSE.txt
     - assets/fonts/JetBrainsMono-OFL.txt
     - assets/fonts/D2Coding-OFL.txt
