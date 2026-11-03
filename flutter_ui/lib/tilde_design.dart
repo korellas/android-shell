@@ -346,7 +346,7 @@ ThemeData tildeTheme(
     tooltipTheme: const TooltipThemeData(
       waitDuration: Duration(milliseconds: 500),
     ),
-    iconTheme: IconThemeData(size: pointer ? 18 : 24),
+    iconTheme: IconThemeData(size: pointer ? 18 : 24, color: fg),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: s3,
       contentTextStyle: TextStyle(
@@ -698,3 +698,120 @@ Future<T?> showTildeSheet<T>({
 
 EdgeInsets tildeToastInsets(double width) =>
     EdgeInsets.fromLTRB(16, 0, width >= 840 ? width - 436 : 16, 16);
+
+class TildeWelcome extends StatelessWidget {
+  const TildeWelcome({
+    super.key,
+    required this.onAdd,
+    required this.onQuickConnect,
+    required this.onKey,
+    required this.keyLabel,
+  });
+  final VoidCallback onAdd, onQuickConnect, onKey;
+  final String keyLabel;
+  @override
+  Widget build(BuildContext context) {
+    final pointer = tildePointer(context);
+    final theme = Theme.of(context);
+    Widget action(
+      String title,
+      String? subtitle,
+      IconData icon,
+      VoidCallback tap, {
+      bool primary = false,
+    }) => Material(
+      color: primary
+          ? theme.colorScheme.surfaceContainerHigh
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        leading: Icon(
+          icon,
+          color: primary
+              ? theme.colorScheme.primary
+              : theme.colorScheme.onSurfaceVariant,
+        ),
+        title: Text(title),
+        subtitle: subtitle == null ? null : Text(subtitle),
+        trailing: const Icon(Icons.chevron_right, size: 18),
+        onTap: tap,
+      ),
+    );
+    return Center(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.all(pointer ? 40 : 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: TildeMark(size: 56),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '첫 서버를 연결하세요',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                pointer
+                    ? '호스트를 저장해 두면 다음부터 더블클릭으로 접속합니다.'
+                    : '저장해 두면 다음부터 탭 한 번으로 접속합니다.',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 24),
+              if (!pointer) ...[
+                FilledButton.icon(
+                  onPressed: onAdd,
+                  icon: const Icon(Icons.add),
+                  label: const Text('새 호스트'),
+                ),
+                const SizedBox(height: 16),
+              ],
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    if (pointer)
+                      action(
+                        '새 호스트',
+                        '주소 · 사용자 · 인증을 저장',
+                        Icons.add,
+                        onAdd,
+                        primary: true,
+                      ),
+                    action(
+                      pointer ? '바로 접속' : '주소로 바로 접속',
+                      pointer ? '검색칸에 ssh user@host 입력 후 Enter' : null,
+                      Icons.bolt_outlined,
+                      onQuickConnect,
+                    ),
+                    action(
+                      keyLabel,
+                      pointer ? 'id_ed25519 같은 개인키 파일' : null,
+                      Icons.key_outlined,
+                      onKey,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

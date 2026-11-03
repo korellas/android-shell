@@ -22,6 +22,14 @@ typedef AppSshTransportFactory =
       required SshPty pty,
     });
 
+enum SshConnectionPhase { server, hostKey, authentication, ready }
+
+typedef SshSystemIdentityLoader =
+    Future<List<SSHIdentity>> Function(
+      Map<String, dynamic> configuration,
+      Future<String> Function(String path) askPassphrase,
+    );
+
 Map<String, dynamic> _map(Object? value) =>
     value is Map ? Map<String, dynamic>.from(value) : {};
 List<Map<String, dynamic>> _maps(Object? value) =>
@@ -36,6 +44,7 @@ class AppSshSession implements AppTerminalSession {
     required this.onChanged,
     this.onNotification,
     this.loadStoredIdentities,
+    this.loadSystemIdentities,
     this.lookupStoredKey,
     AppSshTransportFactory? transportFactory,
   }) : _factory = transportFactory ?? SshSession.new {
@@ -75,6 +84,7 @@ class AppSshSession implements AppTerminalSession {
   final AppSshTransportFactory _factory;
   final Future<List<SSHIdentity>> Function({required int id})?
   loadStoredIdentities;
+  final SshSystemIdentityLoader? loadSystemIdentities;
   final Map<String, dynamic>? Function(int id)? lookupStoredKey;
   final _trustedHostKeys = <String, (String, String)>{};
   List<SshEndpoint> _connectedEndpoints = [];
@@ -99,6 +109,22 @@ class AppSshSession implements AppTerminalSession {
   late double _fontSize;
   final _banners = <Map<String, dynamic>>[];
   List<String>? _connectionLog;
+  SshConnectionPhase _connectionPhase = SshConnectionPhase.server;
+  final _connectionClock = Stopwatch();
+  final _connectionDurations = <String, int>{};
+  int _phaseStarted = 0;
+  String? _connectionHost;
+
+  void _setConnectionPhase(SshConnectionPhase phase) {
+    final elapsed = _connectionClock.elapsedMilliseconds;
+    if (phase == _connectionPhase) return;
+    _connectionDurations[_connectionPhase.name] = elapsed - _phaseStarted;
+    _phaseStarted = elapsed;
+    _connectionPhase = phase;
+    if (phase == SshConnectionPhase.ready) _connectionClock.stop();
+    _changed();
+  }
+
   final _modifiers = {'ctrl': 'OFF', 'alt': 'OFF', 'shift': 'OFF'};
   Future<void> _output = Future.value(), _input = Future.value();
   Future<void>? _disconnecting;
@@ -140,6 +166,9 @@ class AppSshSession implements AppTerminalSession {
       'disconnectReason': _disconnectReason,
       'connecting': connecting,
       'connectionLog': _connectionLog?.toList(),
+      'connectionPhase': _connectionPhase.name,
+      'connectionHost': _connectionHost,
+      'connectionDurations': {..._connectionDurations},
       'ended': ended,
       'awaitingClose': ended,
       'canForward': connected,
@@ -168,6 +197,7 @@ class AppSshSession implements AppTerminalSession {
       !_disposed && !_closing && !ended && generation == _generation;
   void _failed(Object error, [StackTrace? stack]) {
     if (_disposed || _closing) return;
+    _connectionClock.stop();
     _error = '$error';
 
     _changed();
@@ -301,6 +331,15 @@ class AppSshSession implements AppTerminalSession {
           ),
         );
       }
+      if (loadSystemIdentities != null) {
+        final system = await loadSystemIdentities!(
+          config,
+          (path) =>
+              askString('SSH 개인키 암호', hint: path.split(RegExp(r'[/\\]')).last),
+        );
+        if (!_current(generation)) throw const SshKeyAuthenticationCancelled();
+        identities.addAll(system);
+      }
       return identities;
     }
 
@@ -308,6 +347,14 @@ class AppSshSession implements AppTerminalSession {
       host: target['hostname'] as String,
       port: target['port'] as int? ?? 22,
       username: target['username'] as String? ?? '',
+      onConnectStart: () {
+        if (!_current(generation)) return;
+        _connectionHost = '${target['hostname']}:${target['port'] ?? 22}';
+        _connectionDurations.clear();
+        _connectionPhase = SshConnectionPhase.server;
+        _phaseStarted = _connectionClock.elapsedMilliseconds;
+        _changed();
+      },
       onProgress: (message) {
         if (!_current(generation) || _connectionLog == null) return;
         _connectionLog!.add(message);
@@ -321,6 +368,8 @@ class AppSshSession implements AppTerminalSession {
         _ => SshIpVersion.any,
       },
       verifyHostKey: (algorithm, fingerprint) async {
+        if (!_current(generation)) return false;
+        _setConnectionPhase(SshConnectionPhase.hostKey);
         final args = <String, Object?>{
           'id': target['id'],
           'hostname': target['hostname'],
@@ -331,6 +380,7 @@ class AppSshSession implements AppTerminalSession {
         final check = _map(await platform('ssh.checkHost', args));
         if (!_current(generation)) return false;
         if (check['status'] == 'match') {
+          _setConnectionPhase(SshConnectionPhase.authentication);
           _trustedHostKeys['${target['hostname']}:${target['port'] ?? 22}'] = (
             algorithm,
             utf8.decode(fingerprint),
@@ -347,10 +397,10 @@ class AppSshSession implements AppTerminalSession {
           return false;
         }
         final accepted = await _ask({
-          'type': 'boolean',
-          'instructions': '서버 키 신뢰 확인',
-          'message':
-              '${target['hostname']}:${target['port'] ?? 22}\n$algorithm\n${args['fingerprint']}\n이 서버 키를 신뢰할까요?',
+          'type': 'hostKey',
+          'hostname': '${target['hostname']}:${target['port'] ?? 22}',
+          'keyType': algorithm,
+          'sha256': args['fingerprint'],
         }, generation);
         if (accepted != true || !_current(generation)) return false;
         await platform('ssh.saveHost', {...args, 'accept': true});
@@ -359,6 +409,9 @@ class AppSshSession implements AppTerminalSession {
             algorithm,
             utf8.decode(fingerprint),
           );
+        }
+        if (_current(generation)) {
+          _setConnectionPhase(SshConnectionPhase.authentication);
         }
         return _current(generation);
       },
@@ -416,6 +469,13 @@ class AppSshSession implements AppTerminalSession {
     _trustedHostKeys.clear();
     _state = SshSessionState.connecting;
     _connectionLog = ['SSH 로그인 준비 중'];
+    _connectionPhase = SshConnectionPhase.server;
+    _connectionHost = null;
+    _connectionDurations.clear();
+    _phaseStarted = 0;
+    _connectionClock
+      ..reset()
+      ..start();
     _error = null;
     _disconnectReason = null;
     _transportCloseReason = null;
@@ -446,7 +506,10 @@ class AppSshSession implements AppTerminalSession {
               );
             } else {
               _state = state;
-              if (state == SshSessionState.connected) _connectionLog = null;
+              if (state == SshSessionState.connected) {
+                _setConnectionPhase(SshConnectionPhase.ready);
+                _connectionLog = null;
+              }
               _changed();
             }
           }

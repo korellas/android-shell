@@ -27,6 +27,14 @@ class FlutterWindow : public Win32Window {
                          LPARAM const lparam) noexcept override;
 
  private:
+  bool custom_frame_ = false;
+  bool active_ = true;
+  bool maximize_hovered_ = false;
+  RECT drag_region_ = {}, maximize_region_ = {};
+  LRESULT FrameHitTest(LPARAM position);
+  void SendWindowState();
+  static LRESULT CALLBACK ViewWindowProc(HWND window, UINT message,
+      WPARAM wparam, LPARAM lparam, UINT_PTR id, DWORD_PTR reference);
   bool fullscreen_ = false;
   LONG_PTR window_style_ = 0;
   WINDOWPLACEMENT window_placement_ = {};

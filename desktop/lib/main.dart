@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'windows_platform.dart';
 import 'windows_secrets.dart';
+import 'windows_system_keys.dart';
 import 'windows_file_drag.dart';
 import 'windows_aes_gcm.dart';
 import 'package:android_shell_ui/ssh/ssh_session.dart';
@@ -76,6 +77,7 @@ Future<void> main() async {
             }
           },
           identityLoader: platform.identities,
+          systemIdentityLoader: loadWindowsSystemKeys,
         ),
       ),
     ),

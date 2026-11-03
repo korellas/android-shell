@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
+import 'package:android_shell_ui/main.dart' show ShellHome;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:android_shell_ui/engine.dart';
 import 'package:android_shell_ui/ssh/ssh_session.dart';
@@ -147,6 +149,8 @@ void main() {
           ? <String, dynamic>{}
           : Map<String, dynamic>.from(call.arguments as Map);
       switch (call.method) {
+        case 'font.bytes':
+          return {};
         case 'session.visibility':
           return null;
         case 'snapshot':
@@ -238,8 +242,10 @@ void main() {
     );
   });
   tearDown(() async {
-    await engine.query('session.disconnectAll');
-    engine.dispose();
+    if (!engine.isDisposed) {
+      await engine.query('session.disconnectAll');
+      engine.dispose();
+    }
     await Future<void>.delayed(Duration.zero);
     messenger.setMockMethodCallHandler(AndroidEngine.channel, null);
     messenger.setMockMethodCallHandler(runtime, null);
@@ -309,6 +315,36 @@ void main() {
       expect(transports.last.password, 'fresh-password');
       expect(engine.sshSession(first)!.record['connectionGeneration'], 1);
     },
+  );
+
+  testWidgets(
+    'desktop new tab creates a second live SSH session for the same host',
+    (tester) async {
+      tester.view.physicalSize = const Size(920, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.runAsync(() async {
+        await engine.refresh();
+        final first = await engine.query('connect', {'id': 1}) as int;
+        await waitConnected(first);
+      });
+      await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('새 탭 (Ctrl Shift T)'));
+      await tester.pumpAndSettle();
+      expect(engine.list('sessions'), hasLength(2));
+      expect(transports, hasLength(2));
+      expect(transports.every((transport) => transport.sessionOpen), isTrue);
+      expect(find.text('host · 1'), findsOneWidget);
+      expect(find.text('host · 2'), findsOneWidget);
+      expect(engine.state['selectedSession'], isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      engine.dispose();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
 
   test(

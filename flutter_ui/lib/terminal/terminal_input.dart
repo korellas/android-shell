@@ -35,7 +35,7 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
   bool _alt = false;
   bool _shift = false;
   Object? _pasteGuardOwner;
-  Future<bool> Function(String text)? _pasteGuard;
+  Future<String?> Function(String text)? _pasteGuard;
   String stickyModifiers = 'no';
   final _hardwareModifiers = <PhysicalKeyboardKey, (bool, bool, bool)>{};
   bool get ctrl => _ctrl;
@@ -144,7 +144,7 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
 
   void installPasteGuard(
     Object owner,
-    Future<bool> Function(String text) guard,
+    Future<String?> Function(String text) guard,
   ) {
     _pasteGuardOwner = owner;
     _pasteGuard = guard;
@@ -158,12 +158,13 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
 
   Future<void> _pasteAfterConfirmation(
     String text,
-    Future<bool> Function(String text) guard,
+    Future<String?> Function(String text) guard,
   ) async {
-    if (!await guard(text) || !_canSend || !identical(_pasteGuard, guard)) {
+    final approved = await guard(text);
+    if (approved == null || !_canSend || !identical(_pasteGuard, guard)) {
       return;
     }
-    terminal.paste(text);
+    terminal.paste(approved);
   }
 
   void finishComposition() {
@@ -276,16 +277,22 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
 
     final text = _textAfterSentinel(value.text);
     // An IME can clear its entire buffer when canceling local preedit.
-    // Retraction of committed text is handled by an explicit composing range.
-    if (text.isNotEmpty) _sendCommitted(text);
+    // An intact iOS sentinel also permits deleting the last committed character.
+    if (text.isNotEmpty ||
+        (defaultTargetPlatform == TargetPlatform.iOS &&
+            !wasComposing &&
+            value.text == _initialValue.text)) {
+      _sendCommitted(text);
+    }
     if (!wasComposing &&
         value.text.length < _initialValue.text.length &&
         _committed.isEmpty) {
       terminal.keyInput(TerminalKey.backspace);
     }
-    if (defaultTargetPlatform == TargetPlatform.windows) {
-      // Windows can end and restart composing between syllables while keeping
-      // the same native text buffer. Resetting it races those queued updates.
+    if (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.iOS) {
+      // Native IMEs can revise inserted text between composition updates.
+      // iOS hardware input also uses selection edits without a composing range.
       _setComposing('');
     } else {
       _reset();
@@ -359,6 +366,20 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
         keyboard.isControlPressed ||
         keyboard.isAltPressed ||
         keyboard.isMetaPressed;
+    if (_connected &&
+        held == null &&
+        !modified &&
+        !_ctrl &&
+        !_alt &&
+        !_shift &&
+        !keyboard.isShiftPressed &&
+        defaultTargetPlatform == TargetPlatform.iOS &&
+        event.logicalKey == LogicalKeyboardKey.backspace &&
+        (_value.text.length > _initialValue.text.length ||
+            _value.composing.isValid)) {
+      // UIKit owns deletion within its editing buffer, including Hangul preedit.
+      return KeyEventResult.skipRemainingHandlers;
+    }
     final character =
         event.character ??
         (event.logicalKey.keyLabel.runes.length == 1

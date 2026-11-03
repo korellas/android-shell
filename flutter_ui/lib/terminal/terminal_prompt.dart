@@ -54,7 +54,7 @@ class _TerminalPromptState extends State<TerminalPrompt> {
     final hostKey = prompt['type'] == 'hostKey';
     final biometric = prompt['type'] == 'biometric';
     final instructions = hostKey
-        ? '${prompt['hostname']} 서버 키 확인'
+        ? '처음 연결하는 서버입니다'
         : biometric
         ? '생체인증'
         : '${prompt['instructions'] ?? ''}';
@@ -112,7 +112,15 @@ class _TerminalPromptState extends State<TerminalPrompt> {
               )
             else ...[
               if (hostKey) ...[
-                Text('${prompt['keyType']} ${prompt['keySize']}'),
+                const Text('서버 관리자가 알려 준 지문과 같은지 확인하세요.'),
+                const SizedBox(height: 16),
+                Text(
+                  '${prompt['hostname']}',
+                  style: const TextStyle(fontFamily: tildeMono),
+                ),
+                Text(
+                  '${prompt['keyType']}${prompt['keySize'] == null ? '' : ' · ${prompt['keySize']}'}',
+                ),
                 const SizedBox(height: 8),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,11 +146,14 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                 tildeSegments(
                   context,
                   '지문 형식',
-                  const [
-                    ('sha256', 'SHA-256'),
-                    ('md5', 'MD5'),
-                    ('randomArt', '그림'),
-                    ('bubblebabble', '단어'),
+                  [
+                    for (final option in const [
+                      ('sha256', 'SHA-256'),
+                      ('md5', 'MD5'),
+                      ('randomArt', '그림'),
+                      ('bubblebabble', '단어'),
+                    ])
+                      if ('${prompt[option.$1] ?? ''}'.isNotEmpty) option,
                   ],
                   fingerprint,
                   enabled
@@ -159,7 +170,6 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                     ),
                   },
                 ),
-                const Text('이 서버 키를 신뢰하고 계속할까요?'),
               ] else
                 Text(
                   biometric

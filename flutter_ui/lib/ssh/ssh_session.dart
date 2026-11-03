@@ -26,6 +26,7 @@ class SshEndpoint {
     this.onPasswordChange,
     this.onBanner,
     this.onProgress,
+    this.onConnectStart,
     this.preferredAuthMethods,
     this.ipVersion = SshIpVersion.any,
     this.compression = false,
@@ -46,6 +47,7 @@ class SshEndpoint {
   final SSHChangePasswordRequestHandler? onPasswordChange;
   final SSHUserauthBannerHandler? onBanner;
   final void Function(String)? onProgress;
+  final void Function()? onConnectStart;
   final List<SSHAuthMethod>? preferredAuthMethods;
   final SshIpVersion ipVersion;
   final bool compression;
@@ -188,6 +190,7 @@ class SshSession {
     try {
       for (final endpoint in endpoints) {
         _checkOpen();
+        endpoint.onConnectStart?.call();
         endpoint.onProgress?.call('${endpoint.host}:${endpoint.port} 연결 중');
         final socket = _clients.isEmpty
             ? await _connectSocket(endpoint)

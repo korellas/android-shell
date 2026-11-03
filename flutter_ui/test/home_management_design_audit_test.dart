@@ -241,7 +241,7 @@ void main() {
       engine.state['hosts'] = [];
       await open(tester, ShellHome(engine: engine), width, 2);
       await capture(tester, 'home-empty-${width.toInt()}-2.0');
-      expect(find.text('호스트 추가'), findsOneWidget);
+      expect(find.text('새 호스트'), findsOneWidget);
       expect(find.byTooltip('빠른 연결'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

@@ -199,85 +199,101 @@ class TerminalPaneState extends State<TerminalPane> {
     if (_cursorDragging) setState(() => _cursorDragging = false);
   }
 
-  Future<bool> _confirmPaste(String text) async {
-    if (!mounted) return false;
+  Future<String?> _confirmPaste(String text) async {
+    if (!mounted) return null;
     final normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
     final lines = math.max(
       1,
       normalized.split('\n').length - (normalized.endsWith('\n') ? 1 : 0),
     );
-    return await showTildeSheet<bool>(
+    var omitTrailingEnter = false;
+    final accepted =
+        await showTildeSheet<bool>(
           context: context,
           isScrollControlled: true,
-          builder: (c) => SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  '$lines줄을 붙여 넣을까요?',
-                  style: Theme.of(c).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  lines > 1
-                      ? '$lines개 줄을 터미널에 붙여넣으면 명령이 즉시 실행될 수 있습니다.'
-                      : '제어 문자가 포함되어 있어 터미널 동작이나 명령 실행을 유발할 수 있습니다.',
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(c).colorScheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(10),
+          builder: (c) => StatefulBuilder(
+            builder: (c, change) => SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '$lines줄을 붙여 넣을까요?',
+                    style: Theme.of(c).textTheme.titleLarge,
                   ),
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        for (final (index, line)
-                            in normalized.split('\n').take(6).indexed) ...[
-                          TextSpan(text: line),
-                          if (index < normalized.split('\n').length - 1)
-                            TextSpan(
-                              text: '⏎\n',
-                              style: TextStyle(
-                                color: Theme.of(c).colorScheme.tertiary,
+                  const SizedBox(height: 12),
+                  Text(
+                    lines > 1
+                        ? '$lines개 줄을 터미널에 붙여넣으면 명령이 즉시 실행될 수 있습니다.'
+                        : '제어 문자가 포함되어 있어 터미널 동작이나 명령 실행을 유발할 수 있습니다.',
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(c).colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          for (final (index, line)
+                              in normalized.split('\n').take(6).indexed) ...[
+                            TextSpan(text: line),
+                            if (index < normalized.split('\n').length - 1)
+                              TextSpan(
+                                text: '⏎\n',
+                                style: TextStyle(
+                                  color: Theme.of(c).colorScheme.tertiary,
+                                ),
                               ),
-                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                    maxLines: 6,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: tildeMono,
-                      fontFamilyFallback: tildeMonoFallback,
-                      fontSize: 13,
-                      height: 1.6,
+                      ),
+                      maxLines: 6,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: tildeMono,
+                        fontFamilyFallback: tildeMonoFallback,
+                        fontSize: 13,
+                        height: 1.6,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(c, false),
-                      child: const Text('취소'),
+                  if (normalized.endsWith('\n'))
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('마지막 Enter 빼고 붙여넣기'),
+                      value: omitTrailingEnter,
+                      onChanged: (value) =>
+                          change(() => omitTrailingEnter = value == true),
                     ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(c, true),
-                      child: Text('$lines줄 붙여넣기'),
-                    ),
-                  ],
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(c, false),
+                        child: const Text('취소'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(c, true),
+                        child: Text('$lines줄 붙여넣기'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ) ??
         false;
+    if (!accepted) return null;
+    return omitTrailingEnter
+        ? normalized.replaceFirst(RegExp(r'\n+$'), '')
+        : text;
   }
 
   void resize({int? rows, int? columns}) {
