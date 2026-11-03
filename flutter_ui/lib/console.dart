@@ -944,7 +944,7 @@ class ConsolePageState extends State<ConsolePage> {
     final storedFont =
         commonSession?.profile['fontFamily'] as String? ??
         prefs['fontFamily'] as String? ??
-        'MONOSPACE';
+        'D2CODING';
     final scheme = session.containsKey('backgroundColor')
         ? session
         : {

@@ -215,7 +215,9 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
         "font.bytes" -> withContext(activity.dispatchers.io) {
             val stored = args.text("name")
             val googleName = TerminalFont.getGoogleFontName(stored)
-            if (googleName == "JetBrains Mono") {
+            if (googleName == "D2Coding") {
+                mapOf("family" to "D2Coding")
+            } else if (googleName == "JetBrains Mono") {
                 mapOf("family" to "JetBrainsMono")
             } else if (LocalFontProvider.isLocalFont(stored)) {
                 val fileName = requireNotNull(LocalFontProvider.getLocalFontFileName(stored))

@@ -65,6 +65,9 @@ class TerminalFontProvider(
         }
 
         val cacheKey = googleFontName.lowercase()
+        if (googleFontName == "D2Coding") {
+            return@withContext fontCache.getOrPut(cacheKey) { Typeface.createFromAsset(context.assets, "fonts/D2Coding-Regular.ttf") }
+        }
         if (googleFontName == "JetBrains Mono") {
             return@withContext fontCache.getOrPut(cacheKey) { Typeface.createFromAsset(context.assets, "fonts/JetBrainsMono-Regular.ttf") }
         }

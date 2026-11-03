@@ -14,14 +14,18 @@ import 'package:android_shell_ui/ssh/ssh_session.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  for (final (family, asset) in [
-    ('Pretendard', 'Pretendard-Regular.ttf'),
-    ('JetBrainsMono', 'JetBrainsMono-Regular.ttf'),
+  for (final (family, assets) in [
+    ('Pretendard', ['Pretendard-Regular.ttf']),
+    ('JetBrainsMono', ['JetBrainsMono-Regular.ttf']),
+    ('D2Coding', ['D2Coding-Regular.ttf', 'D2Coding-Bold.ttf']),
   ]) {
-    await (FontLoader(family)..addFont(
-          rootBundle.load('packages/android_shell_ui/assets/fonts/$asset'),
-        ))
-        .load();
+    final loader = FontLoader(family);
+    for (final asset in assets) {
+      loader.addFont(
+        rootBundle.load('packages/android_shell_ui/assets/fonts/$asset'),
+      );
+    }
+    await loader.load();
   }
   final root = Platform.environment['APPDATA'];
   if (root == null) throw StateError('Windows 사용자 데이터 폴더가 없습니다.');

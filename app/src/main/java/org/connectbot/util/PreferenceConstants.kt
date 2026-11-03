@@ -94,7 +94,7 @@ object PreferenceConstants {
 
     /* Font settings */
     const val FONT_FAMILY: String = "fontFamily"
-    const val FONT_FAMILY_DEFAULT: String = "JETBRAINS_MONO"
+    const val FONT_FAMILY_DEFAULT: String = "D2CODING"
     const val CUSTOM_FONTS: String = "customFonts"
 
     /* Theme */

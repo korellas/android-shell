@@ -14,8 +14,9 @@ import 'engine.dart';
 const tildeName = 'Tilde';
 // Built-in preset IDs are preserved when presets are appended.
 const tildeBaseSchemeIds = {-1, -9};
-const tildeMono = 'JetBrainsMono';
+const tildeMono = 'D2Coding';
 const tildeMonoFallback = <String>[
+  'D2Coding',
   'Pretendard',
   'Noto Sans CJK KR',
   'Apple SD Gothic Neo',
