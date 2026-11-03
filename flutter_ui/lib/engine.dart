@@ -36,12 +36,15 @@ class AndroidEngine extends ChangeNotifier {
   AndroidEngine({
     AppSshTransportFactory? sshTransportFactory,
     SshPlatformCall? platformCall,
+    SshSystemIdentityLoader? systemIdentityLoader,
     Future<List<SSHIdentity>> Function({required int id})? identityLoader,
   }) : _sshTransportFactory = sshTransportFactory,
        _platformCall = platformCall,
+       _systemIdentityLoader = systemIdentityLoader,
        _identityLoader = identityLoader;
   final AppSshTransportFactory? _sshTransportFactory;
   final SshPlatformCall? _platformCall;
+  final SshSystemIdentityLoader? _systemIdentityLoader;
   final Future<List<SSHIdentity>> Function({required int id})? _identityLoader;
   static const channel = MethodChannel('dev.korellas.androidshell/engine');
   static const events = EventChannel('dev.korellas.androidshell/events');
@@ -103,6 +106,7 @@ class AndroidEngine extends ChangeNotifier {
       platform: _platformQuery,
       onChanged: onChanged,
       loadStoredIdentities: _keys.identities,
+      loadSystemIdentities: _systemIdentityLoader,
       transportFactory: _sshTransportFactory,
     );
   }
@@ -142,10 +146,10 @@ class AndroidEngine extends ChangeNotifier {
     });
   }
 
-  void _publishSessions() {
+  void _publishSessions({bool notify = true}) {
     if (_closed) return;
     _mergeState();
-    notifyListeners();
+    if (notify) notifyListeners();
     final sessions = _runtimeRows();
     _runtimeUpdates = _runtimeUpdates
         .then((_) async {
@@ -180,7 +184,7 @@ class AndroidEngine extends ChangeNotifier {
   ];
 
   Future<void> _runtimeHook(String method, EngineRecord args) {
-    _publishSessions();
+    _publishSessions(notify: false);
     final operation = _runtimeUpdates.then((_) async {
       if (!_closed) await _platformQuery(method, args);
     });
@@ -381,6 +385,7 @@ class AndroidEngine extends ChangeNotifier {
                 onChanged: _sessionChanged,
                 onNotification: notify,
                 loadStoredIdentities: _keys.identities,
+                loadSystemIdentities: _systemIdentityLoader,
                 lookupStoredKey: (id) =>
                     list('keys').where((key) => key['id'] == id).firstOrNull,
               ));

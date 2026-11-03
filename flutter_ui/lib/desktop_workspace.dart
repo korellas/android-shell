@@ -814,20 +814,23 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
               ],
             ),
           ),
-          IconButton(
-            tooltip: '새 세션 (Ctrl Shift T)',
-            onPressed: () {
-              final host = engine
-                  .list('hosts')
-                  .where((h) => h['id'] == (active.hostId ?? _hostId))
-                  .firstOrNull;
-              if (host != null) {
-                _connect(host, newSession: true);
-              } else {
-                _searchFocus.requestFocus();
-              }
-            },
-            icon: const Icon(Icons.add, size: 18),
+          Tooltip(
+            message: '새 탭 (Ctrl Shift T)',
+            child: TextButton.icon(
+              onPressed: () {
+                final host = engine
+                    .list('hosts')
+                    .where((h) => h['id'] == (active.hostId ?? _hostId))
+                    .firstOrNull;
+                if (host != null) {
+                  _connect(host, newSession: true);
+                } else {
+                  _searchFocus.requestFocus();
+                }
+              },
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('새 탭'),
+            ),
           ),
           if (active.kind == _TabKind.terminal)
             Builder(

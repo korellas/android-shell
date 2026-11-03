@@ -22,6 +22,12 @@ typedef AppSshTransportFactory =
       required SshPty pty,
     });
 
+typedef SshSystemIdentityLoader =
+    Future<List<SSHIdentity>> Function(
+      Map<String, dynamic> configuration,
+      Future<String> Function(String path) askPassphrase,
+    );
+
 Map<String, dynamic> _map(Object? value) =>
     value is Map ? Map<String, dynamic>.from(value) : {};
 List<Map<String, dynamic>> _maps(Object? value) =>
@@ -36,6 +42,7 @@ class AppSshSession implements AppTerminalSession {
     required this.onChanged,
     this.onNotification,
     this.loadStoredIdentities,
+    this.loadSystemIdentities,
     this.lookupStoredKey,
     AppSshTransportFactory? transportFactory,
   }) : _factory = transportFactory ?? SshSession.new {
@@ -75,6 +82,7 @@ class AppSshSession implements AppTerminalSession {
   final AppSshTransportFactory _factory;
   final Future<List<SSHIdentity>> Function({required int id})?
   loadStoredIdentities;
+  final SshSystemIdentityLoader? loadSystemIdentities;
   final Map<String, dynamic>? Function(int id)? lookupStoredKey;
   final _trustedHostKeys = <String, (String, String)>{};
   List<SshEndpoint> _connectedEndpoints = [];
@@ -300,6 +308,15 @@ class AppSshSession implements AppTerminalSession {
             id: key['id'] as int,
           ),
         );
+      }
+      if (loadSystemIdentities != null) {
+        final system = await loadSystemIdentities!(
+          config,
+          (path) =>
+              askString('SSH 개인키 암호', hint: path.split(RegExp(r'[/\\]')).last),
+        );
+        if (!_current(generation)) throw const SshKeyAuthenticationCancelled();
+        identities.addAll(system);
       }
       return identities;
     }

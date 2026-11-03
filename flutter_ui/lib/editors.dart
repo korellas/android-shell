@@ -347,7 +347,12 @@ class _RecordEditorState extends State<RecordEditor> {
           key['id'],
           '${key['nickname']}${key['supported'] == false ? ' (DSA 미지원)' : ''}',
         ),
-      (-1, '사용 가능한 키 모두 시도'),
+      (
+        -1,
+        engine.state['platform'] == 'windows'
+            ? 'Windows 기본 키와 등록한 키'
+            : '사용 가능한 키 모두 시도',
+      ),
       (-2, '키 쓰지 않음'),
     ],
     draft['pubkeyId'] ?? -1,
