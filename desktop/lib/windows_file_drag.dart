@@ -18,14 +18,17 @@ class WindowsFileDrag extends StatelessWidget {
     this.chooseDirectory,
     this.readSetting,
     this.writeSetting,
+    this.revealFolder,
   });
   final Future<String?> Function()? chooseDirectory;
   final Future<Object?> Function(String)? readSetting;
   final Future<void> Function(String, Object)? writeSetting;
+  final Future<void> Function(String)? revealFolder;
   final Widget child;
   @override
   Widget build(BuildContext context) => FileDragScope(
     chooseDirectory: chooseDirectory,
+    revealFolder: revealFolder,
     readSetting: readSetting,
     writeSetting: writeSetting,
     readLocalFiles: () async {

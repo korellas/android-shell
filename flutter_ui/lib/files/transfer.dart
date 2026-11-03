@@ -4,6 +4,21 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:dartssh2/dartssh2.dart';
+
+String fileFailureSummary(Object error) => error is SftpStatusError
+    ? switch (error.code) {
+        SftpStatusCode.permissionDenied => '서버에서 접근 권한을 거부했습니다.',
+        SftpStatusCode.noSuchFile => '파일이나 폴더가 더 이상 없습니다.',
+        SftpStatusCode.connectionLost ||
+        SftpStatusCode.noConnection => '서버 연결이 끊겼습니다.',
+        _ => '서버에서 작업을 완료하지 못했습니다.',
+      }
+    : error is StateError
+    ? error.message.toString()
+    : error is SocketException
+    ? '서버 연결을 확인하세요.'
+    : '파일 작업을 완료하지 못했습니다.';
 
 class TransferCancelled implements Exception {
   @override

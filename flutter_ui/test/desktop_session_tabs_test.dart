@@ -164,7 +164,7 @@ void main() {
       await engine.refresh();
       await tester.pumpAndSettle();
       expect(find.byType(ConsolePage, skipOffstage: false), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('session-tab-101')));
+      await tester.tap(find.byKey(const ValueKey('workspace-tab-session-101')));
       await tester.pumpAndSettle();
       await engine.refresh();
       await tester.pumpAndSettle();
@@ -219,7 +219,9 @@ void main() {
       expect(find.byType(ConsolePage, skipOffstage: false), findsOneWidget);
       expect(
         tester
-            .widget<Semantics>(find.byKey(const ValueKey('session-tab-102')))
+            .widget<Semantics>(
+              find.byKey(const ValueKey('workspace-tab-session-102')),
+            )
             .properties
             .selected,
         isTrue,

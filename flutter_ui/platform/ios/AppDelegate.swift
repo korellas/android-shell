@@ -100,6 +100,15 @@ private final class IosPlatform: NSObject, UIDocumentPickerDelegate {
                 }
                 return FlutterStandardTypedData(bytes: data)
             }
+        case "openUrl":
+            guard let text = args["url"] as? String, let url = URL(string: text),
+                  ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") else {
+                result(FlutterError(code: "invalid_url", message: "지원하지 않는 링크입니다.", details: nil))
+                return
+            }
+            UIApplication.shared.open(url, options: [:]) { opened in
+                result(opened ? nil : FlutterError(code: "open_url", message: "링크를 열 수 없습니다.", details: nil))
+            }
         case "openFile":
             present(UIDocumentPickerViewController(documentTypes: ["public.data"], in: .import), result: result)
         case "saveFile":

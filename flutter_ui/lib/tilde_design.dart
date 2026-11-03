@@ -7,6 +7,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'engine.dart';
 
@@ -14,6 +15,22 @@ const tildeName = 'Tilde';
 // Built-in preset IDs are preserved when presets are appended.
 const tildeBaseSchemeIds = {-1, -9};
 const tildeMono = 'JetBrainsMono';
+const tildeMonoFallback = <String>[
+  'Pretendard',
+  'Noto Sans CJK KR',
+  'Apple SD Gothic Neo',
+  'Malgun Gothic',
+  'sans-serif',
+];
+bool tildeUsesPointer(TargetPlatform platform) => switch (platform) {
+  TargetPlatform.windows ||
+  TargetPlatform.macOS ||
+  TargetPlatform.linux => true,
+  _ => false,
+};
+bool tildePointer(BuildContext context) =>
+    tildeUsesPointer(Theme.of(context).platform);
+
 const tildeNightBackground = Color(0xff13110f);
 const tildeDayBackground = Color(0xfff6f5f0);
 const tildeTide = Color(0xff6fd8c4);
@@ -26,6 +43,7 @@ ThemeData tildeTheme(
   EngineRecord? terminalScheme,
 }) {
   final dark = brightness == Brightness.dark;
+  final pointer = tildeUsesPointer(defaultTargetPlatform);
   final profiles = engine.list('profiles');
   final profile = profiles
       .where((p) => p['id'] == engine.preferences['defaultProfileId'])
@@ -128,7 +146,7 @@ ThemeData tildeTheme(
     fontFamilyFallback: const ['Pretendard'],
   );
   final inputShape = RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(12),
+    borderRadius: BorderRadius.circular(pointer ? 10 : 12),
   );
   return base.copyWith(
     scaffoldBackgroundColor: bg,
@@ -145,10 +163,13 @@ ThemeData tildeTheme(
         fontSize: 17,
         fontWeight: FontWeight.w600,
       ),
-      bodyLarge: base.textTheme.bodyLarge!.copyWith(fontSize: 15, height: 1.4),
+      bodyLarge: base.textTheme.bodyLarge!.copyWith(
+        fontSize: pointer ? 14 : 15,
+        height: 1.4,
+      ),
       bodyMedium: base.textTheme.bodyMedium!.copyWith(
-        fontSize: 13,
-        height: 18 / 13,
+        fontSize: pointer ? 14 : 15,
+        height: 1.4,
       ),
       bodySmall: base.textTheme.bodySmall!.copyWith(
         fontSize: 12.5,
@@ -166,7 +187,7 @@ ThemeData tildeTheme(
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      toolbarHeight: 56,
+      toolbarHeight: pointer ? 48 : 56,
       titleTextStyle: TextStyle(
         fontFamily: 'Pretendard',
         fontSize: 18,
@@ -175,10 +196,10 @@ ThemeData tildeTheme(
       ),
     ),
     listTileTheme: ListTileThemeData(
-      minTileHeight: 56,
+      minTileHeight: pointer ? 36 : 56,
       titleTextStyle: TextStyle(
         fontFamily: 'Pretendard',
-        fontSize: 15,
+        fontSize: pointer ? 14 : 15,
         fontWeight: FontWeight.w400,
         height: 1.4,
         color: fg,
@@ -190,7 +211,10 @@ ThemeData tildeTheme(
         color: muted,
       ),
       iconColor: muted,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: pointer ? 0 : 4,
+      ),
       selectedTileColor: selected,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
@@ -205,7 +229,13 @@ ThemeData tildeTheme(
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: s2,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      isDense: pointer,
+      visualDensity: VisualDensity.standard,
+      constraints: BoxConstraints(minHeight: pointer ? 38 : 48),
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: pointer ? 9 : 12,
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(color: line),
@@ -223,20 +253,29 @@ ThemeData tildeTheme(
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        minimumSize: const Size(0, 48),
+        minimumSize: Size(0, pointer ? 36 : 48),
+        tapTargetSize: pointer
+            ? MaterialTapTargetSize.shrinkWrap
+            : MaterialTapTargetSize.padded,
         shape: inputShape,
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        minimumSize: const Size(0, 48),
+        minimumSize: Size(0, pointer ? 36 : 48),
+        tapTargetSize: pointer
+            ? MaterialTapTargetSize.shrinkWrap
+            : MaterialTapTargetSize.padded,
         shape: inputShape,
         side: BorderSide(color: line),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        minimumSize: const Size(0, 48),
+        minimumSize: Size(0, pointer ? 36 : 48),
+        tapTargetSize: pointer
+            ? MaterialTapTargetSize.shrinkWrap
+            : MaterialTapTargetSize.padded,
         shape: inputShape,
       ),
     ),
@@ -250,12 +289,19 @@ ThemeData tildeTheme(
     ),
     popupMenuTheme: PopupMenuThemeData(
       color: s3,
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 12,
+      shadowColor: Colors.black.withValues(alpha: .55),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: dark ? const Color(0xff3e3b37) : line),
+      ),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: s1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      barrierColor: Colors.black.withValues(alpha: .6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(pointer ? 12 : 24),
+      ),
     ),
     chipTheme: base.chipTheme.copyWith(
       backgroundColor: s2,
@@ -266,6 +312,8 @@ ThemeData tildeTheme(
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(
+        minimumSize: WidgetStatePropertyAll(Size(0, pointer ? 36 : 48)),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected) ? selected : s2,
         ),
@@ -287,8 +335,18 @@ ThemeData tildeTheme(
       ),
     ),
     iconButtonTheme: IconButtonThemeData(
-      style: IconButton.styleFrom(minimumSize: const Size(44, 44)),
+      style: IconButton.styleFrom(
+        minimumSize: Size.square(pointer ? 32 : 44),
+        padding: EdgeInsets.all(pointer ? 6 : 10),
+        tapTargetSize: pointer
+            ? MaterialTapTargetSize.shrinkWrap
+            : MaterialTapTargetSize.padded,
+      ),
     ),
+    tooltipTheme: const TooltipThemeData(
+      waitDuration: Duration(milliseconds: 500),
+    ),
+    iconTheme: IconThemeData(size: pointer ? 18 : 24),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: s3,
       contentTextStyle: TextStyle(
@@ -592,13 +650,18 @@ Future<T?> showTildeSheet<T>({
   bool showDragHandle = true,
   double maxWidth = 440,
 }) {
-  if (MediaQuery.sizeOf(context).width < 840) {
+  if (!tildePointer(context)) {
     return showModalBottomSheet<T>(
       context: context,
       builder: builder,
       isScrollControlled: isScrollControlled,
       useSafeArea: useSafeArea,
       showDragHandle: showDragHandle,
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width > 640
+            ? 640
+            : double.infinity,
+      ),
     );
   }
   return showDialog<T>(
@@ -608,7 +671,26 @@ Future<T?> showTildeSheet<T>({
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: Padding(
         padding: const EdgeInsets.only(top: 24),
-        child: builder(c),
+        child: Theme(
+          data: Theme.of(c).copyWith(
+            filledButtonTheme: FilledButtonThemeData(
+              style: Theme.of(c).filledButtonTheme.style?.copyWith(
+                minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
+              ),
+            ),
+            outlinedButtonTheme: OutlinedButtonThemeData(
+              style: Theme.of(c).outlinedButtonTheme.style?.copyWith(
+                minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
+              ),
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: Theme.of(c).textButtonTheme.style?.copyWith(
+                minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
+              ),
+            ),
+          ),
+          child: builder(c),
+        ),
       ),
     ),
   );

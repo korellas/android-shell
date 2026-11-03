@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:xterm2/xterm.dart';
 
 import 'terminal_input.dart';
+import '../tilde_design.dart';
 
 class TerminalInputView extends StatefulWidget {
   const TerminalInputView({
@@ -24,6 +25,7 @@ class TerminalInputView extends StatefulWidget {
     this.autofocus = true,
     this.autoResize = true,
     this.onKeyEvent,
+    this.onOpenUrl,
     this.onRequestKeyboard,
     this.paintExtension,
   });
@@ -42,6 +44,7 @@ class TerminalInputView extends StatefulWidget {
   final bool autofocus;
   final bool autoResize;
   final FocusOnKeyEventCallback? onKeyEvent;
+  final ValueChanged<String>? onOpenUrl;
   final VoidCallback? onRequestKeyboard;
   final TerminalPaintExtension? paintExtension;
 
@@ -184,6 +187,12 @@ class _TerminalInputViewState extends State<TerminalInputView> {
               final data = await Clipboard.getData(Clipboard.kTextPlain);
               if (mounted && data?.text != null) {
                 widget.input.paste(data!.text!);
+              }
+            },
+            onHyperlinkTap: (url) {
+              if (tildePointer(context) &&
+                  HardwareKeyboard.instance.isControlPressed) {
+                widget.onOpenUrl?.call(url);
               }
             },
             onTapUp: (_, cell) {

@@ -105,11 +105,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('이름 변경'), findsOneWidget);
       expect(
-        tester
-            .widget<PopupMenuItem<FileAction>>(
-              find.widgetWithText(PopupMenuItem<FileAction>, '이름 변경'),
-            )
-            .enabled,
+        tester.widget<ListTile>(find.widgetWithText(ListTile, '이름 변경')).enabled,
         isFalse,
       );
       expect(find.text('정보'), findsOneWidget);
@@ -123,10 +119,17 @@ void main() {
     expect(find.text('.secret'), findsNothing);
     expect(find.text('.config'), findsNothing);
     expect(find.text('수정일'), findsOneWidget);
+    expect(find.text('1000'), findsNothing);
+    expect(find.text('100'), findsNothing);
+    expect(find.text('rw-r--r--'), findsOneWidget);
+    await tester.tap(find.text('보기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('소유자 UID'));
+    await tester.pumpAndSettle();
     expect(find.text('1000'), findsOneWidget);
-    expect(find.text('100'), findsOneWidget);
-    expect(find.text('0644'), findsOneWidget);
-    await tester.tap(find.byType(SwitchListTile));
+    await tester.tap(find.text('보기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('숨김 파일·폴더 표시'));
     await tester.pumpAndSettle();
     expect(find.text('.secret'), findsOneWidget);
     expect(find.text('.config'), findsOneWidget);
@@ -137,9 +140,12 @@ void main() {
     tester,
   ) async {
     await show(tester, const Size(1400, 900));
-    await tester.tap(find.byType(DropdownButtonFormField<FileSort>));
+    await tester.tap(find.text('보기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('크기').last);
+    await tester.tap(find.text('크기순'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('보기'));
+    await tester.pumpAndSettle();
     await tester.pumpAndSettle();
     await tester.tap(find.text('내림차순'));
     await tester.pumpAndSettle();
@@ -155,7 +161,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('alpha.txt'), findsNothing);
     expect(find.text('beta.txt'), findsOneWidget);
-    expect(find.text('1 / 5개 항목'), findsOneWidget);
+    expect(find.text('1개 항목 · 4개 숨김/필터'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'missing');
     await tester.pumpAndSettle();
     expect(find.text('조건에 맞는 파일이 없습니다.'), findsOneWidget);
@@ -166,11 +172,10 @@ void main() {
   ) async {
     await show(tester, const Size(390, 740));
     expect(find.text('숨김 파일·폴더 표시'), findsNothing);
-    await tester.tap(find.byTooltip('보기 및 정렬'));
+    await tester.tap(find.text('보기'));
     await tester.pumpAndSettle();
     expect(find.text('숨김 파일·폴더 표시'), findsOneWidget);
-    await tester.tap(find.byType(SwitchListTile));
-    await tester.tap(find.byTooltip('닫기'));
+    await tester.tap(find.text('숨김 파일·폴더 표시'));
     await tester.pumpAndSettle();
     expect(find.text('.secret'), findsOneWidget);
     expect(tester.takeException(), isNull);

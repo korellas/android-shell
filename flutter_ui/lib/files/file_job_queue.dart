@@ -7,7 +7,8 @@ import 'transfer.dart';
 enum FileJobState { pending, running, succeeded, failed, cancelled }
 
 class FileJob {
-  FileJob(this.label, this.target, this.run, this.paths);
+  FileJob(this.label, this.target, this.run, this.paths, {this.reveal});
+  final Future<void> Function()? reveal;
   bool retryable = true;
   final String label, target;
   final Future<void> Function(FileJob) run;
@@ -37,8 +38,9 @@ class FileJobQueue extends ChangeNotifier {
     Future<void> Function(FileJob) run, {
     Set<String> paths = const {},
     bool retryable = true,
+    Future<void> Function()? reveal,
   }) {
-    final job = FileJob(label, target, run, {...paths, target});
+    final job = FileJob(label, target, run, {...paths, target}, reveal: reveal);
     job.retryable = retryable;
     jobs.add(job);
     changed();

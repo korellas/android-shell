@@ -3,7 +3,6 @@
 
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -25,6 +24,7 @@ class TerminalPane extends StatefulWidget {
     this.focusNode,
     this.enabled = true,
     this.onShare,
+    this.onOpenUrl,
     this.onSwipe,
     this.onKeyEvent,
     this.pageGesture = false,
@@ -53,6 +53,7 @@ class TerminalPane extends StatefulWidget {
   final FocusNode? focusNode;
   final bool enabled;
   final void Function(String)? onShare;
+  final ValueChanged<String>? onOpenUrl;
   final ValueChanged<int>? onSwipe;
   final FocusOnKeyEventCallback? onKeyEvent;
   final bool pageGesture;
@@ -201,7 +202,10 @@ class TerminalPaneState extends State<TerminalPane> {
   Future<bool> _confirmPaste(String text) async {
     if (!mounted) return false;
     final normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    final lines = '\n'.allMatches(normalized).length + 1;
+    final lines = math.max(
+      1,
+      normalized.split('\n').length - (normalized.endsWith('\n') ? 1 : 0),
+    );
     return await showTildeSheet<bool>(
           context: context,
           isScrollControlled: true,
@@ -212,7 +216,7 @@ class TerminalPaneState extends State<TerminalPane> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  '위험할 수 있는 내용 붙여넣기',
+                  '$lines줄을 붙여 넣을까요?',
                   style: Theme.of(c).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 12),
@@ -228,12 +232,27 @@ class TerminalPaneState extends State<TerminalPane> {
                     color: Theme.of(c).colorScheme.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(
-                    normalized.replaceAll('\n', '⏎\n'),
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        for (final (index, line)
+                            in normalized.split('\n').take(6).indexed) ...[
+                          TextSpan(text: line),
+                          if (index < normalized.split('\n').length - 1)
+                            TextSpan(
+                              text: '⏎\n',
+                              style: TextStyle(
+                                color: Theme.of(c).colorScheme.tertiary,
+                              ),
+                            ),
+                        ],
+                      ],
+                    ),
                     maxLines: 6,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontFamily: tildeMono,
+                      fontFamilyFallback: tildeMonoFallback,
                       fontSize: 13,
                       height: 1.6,
                     ),
@@ -250,7 +269,7 @@ class TerminalPaneState extends State<TerminalPane> {
                     const SizedBox(width: 8),
                     FilledButton(
                       onPressed: () => Navigator.pop(c, true),
-                      child: const Text('붙여넣기'),
+                      child: Text('$lines줄 붙여넣기'),
                     ),
                   ],
                 ),
@@ -492,6 +511,7 @@ class TerminalPaneState extends State<TerminalPane> {
                 keyboardEnabled: widget.enabled,
                 autoResize: _autoResize,
                 onKeyEvent: _keyEvent,
+                onOpenUrl: widget.onOpenUrl,
                 onRequestKeyboard: () {
                   if (!_keyboardVisible) {
                     toggleKeyboard();
@@ -508,8 +528,7 @@ class TerminalPaneState extends State<TerminalPane> {
           ),
         ),
       ),
-      if (defaultTargetPlatform != TargetPlatform.windows &&
-          defaultTargetPlatform != TargetPlatform.macOS)
+      if (!tildePointer(context))
         Visibility(
           visible: widget.enabled && (_keysVisible || widget.alwaysVisibleKeys),
           maintainState: true,

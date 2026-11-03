@@ -22,6 +22,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm2/xterm.dart';
+import '../tilde_design.dart';
+import '../tilde_controls.dart';
 
 class TerminalActions extends StatefulWidget {
   const TerminalActions({
@@ -65,6 +67,7 @@ class _TerminalActionsState extends State<TerminalActions> {
   bool _refreshPending = false;
   bool _forceRefresh = false;
   bool _draggingHandle = false;
+  bool _blockMode = false;
   Offset? _handleDragOffset;
   EdgeDraggingAutoScroller? _autoScroller;
   ScrollableState? _autoScrollOwner;
@@ -656,7 +659,8 @@ class _TerminalActionsState extends State<TerminalActions> {
           onPointerCancel: _releasePointer,
           child: widget.child,
         ),
-        if (widget.enabled &&
+        if (!tildePointer(context) &&
+            widget.enabled &&
             selection != null &&
             !selection.isCollapsed &&
             geometry != null) ...[
@@ -684,7 +688,8 @@ class _TerminalActionsState extends State<TerminalActions> {
               ),
             ),
         ],
-        if (widget.enabled &&
+        if (!tildePointer(context) &&
+            widget.enabled &&
             widget.inputEnabled &&
             (selection == null || selection.isCollapsed) &&
             _contextPoint != null)
@@ -719,7 +724,94 @@ class _TerminalActionsState extends State<TerminalActions> {
     _longPressTimer?.cancel();
   }
 
+  Future<void> _pointerMenu(Offset position) async {
+    final selected = _selection != null && !_selection!.isCollapsed;
+    final action = await TildeItemMenu.show<String>(
+      context,
+      title: '',
+      icon: Icons.terminal_outlined,
+      position: position,
+      itemBuilder: (_) => [
+        if (selected)
+          const PopupMenuItem(
+            value: 'copy',
+            child: TildeMenuLabel(
+              '복사',
+              Icons.content_copy_outlined,
+              shortcut: 'Ctrl Shift C',
+            ),
+          ),
+        if (widget.inputEnabled)
+          const PopupMenuItem(
+            value: 'paste',
+            child: TildeMenuLabel(
+              '붙여넣기',
+              Icons.content_paste_outlined,
+              shortcut: 'Ctrl Shift V',
+            ),
+          ),
+        if (selected && widget.inputEnabled)
+          const PopupMenuItem(
+            value: 'edit',
+            child: TildeMenuLabel('편집 후 전송', Icons.edit_note_outlined),
+          ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: 'all',
+          child: TildeMenuLabel('전체 선택', Icons.select_all),
+        ),
+        PopupMenuItem(
+          value: 'block',
+          child: TildeMenuLabel(
+            '블록 선택',
+            Icons.view_column_outlined,
+            selected: _blockMode,
+            shortcut: 'Alt Drag',
+          ),
+        ),
+        if (selected)
+          const PopupMenuItem(
+            value: 'clear',
+            child: TildeMenuLabel('선택 해제', Icons.close, shortcut: 'Esc'),
+          ),
+      ],
+    );
+    if (!mounted || !widget.enabled) return;
+    switch (action) {
+      case 'copy':
+        await _copy();
+      case 'paste':
+        await _paste();
+      case 'edit':
+        await _edit();
+      case 'all':
+        _selectRows(0, widget.terminal.buffer.height - 1);
+      case 'clear':
+        widget.controller.clearSelection();
+      case 'block':
+        _blockMode = !_blockMode;
+        widget.controller.setSelectionMode(
+          _blockMode ? SelectionMode.block : SelectionMode.line,
+        );
+    }
+  }
+
   void _recordPointer(PointerEvent event) {
+    if (tildePointer(context)) {
+      if (event is PointerDownEvent && widget.enabled) {
+        if (event.buttons == kSecondaryMouseButton) {
+          unawaited(_pointerMenu(event.position));
+        }
+        if (event.buttons == kPrimaryMouseButton) {
+          widget.controller.setSelectionMode(
+            _blockMode || HardwareKeyboard.instance.isAltPressed
+                ? SelectionMode.block
+                : SelectionMode.line,
+          );
+        }
+      }
+      return;
+    }
     if (event is PointerDownEvent) {
       _pressedPointers.add(event.pointer);
       _longPressTimer?.cancel();

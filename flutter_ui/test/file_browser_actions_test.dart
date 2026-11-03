@@ -1,7 +1,6 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
 import 'package:android_shell_ui/files/file_browser.dart';
-import 'package:android_shell_ui/files/file_browser_listing.dart';
 import 'package:android_shell_ui/ssh/app_session.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
@@ -66,12 +65,8 @@ void main() {
   Future<void> action(WidgetTester tester, String label) async {
     await tester.tap(find.byTooltip('old.txt 작업'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(PopupMenuItem<FileAction>),
-        matching: find.text(label),
-      ),
-    );
+    await tester.ensureVisible(find.text(label).last);
+    await tester.tap(find.text(label).last);
     await tester.pumpAndSettle();
   }
 
@@ -80,13 +75,13 @@ void main() {
     (tester) async {
       await show(tester);
       await action(tester, '삭제');
-      expect(find.text('삭제 확인'), findsOneWidget);
+      expect(find.text('1개 항목을 영구 삭제할까요?'), findsOneWidget);
       expect(files.removed, isEmpty);
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
       expect(files.removed, isEmpty);
       await action(tester, '삭제');
-      await tester.tap(find.widgetWithText(FilledButton, '삭제'));
+      await tester.tap(find.widgetWithText(FilledButton, '영구 삭제'));
       await tester.pumpAndSettle();
       expect(files.removed, ['/home/old.txt']);
       expect(find.text('old.txt'), findsNothing);
@@ -108,13 +103,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('새 이름.txt'), findsOneWidget);
       expect(files.allowedOverwrite, isFalse);
-      await tester.tap(find.byTooltip('새 폴더'));
+      await tester.tap(find.widgetWithText(TextButton, '새 폴더'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField), '새 폴더');
       await tester.tap(find.text('만들기'));
       await tester.pumpAndSettle();
       expect(files.nodes['/home/새 폴더']?.isDirectory, isTrue);
-      expect(find.text('새 폴더'), findsOneWidget);
+      expect(find.text('새 폴더'), findsWidgets);
       expect(tester.takeException(), isNull);
     },
   );

@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'sftp_file_operations.dart';
 import 'transfer.dart';
 import 'file_drag_scope.dart';
+import '../tilde_design.dart';
+import '../tilde_controls.dart';
 
 enum FileSort { name, size, modified }
 
@@ -53,7 +55,14 @@ class FileBrowserListing extends StatefulWidget {
     this.onNewFolder,
     this.locations,
     this.isLocked,
+    this.searchController,
+    this.searchFocus,
+    this.showToolbar = true,
+    this.showSelectionToolbar = true,
   });
+  final TextEditingController? searchController;
+  final FocusNode? searchFocus;
+  final bool showToolbar, showSelectionToolbar;
   final ValueChanged<List<SftpName>>? onSelectionChanged,
       onDeleteMany,
       onDownloadMany,
@@ -79,27 +88,37 @@ class FileBrowserListing extends StatefulWidget {
   final ValueChanged<SftpName>? onOpen, onDownload, onRename, onDelete;
 
   @override
-  State<FileBrowserListing> createState() => _FileBrowserListingState();
+  FileBrowserListingState createState() => FileBrowserListingState();
 }
 
-class _FileBrowserListingState extends State<FileBrowserListing> {
-  final _search = TextEditingController();
-  final _searchFocus = FocusNode(),
+class FileBrowserListingState extends State<FileBrowserListing> {
+  final _localSearch = TextEditingController();
+  TextEditingController get _search => widget.searchController ?? _localSearch;
+  final _localSearchFocus = FocusNode(),
       _listFocus = FocusNode(),
       _renameFocus = FocusNode();
+  FocusNode get _searchFocus => widget.searchFocus ?? _localSearchFocus;
   final _renameText = TextEditingController();
+  void clearSelection() {
+    setState(_selected.clear);
+    _notify();
+  }
+
+  void filterChanged() => _filterChanged();
+  Future<void> showViewMenu(BuildContext anchor) => _viewMenu(anchor);
   final _scroll = ScrollController();
   final _selected = <String>{};
   final _pointerExtended = <String, bool>{};
   final _views =
       <String, ({Set<String> selected, String query, double offset})>{};
-  String? _anchor, _focused, _editing, _renameError;
+  String? _anchor, _focused, _editing, _renameError, _hover;
+  final _columns = <String>{'크기', '수정일', '권한'};
   final _widths = <String, double>{
     '크기': 90,
     '수정일': 155,
     '소유자 UID': 80,
     '그룹 GID': 80,
-    '권한': 65,
+    '권한': 110,
   };
   List<SftpName> get _selection => widget.entries
       .where((entry) => _selected.contains(entry.filename))
@@ -293,6 +312,15 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
       if (saved is! Map || !mounted) return;
       setState(() {
         _showHidden = saved['hidden'] == true;
+        if (saved['columns'] is List) {
+          _columns
+            ..clear()
+            ..addAll(
+              (saved['columns'] as List).whereType<String>().where(
+                _widths.containsKey,
+              ),
+            );
+        }
         _descending = saved['descending'] == true;
         _sort =
             FileSort.values
@@ -322,6 +350,7 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
             'descending': _descending,
             'sort': _sort.name,
             'widths': {..._widths},
+            'columns': _columns.toList(),
           })
           .catchError((Object _) {}),
     );
@@ -373,8 +402,8 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
 
   @override
   void dispose() {
-    _search.dispose();
-    _searchFocus.dispose();
+    _localSearch.dispose();
+    _localSearchFocus.dispose();
     _listFocus.dispose();
     _renameFocus.dispose();
     _renameText.dispose();
@@ -417,93 +446,75 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
   Widget _controls(BuildContext context, {bool drawer = false}) => SafeArea(
     child: ListView(
       padding: const EdgeInsets.all(16),
-      children: [
-        if (widget.locations != null) widget.locations!,
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                '보기 및 정렬',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              ),
-            ),
-            if (drawer)
-              IconButton(
-                tooltip: '닫기',
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close),
-              ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        TextField(
-          controller: _search,
-          onChanged: (_) => _filterChanged(),
-          decoration: InputDecoration(
-            labelText: '현재 폴더에서 찾기',
-            hintText: '파일명 검색',
-            prefixIcon: const Icon(Icons.search),
-            suffixIcon: _search.text.isEmpty
-                ? null
-                : IconButton(
-                    tooltip: '검색 지우기',
-                    onPressed: () {
-                      _search.clear();
-                      _filterChanged();
-                    },
-                    icon: const Icon(Icons.clear),
-                  ),
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('숨김 파일·폴더 표시'),
-          value: _showHidden,
-          onChanged: (value) {
-            _showHidden = value;
-            _filterChanged();
-            _saveView();
-          },
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<FileSort>(
-          key: ValueKey(_sort),
-          initialValue: _sort,
-          decoration: const InputDecoration(
-            labelText: '정렬 기준',
-            border: OutlineInputBorder(),
-          ),
-          items: const [
-            DropdownMenuItem(value: FileSort.name, child: Text('이름')),
-            DropdownMenuItem(value: FileSort.size, child: Text('크기')),
-            DropdownMenuItem(value: FileSort.modified, child: Text('수정일')),
-          ],
-          onChanged: (value) {
-            if (value != null) {
-              setState(() => _sort = value);
-              _saveView();
-            }
-          },
-        ),
-        const SizedBox(height: 12),
-        SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(value: false, label: Text('오름차순')),
-            ButtonSegment(value: true, label: Text('내림차순')),
-          ],
-          selected: {_descending},
-          onSelectionChanged: (value) {
-            setState(() => _descending = value.single);
-            _saveView();
-          },
-        ),
-        const SizedBox(height: 12),
-        const Text('폴더를 먼저 표시합니다. 검색은 현재 폴더에만 적용됩니다.'),
-      ],
+      children: [if (widget.locations != null) widget.locations!],
     ),
   );
+
+  Future<void> _viewMenu(BuildContext anchor) async {
+    final action = await TildeItemMenu.show<String>(
+      anchor,
+      title: '',
+      icon: Icons.tune,
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          value: 'hidden',
+          child: TildeMenuLabel(
+            '숨김 파일·폴더 표시',
+            Icons.visibility_outlined,
+            selected: _showHidden,
+          ),
+        ),
+        const PopupMenuDivider(),
+        for (final column in _widths.keys)
+          PopupMenuItem(
+            value: column,
+            child: TildeMenuLabel(
+              column,
+              Icons.view_column_outlined,
+              selected: _columns.contains(column),
+            ),
+          ),
+        const PopupMenuDivider(),
+        for (final sort in FileSort.values)
+          PopupMenuItem(
+            value: 'sort-${sort.name}',
+            child: TildeMenuLabel(
+              switch (sort) {
+                FileSort.name => '이름순',
+                FileSort.size => '크기순',
+                FileSort.modified => '수정일순',
+              },
+              Icons.sort,
+              selected: _sort == sort,
+            ),
+          ),
+        PopupMenuItem(
+          value: 'direction',
+          child: TildeMenuLabel('내림차순', Icons.south, selected: _descending),
+        ),
+      ],
+    );
+    if (action == null || !mounted) return;
+    if (action == 'hidden') {
+      _showHidden = !_showHidden;
+      _filterChanged();
+    } else if (action == 'direction') {
+      setState(() => _descending = !_descending);
+    } else if (action.startsWith('sort-')) {
+      setState(
+        () => _sort = FileSort.values.firstWhere(
+          (sort) => 'sort-${sort.name}' == action,
+        ),
+      );
+    } else if (_widths.containsKey(action)) {
+      setState(() {
+        _columns.contains(action)
+            ? _columns.remove(action)
+            : _columns.add(action);
+      });
+    }
+    _saveView();
+  }
 
   String _modified(int? seconds) {
     if (seconds == null) return '—';
@@ -512,58 +523,78 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
     return '${time.year}-${pad(time.month)}-${pad(time.day)} ${pad(time.hour)}:${pad(time.minute)}';
   }
 
+  String _value(SftpName entry, String column) => switch (column) {
+    '크기' =>
+      entry.attr.isDirectory || entry.attr.size == null
+          ? '—'
+          : formatBytes(entry.attr.size!),
+    '수정일' => _modified(entry.attr.modifyTime),
+    '소유자 UID' => '${entry.attr.userID ?? '—'}',
+    '그룹 GID' => '${entry.attr.groupID ?? '—'}',
+    '권한' => remotePermissions(entry.attr.mode?.value),
+    _ => '',
+  };
   Widget _metadata(SftpName entry) => Row(
     children: [
-      SizedBox(
-        width: _widths['크기']!,
-        child: Text(
-          entry.attr.isDirectory || entry.attr.size == null
-              ? '—'
-              : formatBytes(entry.attr.size!),
+      for (final column in _widths.keys.where(_columns.contains))
+        SizedBox(
+          width: _widths[column],
+          child: Text(
+            _value(entry, column),
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontFamily: column == '권한' ? tildeMono : null,
+            ),
+          ),
         ),
-      ),
-      SizedBox(
-        width: _widths['수정일']!,
-        child: Text(_modified(entry.attr.modifyTime)),
-      ),
-      SizedBox(
-        width: _widths['소유자 UID']!,
-        child: Text('${entry.attr.userID ?? '—'}'),
-      ),
-      SizedBox(
-        width: _widths['그룹 GID']!,
-        child: Text('${entry.attr.groupID ?? '—'}'),
-      ),
-      SizedBox(
-        width: _widths['권한']!,
-        child: Text(
-          entry.attr.mode == null
-              ? '—'
-              : (entry.attr.mode!.value & 0xfff)
-                    .toRadixString(8)
-                    .padLeft(4, '0'),
-        ),
-      ),
     ],
   );
 
   List<PopupMenuEntry<FileAction>> _actions(SftpName entry) => [
-    if (entry.attr.isDirectory)
-      PopupMenuItem(
-        value: FileAction.open,
-        enabled: widget.onOpen != null,
-        child: const ListTile(
-          leading: Icon(Icons.folder_open),
-          title: Text('열기'),
+    PopupMenuItem(
+      value: FileAction.open,
+      enabled: widget.onOpen != null,
+      child: TildeMenuLabel(
+        entry.attr.isDirectory ? '열기' : '미리보기',
+        entry.attr.isDirectory
+            ? Icons.folder_open_outlined
+            : Icons.description_outlined,
+        shortcut: 'Enter',
+      ),
+    ),
+    PopupMenuItem(
+      value: FileAction.download,
+      enabled: widget.onDownload != null,
+      child: const TildeMenuLabel('다운로드', Icons.download_outlined),
+    ),
+    const PopupMenuDivider(),
+    if (widget.onCopy != null)
+      const PopupMenuItem(
+        value: FileAction.copy,
+        child: TildeMenuLabel(
+          '복사',
+          Icons.content_copy_outlined,
+          shortcut: 'Ctrl C',
         ),
-      )
-    else
+      ),
+    if (widget.onCut != null)
       PopupMenuItem(
-        value: FileAction.download,
-        enabled: widget.onDownload != null,
-        child: const ListTile(
-          leading: Icon(Icons.download_outlined),
-          title: Text('다운로드'),
+        value: FileAction.cut,
+        enabled: !_selection.any(_locked),
+        child: const TildeMenuLabel(
+          '잘라내기',
+          Icons.content_cut_outlined,
+          shortcut: 'Ctrl X',
+        ),
+      ),
+    if (widget.onPaste != null)
+      const PopupMenuItem(
+        value: FileAction.paste,
+        child: TildeMenuLabel(
+          '붙여넣기',
+          Icons.content_paste_outlined,
+          shortcut: 'Ctrl V',
         ),
       ),
     PopupMenuItem(
@@ -572,52 +603,46 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
           (widget.onRename != null || widget.onRenameTo != null) &&
           _selection.length <= 1 &&
           !_locked(entry),
-      child: const ListTile(
-        leading: Icon(Icons.drive_file_rename_outline),
-        title: Text('이름 변경'),
+      child: const TildeMenuLabel(
+        '이름 변경',
+        Icons.drive_file_rename_outline,
+        shortcut: 'F2',
       ),
     ),
+    if (widget.onMove != null)
+      PopupMenuItem(
+        value: FileAction.move,
+        enabled: !_selection.any(_locked),
+        child: const TildeMenuLabel('이동…', Icons.drive_file_move_outlined),
+      ),
+    const PopupMenuDivider(),
+    const PopupMenuItem(
+      value: FileAction.path,
+      child: TildeMenuLabel('경로 복사', Icons.link_outlined),
+    ),
+    const PopupMenuItem(
+      value: FileAction.info,
+      child: TildeMenuLabel('정보', Icons.info_outline),
+    ),
+    if (widget.onPermissions != null)
+      PopupMenuItem(
+        value: FileAction.permissions,
+        enabled: !_selection.any(_locked),
+        child: const TildeMenuLabel('권한 변경…', Icons.security_outlined),
+      ),
+    const PopupMenuDivider(),
     PopupMenuItem(
       value: FileAction.delete,
       enabled:
           (widget.onDelete != null || widget.onDeleteMany != null) &&
           !_selection.any(_locked) &&
           !_locked(entry),
-      child: ListTile(
-        leading: Icon(
-          Icons.delete_outline,
-          color: Theme.of(context).colorScheme.error,
-        ),
-        title: const Text('삭제'),
+      child: const TildeMenuLabel(
+        '삭제',
+        Icons.delete_outline,
+        danger: true,
+        shortcut: 'Del',
       ),
-    ),
-    if (widget.onCopy != null)
-      const PopupMenuItem(value: FileAction.copy, child: Text('복사')),
-    if (widget.onCut != null)
-      PopupMenuItem(
-        value: FileAction.cut,
-        enabled: !_selection.any(_locked),
-        child: const Text('잘라내기'),
-      ),
-    if (widget.onPaste != null)
-      const PopupMenuItem(value: FileAction.paste, child: Text('붙여넣기')),
-    if (widget.onMove != null)
-      PopupMenuItem(
-        value: FileAction.move,
-        enabled: !_selection.any(_locked),
-        child: const Text('이동…'),
-      ),
-    const PopupMenuItem(value: FileAction.path, child: Text('경로 복사')),
-    if (widget.onPermissions != null)
-      PopupMenuItem(
-        value: FileAction.permissions,
-        enabled: !_selection.any(_locked),
-        child: const Text('권한 변경…'),
-      ),
-    const PopupMenuDivider(),
-    const PopupMenuItem(
-      value: FileAction.info,
-      child: ListTile(leading: Icon(Icons.info_outline), title: Text('정보')),
     ),
   ];
 
@@ -658,69 +683,92 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
           ),
         );
       case FileAction.info:
-        showDialog<void>(
+        showTildeSheet<void>(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('파일 정보'),
-            content: SizedBox(
-              width: 400,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final field in [
-                      ('이름', entry.filename),
-                      ('경로', remoteChild(widget.path, entry.filename)),
-                      (
-                        '종류',
-                        entry.attr.isDirectory
-                            ? '폴더'
-                            : entry.attr.isSymbolicLink
-                            ? '심볼릭 링크'
-                            : '파일',
-                      ),
-                      (
-                        '크기',
-                        entry.attr.size == null
-                            ? '—'
-                            : '${formatBytes(entry.attr.size!)} (${entry.attr.size} B)',
-                      ),
-                      ('수정일', _modified(entry.attr.modifyTime)),
-                      ('소유자 UID', '${entry.attr.userID ?? '—'}'),
-                      ('그룹 GID', '${entry.attr.groupID ?? '—'}'),
-                      (
-                        '권한',
-                        entry.attr.mode == null
-                            ? '—'
-                            : (entry.attr.mode!.value & 0xfff)
-                                  .toRadixString(8)
-                                  .padLeft(4, '0'),
-                      ),
-                    ])
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
+          isScrollControlled: true,
+          builder: (c) => SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('파일 정보', style: Theme.of(c).textTheme.titleLarge),
+                  const SizedBox(height: 20),
+                  for (final field in [
+                    ('이름', entry.filename),
+                    ('경로', remoteChild(widget.path, entry.filename)),
+                    (
+                      '종류',
+                      entry.attr.isDirectory
+                          ? '폴더'
+                          : entry.attr.isSymbolicLink
+                          ? '심볼릭 링크'
+                          : '파일',
+                    ),
+                    (
+                      '크기',
+                      entry.attr.size == null
+                          ? '—'
+                          : formatBytes(entry.attr.size!),
+                    ),
+                    ('수정일', _modified(entry.attr.modifyTime)),
+                    ('소유자 UID', '${entry.attr.userID ?? '—'}'),
+                    ('그룹 GID', '${entry.attr.groupID ?? '—'}'),
+                    (
+                      '권한',
+                      entry.attr.mode == null
+                          ? '—'
+                          : '${remotePermissions(entry.attr.mode!.value)} (${(entry.attr.mode!.value & 0xfff).toRadixString(8).padLeft(4, '0')})',
+                    ),
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 104,
+                            child: Text(
                               field.$1,
-                              style: Theme.of(context).textTheme.labelMedium,
+                              style: Theme.of(c).textTheme.bodySmall,
                             ),
-                            SelectableText(field.$2),
-                          ],
-                        ),
+                          ),
+                          Expanded(
+                            child: SelectableText(
+                              field.$2,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        ],
                       ),
-                  ],
-                ),
+                    ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    children: [
+                      TextButton(
+                        onPressed: () => Clipboard.setData(
+                          ClipboardData(
+                            text: remoteChild(widget.path, entry.filename),
+                          ),
+                        ),
+                        child: const Text('경로 복사'),
+                      ),
+                      if (widget.onPermissions != null)
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(c);
+                            widget.onPermissions!([entry]);
+                          },
+                          child: const Text('권한 변경'),
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('닫기'),
-              ),
-            ],
           ),
         );
     }
@@ -734,16 +782,19 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
     if (!_selected.contains(entry.filename)) {
       _select(entry, toggle: false, range: false);
     }
-    final overlay =
-        Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
-    final point = overlay.globalToLocal(position);
-    final action = await showMenu<FileAction>(
-      context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(point.dx, point.dy, 0, 0),
-        Offset.zero & overlay.size,
-      ),
-      items: _actions(entry),
+    final action = await TildeItemMenu.show<FileAction>(
+      context,
+      title: entry.filename,
+      subtitle: entry.attr.isDirectory
+          ? '폴더'
+          : entry.attr.size == null
+          ? null
+          : formatBytes(entry.attr.size!),
+      icon: entry.attr.isDirectory
+          ? Icons.folder_outlined
+          : Icons.description_outlined,
+      position: position,
+      itemBuilder: (_) => _actions(entry),
     );
     if (action != null && mounted) _action(entry, action);
   }
@@ -751,13 +802,16 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final wide = constraints.maxWidth >= 1100;
+      final wide = tildePointer(context) && constraints.maxWidth >= 900;
       final entries = _visible;
       final list = LayoutBuilder(
         builder: (context, listConstraints) {
-          final details = listConstraints.maxWidth >= 800;
+          final details =
+              tildePointer(context) || listConstraints.maxWidth >= 800;
           final tableWidth = details
-              ? (_widths.values.fold<double>(0, (sum, value) => sum + value) +
+              ? (_widths.entries
+                            .where((e) => _columns.contains(e.key))
+                            .fold<double>(0, (sum, e) => sum + e.value) +
                         320)
                     .clamp(listConstraints.maxWidth, double.infinity)
               : listConstraints.maxWidth;
@@ -768,112 +822,120 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
               height: listConstraints.maxHeight,
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                    child: TextField(
-                      controller: _search,
-                      focusNode: _searchFocus,
-                      onChanged: (_) {
-                        setState(
-                          () => _selected.removeWhere(
-                            (name) => !_visible.any(
-                              (entry) => entry.filename == name,
-                            ),
-                          ),
-                        );
-                        _notify();
-                      },
-                      decoration: InputDecoration(
-                        isDense: true,
-                        hintText: '현재 폴더에서 찾기',
-                        prefixIcon: const Icon(Icons.search),
-                        suffixIcon: IconButton(
-                          tooltip: '검색 지우기',
-                          onPressed: () {
-                            _search.clear();
-                            _filterChanged();
-                          },
-                          icon: const Icon(Icons.close),
-                        ),
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  if (_selected.isNotEmpty)
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
+                  if (widget.showToolbar)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                       child: Row(
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text(
-                              '${_selected.length}개 선택 · ${formatBytes(_selection.fold<int>(0, (sum, entry) => sum + (entry.attr.isDirectory ? 0 : entry.attr.size ?? 0)))}',
+                          Expanded(
+                            child: TextField(
+                              controller: _search,
+                              focusNode: _searchFocus,
+                              onChanged: (_) {
+                                setState(
+                                  () => _selected.removeWhere(
+                                    (name) => !_visible.any(
+                                      (entry) => entry.filename == name,
+                                    ),
+                                  ),
+                                );
+                                _notify();
+                              },
+                              decoration: InputDecoration(
+                                isDense: true,
+                                hintText: '현재 폴더에서 찾기',
+                                prefixIcon: const Icon(Icons.search),
+                                suffixIcon: IconButton(
+                                  tooltip: '검색 지우기',
+                                  onPressed: () {
+                                    _search.clear();
+                                    _filterChanged();
+                                  },
+                                  icon: const Icon(Icons.close),
+                                ),
+                                border: const OutlineInputBorder(),
+                              ),
                             ),
                           ),
-                          if (widget.onDownloadMany != null)
-                            TextButton.icon(
-                              onPressed: () =>
-                                  widget.onDownloadMany!(_selection),
-                              icon: const Icon(Icons.download_outlined),
-                              label: const Text('다운로드'),
+                          const SizedBox(width: 8),
+                          Builder(
+                            builder: (anchor) => TextButton.icon(
+                              onPressed: () => _viewMenu(anchor),
+                              icon: const Icon(Icons.tune, size: 18),
+                              label: const Text('보기'),
                             ),
-                          if (widget.onCopy != null)
-                            TextButton(
-                              onPressed: () => widget.onCopy!(_selection),
-                              child: const Text('복사'),
-                            ),
-                          if (widget.onMove != null)
-                            TextButton(
-                              onPressed: _selection.any(_locked)
-                                  ? null
-                                  : () => widget.onMove!(_selection),
-                              child: const Text('이동'),
-                            ),
-                          if (widget.onDeleteMany != null)
-                            TextButton(
-                              onPressed: _selection.any(_locked)
-                                  ? null
-                                  : () => widget.onDeleteMany!(_selection),
-                              child: const Text('삭제'),
-                            ),
-                          IconButton(
-                            tooltip: '선택 해제',
-                            onPressed: () {
-                              setState(_selected.clear);
-                              _notify();
-                            },
-                            icon: const Icon(Icons.clear),
                           ),
+                          if (!wide)
+                            Builder(
+                              builder: (c) => TextButton(
+                                onPressed: () => Scaffold.of(c).openEndDrawer(),
+                                child: const Text('위치'),
+                              ),
+                            ),
                         ],
                       ),
                     ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: Text(
-                            '${entries.length} / ${widget.entries.length}개 항목',
-                          ),
-                        ),
-                      ),
-                      if (!wide)
-                        Builder(
-                          builder: (context) => IconButton(
-                            tooltip: '보기 및 정렬',
-                            onPressed: () =>
-                                Scaffold.of(context).openEndDrawer(),
-                            icon: const Icon(Icons.tune),
-                          ),
-                        ),
-                    ],
-                  ),
+                  if (widget.showSelectionToolbar)
+                    SizedBox(
+                      height: tildePointer(context) ? 36 : null,
+                      child: _selected.isEmpty
+                          ? const SizedBox.shrink()
+                          : SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    child: Text(
+                                      '${_selected.length}개 선택 · ${formatBytes(_selection.fold<int>(0, (sum, entry) => sum + (entry.attr.isDirectory ? 0 : entry.attr.size ?? 0)))}',
+                                    ),
+                                  ),
+                                  if (widget.onDownloadMany != null)
+                                    TextButton.icon(
+                                      onPressed: () =>
+                                          widget.onDownloadMany!(_selection),
+                                      icon: const Icon(Icons.download_outlined),
+                                      label: const Text('다운로드'),
+                                    ),
+                                  if (widget.onCopy != null)
+                                    TextButton(
+                                      onPressed: () =>
+                                          widget.onCopy!(_selection),
+                                      child: const Text('복사'),
+                                    ),
+                                  if (widget.onMove != null)
+                                    TextButton(
+                                      onPressed: _selection.any(_locked)
+                                          ? null
+                                          : () => widget.onMove!(_selection),
+                                      child: const Text('이동'),
+                                    ),
+                                  if (widget.onDeleteMany != null)
+                                    TextButton(
+                                      onPressed: _selection.any(_locked)
+                                          ? null
+                                          : () => widget.onDeleteMany!(
+                                              _selection,
+                                            ),
+                                      child: const Text('삭제'),
+                                    ),
+                                  IconButton(
+                                    tooltip: '선택 해제',
+                                    onPressed: () {
+                                      setState(_selected.clear);
+                                      _notify();
+                                    },
+                                    icon: const Icon(Icons.clear),
+                                  ),
+                                ],
+                              ),
+                            ),
+                    ),
                   if (details)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(72, 8, 112, 8),
+                      padding: const EdgeInsets.fromLTRB(42, 0, 76, 0),
                       child: Row(
                         children: [
                           Expanded(
@@ -882,7 +944,9 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
                               child: const Text('이름'),
                             ),
                           ),
-                          for (final column in _widths.entries)
+                          for (final column in _widths.entries.where(
+                            (column) => _columns.contains(column.key),
+                          ))
                             SizedBox(
                               width: column.value,
                               child: Row(
@@ -950,6 +1014,14 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
                                   TargetPlatform.linux,
                                 }.contains(Theme.of(context).platform);
                                 final tile = ListTile(
+                                  minTileHeight: desktop ? 36 : 56,
+                                  minVerticalPadding: desktop ? 0 : 4,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  minLeadingWidth: 18,
+                                  horizontalTitleGap: 12,
+                                  dense: desktop,
                                   selected: _selected.contains(entry.filename),
                                   selectedTileColor: Theme.of(context)
                                       .colorScheme
@@ -1018,7 +1090,7 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
                                                 )
                                               : Text(
                                                   entry.filename,
-                                                  maxLines: 2,
+                                                  maxLines: desktop ? 1 : 2,
                                                   overflow:
                                                       TextOverflow.ellipsis,
                                                 ),
@@ -1028,7 +1100,8 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
                                     ),
                                   ),
                                   subtitle:
-                                      details ||
+                                      desktop ||
+                                          details ||
                                           entry.attr.isDirectory ||
                                           entry.attr.size == null
                                       ? null
@@ -1075,82 +1148,94 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
                                       ),
                                     );
                                   },
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      entry.attr.isDirectory
-                                          ? const Icon(Icons.chevron_right)
-                                          : IconButton(
-                                              tooltip: '다운로드',
-                                              onPressed:
-                                                  widget.onDownload == null
-                                                  ? null
-                                                  : () => widget.onDownload!(
-                                                      entry,
-                                                    ),
-                                              icon: const Icon(
-                                                Icons.download_outlined,
-                                              ),
-                                            ),
-                                      Builder(
-                                        builder: (buttonContext) => IconButton(
-                                          tooltip: '${entry.filename} 작업',
-                                          icon: const Icon(Icons.more_vert),
-                                          onPressed: () {
-                                            final box =
-                                                buttonContext
-                                                        .findRenderObject()!
-                                                    as RenderBox;
-                                            _menu(
-                                              context,
-                                              entry,
-                                              box.localToGlobal(
-                                                Offset(
-                                                  box.size.width,
-                                                  box.size.height,
+                                  trailing: Visibility(
+                                    visible:
+                                        !desktop || _hover == entry.filename,
+                                    maintainSize: true,
+                                    maintainState: true,
+                                    maintainAnimation: true,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        entry.attr.isDirectory
+                                            ? const Icon(Icons.chevron_right)
+                                            : IconButton(
+                                                tooltip: '다운로드',
+                                                onPressed:
+                                                    widget.onDownload == null
+                                                    ? null
+                                                    : () => widget.onDownload!(
+                                                        entry,
+                                                      ),
+                                                icon: const Icon(
+                                                  Icons.download_outlined,
                                                 ),
                                               ),
-                                            );
-                                          },
+                                        Builder(
+                                          builder: (buttonContext) => IconButton(
+                                            tooltip: '${entry.filename} 작업',
+                                            icon: const Icon(Icons.more_vert),
+                                            onPressed: () {
+                                              final box =
+                                                  buttonContext
+                                                          .findRenderObject()!
+                                                      as RenderBox;
+                                              _menu(
+                                                context,
+                                                entry,
+                                                box.localToGlobal(
+                                                  Offset(
+                                                    box.size.width,
+                                                    box.size.height,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 );
-                                final contextual = GestureDetector(
-                                  onSecondaryTapUp: (details) => _menu(
-                                    context,
-                                    entry,
-                                    details.globalPosition,
-                                  ),
-                                  child: Listener(
-                                    onPointerDown: (event) {
-                                      if (desktop &&
-                                          event.buttons == 1 &&
-                                          _editing != entry.filename) {
-                                        _pointerExtended[entry.filename] =
-                                            HardwareKeyboard
-                                                .instance
-                                                .isControlPressed ||
-                                            HardwareKeyboard
-                                                .instance
-                                                .isShiftPressed;
-                                        if (!_selected.contains(
-                                              entry.filename,
-                                            ) ||
-                                            HardwareKeyboard
-                                                .instance
-                                                .isControlPressed ||
-                                            HardwareKeyboard
-                                                .instance
-                                                .isShiftPressed) {
-                                          _select(entry);
-                                        } else {
-                                          _listFocus.requestFocus();
+                                final contextual = MouseRegion(
+                                  onEnter: (_) =>
+                                      setState(() => _hover = entry.filename),
+                                  onExit: (_) => setState(() => _hover = null),
+                                  child: GestureDetector(
+                                    onSecondaryTapUp: (details) => _menu(
+                                      context,
+                                      entry,
+                                      details.globalPosition,
+                                    ),
+                                    child: Listener(
+                                      onPointerDown: (event) {
+                                        if (desktop &&
+                                            event.buttons == 1 &&
+                                            _editing != entry.filename) {
+                                          _pointerExtended[entry.filename] =
+                                              HardwareKeyboard
+                                                  .instance
+                                                  .isControlPressed ||
+                                              HardwareKeyboard
+                                                  .instance
+                                                  .isShiftPressed;
+                                          if (!_selected.contains(
+                                                entry.filename,
+                                              ) ||
+                                              HardwareKeyboard
+                                                  .instance
+                                                  .isControlPressed ||
+                                              HardwareKeyboard
+                                                  .instance
+                                                  .isShiftPressed) {
+                                            _select(entry);
+                                          } else {
+                                            _listFocus.requestFocus();
+                                          }
                                         }
-                                      }
-                                    },
-                                    child: tile,
+                                      },
+                                      child: tile,
+                                    ),
                                   ),
                                 );
                                 final drag = FileDragScope.of(context);
@@ -1197,10 +1282,29 @@ class _FileBrowserListingState extends State<FileBrowserListing> {
         body: Row(
           children: [
             if (wide) ...[
-              SizedBox(width: 280, child: _controls(context)),
+              SizedBox(width: 200, child: _controls(context)),
               const VerticalDivider(width: 1),
             ],
-            Expanded(child: list),
+            Expanded(
+              child: Column(
+                children: [
+                  Expanded(child: list),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '${entries.length}개 항목${entries.length != widget.entries.length ? " · ${widget.entries.length - entries.length}개 숨김/필터" : ""}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       );

@@ -14,24 +14,129 @@ Future<(Object?, String)?> pickTildeOption(
   BuildContext context,
   String title,
   List<(Object?, String)> values,
-  Object? current,
-) => Navigator.push<(Object?, String)>(
-  context,
-  MaterialPageRoute(
-    builder: (_) =>
-        TildeChoicePage(title: title, values: values, current: current),
-  ),
-);
+  Object? current, {
+  bool navigation = false,
+  Map<Object?, String> subtitles = const {},
+}) {
+  if (tildePointer(context)) {
+    final items = values.length <= 8
+        ? <PopupMenuEntry<(Object?, String)>>[
+            for (final option in values)
+              PopupMenuItem(
+                value: option,
+                height: subtitles.isEmpty ? 32 : 48,
+                child: Row(
+                  children: [
+                    Expanded(child: Text(option.$2)),
+                    if (navigation)
+                      const Icon(Icons.chevron_right, size: 18)
+                    else if (option.$1 == current)
+                      Icon(
+                        Icons.check,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                  ],
+                ),
+              ),
+          ]
+        : <PopupMenuEntry<(Object?, String)>>[
+            PopupMenuItem(
+              enabled: false,
+              padding: EdgeInsets.zero,
+              child: SizedBox(
+                width: 320,
+                child: TildeChoicePage(
+                  title: title,
+                  values: values,
+                  current: current,
+                  embedded: true,
+                  navigation: navigation,
+                  subtitles: subtitles,
+                  showTitle: false,
+                ),
+              ),
+            ),
+          ];
+    return showMenu<(Object?, String)>(
+      context: context,
+      position: _tildeMenuPosition(context),
+      constraints: const BoxConstraints(minWidth: 220, maxWidth: 360),
+      items: items,
+    );
+  }
+  return showTildeSheet<(Object?, String)>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => TildeChoicePage(
+      title: title,
+      values: values,
+      current: current,
+      embedded: true,
+      navigation: navigation,
+      subtitles: subtitles,
+    ),
+  );
+}
+
+RelativeRect _tildeMenuPosition(BuildContext context, [Offset? position]) {
+  final overlay =
+      Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
+  final target = context.findRenderObject();
+  final rect = target is RenderBox && target.hasSize
+      ? target.localToGlobal(Offset.zero, ancestor: overlay) & target.size
+      : const Rect.fromLTWH(16, 16, 0, 0);
+  final point = position == null
+      ? (rect.height > 100 ? const Offset(16, 56) : rect.bottomLeft)
+      : overlay.globalToLocal(position);
+  return RelativeRect.fromRect(
+    Rect.fromLTWH(point.dx, point.dy, rect.height > 100 ? 0 : rect.width, 0),
+    Offset.zero & overlay.size,
+  );
+}
+
+String tildeShortFingerprint(String value, {int length = 34}) =>
+    value.length <= length
+    ? value
+    : '${value.substring(0, (length - 1) ~/ 2)}…${value.substring(value.length - (length - 1) ~/ 2)}';
+
+Widget tildeSearchLabel(BuildContext context, String text, String query) {
+  final index = query.isEmpty
+      ? -1
+      : text.toLowerCase().indexOf(query.toLowerCase());
+  if (index < 0) return Text(text);
+  return Text.rich(
+    TextSpan(
+      children: [
+        TextSpan(text: text.substring(0, index)),
+        TextSpan(
+          text: text.substring(index, index + query.length),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        TextSpan(text: text.substring(index + query.length)),
+      ],
+    ),
+  );
+}
 
 class TildeChoicePage extends StatefulWidget {
   final String title;
   final List<(Object?, String)> values;
   final Object? current;
+  final bool embedded, navigation, showTitle;
+  final Map<Object?, String> subtitles;
   const TildeChoicePage({
     super.key,
     required this.title,
     required this.values,
     this.current,
+    this.embedded = false,
+    this.navigation = false,
+    this.subtitles = const {},
+    this.showTitle = true,
   });
   @override
   State<TildeChoicePage> createState() => _TildeChoicePageState();
@@ -40,44 +145,98 @@ class TildeChoicePage extends StatefulWidget {
 class _TildeChoicePageState extends State<TildeChoicePage> {
   String search = '';
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.title)),
-    body: Column(
+  Widget build(BuildContext context) {
+    final pointer = tildePointer(context),
+        searchable = widget.values.length > 8;
+    final rowHeight = pointer ? (widget.subtitles.isEmpty ? 32.0 : 48.0) : 56.0;
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: TextField(
-            decoration: const InputDecoration(
-              hintText: '검색',
-              prefixIcon: Icon(Icons.search),
+        if (widget.embedded && widget.showTitle)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
+            child: Text(
+              widget.title,
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-            onChanged: (v) => setState(() => search = v.trim().toLowerCase()),
           ),
-        ),
-        Expanded(
+        if (searchable)
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              pointer ? 12 : 24,
+              4,
+              pointer ? 12 : 24,
+              8,
+            ),
+            child: TextField(
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: '검색',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: (value) =>
+                  setState(() => search = value.trim().toLowerCase()),
+            ),
+          ),
+        Flexible(
           child: ListView(
+            shrinkWrap: true,
+            padding: EdgeInsets.only(bottom: pointer ? 4 : 16),
             children: [
               for (final option in widget.values.where(
-                (v) => v.$2.toLowerCase().contains(search),
+                (value) => ('${value.$2} ${widget.subtitles[value.$1] ?? ''}')
+                    .toLowerCase()
+                    .contains(search),
               ))
                 ListTile(
-                  title: Text(option.$2),
-                  leading: Icon(
-                    option.$1 == widget.current
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
-                    color: option.$1 == widget.current
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
+                  minTileHeight: rowHeight,
+                  dense: pointer,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: pointer ? 12 : 24,
                   ),
+                  title: tildeSearchLabel(context, option.$2, search),
+                  subtitle: widget.subtitles[option.$1] == null
+                      ? null
+                      : Text(widget.subtitles[option.$1]!),
+                  trailing: widget.navigation
+                      ? const Icon(Icons.chevron_right, size: 18)
+                      : option.$1 == widget.current
+                      ? Icon(
+                          Icons.check,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.primary,
+                        )
+                      : null,
                   onTap: () => Navigator.pop(context, option),
                 ),
             ],
           ),
         ),
       ],
-    ),
-  );
+    );
+    if (!widget.embedded) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.title)),
+        body: content,
+      );
+    }
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: math.min(
+            MediaQuery.sizeOf(context).height * .75,
+            widget.values.length * rowHeight +
+                (searchable ? 68 : 0) +
+                (widget.showTitle ? 52 : 0) +
+                24,
+          ),
+        ),
+        child: content,
+      ),
+    );
+  }
 }
 
 Widget tildeSegments(
@@ -273,7 +432,11 @@ class TildeSaveBar extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        TextButton(onPressed: busy ? null : cancel, child: const Text('되돌리기')),
+        TextButton(
+          style: TextButton.styleFrom(foregroundColor: colors.onSurface),
+          onPressed: busy ? null : cancel,
+          child: const Text('되돌리기'),
+        ),
         FilledButton(onPressed: busy ? null : save, child: Text(saveLabel)),
       ],
     );
@@ -496,16 +659,22 @@ Future<Color?> pickTildeColor(
   Color initial, {
   String title = '색상 선택',
   ValueChanged<Color>? onPreview,
+  List<Color> swatches = const [],
 }) => showTildeSheet<Color>(
   context: context,
   isScrollControlled: true,
   showDragHandle: true,
-  builder: (_) =>
-      TildeColorSheet(initial: initial, title: title, onPreview: onPreview),
+  builder: (_) => TildeColorSheet(
+    initial: initial,
+    title: title,
+    onPreview: onPreview,
+    swatches: swatches,
+  ),
 );
 
 class TildeColorSheet extends StatefulWidget {
   final Color initial;
+  final List<Color> swatches;
   final String title;
   final ValueChanged<Color>? onPreview;
   const TildeColorSheet({
@@ -513,6 +682,7 @@ class TildeColorSheet extends StatefulWidget {
     required this.initial,
     required this.title,
     this.onPreview,
+    this.swatches = const [],
   });
   @override
   State<TildeColorSheet> createState() => _TildeColorSheetState();
@@ -577,6 +747,38 @@ class _TildeColorSheetState extends State<TildeColorSheet> {
                 ),
               ),
             ),
+            if (widget.swatches.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final color in widget.swatches)
+                      Tooltip(
+                        message:
+                            '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
+                        child: InkWell(
+                          onTap: () => setColor(HSVColor.fromColor(color)),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             Slider(
               value: hsv.value,
               onChanged: (v) => setColor(hsv.withValue(v)),
@@ -586,6 +788,7 @@ class _TildeColorSheetState extends State<TildeColorSheet> {
               controller: hex,
               decoration: InputDecoration(
                 labelText: '16진 색상',
+                counterText: '',
                 prefixText: '#',
                 errorText: error,
                 errorMaxLines: 3,
@@ -614,10 +817,6 @@ class _TildeColorSheetState extends State<TildeColorSheet> {
                   ),
                 ),
                 const Spacer(),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('취소'),
-                ),
                 FilledButton(
                   onPressed: () {
                     final n = int.tryParse(hex.text, radix: 16);
@@ -627,7 +826,7 @@ class _TildeColorSheetState extends State<TildeColorSheet> {
                     }
                     Navigator.pop(context, Color(0xff000000 | n));
                   },
-                  child: const Text('사용'),
+                  child: const Text('적용'),
                 ),
               ],
             ),
@@ -702,7 +901,9 @@ class TildeMenuLabel extends StatelessWidget {
     super.key,
     this.danger = false,
     this.selected = false,
+    this.shortcut,
   });
+  final String? shortcut;
   final String label;
   final IconData icon;
   final bool danger, selected;
@@ -714,16 +915,34 @@ class TildeMenuLabel extends StatelessWidget {
       children: [
         Icon(
           icon,
-          size: 20,
+          size: tildePointer(context) ? 18 : 24,
           color: danger ? colors.error : colors.onSurfaceVariant,
         ),
-        const SizedBox(width: 14),
+        SizedBox(width: tildePointer(context) ? 12 : 14),
         Expanded(
           child: Text(
             label,
-            style: TextStyle(color: danger ? colors.error : colors.onSurface),
+            maxLines: tildePointer(context) ? 1 : null,
+            overflow: tildePointer(context) ? TextOverflow.ellipsis : null,
+            style: TextStyle(
+              fontSize: tildePointer(context) ? 14 : 15,
+              color: danger ? colors.error : colors.onSurface,
+            ),
           ),
         ),
+        if (tildePointer(context) && shortcut != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 24),
+            child: Text(
+              shortcut!,
+              style: TextStyle(
+                fontFamily: tildeMono,
+                fontFamilyFallback: tildeMonoFallback,
+                fontSize: 11.5,
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
         if (selected) ...[
           const SizedBox(width: 12),
           Icon(Icons.check, size: 20, color: colors.primary),
@@ -740,6 +959,7 @@ class TildeItemMenu<T> extends StatelessWidget {
   final String title;
   final String? subtitle;
   final IconData icon;
+  final Widget? leading;
   const TildeItemMenu({
     super.key,
     required this.itemBuilder,
@@ -748,6 +968,7 @@ class TildeItemMenu<T> extends StatelessWidget {
     this.subtitle,
     this.onSelected,
     this.tooltip = '메뉴',
+    this.leading,
   });
 
   static Future<R?> show<R>(
@@ -755,74 +976,130 @@ class TildeItemMenu<T> extends StatelessWidget {
     required String title,
     required IconData icon,
     String? subtitle,
+    Widget? leading,
+    Offset? position,
     required PopupMenuItemBuilder<R> itemBuilder,
-  }) => showTildeSheet<R>(
-    context: context,
-    isScrollControlled: true,
-    builder: (c) => SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(c).height * .85,
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Theme.of(c).colorScheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(10),
+  }) {
+    if (tildePointer(context)) {
+      final theme = Theme.of(context);
+      return showMenu<R>(
+        context: context,
+        position: _tildeMenuPosition(context, position),
+        constraints: const BoxConstraints(minWidth: 220, maxWidth: 360),
+        items: [
+          for (final entry in itemBuilder(context))
+            if (entry is PopupMenuItem<R>)
+              PopupMenuItem<R>(
+                value: entry.value,
+                enabled: entry.enabled,
+                onTap: entry.onTap,
+                height: 32,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Theme(
+                  data: theme.copyWith(
+                    listTileTheme: theme.listTileTheme.copyWith(
+                      minTileHeight: 32,
+                      contentPadding: EdgeInsets.zero,
+                      minLeadingWidth: 18,
+                    ),
+                    iconTheme: theme.iconTheme.copyWith(size: 18),
                   ),
-                  child: Icon(icon, size: 20),
+                  child: entry.child!,
                 ),
-                title: Text(title, style: Theme.of(c).textTheme.titleMedium),
-                subtitle: subtitle == null ? null : Text(subtitle),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Divider(),
-              ),
-              for (final item in itemBuilder(c))
-                if (item is PopupMenuItem<R>)
+              )
+            else if (entry is PopupMenuDivider)
+              const PopupMenuDivider(height: 9),
+        ],
+      );
+    }
+    return showTildeSheet<R>(
+      context: context,
+      isScrollControlled: true,
+      builder: (c) => SafeArea(
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(c).height * .85,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (title.isNotEmpty) ...[
                   ListTile(
-                    enabled: item.enabled,
-                    title: item.child,
-                    onTap: !item.enabled
-                        ? null
-                        : () {
-                            item.onTap?.call();
-                            Navigator.pop(c, item.value);
-                          },
-                  )
-                else if (item is PopupMenuDivider)
+                    leading:
+                        leading ??
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Theme.of(c).colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(icon, size: 24),
+                        ),
+                    title: Text(title, style: Theme.of(c).textTheme.titleLarge),
+                    subtitle: subtitle == null ? null : Text(subtitle),
+                  ),
                   const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Divider(),
                   ),
-            ],
+                ],
+                for (final item in itemBuilder(c))
+                  if (item is PopupMenuItem<R>)
+                    ListTile(
+                      minTileHeight: 56,
+                      enabled: item.enabled,
+                      title: item.child,
+                      onTap: !item.enabled
+                          ? null
+                          : () {
+                              item.onTap?.call();
+                              Navigator.pop(c, item.value);
+                            },
+                    )
+                  else if (item is PopupMenuDivider)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      child: Divider(),
+                    ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
   @override
-  Widget build(BuildContext context) => IconButton(
-    tooltip: tooltip,
-    icon: const Icon(Icons.more_vert),
-    onPressed: () async {
-      final selected = await show<T>(
-        context,
-        title: title,
-        icon: icon,
-        subtitle: subtitle,
-        itemBuilder: itemBuilder,
+  Widget build(BuildContext context) => Builder(
+    builder: (anchor) {
+      Future<void> open([Offset? position]) async {
+        final selected = await show<T>(
+          anchor,
+          title: title,
+          icon: icon,
+          subtitle: subtitle,
+          leading: leading,
+          itemBuilder: itemBuilder,
+          position: position,
+        );
+        if (selected != null) onSelected?.call(selected);
+      }
+
+      return GestureDetector(
+        onSecondaryTapUp: (event) => open(event.globalPosition),
+        child: IconButton(
+          tooltip: tooltip,
+          icon: const Icon(Icons.more_vert),
+          onPressed: open,
+        ),
       );
-      if (selected != null) onSelected?.call(selected);
     },
   );
 }

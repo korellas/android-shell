@@ -35,32 +35,30 @@ class TransferProgress extends StatelessWidget {
         ? '${remaining ~/ 60}분 ${remaining % 60}초 남음'
         : '$remaining초 남음';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                control.cancelled ? '$status · 취소 중…' : status,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(height: 10),
-              LinearProgressIndicator(value: fraction),
-              const SizedBox(height: 10),
-              Text(
-                '${formatBytes(control.bytes)} / ${total == null ? '크기 확인 중' : formatBytes(total)}${fraction == null ? '' : ' · ${(fraction * 100).floor()}%'}',
-              ),
-              Text(
-                '${speed > 0 ? '${formatBytes(speed.round())}/s' : '속도 계산 중'} · $timing',
-              ),
-            ],
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (status.isNotEmpty)
+            Text(
+              control.cancelled ? '$status · 취소 중…' : status,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          const SizedBox(height: 6),
+          LinearProgressIndicator(value: fraction),
+          const SizedBox(height: 6),
+          Text(
+            '${formatBytes(control.bytes)} / ${total == null ? '크기 확인 중' : formatBytes(total)}${fraction == null ? '' : ' · ${(fraction * 100).floor()}%'}',
+            style: Theme.of(context).textTheme.bodySmall,
           ),
-        ),
+          Text(
+            '${speed > 0 ? '${formatBytes(speed.round())}/s' : '속도 계산 중'} · $timing',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
       ),
     );
   }

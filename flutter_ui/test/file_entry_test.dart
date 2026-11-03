@@ -54,7 +54,7 @@ void main() {
         .setMockMethodCallHandler(AndroidEngine.channel, null);
   });
 
-  testWidgets('host opens a choice before starting either connection', (
+  testWidgets('touch host tap connects immediately without a mode picker', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(400, 900);
@@ -65,17 +65,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Test host').first);
     await tester.pumpAndSettle();
-    expect(find.text('SSH 터미널'), findsOneWidget);
-    expect(find.text('파일 전송 (SFTP)'), findsOneWidget);
-    expect(calls, isNot(contains('connect')));
-    expect(calls, isNot(contains('ssh.prepare')));
-    await tester.tap(find.text('SSH 터미널'));
-    await tester.pumpAndSettle();
+    expect(find.text('SSH 터미널'), findsNothing);
+    expect(find.text('파일 전송 (SFTP)'), findsNothing);
     expect(calls.where((method) => method == 'connect'), hasLength(1));
     expect(calls, isNot(contains('ssh.prepare')));
   });
 
-  testWidgets('file mode opens the selected host without starting a terminal', (
+  testWidgets('file menu opens the selected host without starting a terminal', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(400, 900);
@@ -84,7 +80,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Test host').first);
+    await tester.tap(find.byTooltip('Test host 메뉴'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('파일 전송 (SFTP)'));
     await tester.pumpAndSettle();
