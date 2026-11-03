@@ -538,7 +538,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('server.test 서버 키 확인'), findsOneWidget);
+      expect(find.text('처음 연결하는 서버입니다'), findsOneWidget);
+      expect(find.text('server.test'), findsOneWidget);
       expect(find.text('SHA256:example'), findsOneWidget);
       expect(find.byType(SegmentedButton<Object?>), findsOneWidget);
       await tester.tap(find.text('그림'));

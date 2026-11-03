@@ -515,6 +515,7 @@ class _ShellHomeState extends State<ShellHome> {
   int? _intentSession;
   int? _menuHostId;
   String _quickUri = '';
+  final _quickFocus = FocusNode();
   int? _selectedHostId;
   void _quickConnect(String value) {
     if (value.trim().isNotEmpty) {
@@ -534,6 +535,7 @@ class _ShellHomeState extends State<ShellHome> {
   @override
   void dispose() {
     engine.removeListener(_changed);
+    _quickFocus.dispose();
     super.dispose();
   }
 
@@ -855,6 +857,7 @@ class _ShellHomeState extends State<ShellHome> {
         textInputAction: TextInputAction.go,
         onChanged: (v) => _quickUri = v,
         onSubmitted: _quickConnect,
+        focusNode: _quickFocus,
       ),
     ),
   );
@@ -867,31 +870,6 @@ class _ShellHomeState extends State<ShellHome> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
-        if (hosts.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 40),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.dns_outlined,
-                  size: 40,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '저장된 호스트가 없어요',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 16),
-                FilledButton.tonal(
-                  onPressed: () => _page(
-                    RecordEditor(engine: engine, kind: RecordKind.host),
-                  ),
-                  child: const Text('호스트 추가'),
-                ),
-              ],
-            ),
-          ),
         for (var i = 0; i < ordered.length; i++) ...[
           if (i > 0 && open(ordered[i - 1]) && !open(ordered[i]))
             const SizedBox(height: 20),
@@ -976,14 +954,42 @@ class _ShellHomeState extends State<ShellHome> {
     if (!engine.ready) return AppGate(engine: engine);
     if (tildePointer(context)) return DesktopWorkspace(engine: engine);
     final hosts = engine.list('hosts');
-    final wide = MediaQuery.sizeOf(context).width >= 720;
+    final wide = MediaQuery.sizeOf(context).width >= 720 && hosts.isNotEmpty;
     if (wide && !hosts.any((host) => host['id'] == _selectedHostId)) {
       _selectedHostId = hosts.firstOrNull?['id'] as int?;
     }
     final selected = hosts.where((h) => h['id'] == _selectedHostId).firstOrNull;
     final list = Column(
       children: [
-        Expanded(child: _hostList(hosts, wide)),
+        Expanded(
+          child: hosts.isEmpty
+              ? TildeWelcome(
+                  onAdd: () => _page(
+                    RecordEditor(engine: engine, kind: RecordKind.host),
+                  ),
+                  onQuickConnect: () => _quickFocus.requestFocus(),
+                  keyLabel: engine.state['platform'] == 'ios'
+                      ? 'SSH 키 가져오기'
+                      : '이 기기에 SSH 키 만들기',
+                  onKey: () async {
+                    if (engine.state['platform'] == 'ios') {
+                      await importTildeKeyFile(context, engine);
+                    } else if (row(
+                          engine.state['generation'],
+                        )['biometricAvailable'] ==
+                        true) {
+                      await showTildeSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (_) => GenerateKeyPage(engine: engine),
+                      );
+                    } else {
+                      await _page(KeyPage(engine: engine));
+                    }
+                  },
+                )
+              : _hostList(hosts, wide),
+        ),
         _quickConnectField(),
       ],
     );

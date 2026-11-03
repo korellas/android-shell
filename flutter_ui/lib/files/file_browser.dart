@@ -6,7 +6,8 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../engine.dart';
-import '../main.dart' show askText, confirm;
+import '../main.dart' show askText, confirm, showErrorDetails;
+import '../editors.dart';
 import '../ssh/app_session.dart';
 import '../terminal/terminal_prompt.dart';
 import 'sftp_transfer.dart';
@@ -47,7 +48,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   bool _editingAddress = false;
   String? _error;
   bool _loading = true, _leaving = false;
-  int _request = 0, _historyIndex = -1;
+  int _request = 0, _historyIndex = -1, _connectGeneration = 0;
   final _history = <String>[], _favorites = <String>{}, _recent = <String>[];
   final _address = TextEditingController();
   final _filter = TextEditingController();
@@ -151,28 +152,42 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   Future<void> _connect() async {
+    final generation = ++_connectGeneration;
+    final previous = _connection;
+    setState(() {
+      _connection = null;
+      _files = null;
+      _leaving = false;
+      _loading = true;
+      _error = null;
+      _status = '';
+    });
     try {
+      await previous?.dispose();
+      if (!mounted || generation != _connectGeneration) return;
       final connection = await widget.engine.createFileConnection(
         widget.host['id'] as int,
         onChanged: _changed,
       );
-      if (!mounted) {
+      if (!mounted || generation != _connectGeneration) {
         await connection.dispose();
         return;
       }
       _connection = connection;
       await connection.connect();
-      if (!mounted) return;
+      if (!mounted || generation != _connectGeneration) return;
       if (!connection.connected) {
         throw StateError(
           row(connection.record['progress'])['message'] as String? ??
               '파일 전송에 로그인하지 못했습니다.',
         );
       }
-      _files = await connection.openSftp();
-      if (mounted) await _navigate('.');
+      final files = await connection.openSftp();
+      if (!mounted || generation != _connectGeneration) return;
+      _files = files;
+      if (mounted && generation == _connectGeneration) await _navigate('.');
     } catch (error) {
-      if (mounted) {
+      if (mounted && generation == _connectGeneration) {
         setState(() {
           _error = '$error';
           _loading = false;
@@ -1011,8 +1026,214 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     ),
   ];
 
+  Future<void> _cancelConnection() async {
+    ++_connectGeneration;
+    final connection = _connection;
+    setState(() {
+      _connection = null;
+      _leaving = true;
+      _loading = false;
+      _error = null;
+    });
+    await connection?.dispose();
+  }
+
+  Widget _connectionView() {
+    final record = _connection?.record ?? <String, dynamic>{};
+    final phase = record['connectionPhase'] as String? ?? 'server';
+    final index = [
+      'server',
+      'hostKey',
+      'authentication',
+      'ready',
+    ].indexOf(phase);
+    final current = index < 0 ? 0 : index;
+    final durations = row(record['connectionDurations']);
+    final failed = _error != null;
+    final pointer = tildePointer(context);
+    final cs = Theme.of(context).colorScheme;
+    final prompts = _connection?.prompts ?? [];
+    final title = _leaving
+        ? '연결을 취소했습니다'
+        : failed
+        ? switch (phase) {
+            'hostKey' => '서버 키를 확인하지 못했습니다',
+            'authentication' => '로그인하지 못했습니다',
+            'ready' => '파일 목록을 열지 못했습니다',
+            _ => '서버에 연결하지 못했습니다',
+          }
+        : '${widget.host['nickname']}에 연결하는 중';
+    return Scaffold(
+      appBar: widget.embedded
+          ? null
+          : AppBar(title: Text('${widget.host['nickname']} · 파일 전송')),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                Text(
+                  record['connectionHost'] as String? ??
+                      '${widget.host['username'] ?? ''}@${widget.host['hostname'] ?? ''}:${widget.host['port'] ?? 22}',
+                  style: TextStyle(
+                    fontFamily: tildeMono,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                if (failed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(switch (phase) {
+                      'hostKey' => '저장된 서버 키와 서버 관리자가 알려 준 지문을 확인하세요.',
+                      'authentication' =>
+                        '사용자 이름과 인증 정보를 확인하세요. SSH 키를 사용한다면 서버에 공개키가 등록되어 있어야 합니다.',
+                      'ready' => '폴더 경로와 접근 권한을 확인한 뒤 다시 시도하세요.',
+                      _ => '서버 주소와 포트, 네트워크 연결을 확인하세요.',
+                    }),
+                  ),
+                const SizedBox(height: 24),
+                if (!_leaving) ...[
+                  for (final (i, label) in [
+                    '서버 찾기',
+                    '서버 키 확인',
+                    '로그인',
+                    '파일 목록',
+                  ].indexed)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            i < current
+                                ? Icons.check_circle_outline
+                                : failed && i == current
+                                ? Icons.error_outline
+                                : Icons.circle_outlined,
+                            size: 22,
+                            color: i < current
+                                ? cs.primary
+                                : failed && i == current
+                                ? cs.error
+                                : cs.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                color: i == current
+                                    ? cs.onSurface
+                                    : cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          if (pointer &&
+                              durations[[
+                                    'server',
+                                    'hostKey',
+                                    'authentication',
+                                    'ready',
+                                  ][i]]
+                                  is num)
+                            Text(
+                              '${((durations[['server', 'hostKey', 'authentication', 'ready'][i]] as num) / 1000).toStringAsFixed(1)}초',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                        ],
+                      ),
+                    ),
+                  if (!failed)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: LinearProgressIndicator(),
+                    ),
+                ],
+                if (prompts.isNotEmpty)
+                  TerminalPromptSurface(
+                    key: ValueKey(prompts.first['token']),
+                    prompt: prompts.first,
+                    onResponse: (value) async => _connection?.respond(
+                      prompts.first['token'] as String,
+                      value,
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    if (failed)
+                      TextButton(
+                        onPressed: () => showErrorDetails(
+                          context,
+                          _error!,
+                          summary: title,
+                          retry: _connect,
+                        ),
+                        child: const Text('자세히'),
+                      ),
+                    if (pointer && !failed && !_leaving)
+                      TextButton(
+                        onPressed: () => showErrorDetails(
+                          context,
+                          (record['connectionLog'] as List? ?? []).join('\n'),
+                          summary: '연결 기록',
+                        ),
+                        child: const Text('연결 기록'),
+                      ),
+                    if (!failed && !_leaving)
+                      TextButton(
+                        onPressed: _cancelConnection,
+                        child: const Text('취소'),
+                      ),
+                    if (failed)
+                      OutlinedButton(
+                        onPressed: () async {
+                          await Navigator.push<void>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => RecordEditor(
+                                engine: widget.engine,
+                                kind: RecordKind.host,
+                                record:
+                                    widget.engine
+                                        .list('hosts')
+                                        .where(
+                                          (h) => h['id'] == widget.host['id'],
+                                        )
+                                        .firstOrNull ??
+                                    widget.host,
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('호스트 편집'),
+                      ),
+                    if (failed || _leaving)
+                      FilledButton(
+                        onPressed: _connect,
+                        child: const Text('다시 시도'),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_path.isEmpty) return _connectionView();
     final connection = _connection, prompts = connection?.prompts ?? [];
     final directory = _path;
     final locations = Column(

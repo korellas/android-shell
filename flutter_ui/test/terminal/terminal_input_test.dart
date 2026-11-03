@@ -78,7 +78,10 @@ void main() {
     input.paste('first\nsecond');
     expect(output, isEmpty);
     final owner = Object();
-    input.installPasteGuard(owner, (text) async => text == 'first\nsecond');
+    input.installPasteGuard(
+      owner,
+      (text) async => text == 'first\nsecond' ? text : null,
+    );
     input.paste('first\nsecond');
     await tester.pump();
     expect(output.join(), 'first\rsecond');
@@ -94,7 +97,10 @@ void main() {
     edit(tester, 'first\nsecond');
     expect(output, isEmpty);
     final owner = Object();
-    input.installPasteGuard(owner, (text) async => text == 'first\nsecond');
+    input.installPasteGuard(
+      owner,
+      (text) async => text == 'first\nsecond' ? text : null,
+    );
     edit(tester, 'first\nsecond');
     await tester.pump();
     expect(output.join(), 'first\rsecond');

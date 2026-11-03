@@ -341,7 +341,7 @@ class _RemoteFolderPickerState extends State<RemoteFolderPicker> {
                   onPressed: loading || error != null
                       ? null
                       : () => Navigator.pop(context, path),
-                  child: const Text('이 폴더로 이동'),
+                  child: const Text('여기로 이동'),
                 ),
               ],
             ),

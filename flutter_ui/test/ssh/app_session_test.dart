@@ -144,6 +144,88 @@ void main() {
       expect(session.record['connectionLog'], isNull);
     },
   );
+  test('connection stages follow host verification', () async {
+    final ready = Completer<void>();
+    session = create(connect: (_) => ready.future);
+    final connecting = session.connect();
+    await Future<void>.delayed(Duration.zero);
+    expect(session.record['connectionPhase'], 'server');
+    final endpoint = transports.single.endpoints.single;
+    final accepted = await endpoint.verifyHostKey(
+      'ssh-ed25519',
+      Uint8List.fromList(utf8.encode('SHA256:${List.filled(43, 'A').join()}')),
+    );
+    expect(accepted, isFalse);
+    expect(session.record['connectionPhase'], 'hostKey');
+    expect(session.record['connectionDurations'], contains('server'));
+    ready.complete();
+    await connecting;
+    expect(session.record['connectionPhase'], 'ready');
+  });
+  test(
+    'new host trust uses a fingerprint sheet and advances only after acceptance',
+    () async {
+      final ready = Completer<void>();
+      var saved = false;
+      session = AppSshSession(
+        id: 7,
+        prepared: prepared,
+        onChanged: () {},
+        platform: (method, args) async {
+          if (method == 'ssh.checkHost') return {'status': 'unknown'};
+          if (method == 'ssh.saveHost') {
+            saved = true;
+            return null;
+          }
+          return platform(method, args);
+        },
+        transportFactory:
+            ({
+              required endpoints,
+              required onOutput,
+              required onState,
+              required onError,
+              required wantShell,
+              required pty,
+            }) {
+              final transport = FakeTransport(
+                endpoints: endpoints,
+                onOutput: onOutput,
+                onState: onState,
+                onError: onError,
+                wantShell: wantShell,
+                pty: pty,
+              )..onConnect = (_) => ready.future;
+              transports.add(transport);
+              return transport;
+            },
+      );
+      final connecting = session.connect();
+      await Future<void>.delayed(Duration.zero);
+      final verify = transports.single.endpoints.single.verifyHostKey(
+        'ssh-ed25519',
+        Uint8List.fromList(utf8.encode('SHA256:example')),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(session.prompts.single['type'], 'hostKey');
+      expect(session.prompts.single['sha256'], 'SHA256:example');
+      expect(saved, isFalse);
+      session.respond(session.prompts.single['token'] as String, true);
+      expect(await verify, isTrue);
+      expect(saved, isTrue);
+      expect(session.record['connectionPhase'], 'authentication');
+      ready.complete();
+      await connecting;
+      await session.disconnect();
+      expect(
+        await transports.single.endpoints.single.verifyHostKey(
+          'ssh-ed25519',
+          Uint8List(0),
+        ),
+        isFalse,
+      );
+    },
+  );
   test('failed login keeps its log and error for inspection', () async {
     session = create(
       connect: (_) async => throw const SocketException('Connection refused'),
@@ -207,33 +289,31 @@ void main() {
     ]);
     expect(session.record['progress']['state'], 'ERROR');
   });
-  test('remote terminal control sequences cannot access the clipboard', () async {
-    session = create();
+  test(
+    'remote terminal control sequences cannot access the clipboard',
+    () async {
+      session = create();
 
-    expect(session.terminal.onClipboardStore, isNotNull);
-    expect(session.terminal.onClipboardQuery, isNotNull);
-    expect(session.terminal.clipboardDecoder, isNotNull);
-    expect(
-      session.terminal.clipboardDecoder!('c', 'c2VjcmV0'),
-      isNull,
-    );
-    expect(
-      await Future<String?>.value(
-        session.terminal.onClipboardQuery!('c'),
-      ),
-      isNull,
-    );
+      expect(session.terminal.onClipboardStore, isNotNull);
+      expect(session.terminal.onClipboardQuery, isNotNull);
+      expect(session.terminal.clipboardDecoder, isNotNull);
+      expect(session.terminal.clipboardDecoder!('c', 'c2VjcmV0'), isNull);
+      expect(
+        await Future<String?>.value(session.terminal.onClipboardQuery!('c')),
+        isNull,
+      );
 
-    session.terminal.write('\x1b]52;c;?\x07');
-    session.terminal.write('\x1b]52;c;c2VjcmV0\x07');
-    session.terminal.write(
-      '\x1b]1337;CopyToClipboard=c\x07secret\x1b]1337;EndCopy\x07',
-    );
-    session.terminal.write('\x1b]5522;type=write;c2VjcmV0\x07');
-    await Future<void>.delayed(Duration.zero);
+      session.terminal.write('\x1b]52;c;?\x07');
+      session.terminal.write('\x1b]52;c;c2VjcmV0\x07');
+      session.terminal.write(
+        '\x1b]1337;CopyToClipboard=c\x07secret\x1b]1337;EndCopy\x07',
+      );
+      session.terminal.write('\x1b]5522;type=write;c2VjcmV0\x07');
+      await Future<void>.delayed(Duration.zero);
 
-    expect(transports, isEmpty);
-  });
+      expect(transports, isEmpty);
+    },
+  );
   test('legacy SOCKS4 startup cannot abort a valid SSH connection', () async {
     prepared['forwards'] = [
       {'id': 8, 'type': 'dynamic4', 'startEnabled': true},

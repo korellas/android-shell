@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -68,7 +69,8 @@ class RecordEditor extends StatefulWidget {
 class _RecordEditorState extends State<RecordEditor> {
   final form = GlobalKey<FormState>();
   late EngineRecord draft;
-  bool saving = false;
+  bool saving = false, savedNotice = false;
+  Timer? savedTimer;
   String? hostCategory;
   late EngineRecord originalDraft;
   String? error;
@@ -139,6 +141,7 @@ class _RecordEditorState extends State<RecordEditor> {
 
   @override
   void dispose() {
+    savedTimer?.cancel();
     engine.removeListener(engineChanged);
     super.dispose();
   }
@@ -1180,16 +1183,19 @@ class _RecordEditorState extends State<RecordEditor> {
 
   bool get wideEditor =>
       tildePointer(context) && MediaQuery.sizeOf(context).width >= 720;
-  int get changeCount => {
+  Set<String> get changedKeys => {
     for (final key in {...originalDraft.keys, ...draft.keys})
       if (originalDraft[key] != draft[key] && !key.startsWith('_'))
         if (['password', 'hasPassword', 'clearPassword'].contains(key))
           'password'
         else
           key,
-  }.length;
+  };
+  int get changeCount => changedKeys.length;
   int draftRevision = 0;
   void resetDraft() {
+    error = null;
+    savedNotice = false;
     draft = {...originalDraft};
     passwordRevision++;
     draftRevision++;
@@ -1236,6 +1242,8 @@ class _RecordEditorState extends State<RecordEditor> {
     if (form.currentState?.validate() == false) return false;
     setState(() {
       saving = true;
+      savedTimer?.cancel();
+      savedNotice = false;
       error = null;
     });
     final data = {
@@ -1264,6 +1272,10 @@ class _RecordEditorState extends State<RecordEditor> {
             ..remove('clearPassword');
           passwordRevision++;
           originalDraft = {...draft};
+          savedNotice = true;
+          savedTimer = Timer(const Duration(seconds: 2), () {
+            if (mounted) setState(() => savedNotice = false);
+          });
           if (!wideEditor) hostCategory = null;
         }
       }
@@ -1285,6 +1297,126 @@ class _RecordEditorState extends State<RecordEditor> {
       if (mounted) setState(() => saving = false);
     }
     return false;
+  }
+
+  Widget desktopSaveBar(bool wide, bool dirty) {
+    final keys = changedKeys.toList();
+    String label(String key) =>
+        _fieldLabels[key] ?? (key == 'password' ? '비밀번호' : '설정');
+    Future<void> showChanges() => showTildeSheet<void>(
+      context: context,
+      builder: (c) => SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('변경한 항목', style: Theme.of(c).textTheme.titleLarge),
+            for (final key in keys)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(label(key)),
+                subtitle: Text(
+                  key == 'password'
+                      ? '비밀번호 변경'
+                      : '${originalDraft[key] ?? '없음'} → ${draft[key] ?? '없음'}',
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+        ),
+        child: Padding(
+          padding: EdgeInsets.only(left: wide ? 177 : 0),
+          child: Center(
+            heightFactor: 1,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: SizedBox(
+                width: double.infinity,
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    if (saving)
+                      const Text('저장하는 중입니다')
+                    else if (dirty && error != null)
+                      TextButton.icon(
+                        onPressed: () => showErrorDetails(context, error!),
+                        icon: Icon(
+                          Icons.circle,
+                          size: 6,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        label: const Text('저장하지 못했습니다'),
+                      )
+                    else if (dirty)
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            keys.length == 1
+                                ? '${label(keys.first)}를 바꿨습니다'
+                                : '${label(keys.first)} 외',
+                          ),
+                          if (keys.length > 1)
+                            TextButton(
+                              onPressed: showChanges,
+                              child: Text('${keys.length - 1}개 항목'),
+                            ),
+                        ],
+                      )
+                    else if (savedNotice)
+                      const Text('저장했습니다'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (dirty || saving) ...[
+                          TextButton(
+                            onPressed: saving ? null : cancelEdits,
+                            child: const Text('되돌리기'),
+                          ),
+                          Tooltip(
+                            message: 'Ctrl S',
+                            child: OutlinedButton(
+                              onPressed: saving
+                                  ? null
+                                  : () => save(close: false),
+                              child: const Text('저장'),
+                            ),
+                          ),
+                        ],
+                        if (supportedHost && !wide) ...[
+                          FilledButton(
+                            onPressed: saving ? null : connectSavedHost,
+                            child: Text(dirty ? '저장하고 연결' : '연결'),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1420,54 +1552,9 @@ class _RecordEditorState extends State<RecordEditor> {
                           : '${kindTitle(widget.kind)} ${widget.record == null ? '추가' : '편집'}',
                     ),
                   ),
-            bottomNavigationBar: pointer && host && (!wide || dirty)
-                ? SafeArea(
-                    top: false,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(
-                            color: Theme.of(context).colorScheme.outlineVariant,
-                          ),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              dirty
-                                  ? '${{for (final key in draft.keys)
-                                      if (draft[key] != originalDraft[key]) _fieldLabels[key] ?? '설정'}.join(', ')} 항목을 바꿨습니다.'
-                                  : '',
-                            ),
-                          ),
-                          if (dirty) ...[
-                            TextButton(
-                              onPressed: saving ? null : cancelEdits,
-                              child: const Text('되돌리기'),
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton(
-                              onPressed: saving
-                                  ? null
-                                  : () => save(close: false),
-                              child: const Text('저장'),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          if (supportedHost && !wide)
-                            FilledButton(
-                              onPressed: saving ? null : connectSavedHost,
-                              child: Text(dirty ? '저장하고 연결' : '연결'),
-                            ),
-                        ],
-                      ),
-                    ),
-                  )
+            bottomNavigationBar:
+                pointer && host && (!wide || dirty || saving || savedNotice)
+                ? desktopSaveBar(wide, dirty)
                 : dirty
                 ? TildeSaveBar(
                     changes: changeCount,

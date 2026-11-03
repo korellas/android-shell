@@ -35,7 +35,7 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
   bool _alt = false;
   bool _shift = false;
   Object? _pasteGuardOwner;
-  Future<bool> Function(String text)? _pasteGuard;
+  Future<String?> Function(String text)? _pasteGuard;
   String stickyModifiers = 'no';
   final _hardwareModifiers = <PhysicalKeyboardKey, (bool, bool, bool)>{};
   bool get ctrl => _ctrl;
@@ -144,7 +144,7 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
 
   void installPasteGuard(
     Object owner,
-    Future<bool> Function(String text) guard,
+    Future<String?> Function(String text) guard,
   ) {
     _pasteGuardOwner = owner;
     _pasteGuard = guard;
@@ -158,12 +158,13 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
 
   Future<void> _pasteAfterConfirmation(
     String text,
-    Future<bool> Function(String text) guard,
+    Future<String?> Function(String text) guard,
   ) async {
-    if (!await guard(text) || !_canSend || !identical(_pasteGuard, guard)) {
+    final approved = await guard(text);
+    if (approved == null || !_canSend || !identical(_pasteGuard, guard)) {
       return;
     }
-    terminal.paste(text);
+    terminal.paste(approved);
   }
 
   void finishComposition() {

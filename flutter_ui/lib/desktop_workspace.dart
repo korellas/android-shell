@@ -590,6 +590,13 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                 isDense: true,
                 hintText: '검색 또는 ssh user@host',
                 prefixIcon: Icon(Icons.search, size: 18),
+                suffixIcon: Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Text(
+                    'Ctrl K',
+                    style: TextStyle(fontFamily: tildeMono, fontSize: 11),
+                  ),
+                ),
               ),
               onChanged: (_) => setState(() {}),
               onSubmitted: _submit,
@@ -608,6 +615,11 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               children: [
+                if (engine.list('hosts').isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: Text('아직 호스트가 없습니다'),
+                  ),
                 for (final host in filtered)
                   Builder(
                     builder: (anchor) {
@@ -931,12 +943,16 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
 
   Widget _home(EngineRecord? host) {
     if (host == null) {
-      return Center(
-        child: FilledButton.icon(
-          onPressed: () => _edit(),
-          icon: const Icon(Icons.add),
-          label: const Text('새 호스트'),
-        ),
+      return TildeWelcome(
+        onAdd: () => _edit(),
+        onQuickConnect: () {
+          setState(() => _showSidebar = true);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _searchFocus.requestFocus();
+          });
+        },
+        onKey: () => importTildeKeyFile(context, engine),
+        keyLabel: 'SSH 키 가져오기',
       );
     }
     return HostSummary(

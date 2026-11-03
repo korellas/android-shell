@@ -261,6 +261,30 @@ class RecordListPage extends StatelessWidget {
   );
 }
 
+Future<void> importTildeKeyFile(
+  BuildContext context,
+  AndroidEngine engine,
+) async {
+  final path = await runEngine(context, engine, 'document.pick');
+  if (path is! String || !context.mounted) return;
+  final password = await askText(
+    context,
+    '개인키 암호',
+    password: true,
+    hintText: '암호가 없으면 비워두세요.',
+    action: '추가',
+  );
+  if (password == null || !context.mounted) return;
+  await runEngine(context, engine, 'key.import', {
+    'path': path,
+    'password': password,
+    'nickname': Uri.file(
+      path,
+      windows: engine.state['platform'] == 'windows',
+    ).pathSegments.last,
+  });
+}
+
 class KeyPage extends StatefulWidget {
   final AndroidEngine engine;
   const KeyPage({super.key, required this.engine});
@@ -270,27 +294,6 @@ class KeyPage extends StatefulWidget {
 
 class _KeyPageState extends State<KeyPage> {
   AndroidEngine get engine => widget.engine;
-
-  Future<void> importKeyFile() async {
-    final path = await runEngine(context, engine, 'document.pick');
-    if (path is! String || !mounted) return;
-    final password = await askText(
-      context,
-      '개인키 암호',
-      password: true,
-      hintText: '암호가 없으면 비워두세요.',
-      action: '추가',
-    );
-    if (password == null || !mounted) return;
-    await runEngine(context, engine, 'key.import', {
-      'path': path,
-      'password': password,
-      'nickname': Uri.file(
-        path,
-        windows: engine.state['platform'] == 'windows',
-      ).pathSegments.last,
-    });
-  }
 
   @override
   void initState() {
@@ -389,7 +392,7 @@ class _KeyPageState extends State<KeyPage> {
       appBar: AppBar(title: const Text('SSH 키')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: fileKeys
-            ? importKeyFile
+            ? () => importTildeKeyFile(context, engine)
             : row(engine.state['generation'])['biometricAvailable'] == true
             ? () => showTildeSheet<void>(
                 context: context,
@@ -1032,9 +1035,8 @@ class _SchemesPageState extends State<SchemesPage> {
               icon: const Icon(Icons.add, size: 18),
               label: const Text('새 테마'),
             ),
-          TextButton.icon(
-            label: const Text('가져오기'),
-            icon: const Icon(Icons.file_open_outlined),
+          TextButton(
+            child: const Text('가져오기'),
             onPressed: () async {
               final uri = await runEngine(context, engine, 'document.pick');
               if (uri == null || !context.mounted) return;

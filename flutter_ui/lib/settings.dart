@@ -451,7 +451,7 @@ class _SettingsPageState extends State<SettingsPage> {
         c,
         '좌우 여백',
         [
-          for (final v in {0, 4, 8, 12, current}) (v, '$v'),
+          for (final v in {0, 4, 8, 12, current}) (v, v == 0 ? '없음' : '$v'),
         ],
         current,
         (v) => update(c, 'terminalMargin', v),

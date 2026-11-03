@@ -47,6 +47,20 @@ void main() {
   }
 
   testWidgets(
+    'paste can omit trailing Enter without changing interior newlines',
+    (tester) async {
+      await open(tester);
+      output.clear();
+      input.paste('pwd\r\nwhoami\r\n');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('마지막 Enter 빼고 붙여넣기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '2줄 붙여넣기'));
+      await tester.pumpAndSettle();
+      expect(output.join(), 'pwd\rwhoami');
+    },
+  );
+  testWidgets(
     'desktop uses the physical keyboard without an auxiliary key row',
     (tester) async {
       await open(tester);
