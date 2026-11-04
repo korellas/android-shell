@@ -530,20 +530,9 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
   }
 
   Future<void> _newTab() async {
-    await _select(active);
+    await _select(_tabs.first);
     if (!mounted || _pageOpen) return;
-    final host = engine
-        .list('hosts')
-        .where((h) => h['id'] == (active.hostId ?? _hostId))
-        .firstOrNull;
-    if (host != null) {
-      await _connect(host, newSession: true);
-    } else {
-      setState(() => _showSidebar = true);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _searchFocus.requestFocus();
-      });
-    }
+    setState(() => _showSidebar = true);
   }
 
   final _handledKeys = <LogicalKeyboardKey>{};
@@ -1049,7 +1038,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     return HostSummary(
       engine: engine,
       host: host,
-      onConnect: () => _connect(host),
+      onConnect: () => _connect(host, newSession: true),
       onFiles: () => _files(host),
       onEdit: () => _edit(host),
       onMenu: (anchor) => _hostMenu(host, anchor),
@@ -1147,7 +1136,7 @@ class HostSummary extends StatelessWidget {
                     FilledButton.icon(
                       onPressed: onConnect,
                       icon: const Icon(Icons.terminal_outlined, size: 18),
-                      label: const Text('터미널 열기'),
+                      label: const Text('새 터미널'),
                     ),
                   if (host['protocol'] == 'ssh')
                     OutlinedButton.icon(

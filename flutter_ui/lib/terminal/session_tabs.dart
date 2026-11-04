@@ -1,11 +1,30 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../engine.dart';
 import '../main.dart' show confirm, hostAddress, showEngineFailure;
 import '../tilde_design.dart';
 
 const sessionTabsMinWidth = 600.0;
+const sessionTabsHeight = 40.0;
+
+class SessionSwitcherButton extends StatelessWidget {
+  const SessionSwitcherButton({
+    super.key,
+    required this.count,
+    required this.onPressed,
+  });
+  final int count;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: '열린 세션',
+    onPressed: onPressed,
+    icon: Badge.count(count: count, child: const Icon(Icons.tab_outlined)),
+  );
+}
 
 String sessionLabel(List<EngineRecord> sessions, EngineRecord session) {
   final name = '${session['nickname'] ?? '터미널'}';
@@ -202,30 +221,41 @@ class _DesktopSessionTabsState extends State<DesktopSessionTabs> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Row(
-      children: [
-        Expanded(
-          child: Scrollbar(
-            controller: _scroll,
-            thumbVisibility: true,
-            child: SingleChildScrollView(
+    return LayoutBuilder(
+      builder: (context, constraints) => Row(
+        children: [
+          SizedBox(
+            width: math.min(
+              widget.sessions.length * 200.0,
+              math.max(0.0, constraints.maxWidth - 40),
+            ),
+            child: Scrollbar(
               controller: _scroll,
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (var index = 0; index < widget.sessions.length; index++)
-                    _tab(context, index),
-                ],
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                controller: _scroll,
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (var index = 0; index < widget.sessions.length; index++)
+                      _tab(context, index),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        IconButton(
-          tooltip: '새 세션',
-          onPressed: widget.onNew,
-          icon: Icon(Icons.add, color: colors.onSurfaceVariant, size: 20),
-        ),
-      ],
+          IconButton(
+            tooltip: '새 탭',
+            onPressed: widget.onNew,
+            constraints: const BoxConstraints.tightFor(
+              width: 40,
+              height: sessionTabsHeight,
+            ),
+            padding: EdgeInsets.zero,
+            icon: Icon(Icons.add, color: colors.onSurfaceVariant, size: 20),
+          ),
+        ],
+      ),
     );
   }
 
@@ -253,8 +283,8 @@ class _DesktopSessionTabsState extends State<DesktopSessionTabs> {
           child: InkWell(
             onTap: () => widget.onSelect(id),
             child: Container(
-              width: tildePointer(context) ? 200 : 220,
-              height: tildePointer(context) ? 46 : 52,
+              width: 200,
+              height: tildePointer(context) ? 46 : sessionTabsHeight,
               padding: EdgeInsets.only(
                 left: 12,
                 right: 4,
@@ -299,8 +329,8 @@ class _DesktopSessionTabsState extends State<DesktopSessionTabs> {
                     tooltip: '$label 닫기',
                     onPressed: () => widget.onClose(id),
                     constraints: BoxConstraints.tightFor(
-                      width: tildePointer(context) ? 28 : 48,
-                      height: tildePointer(context) ? 28 : 48,
+                      width: tildePointer(context) ? 28 : 32,
+                      height: tildePointer(context) ? 28 : 32,
                     ),
                     padding: EdgeInsets.zero,
                     icon: const Icon(Icons.close, size: 16),

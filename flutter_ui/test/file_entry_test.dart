@@ -54,7 +54,7 @@ void main() {
         .setMockMethodCallHandler(AndroidEngine.channel, null);
   });
 
-  testWidgets('touch host tap connects immediately without a mode picker', (
+  testWidgets('host chooser opens files without starting a terminal', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(400, 900);
@@ -67,8 +67,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('SSH 터미널'), findsNothing);
     expect(find.text('파일 전송 (SFTP)'), findsNothing);
-    expect(calls.where((method) => method == 'connect'), hasLength(1));
-    expect(calls, isNot(contains('ssh.prepare')));
+    expect(calls, isNot(contains('connect')));
+    await tester.tap(find.text('파일 전송'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FileBrowserPage), findsOneWidget);
+    expect(engine.fileHostId, 1);
+    expect(calls, isNot(contains('connect')));
   });
 
   testWidgets('file menu opens the selected host without starting a terminal', (
@@ -91,7 +95,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('local shell still connects directly', (tester) async {
+  testWidgets('local shell connection requires explicit choice', (
+    tester,
+  ) async {
     engine.state['hosts'] = [
       {...engine.list('hosts').single, 'protocol': 'local'},
     ];
@@ -102,6 +108,9 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Test host').first);
+    await tester.pumpAndSettle();
+    expect(calls, isNot(contains('connect')));
+    await tester.tap(find.text('새 터미널'));
     await tester.pumpAndSettle();
     expect(calls.where((method) => method == 'connect'), hasLength(1));
     expect(find.text('파일 전송 (SFTP)'), findsNothing);

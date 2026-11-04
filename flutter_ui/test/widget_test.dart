@@ -377,6 +377,8 @@ void main() {
     await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('새 터미널'));
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
     expect(find.byType(RecordEditor), findsNothing);

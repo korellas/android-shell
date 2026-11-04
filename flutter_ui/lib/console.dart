@@ -525,19 +525,7 @@ class ConsolePageState extends State<ConsolePage> {
       });
       interaction();
     } else if (action == 'newSession') {
-      final hostId = connectionTarget['hostId'];
-      final uri = connectionTarget['uri'];
-      if (hostId is int && hostId > 0) {
-        await runEngine(actionsContext, engine, 'connect', {
-          'id': hostId,
-          'newSession': true,
-        });
-      } else if (uri is String) {
-        await runEngine(actionsContext, engine, 'connect', {
-          'uri': uri,
-          'newSession': true,
-        });
-      }
+      await leave();
     } else {
       await menu(action);
     }
@@ -923,7 +911,9 @@ class ConsolePageState extends State<ConsolePage> {
     final tabs =
         desktop || MediaQuery.sizeOf(context).width >= sessionTabsMinWidth;
     final showTitle = !widget.embedded;
-    final toolbarHeight = showTitle ? (tabs && !desktop ? 52.0 : 48.0) : 0.0;
+    final toolbarHeight = showTitle
+        ? (desktop ? 48.0 : sessionTabsHeight)
+        : 0.0;
     final contentTop = toolbarHeight;
     final content = Theme(
       data: theme,
@@ -1152,9 +1142,7 @@ class ConsolePageState extends State<ConsolePage> {
                                           onSelect: select,
                                           onClose: (target) =>
                                               unawaited(closeTab(target)),
-                                          onNew: () => unawaited(
-                                            selectMenuAction('newSession'),
-                                          ),
+                                          onNew: () => unawaited(leave()),
                                         )
                                       : titleHidden &&
                                             prefs['titlebarhide'] == true
@@ -1168,13 +1156,17 @@ class ConsolePageState extends State<ConsolePage> {
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                   actions: [
-                                    if (!tabs)
-                                      TextButton(
+                                    if (!tabs) ...[
+                                      SessionSwitcherButton(
+                                        count: engine.list('sessions').length,
                                         onPressed: openSessions,
-                                        child: Text(
-                                          '세션 ${engine.list('sessions').length}',
-                                        ),
                                       ),
+                                      IconButton(
+                                        tooltip: '새 탭',
+                                        onPressed: () => leave(),
+                                        icon: const Icon(Icons.add),
+                                      ),
+                                    ],
                                     popup(),
                                   ],
                                 ),

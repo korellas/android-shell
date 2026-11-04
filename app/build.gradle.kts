@@ -13,7 +13,7 @@ plugins {
 
 appVersioning {
     tagFilter.set("v[0-9].*")
-    overrideVersionCode { _, _, _ -> 11100066 }
+    overrideVersionCode { _, _, _ -> 11100067 }
     overrideVersionName { gitTag, _, _ ->
         if (gitTag.commitsSinceLatestTag != 0) {
             "git-${gitTag.rawTagName}-${gitTag.commitsSinceLatestTag}-g${gitTag.commitHash}"
@@ -45,7 +45,7 @@ android {
         vectorDrawables.useSupportLibrary = true
 
         ndk {
-            abiFilters.addAll(listOf("x86", "x86_64", "armeabi-v7a", "arm64-v8a"))
+            abiFilters.add("arm64-v8a")
             debugSymbolLevel = "full"
         }
 
@@ -102,6 +102,10 @@ android {
         }
 
         debug {
+            ndk {
+                abiFilters.clear()
+                abiFilters.addAll(listOf("arm64-v8a", "x86_64"))
+            }
             manifestPlaceholders["memtagMode"] = "sync"
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard.cfg", "proguard-debug.cfg")
             testProguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard.cfg", "proguard-tests.cfg")

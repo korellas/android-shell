@@ -69,13 +69,13 @@ void main() {
     tester.view.physicalSize = const Size(390, 900);
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 4));
-    expect(find.text('세션 2'), findsOneWidget);
+    expect(find.byTooltip('열린 세션'), findsOneWidget);
     expect(tester.state(find.byType(ConsolePage)), same(console));
     expect(
       tester.widget<TerminalPane>(find.byType(TerminalPane)).terminal,
       same(terminal.terminal),
     );
-    await tester.tap(find.text('세션 2'));
+    await tester.tap(find.byTooltip('열린 세션'));
     await tester.pumpAndSettle();
     expect(find.text('개발 서버 · 1'), findsOneWidget);
     expect(find.text('개발 서버 · 2'), findsOneWidget);
@@ -128,7 +128,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(ConsolePage, skipOffstage: false), findsOneWidget);
       expect(tester.state<ConsolePageState>(find.byType(ConsolePage)).id, 102);
-      await tester.tap(find.text('세션 2'));
+      await tester.tap(find.byTooltip('열린 세션'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('session-close-101')));
       await tester.pumpAndSettle();
@@ -136,7 +136,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(engine.list('sessions').single['id'], 102);
       expect(tester.state<ConsolePageState>(find.byType(ConsolePage)).id, 102);
-      await tester.tap(find.text('세션 1'));
+      await tester.tap(find.byTooltip('열린 세션'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('session-close-102')));
       await tester.pumpAndSettle();
@@ -146,26 +146,37 @@ void main() {
       expect(engine.list('sessions'), isEmpty);
     },
   );
-  testWidgets('tabs use available width and touch sized close controls', (
-    tester,
-  ) async {
-    await open(tester, width: 600);
-    expect(find.byKey(const ValueKey('session-tab-101')), findsOneWidget);
-    final close = tester.getSize(
-      find.byKey(const ValueKey('session-close-101')),
-    );
-    expect(close.width, greaterThanOrEqualTo(48));
-    expect(close.height, greaterThanOrEqualTo(48));
-    tester.view.physicalSize = const Size(599, 900);
-    await tester.pumpAndSettle();
-    expect(find.text('세션 2'), findsOneWidget);
-    expect(find.byKey(const ValueKey('session-tab-101')), findsNothing);
-  });
+  testWidgets(
+    'compact wide tabs allow switching and closing at the width boundary',
+    (tester) async {
+      await open(tester, width: 600);
+      expect(find.byKey(const ValueKey('session-tab-101')), findsOneWidget);
+      final close = tester.getSize(
+        find.byKey(const ValueKey('session-close-101')),
+      );
+      expect(tester.getSize(find.byType(AppBar)).height, 40);
+      expect(close.width, greaterThanOrEqualTo(32));
+      expect(close.height, greaterThanOrEqualTo(32));
+      await tester.tap(find.byKey(const ValueKey('session-tab-102')));
+      await tester.pumpAndSettle();
+      expect(tester.state<ConsolePageState>(find.byType(ConsolePage)).id, 102);
+      await tester.tap(find.byKey(const ValueKey('session-close-101')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '종료'));
+      await tester.pumpAndSettle();
+      expect(engine.list('sessions').single['id'], 102);
+      expect(tester.state<ConsolePageState>(find.byType(ConsolePage)).id, 102);
+      tester.view.physicalSize = const Size(599, 900);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('열린 세션'), findsOneWidget);
+      expect(find.byKey(const ValueKey('session-tab-102')), findsNothing);
+    },
+  );
   testWidgets('closing selected compact session selects remaining session', (
     tester,
   ) async {
     await open(tester, width: 390);
-    await tester.tap(find.text('세션 2'));
+    await tester.tap(find.byTooltip('열린 세션'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('session-close-101')));
     await tester.pumpAndSettle();
@@ -173,7 +184,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.state<ConsolePageState>(find.byType(ConsolePage)).id, 101);
     expect(engine.list('sessions'), hasLength(2));
-    await tester.tap(find.text('세션 2'));
+    await tester.tap(find.byTooltip('열린 세션'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('session-close-101')));
     await tester.pumpAndSettle();
@@ -186,7 +197,7 @@ void main() {
     tester,
   ) async {
     await open(tester, width: 390);
-    await tester.tap(find.text('세션 2'));
+    await tester.tap(find.byTooltip('열린 세션'));
     await tester.pumpAndSettle();
     engine.state['sessions'] = engine
         .list('sessions')
@@ -199,4 +210,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.state<ConsolePageState>(find.byType(ConsolePage)).id, 101);
   });
+  testWidgets(
+    'new tab follows the last tab and returns to host choices without SSH',
+    (tester) async {
+      await open(tester, width: 1100);
+      final lastTab = tester.getRect(
+        find.byKey(const ValueKey('session-tab-102')),
+      );
+      final newTab = tester.getRect(find.byTooltip('새 탭'));
+      expect(newTab.left, closeTo(lastTab.right, 8));
+      await tester.tap(find.byTooltip('새 탭'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ConsolePage), findsNothing);
+      expect(find.text('새 터미널'), findsOneWidget);
+      expect(calls.where((c) => c.method == 'connect'), isEmpty);
+      expect(engine.list('sessions'), hasLength(2));
+    },
+  );
 }
