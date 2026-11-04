@@ -1,0 +1,11 @@
+{
+  "http": 200,
+  "sections": 27,
+  "galleryOptions": 160,
+  "filter": true,
+  "comparisonMode": true,
+  "zoom": true,
+  "gallery": true,
+  "mobileOverflow": false,
+  "pageErrors": []
+}

@@ -1,0 +1,165 @@
+Resolving dependencies...
+Downloading packages...
+  asn1lib 1.6.7 (1.6.8 available)
+  clock 1.1.2 (1.1.3 available)
+  equatable 2.1.0 (3.0.0 available)
+  matcher 0.12.19 (0.12.20 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.17.0 (1.19.0 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.10 (0.7.15 available)
+  vector_math 2.2.0 (2.4.4 available)
+  vm_service 15.3.0 (15.4.0 available)
+  webview_flutter_android 4.12.0 (4.14.1 available)
+  webview_flutter_wkwebview 3.25.1 (3.27.2 available)
+Got dependencies!
+12 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /private/tmp/tilde-recheck-final-screens_test.dart
+00:00 +0: home-touch
+00:00 +1: home-day-touch
+00:01 +2: host-menu-touch
+00:01 +3: settings-touch
+00:01 +4: settings-display-touch
+00:01 +5: settings-keyboard-touch
+00:02 +6: settings-gesture-touch
+00:02 +7: settings-terminal-touch
+00:02 +8: settings-connection-touch
+00:02 +9: settings-security-touch
+00:03 +10: host-new-touch
+00:03 +11: host-overview-touch
+00:03 +12: host-connect-touch
+00:03 +13: host-auth-touch
+00:03 +14: host-display-touch
+00:03 +15: host-session-touch
+00:04 +16: list-profile-touch
+00:04 +17: new-profile-touch
+00:04 +18: list-identity-touch
+00:04 +19: new-identity-touch
+00:04 +20: profile-menu-touch
+00:04 +21: account-menu-touch
+00:05 +22: keys-touch
+00:05 +23: key-menu-touch
+00:05 +24: new-key-touch
+00:05 +25: key-editor-touch
+00:05 +26: known-hosts-touch
+00:05 +27: forwards-touch
+00:06 +28: forward-editor-touch
+00:06 +29: forward-menu-touch
+00:06 +30: themes-touch
+00:06 +31: theme-menu-touch
+00:06 +32: palette-touch
+00:06 +33: color-picker-touch
+00:07 +34: enrollment-touch
+00:07 +35: help-touch
+00:07 +36: logs-touch
+00:07 +37: logs-menu-touch
+00:07 +38: console-touch
+00:07 +39: console-menu-touch
+00:08 +40: console-text-touch
+00:08 +41: terminal-links-touch
+00:08 +42: paste-warning-touch
+00:08 +43: auth-string-touch
+00:09 +44: auth-hostKey-touch
+00:09 +45: auth-boolean-touch
+00:09 +46: files-touch
+00:09 +47: file-menu-touch
+00:09 +48: file-view-touch
+00:10 +49: file-info-touch
+00:10 +50: file-delete-touch
+00:10 +51: file-rename-touch
+00:11 +52: file-move-touch
+00:11 +53: file-permissions-touch
+00:11 +54: file-new-folder-touch
+00:11 +55: file-new-touch
+00:11 +56: file-conflict-touch
+00:12 +57: preview-touch
+00:12 +58: preview-edit-touch
+00:12 +59: preview-unsupported-touch
+00:12 +60: confirm-touch
+00:12 +61: error-touch
+00:12 +62: home-pointer
+00:13 +63: home-day-pointer
+00:13 +64: host-menu-pointer
+00:13 +65: settings-pointer
+00:13 +66: settings-display-pointer
+00:13 +67: settings-keyboard-pointer
+00:14 +68: settings-gesture-pointer
+00:14 +69: settings-terminal-pointer
+00:14 +70: settings-connection-pointer
+00:14 +71: settings-security-pointer
+00:15 +72: host-new-pointer
+00:15 +73: host-overview-pointer
+00:15 +74: host-connect-pointer
+00:15 +75: host-auth-pointer
+00:15 +76: host-display-pointer
+00:15 +77: host-session-pointer
+00:16 +78: list-profile-pointer
+00:16 +79: new-profile-pointer
+00:16 +80: list-identity-pointer
+00:16 +81: new-identity-pointer
+00:16 +82: profile-menu-pointer
+00:17 +83: account-menu-pointer
+00:17 +84: keys-pointer
+00:17 +85: key-menu-pointer
+00:17 +86: key-editor-pointer
+00:17 +87: known-hosts-pointer
+00:17 +88: forwards-pointer
+00:17 +89: forward-editor-pointer
+00:18 +90: forward-menu-pointer
+00:18 +91: themes-pointer
+00:18 +92: theme-menu-pointer
+00:18 +93: palette-pointer
+00:18 +94: color-picker-pointer
+00:18 +95: enrollment-pointer
+00:19 +96: help-pointer
+00:19 +97: logs-pointer
+00:19 +98: logs-menu-pointer
+00:19 +99: console-pointer
+00:19 +100: console-menu-pointer
+00:20 +101: console-text-pointer
+00:20 +102: terminal-links-pointer
+00:20 +103: paste-warning-pointer
+00:20 +104: auth-string-pointer
+00:21 +105: auth-hostKey-pointer
+00:21 +106: auth-boolean-pointer
+00:21 +107: files-pointer
+00:21 +108: file-menu-pointer
+00:22 +109: file-view-pointer
+00:22 +110: file-info-pointer
+00:22 +111: file-delete-pointer
+00:22 +112: file-rename-pointer
+00:22 +113: file-move-pointer
+00:23 +114: file-permissions-pointer
+00:23 +115: file-new-folder-pointer
+00:23 +116: file-new-pointer
+00:23 +117: file-conflict-pointer
+00:23 +118: preview-pointer
+00:23 +119: preview-edit-pointer
+00:24 +120: preview-unsupported-pointer
+00:24 +121: confirm-pointer
+00:24 +122: error-pointer
+00:24 +123: home-ipad
+00:24 +124: files-ipad
+00:24 +125: home-large-text
+00:24 +126: home-pointer-large-text
+00:25 +127: files-large-text
+00:25 +128: host-pointer-large-text
+00:25 +129: workspace-files
+00:25 +130: workspace-terminal
+00:26 +131: workspace-editor
+00:26 +132: queue-dock
+00:26 +133: queue-touch
+00:26 +134: host-choices-touch
+00:26 +135: sessions-touch
+00:26 +136: sessions-ipad
+00:27 +137: home-empty-touch
+00:27 +138: settings-large-text
+00:27 +139: keybar-touch
+00:27 +140: keybar-pointer
+00:27 +141: console-ended-touch
+00:27 +142: preview-error-touch
+00:27 +143: preview-dirty-touch
+00:28 +144: console-multiple-ipad
+00:28 +145: (tearDownAll)
+00:28 +145: All tests passed!
