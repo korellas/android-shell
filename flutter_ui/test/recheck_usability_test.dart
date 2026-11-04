@@ -63,12 +63,14 @@ void main() {
         if (selection.incoming) await t.tap(incoming);
         if (!selection.existing) await t.tap(existing);
         await t.pumpAndSettle();
-        expect(find.textContaining('남은'), findsNothing);
+        expect(find.textContaining('개에도 적용'), findsNothing);
         await t.tap(
-          find.widgetWithText(
-            FilledButton,
-            selection.action == 'cancel' ? '복사 취소' : '계속',
-          ),
+          find.widgetWithText(FilledButton, switch (selection.action) {
+            'cancel' => '복사 취소',
+            'replace' => '덮어쓰기',
+            'keep' => '둘 다 보관',
+            _ => '건너뛰기',
+          }),
         );
         await t.pumpAndSettle();
         expect(result, (action: selection.action, apply: false));

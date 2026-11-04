@@ -62,7 +62,7 @@ Future<void> showForwardEditor(
   maxWidth: 440,
   builder: (context) => ConstrainedBox(
     constraints: BoxConstraints(
-      maxHeight: (MediaQuery.sizeOf(context).height * .85).clamp(
+      maxHeight: (MediaQuery.sizeOf(context).height * .9).clamp(
         0,
         double.infinity,
       ),

@@ -2954,7 +2954,7 @@ abstract class AppLocalizations {
   /// Tilde app: Cancel copying. Keep the existing file.
   ///
   /// In en, this message translates to:
-  /// **'Cancel copying. Keep the existing file.'**
+  /// **'Cancel this copy job, including its remaining files. Keep the existing files.'**
   String get cancelCopyingKeepTheExistingFile;
 
   /// Tilde app: Apply to {arg0} remaining items
@@ -3512,7 +3512,7 @@ abstract class AppLocalizations {
   /// Tilde app: Check the server connection.
   ///
   /// In en, this message translates to:
-  /// **'Check the server connection.'**
+  /// **'Could not communicate with the server. Check your network connection.'**
   String get checkTheServerConnection;
 
   /// Tilde app: Unexpected error. Copy the details below and contact support.
@@ -5254,6 +5254,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete'**
   String get keyDelete;
+
+  /// Tilde additional design review: Skip
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get skipCopy;
+
+  /// Tilde additional design review: Keep both
+  ///
+  /// In en, this message translates to:
+  /// **'Keep both'**
+  String get keepBothFiles;
+
+  /// Tilde additional design review: Apply to remaining files is unavailable when cancelling the job.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply to remaining files is unavailable when cancelling the job.'**
+  String get cancelJobNoApplyAll;
+
+  /// Tilde additional design review: Edit authentication
+  ///
+  /// In en, this message translates to:
+  /// **'Edit authentication'**
+  String get editAuthentication;
+
+  /// Tilde additional design review: Server message
+  ///
+  /// In en, this message translates to:
+  /// **'Server message'**
+  String get serverMessage;
+
+  /// Tilde additional design review: Cancelling…
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelling…'**
+  String get cancellingOperation;
+
+  /// Tilde additional design review: Transfers
+  ///
+  /// In en, this message translates to:
+  /// **'Transfers'**
+  String get transferHeading;
 }
 
 class _AppLocalizationsDelegate

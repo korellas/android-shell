@@ -129,9 +129,8 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
                   child: Text(context.l10n.retry),
                 ),
               if (job.error != null)
-                IconButton(
-                  tooltip: context.l10n.errorDetails,
-                  icon: const Icon(Icons.info_outline, size: 18),
+                TextButton(
+                  child: Text(context.l10n.details),
                   onPressed: () => showErrorDetails(
                     context,
                     job.error!,
@@ -179,9 +178,9 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
           final progress = running
               ? TransferProgress(
                   status: context.l10n.items2(
-                    (job.completedFiles).toString(),
-                    (job.totalFiles).toString(),
-                    (job.detail.isEmpty ? '' : ' · ${job.detail}').toString(),
+                    '${job.completedFiles}',
+                    '${job.totalFiles}',
+                    '',
                   ),
                   control: job.control,
                   startedAt: job.startedAt,
@@ -254,7 +253,11 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
           if (!widget.fullPage) const Divider(height: 1),
           ListTile(
             dense: pointer,
-            title: Text(context.l10n.transfer((summary).toString())),
+            title: Text(
+              expanded
+                  ? context.l10n.transferHeading
+                  : context.l10n.transfer(summary),
+            ),
             subtitle: !expanded && active != null
                 ? Text(
                     '${active.label} · ${formatBytes(active.control.bytes)} / ${active.control.total == null ? context.l10n.checkingSize : formatBytes(active.control.total!)}',

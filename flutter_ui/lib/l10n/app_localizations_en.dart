@@ -1665,7 +1665,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cancelCopyingKeepTheExistingFile =>
-      'Cancel copying. Keep the existing file.';
+      'Cancel this copy job, including its remaining files. Keep the existing files.';
 
   @override
   String applyToRemainingItems(String arg0) {
@@ -2008,7 +2008,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get checkTheServerConnection => 'Check the server connection.';
+  String get checkTheServerConnection =>
+      'Could not communicate with the server. Check your network connection.';
 
   @override
   String get unexpectedErrorCopyTheDetailsBelowAndContactSupport =>
@@ -2996,4 +2997,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get keyDelete => 'Delete';
+
+  @override
+  String get skipCopy => 'Skip';
+
+  @override
+  String get keepBothFiles => 'Keep both';
+
+  @override
+  String get cancelJobNoApplyAll =>
+      'Apply to remaining files is unavailable when cancelling the job.';
+
+  @override
+  String get editAuthentication => 'Edit authentication';
+
+  @override
+  String get serverMessage => 'Server message';
+
+  @override
+  String get cancellingOperation => 'Cancelling…';
+
+  @override
+  String get transferHeading => 'Transfers';
 }

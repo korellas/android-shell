@@ -2284,7 +2284,7 @@
   "@overwriteTheExistingFileWithTheCopiedFileThis": {
     "description": "Tilde app: Overwrite the existing file with the copied file. This cannot be undone."
   },
-  "cancelCopyingKeepTheExistingFile": "Cancel copying. Keep the existing file.",
+  "cancelCopyingKeepTheExistingFile": "Cancel this copy job, including its remaining files. Keep the existing files.",
   "@cancelCopyingKeepTheExistingFile": {
     "description": "Tilde app: Cancel copying. Keep the existing file."
   },
@@ -2755,7 +2755,7 @@
       }
     }
   },
-  "checkTheServerConnection": "Check the server connection.",
+  "checkTheServerConnection": "Could not communicate with the server. Check your network connection.",
   "@checkTheServerConnection": {
     "description": "Tilde app: Check the server connection."
   },
@@ -4097,5 +4097,33 @@
   "keyDelete": "Delete",
   "@keyDelete": {
     "description": "Terminal action or navigation key tooltip; keycap labels remain unchanged."
+  },
+  "skipCopy": "Skip",
+  "@skipCopy": {
+    "description": "Tilde additional design review: Skip"
+  },
+  "keepBothFiles": "Keep both",
+  "@keepBothFiles": {
+    "description": "Tilde additional design review: Keep both"
+  },
+  "cancelJobNoApplyAll": "Apply to remaining files is unavailable when cancelling the job.",
+  "@cancelJobNoApplyAll": {
+    "description": "Tilde additional design review: Apply to remaining files is unavailable when cancelling the job."
+  },
+  "editAuthentication": "Edit authentication",
+  "@editAuthentication": {
+    "description": "Tilde additional design review: Edit authentication"
+  },
+  "serverMessage": "Server message",
+  "@serverMessage": {
+    "description": "Tilde additional design review: Server message"
+  },
+  "cancellingOperation": "Cancelling…",
+  "@cancellingOperation": {
+    "description": "Tilde additional design review: Cancelling…"
+  },
+  "transferHeading": "Transfers",
+  "@transferHeading": {
+    "description": "Tilde additional design review: Transfers"
   }
 }

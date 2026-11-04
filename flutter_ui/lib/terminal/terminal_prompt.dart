@@ -77,6 +77,15 @@ class _TerminalPromptState extends State<TerminalPrompt> {
         : context.l10n.logInTo(
             (prompt['nickname'] ?? context.l10n.server).toString(),
           );
+    final instructions = '${prompt['instructions'] ?? ''}';
+    final message = '${prompt['message'] ?? ''}';
+    final showInstructions =
+        instructions.trim().isNotEmpty && instructions.trim() != title;
+    final showMessage =
+        !string &&
+        message.trim().isNotEmpty &&
+        message.trim() != title &&
+        message != instructions;
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: Padding(
@@ -91,20 +100,35 @@ class _TerminalPromptState extends State<TerminalPrompt> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(title, style: Theme.of(context).textTheme.titleLarge),
-            if (prompt['address'] != null)
+            if (hostKey || prompt['address'] != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: tildePathText(
-                  '${prompt['address']}',
+                  hostKey ? '${prompt['hostname']}' : '${prompt['address']}',
                   style: const TextStyle(fontFamily: tildeMono, fontSize: 13),
                 ),
               ),
-            if (!hostKey && '${prompt['instructions'] ?? ''}'.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  '${prompt['instructions']}',
-                  style: Theme.of(context).textTheme.bodyMedium,
+            if (!hostKey && !biometric && (showInstructions || showMessage))
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      context.l10n.serverMessage,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (showInstructions) SelectableText(instructions),
+                    if (showMessage) SelectableText(message),
+                  ],
                 ),
               ),
             if (string) ...[
@@ -156,12 +180,6 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                 context.l10n.checkThatThisFingerprintMatchesTheOneProvidedBy,
               ),
               const SizedBox(height: 16),
-              Text(
-                '${prompt['hostname']}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontFamily: tildeMono),
-              ),
               Text(
                 '${prompt['keyType']}${prompt['keySize'] == null ? '' : ' · ${prompt['keySize']}'}',
               ),
@@ -220,14 +238,10 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                       ? (value) => setState(() => fingerprint = value as String)
                       : null,
                 ),
-            ] else ...[
+            ] else if (biometric) ...[
               const SizedBox(height: 12),
               SelectableText(
-                biometric
-                    ? context.l10n.authenticateWithKey(
-                        (prompt['nickname']).toString(),
-                      )
-                    : '${prompt['message'] ?? ''}',
+                context.l10n.authenticateWithKey('${prompt['nickname']}'),
               ),
             ],
             const SizedBox(height: 20),

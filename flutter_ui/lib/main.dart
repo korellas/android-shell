@@ -133,6 +133,7 @@ Future<void> showErrorDetails(
   DateTime? occurredAt,
   Future<void> Function()? retry,
   VoidCallback? edit,
+  String? editLabel,
   Future<void> Function()? saveElsewhere,
 }) {
   final resolvedSummary = summary ?? context.l10n.couldNotFinishOperation;
@@ -140,10 +141,8 @@ Future<void> showErrorDetails(
       ? error.details ?? error.message
       : '$error';
   final occurred = occurredAt == null
-      ? context.l10n.checked((TimeOfDay.now().format(context)).toString())
-      : context.l10n.occurred(
-          (occurredAt.toLocal().toString().split('.').first).toString(),
-        );
+      ? context.l10n.checked(formatTildeTimestamp(DateTime.now()))
+      : context.l10n.occurred(formatTildeTimestamp(occurredAt));
   return showTildeSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -222,17 +221,25 @@ Future<void> showErrorDetails(
                     Navigator.pop(c);
                     edit();
                   },
-                  child: Text(context.l10n.editHost),
+                  child: Text(editLabel ?? context.l10n.editHost),
                 ),
               if (saveElsewhere != null)
-                OutlinedButton(
+                FilledButton(
                   onPressed: () {
                     Navigator.pop(c);
                     unawaited(saveElsewhere());
                   },
                   child: Text(context.l10n.saveElsewhere),
                 ),
-              if (retry != null)
+              if (retry != null && saveElsewhere != null)
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(c);
+                    unawaited(retry());
+                  },
+                  child: Text(context.l10n.retry),
+                ),
+              if (retry != null && saveElsewhere == null)
                 FilledButton(
                   onPressed: () {
                     Navigator.pop(c);

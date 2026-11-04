@@ -172,9 +172,9 @@ class _RemoteFolderPickerState extends State<RemoteFolderPicker> {
   String? error, selected;
   int request = 0;
   @override
-  void initState() {
-    super.initState();
-    load(path);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (request == 0) load(path);
   }
 
   @override
@@ -571,7 +571,7 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
               ),
               isThreeLine: true,
             ),
-          const Divider(),
+          const SizedBox(height: 12),
           Semantics(
             liveRegion: true,
             child: Text(
@@ -602,6 +602,9 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
                 ),
               ),
               value: apply,
+              subtitle: choice == 'cancel'
+                  ? Text(context.l10n.cancelJobNoApplyAll)
+                  : null,
               onChanged: choice == 'cancel'
                   ? null
                   : (value) => setState(() => apply = value ?? false),
@@ -618,11 +621,22 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
               FilledButton(
                 onPressed: () =>
                     Navigator.pop(context, (action: choice, apply: apply)),
-                child: Text(
-                  choice == 'cancel'
-                      ? context.l10n.cancelCopy
-                      : context.l10n.continueAction,
-                ),
+                style: choice == 'replace'
+                    ? FilledButton.styleFrom(
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.errorContainer,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onErrorContainer,
+                      )
+                    : null,
+                child: Text(switch (choice) {
+                  'skip' => context.l10n.skipCopy,
+                  'keep' => context.l10n.keepBothFiles,
+                  'replace' => context.l10n.overwrite,
+                  _ => context.l10n.cancelCopy,
+                }),
               ),
             ],
           ),

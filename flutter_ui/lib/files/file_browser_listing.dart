@@ -489,6 +489,7 @@ class FileBrowserListingState extends State<FileBrowserListing> {
                 ],
                 _sort,
                 (value) => update(() => _sort = value as FileSort),
+                padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,

@@ -450,7 +450,7 @@ class _FilePreviewState extends State<FilePreview> {
                   child: Text(context.l10n.details),
                 ),
               ),
-            if (_loaded)
+            if (_loaded && _textFile)
               SafeArea(
                 top: false,
                 child: Container(

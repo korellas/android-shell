@@ -305,7 +305,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get forwardConnectionsFromADevicePortToAnAddress =>
-      '이 기기의 포트로 들어온 연결을 서버 쪽 주소로 보냅니다.';
+      '이 기기 포트로 들어온 연결을 서버 쪽 주소로 보냅니다.';
 
   @override
   String get openASocks5ProxyOnThisDevice => '이 기기에 SOCKS5 프록시를 엽니다.';
@@ -1615,7 +1615,8 @@ class AppLocalizationsKo extends AppLocalizations {
       '복사되는 파일로 기존 파일을 덮어씁니다. 되돌릴 수 없습니다.';
 
   @override
-  String get cancelCopyingKeepTheExistingFile => '복사를 취소합니다. 기존 파일은 그대로 유지됩니다.';
+  String get cancelCopyingKeepTheExistingFile =>
+      '현재 복사 작업을 취소합니다. 이 작업의 남은 파일도 중단하며, 기존 파일은 그대로 유지됩니다.';
 
   @override
   String applyToRemainingItems(String arg0) {
@@ -1945,7 +1946,7 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get checkTheServerConnection => '서버 연결을 확인하세요.';
+  String get checkTheServerConnection => '서버와 통신하지 못했습니다. 네트워크 연결을 확인하세요.';
 
   @override
   String get unexpectedErrorCopyTheDetailsBelowAndContactSupport =>
@@ -2902,4 +2903,25 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get keyDelete => '삭제';
+
+  @override
+  String get skipCopy => '건너뛰기';
+
+  @override
+  String get keepBothFiles => '둘 다 보관';
+
+  @override
+  String get cancelJobNoApplyAll => '현재 작업을 취소하므로 일괄 적용하지 않습니다.';
+
+  @override
+  String get editAuthentication => '인증 편집';
+
+  @override
+  String get serverMessage => '서버 메시지';
+
+  @override
+  String get cancellingOperation => '취소 중…';
+
+  @override
+  String get transferHeading => '전송';
 }

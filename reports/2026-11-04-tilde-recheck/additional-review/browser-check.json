@@ -1,0 +1,14 @@
+{
+  "status": 200,
+  "sections": 18,
+  "embeddedImages": 77,
+  "filter": true,
+  "comparison": true,
+  "zoom": true,
+  "widths": {
+    "390": true,
+    "840": true,
+    "1440": true
+  },
+  "pageErrors": []
+}

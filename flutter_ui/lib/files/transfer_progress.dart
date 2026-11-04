@@ -45,24 +45,22 @@ class TransferProgress extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (status.isNotEmpty)
-            Text(
-              control.cancelled
-                  ? context.l10n.cancelling((status).toString())
-                  : status,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+          Text(
+            [
+              if (status.isNotEmpty) status,
+              if (control.cancelled) context.l10n.cancellingOperation,
+              speed > 0
+                  ? '${formatBytes(speed.round())}/s'
+                  : context.l10n.calculatingSpeed,
+              timing,
+            ].join(' · '),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
           const SizedBox(height: 6),
           LinearProgressIndicator(value: fraction),
           const SizedBox(height: 6),
           Text(
             '${formatBytes(control.bytes)} / ${total == null ? context.l10n.checkingSize : formatBytes(total)}${fraction == null ? '' : ' · ${(fraction * 100).floor()}%'}',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          Text(
-            '${speed > 0 ? '${formatBytes(speed.round())}/s' : context.l10n.calculatingSpeed} · $timing',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

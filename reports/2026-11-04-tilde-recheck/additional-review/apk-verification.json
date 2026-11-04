@@ -1,0 +1,11 @@
+{
+  "package_name": "dev.korellas.androidshell.flutter.debug",
+  "version_code": 11100073,
+  "version_name": "1.11.0",
+  "name": "Tilde",
+  "signer_sha256": "857ea6fcb730b774f874ba69589f4087d87f63ca8c6934d4465e8d12b36aff84",
+  "sha256": "4d8bfe1a9e7b4052c3d66db2afd19ea34af6ce851151efb2ef2043f169f44e43",
+  "size": 40440637,
+  "source_commit": "60ecb789782992944b6ecc1a0371b32673feb997",
+  "distribution_status": "prepared; not published"
+}
