@@ -154,7 +154,10 @@ class SessionList extends StatelessWidget {
                       : context.l10n.disconnected2(
                           (session['endedAt'] == null
                                   ? ''
-                                  : ' · ${DateTime.tryParse('${session['endedAt']}')?.toLocal().toString().substring(11, 16) ?? ''}')
+                                  : ' · ${switch (DateTime.tryParse('${session['endedAt']}')) {
+                                      final DateTime time => formatTildeTimestamp(time),
+                                      _ => '',
+                                    }}')
                               .toString(),
                         ),
                 ),

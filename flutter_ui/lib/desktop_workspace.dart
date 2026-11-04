@@ -629,12 +629,16 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                   child: TextField(
                     controller: _search,
                     focusNode: _searchFocus,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: context.l10n.searchHosts,
-                      prefixIcon: Tooltip(
-                        message: context.l10n.searchHostsOrEnterSshAddressCtrlK,
-                        child: Icon(Icons.search, size: 18),
+                    decoration: tildeToolbarInput(
+                      context,
+                      InputDecoration(
+                        isDense: true,
+                        hintText: context.l10n.searchHosts,
+                        prefixIcon: Tooltip(
+                          message:
+                              context.l10n.searchHostsOrEnterSshAddressCtrlK,
+                          child: Icon(Icons.search, size: 18),
+                        ),
                       ),
                     ),
                     onChanged: (_) => setState(() {}),
@@ -808,7 +812,11 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     _TabKind.document => Icons.description_outlined,
     _ => Icons.terminal_outlined,
   };
-  Widget _tabStrip(bool sidebar, {Widget? dragRegion}) {
+  Widget _tabStrip(
+    bool sidebar, {
+    Widget? dragRegion,
+    bool showDivider = true,
+  }) {
     final tabs = _tabs.where((tab) => tab.kind != _TabKind.home).toList();
     final colors = Theme.of(context).colorScheme;
     Widget button(String tooltip, IconData icon, VoidCallback action) =>
@@ -822,9 +830,11 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
         );
     return Container(
       height: 40,
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.outlineVariant)),
-      ),
+      decoration: showDivider
+          ? BoxDecoration(
+              border: Border(bottom: BorderSide(color: colors.outlineVariant)),
+            )
+          : null,
       padding: dragRegion == null
           ? EdgeInsets.zero
           : const EdgeInsets.only(top: 4),
@@ -888,8 +898,19 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                             child: InkWell(
                               key: tab.id == _active ? _activeTabKey : null,
                               onTap: () => _select(tab),
-                              child: SizedBox(
+                              child: Container(
                                 width: 180,
+                                decoration:
+                                    dragRegion != null && tab.id == _active
+                                    ? BoxDecoration(
+                                        border: Border(
+                                          top: BorderSide(
+                                            color: colors.primary,
+                                            width: 2,
+                                          ),
+                                        ),
+                                      )
+                                    : null,
                                 child: Padding(
                                   padding: const EdgeInsets.only(
                                     left: 12,
@@ -1064,8 +1085,11 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
         body: SafeArea(
           child: nativeWindow
               ? WindowsWindowFrame(
-                  titleBar: (dragRegion) =>
-                      _tabStrip(sidebar, dragRegion: dragRegion),
+                  titleBar: (dragRegion) => _tabStrip(
+                    sidebar,
+                    dragRegion: dragRegion,
+                    showDivider: false,
+                  ),
                   child: Stack(
                     children: [
                       workspace,

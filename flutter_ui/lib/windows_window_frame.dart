@@ -149,23 +149,32 @@ class _WindowsWindowFrameState extends State<WindowsWindowFrame> {
       children: [
         Material(
           color: Theme.of(context).colorScheme.surfaceContainerLow,
-          child: SizedBox(
-            height: 40,
-            child: Row(
-              children: [
-                Expanded(
-                  child: widget.titleBar(SizedBox(key: drag, height: 40)),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
                 ),
-                if (!fullscreen) ...[
-                  caption('minimize', context.l10n.minimize),
-                  caption(
-                    'toggleMaximize',
-                    maximized ? context.l10n.restore : context.l10n.maximize,
-                    key: maximize,
+              ),
+            ),
+            child: SizedBox(
+              height: 40,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: widget.titleBar(SizedBox(key: drag, height: 40)),
                   ),
-                  caption('close', context.l10n.closeWindow),
+                  if (!fullscreen) ...[
+                    caption('minimize', context.l10n.minimize),
+                    caption(
+                      'toggleMaximize',
+                      maximized ? context.l10n.restore : context.l10n.maximize,
+                      key: maximize,
+                    ),
+                    caption('close', context.l10n.closeWindow),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

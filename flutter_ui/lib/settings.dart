@@ -337,9 +337,12 @@ class _SettingsPageState extends State<SettingsPage> {
             },
             child: TextField(
               focusNode: searchFocus,
-              decoration: InputDecoration(
-                prefixIcon: Icon(Icons.search, size: 18),
-                hintText: context.l10n.searchSettings,
+              decoration: tildeToolbarInput(
+                context,
+                InputDecoration(
+                  prefixIcon: Icon(Icons.search, size: 18),
+                  hintText: context.l10n.searchSettings,
+                ),
               ),
               onChanged: (value) {
                 indexSettings();
@@ -1944,9 +1947,12 @@ class _LogsPageState extends State<LogsPage> {
               padding: const EdgeInsets.all(16),
               child: TextField(
                 autofocus: true,
-                decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  hintText: context.l10n.searchLogs,
+                decoration: tildeToolbarInput(
+                  context,
+                  InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: context.l10n.searchLogs,
+                  ),
                 ),
                 onChanged: (value) => setState(() => search = value),
               ),

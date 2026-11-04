@@ -20,6 +20,7 @@ import 'file_queue_panel.dart';
 import 'file_preview.dart';
 import 'file_dialogs.dart';
 import '../tilde_design.dart';
+import '../tilde_controls.dart';
 import '../connection_status.dart';
 import 'sftp_tree_transfer.dart';
 import 'transfer.dart';
@@ -1320,6 +1321,8 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       ],
     );
     final pointer = tildePointer(context);
+    final windows = Theme.of(context).platform == TargetPlatform.windows;
+    final colors = Theme.of(context).colorScheme;
     final listing = FileBrowserListing(
       key: _listingKey,
       searchController: pointer ? _filter : null,
@@ -1462,18 +1465,17 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                       icon: const Icon(Icons.arrow_upward),
                     ),
                     Expanded(
-                      child: Container(
+                      child: Material(
                         key: const ValueKey('file-path-field'),
-                        decoration: _editingAddress
-                            ? null
-                            : BoxDecoration(
-                                border: Border.all(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.outlineVariant,
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+                        color: windows && !_editingAddress
+                            ? colors.surfaceContainerHigh
+                            : Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: windows || _editingAddress
+                              ? BorderSide.none
+                              : BorderSide(color: colors.outlineVariant),
+                        ),
                         child: Row(
                           children: [
                             Expanded(
@@ -1502,15 +1504,21 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                                           fontFamily: tildeMono,
                                           fontFamilyFallback: tildeMonoFallback,
                                         ),
-                                        decoration: InputDecoration(
-                                          isDense: true,
-                                          hintText:
-                                              context.l10n.remoteFolderPath,
+                                        decoration: tildeToolbarInput(
+                                          context,
+                                          InputDecoration(
+                                            isDense: true,
+                                            hintText:
+                                                context.l10n.remoteFolderPath,
+                                          ),
                                         ),
                                       ),
                                     )
                                   : InkWell(
                                       onTap: _editAddress,
+                                      hoverColor: windows
+                                          ? colors.surfaceContainerHighest
+                                          : null,
                                       borderRadius: BorderRadius.circular(8),
                                       child: SizedBox(
                                         height: tildePointer(context) ? 36 : 44,
@@ -1683,10 +1691,14 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                                   focusNode: _filterFocus,
                                   onChanged: (_) =>
                                       _listingKey.currentState?.filterChanged(),
-                                  decoration: InputDecoration(
-                                    prefixIcon: Icon(Icons.search, size: 18),
-                                    hintText: context.l10n.findInCurrentFolder,
-                                    isDense: true,
+                                  decoration: tildeToolbarInput(
+                                    context,
+                                    InputDecoration(
+                                      prefixIcon: Icon(Icons.search, size: 18),
+                                      hintText:
+                                          context.l10n.findInCurrentFolder,
+                                      isDense: true,
+                                    ),
                                   ),
                                 ),
                               ),

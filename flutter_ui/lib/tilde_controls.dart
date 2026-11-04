@@ -26,6 +26,25 @@ String formatTildeTimestamp(DateTime value, {DateTime? now}) {
   return local.year == today.year ? '$date $time' : '${local.year}-$date $time';
 }
 
+InputDecoration tildeToolbarInput(
+  BuildContext context,
+  InputDecoration decoration,
+) {
+  final theme = Theme.of(context);
+  if (theme.platform != TargetPlatform.windows) return decoration;
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(8),
+    borderSide: BorderSide.none,
+  );
+  return decoration.copyWith(
+    border: border,
+    enabledBorder: border,
+    filled: true,
+    fillColor: theme.colorScheme.surfaceContainerHigh,
+    hoverColor: theme.colorScheme.surfaceContainerHighest,
+  );
+}
+
 Future<(Object?, String)?> pickTildeOption(
   BuildContext context,
   String title,

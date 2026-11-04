@@ -3,7 +3,9 @@
 import 'package:android_shell_ui/main.dart';
 import 'package:android_shell_ui/engine.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'dart:ui' as ui;
 import 'package:flutter_test/flutter_test.dart';
 import 'ui_engine_fixture.dart';
 import 'label_layout_test.dart' show capture;
@@ -50,9 +52,11 @@ void main() {
     WidgetTester tester, {
     double width = 1280,
     bool sessions = false,
+    Brightness brightness = Brightness.dark,
+    double pixelRatio = 1,
   }) async {
-    tester.view.physicalSize = Size(width, 800);
-    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = Size(width * pixelRatio, 800 * pixelRatio);
+    tester.view.devicePixelRatio = pixelRatio;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     engine = UiEngineFixture(fontFamily: 'D2Coding')
@@ -75,11 +79,88 @@ void main() {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('ko'),
-        theme: tildeTheme(Brightness.dark, engine),
+        theme: tildeTheme(brightness, engine),
         home: ShellHome(engine: engine),
       ),
     );
     await tester.pumpAndSettle();
+  }
+
+  for (final brightness in Brightness.values) {
+    for (final ratio in [1.0, 1.5, 2.0]) {
+      testWidgets(
+        'title bar divider and active tab at $brightness, DPI $ratio',
+        (tester) async {
+          await open(
+            tester,
+            sessions: true,
+            brightness: brightness,
+            pixelRatio: ratio,
+          );
+          final tab = find.byKey(const ValueKey('workspace-tab-session-101'));
+          await tester.tap(tab);
+          await tester.pumpAndSettle();
+          final search = tester.widget<InputDecorator>(
+            find.descendant(
+              of: find.widgetWithText(TextField, '호스트 검색'),
+              matching: find.byType(InputDecorator),
+            ),
+          );
+          expect(search.decoration.enabledBorder!.borderSide, BorderSide.none);
+          expect(search.decoration.focusedBorder!.borderSide.width, 2);
+          Future<void> checkDivider() async {
+            final colors = Theme.of(tester.element(tab)).colorScheme;
+            final boundary = tester.renderObject<RenderRepaintBoundary>(
+              find.byType(RepaintBoundary).first,
+            );
+            final (bytes, imageWidth) = (await tester.runAsync(() async {
+              final image = await boundary.toImage();
+              final bytes = (await image.toByteData(
+                format: ui.ImageByteFormat.rawRgba,
+              ))!;
+              final width = image.width;
+              image.dispose();
+              return (bytes, width);
+            }))!;
+            Color pixel(double x, {int y = 39}) {
+              final offset = (y * imageWidth + x.floor()) * 4;
+              return Color.fromARGB(
+                bytes.getUint8(offset + 3),
+                bytes.getUint8(offset),
+                bytes.getUint8(offset + 1),
+                bytes.getUint8(offset + 2),
+              );
+            }
+
+            for (final x in [700.0, 1150.0, 1200.0, 1250.0, 1279.0]) {
+              expect(pixel(x), colors.outlineVariant);
+            }
+            expect(pixel(tester.getCenter(tab).dx), colors.surface);
+            expect(pixel(tester.getCenter(tab).dx, y: 4), colors.primary);
+          }
+
+          await checkDivider();
+          await capture(tester, 'windows-ui-${brightness.name}-$ratio');
+          for (final fullscreen in [false, true]) {
+            await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+              channel.name,
+              const StandardMethodCodec().encodeMethodCall(
+                MethodCall('window.state', {
+                  'maximized': !fullscreen,
+                  'active': true,
+                  'fullscreen': fullscreen,
+                }),
+              ),
+              (_) {},
+            );
+            await tester.pumpAndSettle();
+            await checkDivider();
+          }
+          expect(tester.takeException(), isNull);
+        },
+        variant: const TargetPlatformVariant({TargetPlatform.windows}),
+      );
+    }
   }
 
   testWidgets(
