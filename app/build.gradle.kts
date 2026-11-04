@@ -13,9 +13,11 @@ plugins {
 
 appVersioning {
     tagFilter.set("v[0-9].*")
-    overrideVersionCode { _, _, _ -> 11100070 }
-    overrideVersionName { _, _, _ -> "1.11.0" }
+    overrideVersionCode { _, _, _ -> 11100071 }
+    overrideVersionName { _, _, _ -> "1.12.0" }
 }
+
+val playDistribution = providers.gradleProperty("playDistribution").map { it.toBooleanStrict() }.orElse(false).get()
 
 android {
     namespace = "org.connectbot"
@@ -25,7 +27,10 @@ android {
             .toInt()
 
     defaultConfig {
-        applicationId = "dev.korellas.androidshell.flutter"
+        applicationId = if (playDistribution) "com.korellas.tilde" else "dev.korellas.androidshell.flutter"
+        val billingPublicKey = providers.gradleProperty("playBillingPublicKey").orElse("").get()
+        require(billingPublicKey.all { it.isLetterOrDigit() || it in "+/=" })
+        buildConfigField("String", "PLAY_BILLING_PUBLIC_KEY", "\"$billingPublicKey\"")
 
         minSdk =
             libs.versions.minSdk
@@ -82,7 +87,7 @@ android {
 
     buildTypes {
         release {
-            applicationIdSuffix = ".debug"
+            if (!playDistribution) applicationIdSuffix = ".debug"
             manifestPlaceholders["memtagMode"] = "async"
             isShrinkResources = true
             isMinifyEnabled = true
@@ -402,6 +407,7 @@ dependencies {
     implementation(libs.androidx.preference)
     implementation(libs.material)
     implementation(libs.timber)
+    implementation(libs.play.billing)
     implementation(libs.re2j)
 
     implementation(libs.androidx.lifecycle.process)

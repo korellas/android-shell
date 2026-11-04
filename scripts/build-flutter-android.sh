@@ -17,10 +17,23 @@
 set -euo pipefail
 port_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 port_mode="${1:-debug}"
+port_distribution="${2:-mink}"
+if (( $# > 2 )); then
+  printf 'Usage: %s [debug|release] [mink|play]\n' "$0" >&2
+  exit 2
+fi
 case "$port_mode" in
   debug|release) ;;
-  *) printf 'Usage: %s [debug|release]\n' "$0" >&2; exit 2 ;;
+  *) printf 'Usage: %s [debug|release] [mink|play]\n' "$0" >&2; exit 2 ;;
 esac
+case "$port_distribution" in
+  mink|play) ;;
+  *) printf 'Distribution must be mink or play.\n' >&2; exit 2 ;;
+esac
+if [[ "$port_distribution" == play && "$port_mode" != release ]]; then
+  printf 'Play distribution requires release mode.\n' >&2
+  exit 2
+fi
 port_test_ads="${TILDE_TEST_ADS:-false}"
 case "$port_test_ads" in
   true|false) ;;
@@ -50,4 +63,8 @@ gradle.beforeProject { project ->
 }
 GRADLE
 if [[ "$port_mode" == debug ]]; then port_variant=Debug; else port_variant=Release; fi
-./gradlew -I "$port_init_script" "-PflutterPortGitRoot=$port_git_root" ":app:assembleOss$port_variant" --no-configuration-cache
+if [[ "$port_distribution" == play ]]; then
+  ./gradlew -I "$port_init_script" "-PflutterPortGitRoot=$port_git_root" -PplayDistribution=true :app:bundleOssRelease --no-configuration-cache
+else
+  ./gradlew -I "$port_init_script" "-PflutterPortGitRoot=$port_git_root" ":app:assembleOss$port_variant" --no-configuration-cache
+fi

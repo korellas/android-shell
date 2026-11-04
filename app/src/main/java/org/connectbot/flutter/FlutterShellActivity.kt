@@ -33,6 +33,7 @@ import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
+import org.connectbot.billing.FoundersEditionBilling
 import org.connectbot.data.ColorSchemeRepository
 import org.connectbot.data.ConnectBotDatabase
 import org.connectbot.data.HostRepository
@@ -64,6 +65,8 @@ class FlutterShellActivity : FlutterFragmentActivity() {
     @Inject lateinit var preferences: android.content.SharedPreferences
 
     @Inject lateinit var dispatchers: CoroutineDispatchers
+
+    @Inject lateinit var founders: FoundersEditionBilling
     val appState: AppViewModel by viewModels()
     val settings: SettingsViewModel by viewModels()
     internal lateinit var engine: AndroidShellEngine
@@ -125,6 +128,11 @@ class FlutterShellActivity : FlutterFragmentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (::engine.isInitialized) engine.handleIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch { founders.refresh() }
     }
 
     override fun onStop() {

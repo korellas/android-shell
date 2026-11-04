@@ -79,6 +79,7 @@ internal class AndroidShellEngine(
         observerJobs += activity.lifecycleScope.launch { hosts.observeIdentities().collect { changed() } }
         observerJobs += activity.lifecycleScope.launch { profiles.observeAll().collect { changed() } }
         observerJobs += activity.lifecycleScope.launch { activity.settings.uiState.collect { changed() } }
+        observerJobs += activity.lifecycleScope.launch { activity.founders.state.collect { changed() } }
     }
 
     internal fun changed() {
@@ -161,6 +162,16 @@ internal class AndroidShellEngine(
         if (method.startsWith("key.storage")) return keyStorageOperation(method, args)
         if (method.startsWith("ssh.") || method == "session.prepare") return sshPlatformOperation(method, args)
         return when (method) {
+            "founders.purchase" -> {
+                activity.founders.purchase(activity)
+                null
+            }
+
+            "founders.restore" -> {
+                activity.founders.refresh()
+                null
+            }
+
             "session.visibility" -> {
                 if (args.flag("visible")) {
                     activeOwner = args.text("owner")
@@ -381,6 +392,7 @@ internal class AndroidShellEngine(
         return mapOf(
             "ready" to true, "authenticated" to true,
             "appVersion" to "${org.connectbot.BuildConfig.VERSION_NAME} (${org.connectbot.BuildConfig.VERSION_CODE})",
+            "founders" to activity.founders.state.value.toWire(),
             "encodings" to withContext(activity.dispatchers.io) { java.nio.charset.Charset.availableCharsets().keys.toList() },
             "hardwareKeyboard" to withContext(activity.dispatchers.io) { android.view.InputDevice.getDeviceIds().any { android.view.InputDevice.getDevice(it)?.keyboardType == android.view.InputDevice.KEYBOARD_TYPE_ALPHABETIC } },
             "koreanKeyboard" to withContext(activity.dispatchers.io) {
