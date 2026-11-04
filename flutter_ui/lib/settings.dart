@@ -16,6 +16,8 @@
  */
 
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'engine.dart';
@@ -25,6 +27,7 @@ import 'main.dart';
 import 'editors.dart';
 import 'management.dart';
 import 'settings_widgets.dart';
+import 'settings_advertising.dart';
 
 class SettingsPage extends StatefulWidget {
   final AndroidEngine engine;
@@ -424,13 +427,6 @@ class _SettingsPageState extends State<SettingsPage> {
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute<void>(builder: (_) => HelpPage(engine: engine)),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            'tilde ${engine.state['appVersion'] ?? ''}',
-            style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
       ],
@@ -1198,6 +1194,10 @@ class _SettingsPageState extends State<SettingsPage> {
             if (!didPop) back(wide);
           },
           child: Scaffold(
+            bottomNavigationBar:
+                !kIsWeb && Platform.isAndroid && (wide || selected == null)
+                ? const SettingsAdvertising()
+                : null,
             appBar: AppBar(
               title: Text(
                 !wide && selected == null

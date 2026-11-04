@@ -380,7 +380,7 @@ internal class AndroidShellEngine(
         if (!ready) return mapOf("ready" to false, "authenticated" to authenticated, "error" to (state as? AppUiState.MigrationFailed)?.error)
         return mapOf(
             "ready" to true, "authenticated" to true,
-            "appVersion" to org.connectbot.BuildConfig.VERSION_NAME,
+            "appVersion" to "${org.connectbot.BuildConfig.VERSION_NAME} (${org.connectbot.BuildConfig.VERSION_CODE})",
             "encodings" to withContext(activity.dispatchers.io) { java.nio.charset.Charset.availableCharsets().keys.toList() },
             "hardwareKeyboard" to withContext(activity.dispatchers.io) { android.view.InputDevice.getDeviceIds().any { android.view.InputDevice.getDevice(it)?.keyboardType == android.view.InputDevice.KEYBOARD_TYPE_ALPHABETIC } },
             "koreanKeyboard" to withContext(activity.dispatchers.io) {
