@@ -13,6 +13,7 @@ import 'terminal_actions.dart';
 import 'terminal_input.dart';
 import 'terminal_input_view.dart';
 import 'terminal_key_bar.dart';
+import '../l10n/strings.dart';
 
 /// Shared terminal UI; the session owns the terminal and its byte transport.
 class TerminalPane extends StatefulWidget {
@@ -200,6 +201,7 @@ class TerminalPaneState extends State<TerminalPane> {
   }
 
   Future<String?> _confirmPaste(String text) async {
+    final contextStrings = context.l10n;
     if (!mounted) return null;
     final normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
     final lines = math.max(
@@ -219,14 +221,18 @@ class TerminalPaneState extends State<TerminalPane> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    '$lines줄을 붙여 넣을까요?',
+                    contextStrings.pasteLines((lines).toString()),
                     style: Theme.of(c).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 12),
                   Text(
                     lines > 1
-                        ? '$lines개 줄을 터미널에 붙여넣으면 명령이 즉시 실행될 수 있습니다.'
-                        : '제어 문자가 포함되어 있어 터미널 동작이나 명령 실행을 유발할 수 있습니다.',
+                        ? contextStrings
+                              .pastingLinesIntoTheTerminalMayRunCommandsImmediately(
+                                (lines).toString(),
+                              )
+                        : contextStrings
+                              .controlCharactersMayTriggerTerminalActionsOrCommandExecution,
                   ),
                   const SizedBox(height: 16),
                   Container(
@@ -264,7 +270,7 @@ class TerminalPaneState extends State<TerminalPane> {
                   if (normalized.endsWith('\n'))
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('마지막 Enter 빼고 붙여넣기'),
+                      title: Text(contextStrings.pasteWithoutTrailingEnter),
                       value: omitTrailingEnter,
                       onChanged: (value) =>
                           change(() => omitTrailingEnter = value == true),
@@ -275,12 +281,14 @@ class TerminalPaneState extends State<TerminalPane> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(c, false),
-                        child: const Text('취소'),
+                        child: Text(contextStrings.cancel),
                       ),
                       const SizedBox(width: 8),
                       FilledButton(
                         onPressed: () => Navigator.pop(c, true),
-                        child: Text('$lines줄 붙여넣기'),
+                        child: Text(
+                          contextStrings.pasteLines2((lines).toString()),
+                        ),
                       ),
                     ],
                   ),
@@ -601,7 +609,10 @@ class _SelectionEditorState extends State<_SelectionEditor> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('텍스트 편집', style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          context.l10n.editText,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 16),
         TextField(
           controller: _text,
@@ -610,7 +621,7 @@ class _SelectionEditorState extends State<_SelectionEditor> {
           maxLines: 10,
           autocorrect: false,
           enableSuggestions: false,
-          decoration: const InputDecoration(labelText: '전송할 텍스트'),
+          decoration: InputDecoration(labelText: context.l10n.textToSend),
         ),
         const SizedBox(height: 16),
         Row(
@@ -619,11 +630,11 @@ class _SelectionEditorState extends State<_SelectionEditor> {
           children: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('취소'),
+              child: Text(context.l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, _text.text),
-              child: const Text('전송'),
+              child: Text(context.l10n.send),
             ),
           ],
         ),

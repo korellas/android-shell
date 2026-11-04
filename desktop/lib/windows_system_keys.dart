@@ -1,10 +1,12 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'package:dartssh2/dartssh2.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 Future<ProcessResult> _queryOpenSsh(List<String> arguments) async {
   final process = await Process.start('ssh.exe', arguments);
@@ -18,7 +20,7 @@ Future<ProcessResult> _queryOpenSsh(List<String> arguments) async {
     return ProcessResult(process.pid, result[2] as int, result[0], result[1]);
   } on TimeoutException {
     process.kill();
-    throw StateError('Windows SSH 설정 조회 시간이 초과됐습니다.');
+    throw StateError(deviceStrings.timedOutReadingWindowsSshSettings);
   }
 }
 
@@ -44,7 +46,9 @@ Future<List<SSHIdentity>> loadWindowsSystemKeys(
     rethrow;
   }
   if (result.exitCode != 0) {
-    throw StateError('Windows SSH 설정을 읽지 못했습니다. ${result.stderr}');
+    throw StateError(
+      deviceStrings.couldNotReadWindowsSshSettings((result.stderr).toString()),
+    );
   }
   final options = <String, String>{};
   final paths = <String>[];
@@ -88,13 +92,17 @@ Future<List<SSHIdentity>> loadWindowsSystemKeys(
       path = path.substring(1, path.length - 1);
     }
     if (path.startsWith('~/') || path.startsWith(r'~\')) {
-      if (profile == null) throw StateError('Windows 사용자 프로필 경로가 없습니다.');
+      if (profile == null) {
+        throw StateError(deviceStrings.windowsUserProfilePathIsUnavailable);
+      }
       path = '$profile${path.substring(1)}';
     }
     path = path.replaceAllMapped(RegExp(r'%(.)'), (match) {
       final value = tokens[match[1]];
       if (value == null) {
-        throw UnsupportedError('지원하지 않는 SSH 키 경로 변수: ${match[0]}');
+        throw UnsupportedError(
+          deviceStrings.unsupportedSshKeyPathVariable((match[0]).toString()),
+        );
       }
       return value;
     });

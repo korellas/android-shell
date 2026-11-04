@@ -20,18 +20,19 @@ package org.connectbot.flutter
 import android.content.ClipData
 import android.content.ClipboardManager
 import kotlinx.coroutines.withContext
+import org.connectbot.R
 import org.connectbot.data.entity.KeyStorageType
 import org.connectbot.data.entity.Pubkey
 import org.connectbot.util.BiometricAvailability
 import org.connectbot.util.BiometricKeyManager
 
 internal suspend fun AndroidShellEngine.keyStorageOperation(method: String, args: Wire): Any? {
-    check(authenticated) { "App is locked" }
+    check(authenticated) { activity.getString(R.string.flutter_app_locked) }
     if (method == "key.storageWrite" || method == "key.storageCopy") {
-        val text = args.text("text").also(::requireSshPublicKeyText)
+        val text = args.text("text").also { requireSshPublicKeyText(it) }
         if (method == "key.storageCopy") {
             activity.getSystemService(ClipboardManager::class.java)
-                .setPrimaryClip(ClipData.newPlainText("SSH public key", text))
+                .setPrimaryClip(ClipData.newPlainText(activity.getString(R.string.flutter_public_key_label), text))
             return null
         }
         val name = args.text("name").takeIf { it.endsWith(".pub") && !it.contains('/') && !it.contains('\\') }
@@ -60,14 +61,14 @@ internal suspend fun AndroidShellEngine.keyStorageOperation(method: String, args
 
             "key.storageGenerate" -> {
                 require(manager.isBiometricAvailable() == BiometricAvailability.AVAILABLE) {
-                    "Strong biometric authentication is required"
+                    activity.getString(R.string.flutter_strong_biometrics_required)
                 }
                 require(args.text("type", "EC") == "EC" && args.number("bits", 256).toInt() == 256) {
-                    "Only P-256 Android Keystore keys are supported"
+                    activity.getString(R.string.flutter_p256_keys_only)
                 }
                 val nickname = args.text("nickname").trim()
-                require(nickname.isNotEmpty()) { "Key name is required" }
-                require(keys.getByNickname(nickname) == null) { "A key with that name already exists" }
+                require(nickname.isNotEmpty()) { activity.getString(R.string.flutter_key_name_required) }
+                require(keys.getByNickname(nickname) == null) { activity.getString(R.string.flutter_duplicate_key_name) }
                 val alias = manager.generateKeyAlias()
                 try {
                     val public = manager.generateEcKey(alias)
@@ -95,9 +96,9 @@ internal suspend fun AndroidShellEngine.keyStorageOperation(method: String, args
             "key.storageSave" -> {
                 val old = requireNotNull(keys.getById(args.number("id")))
                 val nickname = args.text("nickname", old.nickname).trim()
-                require(nickname.isNotEmpty()) { "Key name is required" }
+                require(nickname.isNotEmpty()) { activity.getString(R.string.flutter_key_name_required) }
                 require(keys.getByNickname(nickname)?.id.let { it == null || it == old.id }) {
-                    "A key with that name already exists"
+                    activity.getString(R.string.flutter_duplicate_key_name)
                 }
                 val saved = keys.save(
                     old.copy(
@@ -133,12 +134,12 @@ internal fun Pubkey.storageWire(manager: BiometricKeyManager? = null): Wire {
     )
 }
 
-private fun requireSshPublicKeyText(text: String) {
+private fun AndroidShellEngine.requireSshPublicKeyText(text: String) {
     require(text.length in 32..16384 && !text.contains('\n') && !text.contains('\r'))
     require(
         text.startsWith("ecdsa-sha2-nistp256 ") ||
             text.startsWith("ssh-ed25519 ") ||
             text.startsWith("ssh-rsa "),
-    ) { "Only OpenSSH public keys can be copied or saved" }
+    ) { activity.getString(R.string.flutter_public_keys_only) }
     require(!text.contains("PRIVATE KEY", ignoreCase = true))
 }

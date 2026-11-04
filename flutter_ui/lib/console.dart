@@ -31,6 +31,7 @@ import 'package:xterm2/xterm.dart';
 import 'terminal/terminal_pane.dart';
 import 'terminal/terminal_prompt.dart';
 import 'terminal/session_tabs.dart';
+import 'l10n/strings.dart';
 
 class ConsolePage extends StatefulWidget {
   final AndroidEngine engine;
@@ -233,11 +234,14 @@ class ConsolePageState extends State<ConsolePage> {
       engine.textInput = null;
       final target = engine.terminalSession(id);
       WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final contextStrings = context.l10n;
         if (!mounted || target?.sessionOpen != true) return;
         final text = await askText(
           actionsContext,
-          '${session['nickname'] ?? '터미널'}로 보내기',
-          action: '보내기',
+          contextStrings.sendTo(
+            (session['nickname'] ?? contextStrings.terminal).toString(),
+          ),
+          action: contextStrings.send2,
           maxWidth: 640,
           initial: '${input?['text'] ?? ''}',
           multiline: true,
@@ -268,6 +272,7 @@ class ConsolePageState extends State<ConsolePage> {
   bool closingTab = false;
 
   Future<void> closeTab(int targetId) async {
+    final contextStrings = context.l10n;
     if (closingTab || leaving) return;
     final target = engine
         .list('sessions')
@@ -289,7 +294,11 @@ class ConsolePageState extends State<ConsolePage> {
       }
     } catch (error) {
       if (mounted) {
-        showEngineFailure(actionsContext, error, summary: '연결을 닫지 못했습니다');
+        showEngineFailure(
+          actionsContext,
+          error,
+          summary: contextStrings.couldNotCloseConnection,
+        );
       }
     } finally {
       closingTab = false;
@@ -313,6 +322,7 @@ class ConsolePageState extends State<ConsolePage> {
   }
 
   Future<void> leave({bool disconnect = false}) async {
+    final contextStrings = context.l10n;
     if (widget.embedded) {
       if (disconnect) {
         await widget.onClose?.call();
@@ -331,12 +341,17 @@ class ConsolePageState extends State<ConsolePage> {
     } catch (error) {
       leaving = false;
       if (mounted) {
-        showEngineFailure(actionsContext, error, summary: '연결을 닫지 못했습니다');
+        showEngineFailure(
+          actionsContext,
+          error,
+          summary: contextStrings.couldNotCloseConnection,
+        );
       }
     }
   }
 
   Future<void> menu(String action) async {
+    final contextStrings = context.l10n;
     if ([
       'keyboard',
       'select',
@@ -377,17 +392,17 @@ class ConsolePageState extends State<ConsolePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                title: const Text(
-                  '화면',
+                title: Text(
+                  contextStrings.display,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
               ),
               if (session['open'] == true)
                 ListTile(
                   leading: const Icon(Icons.aspect_ratio),
-                  title: const Text('터미널 크기'),
+                  title: Text(contextStrings.terminalSize),
                   subtitle: Text(
-                    '${session['columns'] ?? '열'}×${session['rows'] ?? '행'}',
+                    '${session['columns'] ?? contextStrings.columns}×${session['rows'] ?? contextStrings.rows}',
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
@@ -396,8 +411,12 @@ class ConsolePageState extends State<ConsolePage> {
                   },
                 ),
               for (final option in [
-                ('fullscreen', '전체 화면', Icons.fullscreen),
-                ('titlebarhide', '제목 줄 자동 숨김', Icons.vertical_align_top),
+                ('fullscreen', contextStrings.fullScreen, Icons.fullscreen),
+                (
+                  'titlebarhide',
+                  contextStrings.autoHideTitleBar,
+                  Icons.vertical_align_top,
+                ),
               ])
                 SwitchListTile(
                   secondary: Icon(option.$3),
@@ -419,10 +438,10 @@ class ConsolePageState extends State<ConsolePage> {
       final targetId = id;
       final size = await askText(
         actionsContext,
-        '터미널 크기 · 열×행',
-        action: '크기 변경',
+        contextStrings.terminalSizeColumnsRows,
+        action: contextStrings.resize,
         initial: '',
-        hintText: '80×24 · 빈 값은 자동',
+        hintText: contextStrings.text8024LeaveBlankForAutomaticSizing,
       );
       if (size == null || !mounted) return;
       final parts = size.trim().toLowerCase().replaceAll('×', 'x').split('x');
@@ -433,7 +452,7 @@ class ConsolePageState extends State<ConsolePage> {
               (int.tryParse(parts.first.trim()) ?? 0) <= 0 ||
               (int.tryParse(parts.last.trim()) ?? 0) <= 0)) {
         ScaffoldMessenger.of(actionsContext).showSnackBar(
-          const SnackBar(content: Text('‘80×24’처럼 열×행으로 입력해 주세요.')),
+          SnackBar(content: Text(contextStrings.enterColumnsRowsSuchAs8024)),
         );
         return;
       }
@@ -455,8 +474,10 @@ class ConsolePageState extends State<ConsolePage> {
       if (!mounted) return;
       final text = await askText(
         actionsContext,
-        '${session['nickname'] ?? '터미널'}로 보내기',
-        action: '보내기',
+        contextStrings.sendTo(
+          (session['nickname'] ?? contextStrings.terminal).toString(),
+        ),
+        action: contextStrings.send2,
         maxWidth: 640,
         multiline: true,
         showPasteAction: true,
@@ -503,9 +524,12 @@ class ConsolePageState extends State<ConsolePage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('터미널 링크', style: Theme.of(c).textTheme.titleLarge),
+                  Text(
+                    contextStrings.terminalLinks,
+                    style: Theme.of(c).textTheme.titleLarge,
+                  ),
                   const SizedBox(height: 16),
-                  if (urls.isEmpty) const Text('화면에 링크가 없습니다.'),
+                  if (urls.isEmpty) Text(contextStrings.noLinksOnScreen),
                   Flexible(
                     child: ListView(
                       shrinkWrap: true,
@@ -529,7 +553,7 @@ class ConsolePageState extends State<ConsolePage> {
                                   onPressed: () => Clipboard.setData(
                                     ClipboardData(text: '$url'),
                                   ),
-                                  child: const Text('복사'),
+                                  child: Text(contextStrings.copy2),
                                 ),
                                 TextButton(
                                   onPressed: () => runEngine(
@@ -538,7 +562,7 @@ class ConsolePageState extends State<ConsolePage> {
                                     'openUrl',
                                     {'url': url},
                                   ),
-                                  child: const Text('열기'),
+                                  child: Text(contextStrings.open),
                                 ),
                               ],
                             ),
@@ -654,12 +678,12 @@ class ConsolePageState extends State<ConsolePage> {
                 contentPadding: EdgeInsets.zero,
                 leading: TildeHostTile(host: host, size: 48),
                 title: Text(
-                  '${session['nickname'] ?? '터미널'}',
+                  '${session['nickname'] ?? c.l10n.terminal}',
                   style: Theme.of(c).textTheme.titleMedium,
                 ),
                 trailing: side
                     ? IconButton(
-                        tooltip: '닫기',
+                        tooltip: c.l10n.close2,
                         icon: const Icon(Icons.close),
                         onPressed: close,
                       )
@@ -667,40 +691,51 @@ class ConsolePageState extends State<ConsolePage> {
               ),
               const Divider(),
               if (connected) ...[
-                entry('paste', '붙여넣기', Icons.content_paste_outlined),
-                entry('text', '텍스트 입력', Icons.edit_note_outlined),
+                entry('paste', c.l10n.paste, Icons.content_paste_outlined),
+                entry('text', c.l10n.enterText, Icons.edit_note_outlined),
               ],
               if (connected) const Divider(),
               entry(
                 'urls',
-                '링크',
+                context.l10n.links,
                 Icons.link_outlined,
                 navigates: true,
-                valueText: urlCount == null ? null : '$urlCount개',
+                valueText: urlCount == null
+                    ? null
+                    : context.l10n.items(urlCount),
               ),
               entry(
                 'display',
-                '화면',
+                c.l10n.display,
                 Icons.display_settings_outlined,
                 navigates: true,
               ),
               const Divider(),
               if (session['hostId'] != null)
-                entry('files', '파일 전송', Icons.folder_outlined),
+                entry(
+                  'files',
+                  context.l10n.fileTransfer,
+                  Icons.folder_outlined,
+                ),
               if (connected && session['canForward'] == true)
-                entry('forwards', '포트 포워딩', Icons.swap_horiz, navigates: true),
+                entry(
+                  'forwards',
+                  c.l10n.portForwarding,
+                  Icons.swap_horiz,
+                  navigates: true,
+                ),
               if (session['canEnroll'] == true)
                 entry(
                   'enroll',
-                  '이 서버에 키 등록',
+                  c.l10n.registerKeyOnThisServer,
                   Icons.key_outlined,
                   navigates: true,
                 ),
               if (!leaving && !connected && session['connecting'] != true)
-                entry('reconnect', '다시 연결', Icons.refresh),
+                entry('reconnect', c.l10n.reconnect, Icons.refresh),
               entry(
                 'newSession',
-                '새 터미널',
+                c.l10n.newTerminal,
                 Icons.add_box_outlined,
                 enabled:
                     connectionTarget['hostId'] != null ||
@@ -712,7 +747,7 @@ class ConsolePageState extends State<ConsolePage> {
               ),
               entry(
                 'disconnect',
-                connected ? '연결 끊기' : '닫기',
+                connected ? c.l10n.disconnect : c.l10n.close2,
                 connected ? Icons.link_off_outlined : Icons.close,
               ),
             ],
@@ -723,6 +758,7 @@ class ConsolePageState extends State<ConsolePage> {
   }
 
   Future<void> openMenu(BuildContext anchor) async {
+    final anchorStrings = anchor.l10n;
     titleTimer?.cancel();
     final targetId = id;
     int? urlCount;
@@ -742,17 +778,20 @@ class ConsolePageState extends State<ConsolePage> {
         icon: Icons.terminal_outlined,
         itemBuilder: (_) => [
           if (connected) ...[
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'paste',
               child: TildeMenuLabel(
-                '붙여넣기',
+                anchorStrings.paste,
                 Icons.content_paste_outlined,
                 shortcut: 'Ctrl Shift V',
               ),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'text',
-              child: TildeMenuLabel('텍스트 입력', Icons.edit_note_outlined),
+              child: TildeMenuLabel(
+                anchorStrings.enterText,
+                Icons.edit_note_outlined,
+              ),
             ),
             const PopupMenuDivider(),
           ],
@@ -760,50 +799,69 @@ class ConsolePageState extends State<ConsolePage> {
             value: 'urls',
             child: Row(
               children: [
-                const Expanded(
-                  child: TildeMenuLabel('링크', Icons.link_outlined),
+                Expanded(
+                  child: TildeMenuLabel(
+                    context.l10n.links,
+                    Icons.link_outlined,
+                  ),
                 ),
                 if (urlCount != null)
                   Text(
-                    '$urlCount개',
+                    context.l10n.items(urlCount),
                     style: Theme.of(anchor).textTheme.bodySmall,
                   ),
               ],
             ),
           ),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'display',
-            child: TildeMenuLabel('화면', Icons.display_settings_outlined),
+            child: TildeMenuLabel(
+              anchorStrings.display,
+              Icons.display_settings_outlined,
+            ),
           ),
           if (session['hostId'] != null)
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'files',
-              child: TildeMenuLabel('파일 전송', Icons.folder_outlined),
+              child: TildeMenuLabel(
+                anchorStrings.fileTransfer,
+                Icons.folder_outlined,
+              ),
             ),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'fullscreen',
-            child: TildeMenuLabel('전체 화면', Icons.fullscreen, shortcut: 'F11'),
+            child: TildeMenuLabel(
+              anchorStrings.fullScreen,
+              Icons.fullscreen,
+              shortcut: 'F11',
+            ),
           ),
           const PopupMenuDivider(),
           if (connected && session['canForward'] == true)
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'forwards',
-              child: TildeMenuLabel('포트 포워딩', Icons.swap_horiz),
+              child: TildeMenuLabel(
+                anchorStrings.portForwarding,
+                Icons.swap_horiz,
+              ),
             ),
           if (session['canEnroll'] == true)
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'enroll',
-              child: TildeMenuLabel('이 서버에 키 등록', Icons.key_outlined),
+              child: TildeMenuLabel(
+                anchorStrings.registerKeyOnThisServer,
+                Icons.key_outlined,
+              ),
             ),
           if (!connected && session['connecting'] != true)
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'reconnect',
-              child: TildeMenuLabel('다시 연결', Icons.refresh),
+              child: TildeMenuLabel(anchorStrings.reconnect, Icons.refresh),
             ),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'newSession',
             child: TildeMenuLabel(
-              '새 터미널',
+              anchorStrings.newTerminal,
               Icons.add_box_outlined,
               shortcut: 'Ctrl Shift T',
             ),
@@ -812,7 +870,7 @@ class ConsolePageState extends State<ConsolePage> {
           PopupMenuItem(
             value: 'disconnect',
             child: TildeMenuLabel(
-              connected ? '연결 끊기' : '닫기',
+              connected ? anchorStrings.disconnect : anchorStrings.close2,
               connected ? Icons.link_off_outlined : Icons.close,
             ),
           ),
@@ -850,7 +908,7 @@ class ConsolePageState extends State<ConsolePage> {
 
   Widget popup() => Builder(
     builder: (anchor) => IconButton(
-      tooltip: '터미널 메뉴',
+      tooltip: context.l10n.terminalMenu,
       icon: const Icon(Icons.more_horiz),
       onPressed: () => openMenu(anchor),
     ),
@@ -888,12 +946,14 @@ class ConsolePageState extends State<ConsolePage> {
         session['ended'] == true;
     final title = failed
         ? switch (phase) {
-            'hostKey' => '서버 키를 확인하지 못했습니다',
-            'authentication' => '로그인하지 못했습니다',
-            'ready' => '터미널을 열지 못했습니다',
-            _ => '서버에 연결하지 못했습니다',
+            'hostKey' => context.l10n.couldNotVerifyServerKey,
+            'authentication' => context.l10n.couldNotLogIn,
+            'ready' => context.l10n.couldNotOpenTerminal,
+            _ => context.l10n.couldNotConnectToServer,
           }
-        : '${session['nickname'] ?? '서버'}에 연결하는 중';
+        : context.l10n.connectingTo2(
+            (session['nickname'] ?? context.l10n.server).toString(),
+          );
     final host = engine
         .list('hosts')
         .where((host) => host['id'] == session['hostId'])
@@ -903,7 +963,9 @@ class ConsolePageState extends State<ConsolePage> {
       if (row(session['progress'])['message'] != null)
         row(session['progress'])['message'],
     ].join('\n');
-    final editLabel = phase == 'authentication' ? '인증 편집' : '호스트 편집';
+    final editLabel = phase == 'authentication'
+        ? context.l10n.editAuthentication
+        : context.l10n.editHost;
     final editCategory = phase == 'authentication'
         ? 'authentication'
         : 'connection';
@@ -914,14 +976,15 @@ class ConsolePageState extends State<ConsolePage> {
           session['connectionHost'] as String? ??
           session['uri'] as String? ??
           '',
-      finalStage: '터미널 열기',
+      finalStage: context.l10n.openTerminal,
       failed: failed,
       failureHint: failed
           ? switch (phase) {
-              'hostKey' => '저장된 서버 키와 서버 관리자가 알려 준 지문을 확인하세요.',
+              'hostKey' =>
+                context.l10n.checkTheSavedServerKeyAndTheFingerprintProvided,
               'authentication' =>
-                '사용자 이름과 인증 정보를 확인하세요. SSH 키를 사용한다면 서버에 공개키가 등록되어 있어야 합니다.',
-              _ => '서버 주소와 포트, 네트워크 연결을 확인하세요.',
+                context.l10n.checkYourUsernameAndCredentialsIfUsingAnSsh,
+              _ => context.l10n.checkTheServerAddressPortAndNetworkConnection,
             }
           : null,
       prompt: prompt == null ? null : _loginPrompt(prompt),
@@ -932,8 +995,10 @@ class ConsolePageState extends State<ConsolePage> {
               actionsContext,
               details,
               summary: failed
-                  ? '${session['nickname'] ?? '서버'}에 연결하지 못했습니다'
-                  : '연결 기록',
+                  ? context.l10n.couldNotConnectTo(
+                      (session['nickname'] ?? context.l10n.server).toString(),
+                    )
+                  : context.l10n.connectionLog,
               target: session['uri'] as String?,
               explanation: session['failureSummary'] as String?,
               occurredAt: DateTime.tryParse('${session['failedAt']}'),
@@ -953,7 +1018,9 @@ class ConsolePageState extends State<ConsolePage> {
                     ),
               retry: failed ? () => menu('reconnect') : null,
             ),
-            child: Text(failed ? '자세히' : '연결 기록'),
+            child: Text(
+              failed ? context.l10n.details : context.l10n.connectionLog,
+            ),
           ),
         if (failed && host != null)
           OutlinedButton(
@@ -973,12 +1040,12 @@ class ConsolePageState extends State<ConsolePage> {
         if (failed)
           FilledButton(
             onPressed: () => menu('reconnect'),
-            child: const Text('다시 시도'),
+            child: Text(context.l10n.retry),
           )
         else
           TextButton(
             onPressed: () => leave(disconnect: true),
-            child: const Text('취소'),
+            child: Text(context.l10n.cancel),
           ),
       ],
     );
@@ -1076,7 +1143,9 @@ class ConsolePageState extends State<ConsolePage> {
                                             child: TextButton(
                                               onPressed: () =>
                                                   menu('reconnect'),
-                                              child: const Text('다시 연결'),
+                                              child: Text(
+                                                context.l10n.reconnect,
+                                              ),
                                             ),
                                           ))
                                   : Listener(
@@ -1227,8 +1296,12 @@ class ConsolePageState extends State<ConsolePage> {
                                                 prefs['imeTogglekey'] != false,
                                             onEdit: (initial) => askText(
                                               actionsContext,
-                                              '${session['nickname'] ?? '터미널'}로 보내기',
-                                              action: '보내기',
+                                              context.l10n.sendTo(
+                                                (session['nickname'] ??
+                                                        context.l10n.terminal)
+                                                    .toString(),
+                                              ),
+                                              action: context.l10n.send2,
                                               maxWidth: 640,
                                               initial: initial,
                                               multiline: true,
@@ -1252,7 +1325,9 @@ class ConsolePageState extends State<ConsolePage> {
                                   systemOverlayStyle: overlays,
                                   automaticallyImplyLeading: false,
                                   leading: IconButton(
-                                    tooltip: desktop ? '기기 목록' : '홈',
+                                    tooltip: desktop
+                                        ? context.l10n.deviceList
+                                        : context.l10n.home,
                                     icon: Icon(
                                       desktop
                                           ? Icons.dns_outlined
@@ -1288,7 +1363,7 @@ class ConsolePageState extends State<ConsolePage> {
                                         onPressed: openSessions,
                                       ),
                                       IconButton(
-                                        tooltip: '새 탭',
+                                        tooltip: context.l10n.newTab,
                                         onPressed: () => leave(),
                                         icon: const Icon(Icons.add),
                                       ),
@@ -1371,10 +1446,11 @@ class ConsolePageState extends State<ConsolePage> {
                                                   ),
                                                 ),
                                               ),
-                                              child: const Text('보기'),
+                                              child: Text(context.l10n.view),
                                             ),
                                             IconButton(
-                                              tooltip: '배너 닫기',
+                                              tooltip:
+                                                  context.l10n.dismissBanner,
                                               icon: const Icon(Icons.close),
                                               onPressed: () => command(
                                                 'session.dismissBanner',
@@ -1441,20 +1517,34 @@ class ConsolePageState extends State<ConsolePage> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.stretch,
                                             children: [
-                                              Text(
-                                                switch (session['disconnectReason']) {
-                                                  'USER_REQUESTED' =>
-                                                    '연결을 종료했습니다',
-                                                  'SESSION_EXIT' =>
-                                                    '서버에서 세션을 종료했습니다',
-                                                  'AUTH_FAIL' =>
-                                                    '인증에 실패해 연결이 종료되었습니다',
-                                                  _ => '연결이 끊겼습니다',
-                                                },
-                                              ),
+                                              Text(switch (session['disconnectReason']) {
+                                                'USER_REQUESTED' =>
+                                                  context.l10n.connectionClosed,
+                                                'SESSION_EXIT' =>
+                                                  context
+                                                      .l10n
+                                                      .theServerEndedTheSession,
+                                                'AUTH_FAIL' =>
+                                                  context
+                                                      .l10n
+                                                      .connectionEndedAfterAuthenticationFailed,
+                                                _ =>
+                                                  context.l10n.connectionLost,
+                                              }),
                                               if (session['endedAt'] != null)
                                                 Text(
-                                                  '종료 · ${DateTime.tryParse('${session['endedAt']}') == null ? session['endedAt'] : formatTildeTimestamp(DateTime.parse('${session['endedAt']}'))}',
+                                                  context.l10n.ended(
+                                                    DateTime.tryParse(
+                                                              '${session['endedAt']}',
+                                                            ) ==
+                                                            null
+                                                        ? '${session['endedAt']}'
+                                                        : formatTildeTimestamp(
+                                                            DateTime.parse(
+                                                              '${session['endedAt']}',
+                                                            ),
+                                                          ),
+                                                  ),
                                                   style:
                                                       theme.textTheme.bodySmall,
                                                 ),
@@ -1466,19 +1556,25 @@ class ConsolePageState extends State<ConsolePage> {
                                                   TextButton(
                                                     onPressed: () =>
                                                         menu('disconnect'),
-                                                    child: const Text('닫기'),
+                                                    child: Text(
+                                                      context.l10n.close2,
+                                                    ),
                                                   ),
                                                   TextButton(
                                                     onPressed: () async {
                                                       await menu('selectAll');
                                                       await menu('copy');
                                                     },
-                                                    child: const Text('출력 복사'),
+                                                    child: Text(
+                                                      context.l10n.copyOutput,
+                                                    ),
                                                   ),
                                                   FilledButton(
                                                     onPressed: () =>
                                                         menu('reconnect'),
-                                                    child: const Text('다시 연결'),
+                                                    child: Text(
+                                                      context.l10n.reconnect,
+                                                    ),
                                                   ),
                                                 ],
                                               ),
@@ -1574,11 +1670,12 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   @override
   void initState() {
     super.initState();
-    name = '${widget.host['nickname']} SSH 키';
+    name = deviceStrings.sshKey((widget.host['nickname']).toString());
     unawaited(begin());
   }
 
   Future<void> begin() async {
+    final contextStrings = deviceStrings;
     try {
       await widget.engine.invoke('key.enrollmentBegin', {'name': name});
       if (mounted) {
@@ -1593,9 +1690,9 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
         setState(() => started = true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('등록 준비를 완료하지 못했습니다'),
+            content: Text(contextStrings.couldNotPrepareRegistration),
             action: SnackBarAction(
-              label: '자세히',
+              label: contextStrings.details,
               onPressed: () => showErrorDetails(context, e),
             ),
           ),
@@ -1605,20 +1702,23 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   }
 
   Future<void> choose(EngineRecord state) async {
-    final choice = await pickTildeOption(context, '등록할 키', [
-      if (state['biometricAvailable'] == true) (null, '새 생체인증 키'),
-      ('generate', '새 SSH 키 만들기'),
-      for (final key
-          in widget.engine
-              .list('keys')
-              .where(
-                (k) =>
-                    k['supported'] != false &&
-                    k['publicKey'] is String &&
-                    (k['publicKey'] as String).isNotEmpty,
-              ))
-        (key['id'], '${key['nickname']} · ${key['type']}'),
-    ], keyId);
+    final contextStrings = context.l10n;
+    final choice =
+        await pickTildeOption(context, contextStrings.keyToRegister, [
+          if (state['biometricAvailable'] == true)
+            (null, contextStrings.newBiometricKey),
+          ('generate', contextStrings.createNewSshKey),
+          for (final key
+              in widget.engine
+                  .list('keys')
+                  .where(
+                    (k) =>
+                        k['supported'] != false &&
+                        k['publicKey'] is String &&
+                        (k['publicKey'] as String).isNotEmpty,
+                  ))
+            (key['id'], '${key['nickname']} · ${key['type']}'),
+        ], keyId);
     if (choice == null || !mounted) return;
     if (choice.$1 == 'generate') {
       final record = await showTildeSheet<EngineRecord>(
@@ -1647,24 +1747,30 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
             .where((h) => h['id'] == state['hostId'])
             .firstOrNull;
         return Scaffold(
-          appBar: AppBar(title: const Text('SSH 키 로그인 등록')),
+          appBar: AppBar(title: Text(context.l10n.registerSshKeyLogin)),
           body: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${owner?['nickname'] ?? '다른 호스트'} 키 등록${state['busy'] == true ? '을 진행 중입니다' : '이 끝났습니다'}',
+                  context.l10n.keyRegistration(
+                    (owner?['nickname'] ?? context.l10n.anotherHost).toString(),
+                    (state['busy'] == true
+                            ? context.l10n.isInProgress
+                            : context.l10n.isComplete)
+                        .toString(),
+                  ),
                 ),
                 if (state['busy'] == true) const TildeProgress(),
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: state['busy'] == true ? null : begin,
-                  child: const Text('이 호스트의 등록 준비'),
+                  child: Text(context.l10n.registrationPreparationForThisHost),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('닫기'),
+                  child: Text(context.l10n.close2),
                 ),
               ],
             ),
@@ -1694,7 +1800,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               : 0,
       };
       return Scaffold(
-        appBar: AppBar(title: const Text('SSH 키 로그인 등록')),
+        appBar: AppBar(title: Text(context.l10n.registerSshKeyLogin)),
         body: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
@@ -1704,14 +1810,17 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
             child: ListView(
               padding: const EdgeInsets.only(bottom: 24),
               children: [
-                settingsNote(context, '공개키를 등록한 뒤 별도 연결로 키 로그인을 확인합니다.'),
-                settingsSection(context, '등록할 키', [
+                settingsNote(
+                  context,
+                  context.l10n.installThePublicKeyThenVerifyKeyLoginWith,
+                ),
+                settingsSection(context, context.l10n.keyToRegister, [
                   ListTile(
                     leading: const Icon(Icons.key_outlined),
                     title: Text(
                       keyId == null
-                          ? '새 생체인증 키'
-                          : '${selected?['nickname'] ?? '키 선택'}',
+                          ? context.l10n.newBiometricKey
+                          : '${selected?['nickname'] ?? context.l10n.selectKey}',
                     ),
                     subtitle: selected?['fingerprint'] == null
                         ? null
@@ -1733,12 +1842,14 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                       child: TextFormField(
                         initialValue: name,
                         enabled: !busy,
-                        decoration: const InputDecoration(labelText: '새 키 이름'),
+                        decoration: InputDecoration(
+                          labelText: context.l10n.newKeyName,
+                        ),
                         onChanged: (value) => name = value,
                       ),
                     ),
                 ]),
-                settingsSection(context, '진행', [
+                settingsSection(context, context.l10n.progress, [
                   for (var i = 0; i < 3; i++)
                     ListTile(
                       leading: failed && stage == i
@@ -1763,7 +1874,11 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                               ),
                             ),
                       title: Text(
-                        ['공개키 등록', '키 로그인 검증', '호스트에 적용'][i],
+                        [
+                          context.l10n.installPublicKey,
+                          context.l10n.verifyKeyLogin,
+                          context.l10n.applyToHost,
+                        ][i],
                         style: stage < i
                             ? TextStyle(
                                 color: Theme.of(
@@ -1777,10 +1892,13 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                               children: [
                                 Expanded(
                                   child: Text(switch (state['verification']) {
-                                    'REJECTED' when i == 1 => '서버가 키를 거절했습니다',
+                                    'REJECTED' when i == 1 =>
+                                      context.l10n.theServerRejectedTheKey,
                                     'ADDITIONAL_AUTH_REQUIRED' when i == 1 =>
-                                      '서버가 추가 인증을 요구합니다',
-                                    _ => '이 단계를 완료하지 못했습니다',
+                                      context
+                                          .l10n
+                                          .theServerRequiresAdditionalAuthentication,
+                                    _ => context.l10n.couldNotCompleteThisStep,
                                   }),
                                 ),
                                 TextButton(
@@ -1788,30 +1906,37 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                                     context,
                                     state['error']!,
                                   ),
-                                  child: const Text('자세히'),
+                                  child: Text(context.l10n.details),
                                 ),
                               ],
                             )
                           : i == 0 && state['registration'] != null
                           ? Text(
                               state['registration'] == 'ADDED'
-                                  ? '서버에 등록했습니다'
-                                  : '이미 등록된 키입니다',
+                                  ? context.l10n.installedOnServer
+                                  : context.l10n.keyAlreadyInstalled,
                             )
                           : i == 1 && state['verification'] != null
                           ? Text(switch (state['verification']) {
-                              'VERIFIED' => '키 로그인을 확인했습니다',
-                              'ADDITIONAL_AUTH_REQUIRED' => '서버가 추가 인증을 요구합니다',
-                              _ => '서버가 이 키를 거절했습니다',
+                              'VERIFIED' => context.l10n.keyLoginVerified,
+                              'ADDITIONAL_AUTH_REQUIRED' =>
+                                context
+                                    .l10n
+                                    .theServerRequiresAdditionalAuthentication,
+                              _ => context.l10n.theServerRejectedThisKey,
                             })
                           : null,
                     ),
                 ]),
                 if (state['stage'] == 'SUCCESS')
-                  settingsSection(context, '등록 완료', [
+                  settingsSection(context, context.l10n.registrationComplete, [
                     ListTile(
                       leading: const Icon(Icons.check_circle_outline),
-                      title: Text('${selected?['nickname'] ?? name} 키를 사용합니다'),
+                      title: Text(
+                        context.l10n.usingKey(
+                          (selected?['nickname'] ?? name).toString(),
+                        ),
+                      ),
                     ),
                     if (widget.engine
                             .list('hosts')
@@ -1833,7 +1958,9 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                             );
                           }
                         },
-                        child: const Text('이 호스트의 저장된 비밀번호 지우기'),
+                        child: Text(
+                          context.l10n.removeSavedPasswordForThisHost,
+                        ),
                       ),
                   ])
                 else
@@ -1855,7 +1982,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                                 'name': name,
                               },
                             ),
-                      child: const Text('등록 및 검증'),
+                      child: Text(context.l10n.registerAndVerify),
                     ),
                   ),
                 if (busy && started)
@@ -1863,7 +1990,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('백그라운드에서 계속'),
+                      child: Text(context.l10n.continueInBackground),
                     ),
                   ),
               ],

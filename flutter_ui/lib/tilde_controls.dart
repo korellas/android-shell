@@ -5,10 +5,12 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
  */
+
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'tilde_design.dart';
 import 'settings_widgets.dart' show formatCount;
+import 'l10n/strings.dart';
 
 String formatTildeTimestamp(DateTime value, {DateTime? now}) {
   final local = value.toLocal();
@@ -185,8 +187,8 @@ class _TildeChoicePageState extends State<TildeChoicePage> {
             ),
             child: TextField(
               autofocus: true,
-              decoration: const InputDecoration(
-                hintText: '검색',
+              decoration: InputDecoration(
+                hintText: context.l10n.search,
                 prefixIcon: Icon(Icons.search),
               ),
               onChanged: (value) =>
@@ -263,7 +265,9 @@ Widget tildeSegments(
   EdgeInsetsGeometry padding = const EdgeInsets.all(16),
 }) {
   final values = [...options];
-  if (!values.any((v) => v.$1 == value)) values.add((value, '$value (현재 값)'));
+  if (!values.any((v) => v.$1 == value)) {
+    values.add((value, context.l10n.currentValue((value).toString())));
+  }
   return Padding(
     padding: padding,
     child: Column(
@@ -437,21 +441,21 @@ class TildeSaveBar extends StatelessWidget {
   final int changes;
   final bool busy;
   final VoidCallback cancel, save;
-  final String saveLabel;
+  final String? saveLabel;
   const TildeSaveBar({
     super.key,
     required this.changes,
     required this.busy,
     required this.cancel,
     required this.save,
-    this.saveLabel = '저장',
+    this.saveLabel,
   });
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 840;
     final colors = Theme.of(context).colorScheme;
     final status = busy
-        ? const TildeProgress.circular(label: '저장 중')
+        ? TildeProgress.circular(label: context.l10n.saving3)
         : Row(
             children: [
               Container(
@@ -465,7 +469,7 @@ class TildeSaveBar extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '$changes개 변경됨',
+                  context.l10n.changes((changes).toString()),
                   style: TextStyle(color: colors.onSurface),
                 ),
               ),
@@ -479,9 +483,12 @@ class TildeSaveBar extends StatelessWidget {
         TextButton(
           style: TextButton.styleFrom(foregroundColor: colors.onSurface),
           onPressed: busy ? null : cancel,
-          child: const Text('되돌리기'),
+          child: Text(context.l10n.undo),
         ),
-        FilledButton(onPressed: busy ? null : save, child: Text(saveLabel)),
+        FilledButton(
+          onPressed: busy ? null : save,
+          child: Text(saveLabel ?? context.l10n.save),
+        ),
       ],
     );
     final bar = Container(
@@ -564,7 +571,12 @@ class _TildeStepperState extends State<TildeStepper> {
   void apply(String raw) {
     final n = int.tryParse(raw.replaceAll(',', ''));
     if (n == null || n < widget.min || n > widget.max) {
-      setState(() => error = '${widget.min}–${widget.max} 사이로 입력하세요');
+      setState(
+        () => error = context.l10n.enterAValueBetweenAnd(
+          (widget.min).toString(),
+          (widget.max).toString(),
+        ),
+      );
       return;
     }
     setState(() {
@@ -599,7 +611,7 @@ class _TildeStepperState extends State<TildeStepper> {
               ),
             ),
             IconButton(
-              tooltip: '${widget.title} 줄이기',
+              tooltip: context.l10n.decrease((widget.title).toString()),
               onPressed: widget.value <= widget.min
                   ? null
                   : () => widget.onChanged(
@@ -636,7 +648,7 @@ class _TildeStepperState extends State<TildeStepper> {
                     ),
             ),
             IconButton(
-              tooltip: '${widget.title} 늘리기',
+              tooltip: context.l10n.increase((widget.title).toString()),
               onPressed: widget.value >= widget.max
                   ? null
                   : () => widget.onChanged(
@@ -670,16 +682,19 @@ Future<bool> discardTildeChanges(BuildContext context) async =>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('변경 사항 버리기', style: Theme.of(c).textTheme.titleLarge),
+              Text(
+                context.l10n.discardChanges,
+                style: Theme.of(c).textTheme.titleLarge,
+              ),
               const SizedBox(height: 12),
-              const Text('저장하지 않은 변경 사항이 사라집니다.'),
+              Text(context.l10n.unsavedChangesWillBeLost),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(c, false),
-                    child: const Text('계속 편집'),
+                    child: Text(context.l10n.keepEditing),
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
@@ -687,7 +702,7 @@ Future<bool> discardTildeChanges(BuildContext context) async =>
                       backgroundColor: Theme.of(c).colorScheme.error,
                     ),
                     onPressed: () => Navigator.pop(c, true),
-                    child: const Text('버리기'),
+                    child: Text(context.l10n.discard),
                   ),
                 ],
               ),
@@ -701,7 +716,7 @@ Future<bool> discardTildeChanges(BuildContext context) async =>
 Future<Color?> pickTildeColor(
   BuildContext context,
   Color initial, {
-  String title = '색상 선택',
+  String? title,
   ValueChanged<Color>? onPreview,
   List<Color> swatches = const [],
 }) => showTildeSheet<Color>(
@@ -710,7 +725,7 @@ Future<Color?> pickTildeColor(
   showDragHandle: true,
   builder: (_) => TildeColorSheet(
     initial: initial,
-    title: title,
+    title: title ?? context.l10n.selectColor,
     onPreview: onPreview,
     swatches: swatches,
   ),
@@ -826,12 +841,12 @@ class _TildeColorSheetState extends State<TildeColorSheet> {
             Slider(
               value: hsv.value,
               onChanged: (v) => setColor(hsv.withValue(v)),
-              label: '밝기',
+              label: context.l10n.brightness,
             ),
             TextField(
               controller: hex,
               decoration: InputDecoration(
-                labelText: '16진 색상',
+                labelText: context.l10n.hexColor,
                 counterText: '',
                 prefixText: '#',
                 errorText: error,
@@ -865,12 +880,12 @@ class _TildeColorSheetState extends State<TildeColorSheet> {
                   onPressed: () {
                     final n = int.tryParse(hex.text, radix: 16);
                     if (hex.text.length != 6 || n == null) {
-                      setState(() => error = '6자리 색상을 입력하세요');
+                      setState(() => error = context.l10n.enterASixDigitColor);
                       return;
                     }
                     Navigator.pop(context, Color(0xff000000 | n));
                   },
-                  child: const Text('적용'),
+                  child: Text(context.l10n.apply),
                 ),
               ],
             ),
@@ -999,7 +1014,7 @@ class TildeMenuLabel extends StatelessWidget {
 class TildeItemMenu<T> extends StatelessWidget {
   final PopupMenuItemBuilder<T> itemBuilder;
   final ValueChanged<T>? onSelected;
-  final String tooltip;
+  final String? tooltip;
   final String title;
   final String? subtitle;
   final IconData icon;
@@ -1011,7 +1026,7 @@ class TildeItemMenu<T> extends StatelessWidget {
     required this.icon,
     this.subtitle,
     this.onSelected,
-    this.tooltip = '메뉴',
+    this.tooltip,
     this.leading,
   });
 
@@ -1141,7 +1156,7 @@ class TildeItemMenu<T> extends StatelessWidget {
       return GestureDetector(
         onSecondaryTapUp: (event) => open(event.globalPosition),
         child: IconButton(
-          tooltip: tooltip,
+          tooltip: tooltip ?? context.l10n.menu2,
           icon: const Icon(Icons.more_vert),
           onPressed: open,
         ),

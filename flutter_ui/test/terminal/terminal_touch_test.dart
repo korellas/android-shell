@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xterm2/xterm.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   late Terminal terminal;
@@ -28,6 +29,9 @@ void main() {
   Future<void> mount(WidgetTester tester, {bool enabled = true}) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           body: TerminalPane(
             terminal: terminal,
@@ -172,18 +176,18 @@ void main() {
     await mount(tester);
     expect(find.byTooltip('Left'), findsNothing);
     expect(find.byTooltip('Right'), findsNothing);
-    for (final direction in ['Up', 'Down']) {
+    for (final direction in ['위로', '아래로']) {
       await tester.tap(find.byTooltip(direction));
     }
     expect(output.join(), '\x1b[A\x1b[B');
     output.clear();
     terminal.write('\x1b[?1h');
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Up'));
+    await tester.tap(find.byTooltip('위로'));
     expect(output.single, '\x1bOA');
     output.clear();
     final hold = await tester.startGesture(
-      tester.getCenter(find.byTooltip('Down')),
+      tester.getCenter(find.byTooltip('아래로')),
     );
     await tester.pump(const Duration(milliseconds: 450));
     expect(output.length, greaterThan(1));
@@ -228,7 +232,7 @@ void main() {
   ) async {
     await mount(tester);
     expect(find.text('Alt'), findsNothing);
-    expect(find.byTooltip('Up'), findsOneWidget);
+    expect(find.byTooltip('위로'), findsOneWidget);
     await tester.tap(find.text('/'));
     await tester.tap(find.text(':'));
     expect(output.join(), '/:');

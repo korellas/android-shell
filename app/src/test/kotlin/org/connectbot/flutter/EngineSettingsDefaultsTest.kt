@@ -17,6 +17,7 @@
 
 package org.connectbot.flutter
 
+import android.content.res.Resources
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -36,6 +37,10 @@ import org.robolectric.RobolectricTestRunner
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class EngineSettingsDefaultsTest {
+    private val resources = Mockito.mock(Resources::class.java).apply {
+        Mockito.`when`(getString(Mockito.anyInt())).thenReturn("Invalid value")
+    }
+
     private val engine = Mockito.mock(AndroidShellEngine::class.java)
     private val activity = Mockito.mock(FlutterShellActivity::class.java)
     private val settings = Mockito.mock(SettingsViewModel::class.java)
@@ -78,7 +83,7 @@ class EngineSettingsDefaultsTest {
         assertNull(defaults.profileId)
         assertEquals(1234, defaults.scrollbackLines)
         val existing = Host(nickname = "Host", hostname = "example.test", profileId = 3, scrollbackLines = 567)
-        assertEquals(existing.copy(useAuthAgent = null), (defaults.toWire() + existing.toWire()).toHost())
+        assertEquals(existing.copy(useAuthAgent = null), (defaults.toWire() + existing.toWire()).toHost(resources))
     }
 
     @Test

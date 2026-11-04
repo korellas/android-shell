@@ -1,5 +1,6 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -9,10 +10,11 @@ import 'package:android_shell_ui/files/transfer.dart';
 import 'package:android_shell_ui/platform/ssh_keys.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/services.dart';
+import '../l10n/strings.dart';
 
-const _defaultProfile = <String, Object?>{
+Map<String, Object?> get _defaultProfile => {
   'id': 1,
-  'name': '기본 프로필',
+  'name': deviceStrings.defaultProfile,
   'fontFamily': 'D2CODING',
   'fontSize': 14,
   'encoding': 'UTF-8',
@@ -138,7 +140,7 @@ class StoredPlatform {
     if (decoded is! Map<String, dynamic> ||
         decoded['version'] != 1 ||
         decoded['preferences'] is! Map) {
-      throw const FormatException('저장된 접속 설정이 올바르지 않습니다.');
+      throw FormatException(deviceStrings.theSavedConnectionSettingsAreInvalid);
     }
     for (final field in [
       'hosts',
@@ -150,7 +152,9 @@ class StoredPlatform {
     ]) {
       if (decoded[field] is! List ||
           (decoded[field] as List).any((value) => value is! Map)) {
-        throw FormatException('저장된 $field 설정이 올바르지 않습니다.');
+        throw FormatException(
+          deviceStrings.theSavedSettingsAreInvalid((field).toString()),
+        );
       }
     }
     if (decoded['schemes'] != null &&
@@ -162,7 +166,7 @@ class StoredPlatform {
                   (value['palette'] as List).length != 16 ||
                   (value['palette'] as List).any((color) => color is! int),
             ))) {
-      throw const FormatException('저장된 색상 테마가 올바르지 않습니다.');
+      throw FormatException(deviceStrings.theSavedColorThemeIsInvalid);
     }
     _data = {...decoded, 'schemes': decoded['schemes'] ?? []};
     final sealed = _data['secrets'] as String?;
@@ -291,7 +295,7 @@ class StoredPlatform {
       if (uri.scheme != 'ssh' ||
           uri.host.isEmpty ||
           uri.userInfo.contains(':')) {
-        throw const FormatException('SSH 주소를 확인하세요.');
+        throw FormatException(deviceStrings.checkTheSshAddress);
       }
       host = {
         ..._defaultHost,
@@ -303,14 +307,14 @@ class StoredPlatform {
       };
     }
     if (host['protocol'] != 'ssh') {
-      throw UnsupportedError('SSH 호스트를 사용하세요.');
+      throw UnsupportedError(deviceStrings.useAnSshHost);
     }
     final profile = _find(
       'profiles',
       host['profileId'] ?? _preferences()['defaultProfileId'],
     );
     if (profile['encoding'] != 'UTF-8') {
-      throw UnsupportedError('이 터미널은 UTF-8을 사용합니다.');
+      throw UnsupportedError(deviceStrings.thisTerminalUsesUtf8);
     }
     final identityId = host['identityId'];
     final identity = identityId == null
@@ -350,7 +354,7 @@ class StoredPlatform {
   List<EngineRecord> get _schemes => [..._baseSchemes, ..._records('schemes')];
   EngineRecord _scheme(Object? id) {
     final value = _schemes.where((scheme) => scheme['id'] == id).firstOrNull;
-    if (value == null) throw ArgumentError('색상 테마를 찾을 수 없습니다.');
+    if (value == null) throw ArgumentError(deviceStrings.colorThemeNotFound);
     final palette = List<int>.from(value['palette'] as List);
     final foreground =
         value['foregroundColor'] ?? palette[value['foreground'] as int? ?? 7];
@@ -366,7 +370,7 @@ class StoredPlatform {
 
   String _schemeName(Object? value, {Object? except}) {
     if (value is! String || value.trim().isEmpty) {
-      throw ArgumentError('테마 이름을 입력하세요.');
+      throw ArgumentError(deviceStrings.enterAThemeName);
     }
     final name = value.trim();
     if (_schemes.any(
@@ -374,7 +378,7 @@ class StoredPlatform {
           scheme['id'] != except &&
           '${scheme['name']}'.toLowerCase() == name.toLowerCase(),
     )) {
-      throw ArgumentError('같은 이름의 테마가 있습니다.');
+      throw ArgumentError(deviceStrings.aThemeWithThisNameAlreadyExists);
     }
     return name;
   }
@@ -382,7 +386,7 @@ class StoredPlatform {
   int _hexColor(Object? value) {
     if (value is! String ||
         !RegExp(r'^#?(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$').hasMatch(value)) {
-      throw const FormatException('색상은 3자리 또는 6자리 16진수여야 합니다.');
+      throw FormatException(deviceStrings.colorsMustBeThreeOrSixDigitHexValues);
     }
     var hex = value.startsWith('#') ? value.substring(1) : value;
     if (hex.length == 3) {
@@ -403,7 +407,7 @@ class StoredPlatform {
           (decoded['name'] as String).trim().isEmpty ||
           decoded['colors'] is! Map ||
           (decoded['version'] ?? 1) != 1) {
-        throw const FormatException('색상 테마 파일 형식이 올바르지 않습니다.');
+        throw FormatException(deviceStrings.invalidColorThemeFileFormat);
       }
       final foreground = decoded['foreground'] ?? 7,
           background = decoded['background'] ?? 0;
@@ -413,13 +417,17 @@ class StoredPlatform {
           background is! int ||
           background < 0 ||
           background > 15) {
-        throw const FormatException('기본 색상 번호는 0–15여야 합니다.');
+        throw FormatException(
+          deviceStrings.defaultColorIndicesMustBeBetween0And15,
+        );
       }
       final palette = List<int>.filled(16, 0);
       for (final entry in (decoded['colors'] as Map).entries) {
         final index = int.tryParse('${entry.key}');
         if (index == null || index < 0 || index > 15) {
-          throw const FormatException('ANSI 색상 번호는 0–15여야 합니다.');
+          throw FormatException(
+            deviceStrings.ansiColorIndicesMustBeBetween0And15,
+          );
         }
         palette[index] = _hexColor(entry.value);
       }
@@ -432,7 +440,7 @@ class StoredPlatform {
         if (decoded[role] != null) roles[role] = _hexColor(decoded[role]);
       }
       if (decoded['description'] != null && decoded['description'] is! String) {
-        throw const FormatException('테마 설명 형식이 올바르지 않습니다.');
+        throw FormatException(deviceStrings.invalidThemeDescriptionFormat);
       }
       final requested = (decoded['name'] as String).trim();
       var name = requested, suffix = 1;
@@ -496,7 +504,11 @@ class StoredPlatform {
         },
       });
     }
-    if (id is! int || id < 0) throw ArgumentError('기본 테마는 복제한 뒤 편집하세요.');
+    if (id is! int || id < 0) {
+      throw ArgumentError(
+        deviceStrings.duplicateTheDefaultThemeBeforeEditingIt,
+      );
+    }
     final stored = _records(
       'schemes',
     ).firstWhere((record) => record['id'] == id);
@@ -510,13 +522,15 @@ class StoredPlatform {
         final role = args['role'];
         if (!const {'foreground', 'background', 'cursor'}.contains(role) ||
             args['color'] is! int) {
-          throw ArgumentError('색상 역할을 확인하세요.');
+          throw ArgumentError(deviceStrings.checkTheColorRole);
         }
         scheme['${role}Color'] = (args['color'] as int) & 0xffffffff;
       case 'scheme.color':
         final index = args['index'];
         if (index is! int || index < 0 || index > 15 || args['color'] is! int) {
-          throw ArgumentError('ANSI 색상 번호는 0–15여야 합니다.');
+          throw ArgumentError(
+            deviceStrings.ansiColorIndicesMustBeBetween0And15,
+          );
         }
         (scheme['palette'] as List<int>)[index] =
             (args['color'] as int) & 0xffffffff;
@@ -535,7 +549,7 @@ class StoredPlatform {
         await _save();
         return null;
       default:
-        throw UnsupportedError('지원하지 않는 테마 작업입니다.');
+        throw UnsupportedError(deviceStrings.unsupportedThemeOperation);
     }
     _upsert('schemes', scheme);
     await _save();
@@ -567,7 +581,9 @@ class StoredPlatform {
         : 'changed';
     if (method == 'ssh.saveHost') {
       if (args['accept'] != true || status == 'changed') {
-        throw StateError('명시적으로 확인한 새 서버 키만 저장할 수 있습니다.');
+        throw StateError(
+          deviceStrings.onlyExplicitlyConfirmedNewServerKeysCanBeSaved,
+        );
       }
       if (!match) {
         _upsert('knownHosts', {
@@ -593,12 +609,12 @@ class StoredPlatform {
     final staged = File(await File(path).resolveSymbolicLinks());
     final cacheDirectory = Directory('${file.parent.path}/cache');
     if (!await cacheDirectory.exists()) {
-      throw StateError('전송 임시 파일만 처리할 수 있습니다.');
+      throw StateError(deviceStrings.onlyTemporaryTransferFilesCanBeProcessed);
     }
     final cache = await cacheDirectory.resolveSymbolicLinks();
     final parent = await staged.parent.parent.resolveSymbolicLinks();
     if (parent != cache || fileName(staged.path) != 'data') {
-      throw StateError('전송 임시 파일만 처리할 수 있습니다.');
+      throw StateError(deviceStrings.onlyTemporaryTransferFilesCanBeProcessed);
     }
     return staged;
   }
@@ -668,7 +684,7 @@ class StoredPlatform {
         var next = prepared['host']['jumpHostId'];
         while (next != null) {
           if (next is! int || !seen.add(next) || seen.length > 32) {
-            throw StateError('SSH 점프 호스트 연결을 확인하세요.');
+            throw StateError(deviceStrings.checkTheSshJumpHostConnection);
           }
           final jump = _prepare({'id': next});
           jumps.insert(0, jump);
@@ -688,7 +704,7 @@ class StoredPlatform {
         return null;
       case 'ssh.decode':
         if (args['encoding'] != 'UTF-8') {
-          throw UnsupportedError('이 터미널은 UTF-8을 사용합니다.');
+          throw UnsupportedError(deviceStrings.thisTerminalUsesUtf8);
         }
         final id = args['sessionId'] as String;
         final decoder = _decoders.putIfAbsent(id, () {
@@ -719,10 +735,10 @@ class StoredPlatform {
         ).where((host) => host['id'] == args['id']).firstOrNull;
         final configured = {..._defaultHost, ...?previous, ...args};
         if ((configured['hostname'] as String? ?? '').trim().isEmpty) {
-          throw StateError('서버 주소를 입력하세요.');
+          throw StateError(deviceStrings.enterAServerAddress);
         }
         if (configured['protocol'] != 'ssh') {
-          throw UnsupportedError('SSH 호스트를 사용하세요.');
+          throw UnsupportedError(deviceStrings.useAnSshHost);
         }
         final saved = _upsert('hosts', configured);
         _updatePassword('host:${saved['id']}', args);
@@ -756,7 +772,7 @@ class StoredPlatform {
         return args['undo'] == true ? token : null;
       case 'host.restore':
         final saved = _deletedHosts.remove(args['token']);
-        if (saved == null) throw StateError('복구할 호스트가 없습니다.');
+        if (saved == null) throw StateError(deviceStrings.noHostToRestore);
         final host = row(saved['host']);
         _data['hosts'] = [..._records('hosts'), host];
         if (saved['password'] != null) {
@@ -788,7 +804,7 @@ class StoredPlatform {
       case 'profile.delete':
         if (args['id'] == _preferences()['defaultProfileId'] ||
             _records('hosts').any((host) => host['profileId'] == args['id'])) {
-          throw StateError('사용 중인 프로필입니다.');
+          throw StateError(deviceStrings.thisProfileIsInUse);
         }
         _remove('profiles', args['id']);
         await _save();
@@ -848,7 +864,7 @@ class StoredPlatform {
         final uri = Uri.tryParse(args['url'] as String? ?? '');
         if (uri == null ||
             !const {'https', 'http', 'mailto'}.contains(uri.scheme)) {
-          throw ArgumentError('지원하지 않는 링크입니다.');
+          throw ArgumentError(deviceStrings.unsupportedLink);
         }
         return native('openUrl', {'url': uri.toString()});
       case 'document.pick':
@@ -877,7 +893,7 @@ class StoredPlatform {
           'type': 'IMPORTED',
           'publicBytes': public.toList(),
           'eligible': true,
-          'providerLabel': '키 파일',
+          'providerLabel': deviceStrings.keyFile,
           'confirmation': true,
         });
         if (passphrase != null && passphrase.isNotEmpty) {
@@ -914,7 +930,9 @@ class StoredPlatform {
       case 'runtime.bell':
         return null;
       default:
-        throw UnsupportedError('지원하지 않는 작업입니다: $method');
+        throw UnsupportedError(
+          deviceStrings.unsupportedOperation((method).toString()),
+        );
     }
   }
 }

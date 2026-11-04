@@ -4,6 +4,7 @@ import 'package:android_shell_ui/files/transfer.dart';
 import 'package:android_shell_ui/files/transfer_progress.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   testWidgets('shows amount, percentage, speed and remaining time', (
@@ -14,6 +15,9 @@ void main() {
       ..total = 4096;
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           body: TransferProgress(
             status: 'test.zip 업로드 중',
@@ -40,6 +44,9 @@ void main() {
     final control = TransferControl();
     Future<void> show() => tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           body: TransferProgress(status: '준비 중', control: control),
         ),

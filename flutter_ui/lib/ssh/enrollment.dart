@@ -1,7 +1,9 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'dart:convert';
 import 'ssh_session.dart';
+import '../l10n/strings.dart';
 
 String _quote(String value) => "'${value.replaceAll("'", "'\\''")}'";
 
@@ -53,7 +55,7 @@ Future<String> registerEnrollmentPublicKey(
   if (publicKey.contains('\n') ||
       publicKey.contains('\r') ||
       publicKey.trim().isEmpty) {
-    throw const FormatException('Invalid SSH public-key line');
+    throw FormatException(deviceStrings.invalidSshPublicKeyLine);
   }
   final command =
       "printf '%s\\n' ${_quote(publicKey)} | sh -c ${_quote(enrollmentInstallScript)}";
@@ -66,12 +68,14 @@ Future<String> registerEnrollmentPublicKey(
       .trim();
   if (result.exitCode != 0) {
     throw StateError(
-      error.isEmpty ? 'Server did not confirm public-key registration.' : error,
+      error.isEmpty
+          ? deviceStrings.serverDidNotConfirmPublicKeyRegistration
+          : error,
     );
   }
   final status = output.split('\n').last;
   if (status != 'ADDED' && status != 'ALREADY_PRESENT') {
-    throw StateError('Server did not confirm public-key registration.');
+    throw StateError(deviceStrings.serverDidNotConfirmPublicKeyRegistration);
   }
   return status;
 }
@@ -126,7 +130,7 @@ class SshEnrollmentController {
     if (busy || _state['stage'] == 'SUCCESS') return;
     final original = Map<String, dynamic>.from(originalHost);
     if (!canEnroll() || (original['id'] as int? ?? 0) <= 0) {
-      throw StateError('Log in to a saved SSH host before registering a key.');
+      throw StateError(deviceStrings.logInToASavedSshHostBeforeRegistering);
     }
     _update({
       'stage': 'REGISTERING',
@@ -140,14 +144,14 @@ class SshEnrollmentController {
       if (keyId != null) {
         key = keys().where((key) => key['id'] == keyId).firstOrNull;
         if (key == null) {
-          throw StateError('The selected SSH key no longer exists.');
+          throw StateError(deviceStrings.theSelectedSshKeyNoLongerExists);
         }
       } else {
         final trimmed = name.trim();
         if (!biometricAvailable() ||
             trimmed.isEmpty ||
             keys().any((key) => key['nickname'] == trimmed)) {
-          throw StateError('A unique biometric key name is required.');
+          throw StateError(deviceStrings.aUniqueBiometricKeyNameIsRequired);
         }
         key = await createBiometricKey(trimmed);
       }
@@ -155,20 +159,20 @@ class SshEnrollmentController {
       _update({'selectedKeyId': selected});
       if (!canEnroll()) {
         throw StateError(
-          'The original SSH connection is no longer authenticated.',
+          deviceStrings.theOriginalSshConnectionIsNoLongerAuthenticated,
         );
       }
       final registration = await register(selected);
       if (!canEnroll()) {
         throw StateError(
-          'The original SSH connection is no longer authenticated.',
+          deviceStrings.theOriginalSshConnectionIsNoLongerAuthenticated,
         );
       }
       _update({'stage': 'VERIFYING', 'registration': registration});
       final verification = await verify(selected);
       if (!canEnroll()) {
         throw StateError(
-          'The original SSH connection is no longer authenticated.',
+          deviceStrings.theOriginalSshConnectionIsNoLongerAuthenticated,
         );
       }
       _update({'verification': verification});
@@ -176,29 +180,30 @@ class SshEnrollmentController {
         _update({
           'stage': 'FAILED',
           if (verification == 'INDETERMINATE')
-            'error':
-                'Key-only login was not completed. The server may require additional authentication. Login settings were not changed.',
+            'error': deviceStrings.keyOnlyLoginWasNotCompletedTheServerMay,
         });
         return;
       }
       _update({'stage': 'APPLYING'});
       if (!canEnroll()) {
         throw StateError(
-          'The original SSH connection is no longer authenticated.',
+          deviceStrings.theOriginalSshConnectionIsNoLongerAuthenticated,
         );
       }
       final fresh = await readHost(original['id'] as int);
       if (!canEnroll()) {
         throw StateError(
-          'The original SSH connection is no longer authenticated.',
+          deviceStrings.theOriginalSshConnectionIsNoLongerAuthenticated,
         );
       }
-      if (fresh == null) throw StateError('The saved host no longer exists.');
+      if (fresh == null) {
+        throw StateError(deviceStrings.theSavedHostNoLongerExists);
+      }
       if (fresh['hostname'] != original['hostname'] ||
           fresh['port'] != original['port'] ||
           fresh['jumpHostId'] != original['jumpHostId']) {
         throw StateError(
-          'The host address changed during registration. Its login settings were not changed.',
+          deviceStrings.theHostAddressChangedDuringRegistrationItsLoginSettings,
         );
       }
       await saveHost({

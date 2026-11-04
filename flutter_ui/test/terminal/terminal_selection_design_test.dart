@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xterm2/xterm.dart';
 import '../ui_engine_fixture.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   setUpAll(() async {
@@ -45,6 +46,9 @@ void main() {
         final theme = tildeTheme(Brightness.dark, engine);
         await tester.pumpWidget(
           MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
             theme: theme,
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(

@@ -1,5 +1,6 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import '../main.dart' show askText;
@@ -7,6 +8,7 @@ import '../tilde_design.dart';
 import '../tilde_controls.dart';
 import 'sftp_file_operations.dart';
 import 'transfer.dart';
+import '../l10n/strings.dart';
 
 class FilePermissionsPrompt extends StatefulWidget {
   const FilePermissionsPrompt({super.key, required this.names, this.initial});
@@ -40,7 +42,10 @@ class _FilePermissionsPromptState extends State<FilePermissionsPrompt> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('권한 변경', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            context.l10n.changePermissions,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 8),
           Text(
             widget.names.join(', '),
@@ -51,14 +56,27 @@ class _FilePermissionsPromptState extends State<FilePermissionsPrompt> {
           Row(
             children: [
               const SizedBox(width: 80),
-              for (final title in ['읽기', '쓰기', '실행'])
+              for (final title in [
+                context.l10n.read,
+                context.l10n.write,
+                context.l10n.execute,
+              ])
                 Expanded(child: Text(title, textAlign: TextAlign.center)),
             ],
           ),
           for (var row = 0; row < 3; row++)
             Row(
               children: [
-                SizedBox(width: 80, child: Text(['소유자', '그룹', '기타'][row])),
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    [
+                      context.l10n.owner,
+                      context.l10n.group,
+                      context.l10n.other,
+                    ][row],
+                  ),
+                ),
                 for (var col = 0; col < 3; col++)
                   Expanded(
                     child: Checkbox(
@@ -78,7 +96,7 @@ class _FilePermissionsPromptState extends State<FilePermissionsPrompt> {
               ],
             ),
           const SizedBox(height: 16),
-          const Text('8진수 권한', style: TextStyle(fontSize: 13)),
+          Text(context.l10n.octalPermissions, style: TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
           TextFormField(
             controller: input,
@@ -90,7 +108,7 @@ class _FilePermissionsPromptState extends State<FilePermissionsPrompt> {
             decoration: InputDecoration(
               hintText: '0644',
               errorText: input.text.isNotEmpty && mode == null
-                  ? '0–7로 된 3자리 또는 4자리 값을 입력하세요.'
+                  ? context.l10n.enterThreeOrFourDigitsFrom0To7
                   : null,
             ),
             onChanged: (value) => setState(
@@ -113,14 +131,14 @@ class _FilePermissionsPromptState extends State<FilePermissionsPrompt> {
             children: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('취소'),
+                child: Text(context.l10n.cancel),
               ),
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: mode == null
                     ? null
                     : () => Navigator.pop(context, mode),
-                child: const Text('권한 바꾸기'),
+                child: Text(context.l10n.changePermissions2),
               ),
             ],
           ),
@@ -154,9 +172,9 @@ class _RemoteFolderPickerState extends State<RemoteFolderPicker> {
   String? error, selected;
   int request = 0;
   @override
-  void initState() {
-    super.initState();
-    load(path);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (request == 0) load(path);
   }
 
   @override
@@ -167,6 +185,7 @@ class _RemoteFolderPickerState extends State<RemoteFolderPicker> {
   }
 
   Future<void> load(String value) async {
+    final contextStrings = context.l10n;
     final token = ++request;
     setState(() {
       loading = true;
@@ -199,7 +218,10 @@ class _RemoteFolderPickerState extends State<RemoteFolderPicker> {
       });
     } catch (e) {
       if (mounted && token == request) {
-        setState(() => error = '폴더를 열지 못했습니다. 경로와 접근 권한을 확인하세요.\n$e');
+        setState(
+          () => error = contextStrings
+              .couldNotOpenFolderCheckThePathAndPermissions((e).toString()),
+        );
       }
     } finally {
       if (mounted && token == request) setState(() => loading = false);
@@ -207,11 +229,12 @@ class _RemoteFolderPickerState extends State<RemoteFolderPicker> {
   }
 
   Future<void> create() async {
+    final contextStrings = context.l10n;
     final name = await askText(
       context,
-      '새 폴더',
+      contextStrings.newFolder,
       validator: remoteNameError,
-      action: '만들기',
+      action: contextStrings.create,
     );
     if (name == null || !mounted) return;
     try {
@@ -233,17 +256,17 @@ class _RemoteFolderPickerState extends State<RemoteFolderPicker> {
           children: [
             Text(
               widget.names.isEmpty
-                  ? '이동할 폴더'
+                  ? context.l10n.destinationFolder
                   : widget.names.length == 1
-                  ? '${widget.names.single} 이동'
-                  : '${widget.names.length}개 항목 이동',
+                  ? context.l10n.move((widget.names.single).toString())
+                  : context.l10n.moveItems((widget.names.length).toString()),
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
             Row(
               children: [
                 IconButton(
-                  tooltip: '상위 폴더',
+                  tooltip: context.l10n.parentFolder,
                   onPressed: loading || path == '/'
                       ? null
                       : () => load(
@@ -263,7 +286,9 @@ class _RemoteFolderPickerState extends State<RemoteFolderPicker> {
                             fontFamily: tildeMono,
                             fontFamilyFallback: tildeMonoFallback,
                           ),
-                          decoration: const InputDecoration(hintText: '폴더 경로'),
+                          decoration: InputDecoration(
+                            hintText: context.l10n.folderPath,
+                          ),
                         )
                       : Text(
                           path,
@@ -276,7 +301,7 @@ class _RemoteFolderPickerState extends State<RemoteFolderPicker> {
                         ),
                 ),
                 IconButton(
-                  tooltip: '경로 편집',
+                  tooltip: context.l10n.editPath,
                   onPressed: () {
                     setState(() => editing = true);
                     focus.requestFocus();
@@ -331,17 +356,17 @@ class _RemoteFolderPickerState extends State<RemoteFolderPicker> {
               children: [
                 TextButton(
                   onPressed: loading ? null : create,
-                  child: const Text('새 폴더'),
+                  child: Text(context.l10n.newFolder),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('취소'),
+                  child: Text(context.l10n.cancel),
                 ),
                 FilledButton(
                   onPressed: loading || error != null
                       ? null
                       : () => Navigator.pop(context, path),
-                  child: const Text('여기로 이동'),
+                  child: Text(context.l10n.moveHere),
                 ),
               ],
             ),
@@ -371,7 +396,7 @@ class FileDeletePrompt extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '${entries.length}개 항목을 영구 삭제할까요?',
+              context.l10n.permanentlyDeleteItems((entries.length).toString()),
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
@@ -394,8 +419,11 @@ class FileDeletePrompt extends StatelessWidget {
                         subtitle: entry.attr.isDirectory
                             ? Text(
                                 snapshot.hasData
-                                    ? '하위 항목 ${snapshot.data![entry.filename]! - 1}개'
-                                    : '내용 확인 중…',
+                                    ? context.l10n.childItems(
+                                        (snapshot.data![entry.filename]! - 1)
+                                            .toString(),
+                                      )
+                                    : context.l10n.checkingContents,
                               )
                             : entry.attr.size == null
                             ? null
@@ -407,14 +435,22 @@ class FileDeletePrompt extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             if (snapshot.hasError)
-              const Text('폴더 내용을 확인하지 못했습니다. 다시 시도해 주세요.')
+              Text(context.l10n.couldNotInspectFolderContentsTryAgain)
             else if (!snapshot.hasData)
               const LinearProgressIndicator()
             else
               Text(
                 entries.any((entry) => entry.attr.isDirectory)
-                    ? '폴더 안 내용을 포함해 ${snapshot.data!.values.fold<int>(0, (total, value) => total + value)}개 항목을 모두 지웁니다. 되돌릴 수 없습니다.'
-                    : '휴지통 없이 바로 지웁니다. 되돌릴 수 없습니다.',
+                    ? context.l10n
+                          .deleteAllItemsIncludingFolderContentsThisCannotBe(
+                            (snapshot.data!.values.fold<int>(
+                              0,
+                              (total, value) => total + value,
+                            )).toString(),
+                          )
+                    : context
+                          .l10n
+                          .deleteImmediatelyWithoutUsingTrashThisCannotBeUndone,
               ),
             const SizedBox(height: 24),
             Row(
@@ -422,7 +458,7 @@ class FileDeletePrompt extends StatelessWidget {
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: const Text('취소'),
+                  child: Text(context.l10n.cancel),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
@@ -430,7 +466,7 @@ class FileDeletePrompt extends StatelessWidget {
                   onPressed: snapshot.hasData
                       ? () => Navigator.pop(context, true)
                       : null,
-                  child: const Text('영구 삭제'),
+                  child: Text(context.l10n.deletePermanently),
                 ),
               ],
             ),
@@ -469,7 +505,7 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
       ? (keepExisting ? 'keep' : 'replace')
       : (keepExisting ? 'skip' : 'cancel');
   String date(int? seconds) => seconds == null
-      ? '수정일 알 수 없음'
+      ? context.l10n.unknownModificationDate
       : DateTime.fromMillisecondsSinceEpoch(
           seconds * 1000,
         ).toLocal().toString().substring(0, 16);
@@ -482,13 +518,16 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            '같은 이름의 파일이 있습니다',
+            context.l10n.aFileWithTheSameNameExists,
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 12),
           if (widget.totalFiles != null && widget.totalFiles! > 0)
             Text(
-              '전송 ${widget.currentFile} / ${widget.totalFiles}개',
+              context.l10n.transferringItems(
+                (widget.currentFile).toString(),
+                (widget.totalFiles).toString(),
+              ),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           tildePathText(
@@ -499,7 +538,7 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
             ),
           ),
           const SizedBox(height: 16),
-          const Text('남길 파일을 각각 선택하세요.'),
+          Text(context.l10n.chooseWhichFileToKeepForEachConflict),
           const SizedBox(height: 8),
           for (final incoming in [true, false])
             CheckboxListTile(
@@ -519,11 +558,15 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
               }),
               title: Text(
                 incoming
-                    ? (widget.upload ? '올리는 파일' : '내려받는 파일')
-                    : (widget.upload ? '서버의 기존 파일' : '기기의 기존 파일'),
+                    ? (widget.upload
+                          ? context.l10n.fileBeingUploaded
+                          : context.l10n.fileBeingDownloaded)
+                    : (widget.upload
+                          ? context.l10n.existingFileOnServer
+                          : context.l10n.existingFileOnDevice),
               ),
               subtitle: Text(
-                '${(incoming ? widget.sourceSize : widget.existing.size) == null ? '크기 알 수 없음' : formatBytes((incoming ? widget.sourceSize : widget.existing.size)!)}\n${date(incoming ? widget.sourceModified : widget.existing.modifyTime)}',
+                '${(incoming ? widget.sourceSize : widget.existing.size) == null ? context.l10n.unknownSize : formatBytes((incoming ? widget.sourceSize : widget.existing.size)!)}\n${date(incoming ? widget.sourceModified : widget.existing.modifyTime)}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               isThreeLine: true,
@@ -533,10 +576,13 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
             liveRegion: true,
             child: Text(
               switch (choice) {
-                'skip' => '기존 파일을 유지하고 이 파일의 복사를 건너뜁니다.',
-                'keep' => '둘 다 보관합니다. 복사되는 파일은 확장자 앞에 (1)부터 비어 있는 번호를 붙입니다.',
-                'replace' => '복사되는 파일로 기존 파일을 덮어씁니다. 되돌릴 수 없습니다.',
-                _ => '현재 복사 작업을 취소합니다. 이 작업의 남은 파일도 중단하며, 기존 파일은 그대로 유지됩니다.',
+                'skip' =>
+                  context.l10n.keepTheExistingFileAndSkipCopyingThisFile,
+                'keep' =>
+                  context.l10n.keepBothAddTheFirstAvailableNumberStartingAt,
+                'replace' =>
+                  context.l10n.overwriteTheExistingFileWithTheCopiedFileThis,
+                _ => context.l10n.cancelCopyingKeepTheExistingFile,
               },
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: choice == 'replace'
@@ -551,11 +597,13 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(
-                '남은 ${widget.totalFiles! - widget.currentFile!}개에도 적용',
+                context.l10n.applyToRemainingItems(
+                  (widget.totalFiles! - widget.currentFile!).toString(),
+                ),
               ),
               value: apply,
               subtitle: choice == 'cancel'
-                  ? const Text('현재 작업을 취소하므로 일괄 적용하지 않습니다.')
+                  ? Text(context.l10n.cancelJobNoApplyAll)
                   : null,
               onChanged: choice == 'cancel'
                   ? null
@@ -567,7 +615,7 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
             children: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('전송 취소'),
+                child: Text(context.l10n.cancelTransfer),
               ),
               const SizedBox(width: 8),
               FilledButton(
@@ -584,10 +632,10 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
                       )
                     : null,
                 child: Text(switch (choice) {
-                  'skip' => '건너뛰기',
-                  'keep' => '둘 다 보관',
-                  'replace' => '덮어쓰기',
-                  _ => '복사 취소',
+                  'skip' => context.l10n.skipCopy,
+                  'keep' => context.l10n.keepBothFiles,
+                  'replace' => context.l10n.overwrite,
+                  _ => context.l10n.cancelCopy,
                 }),
               ),
             ],

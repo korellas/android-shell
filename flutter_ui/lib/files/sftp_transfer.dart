@@ -1,11 +1,13 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'transfer.dart';
+import '../l10n/strings.dart';
 
 class SftpTransfer {
   SftpTransfer({required SftpClient files, required this.openChannel})
@@ -54,11 +56,14 @@ class SftpTransfer {
   }) async {
     final stat = await source.stat();
     if (stat.type != FileSystemEntityType.file) {
-      throw FileSystemException('일반 파일을 선택하세요.', source.path);
+      throw FileSystemException(deviceStrings.selectARegularFile, source.path);
     }
     control.total = stat.size;
     if (!overwrite && await exists(destination)) {
-      throw FileSystemException('같은 이름의 파일이 있습니다.', destination);
+      throw FileSystemException(
+        deviceStrings.aFileWithTheSameNameAlreadyExists,
+        destination,
+      );
     }
     final channel = await _transferChannel(control);
     final random = Random.secure();
@@ -97,10 +102,16 @@ class SftpTransfer {
       }
       await file.close();
       if (control.bytes != stat.size) {
-        throw FileSystemException('전송 중 원본 파일 크기가 변경되었습니다.', source.path);
+        throw FileSystemException(
+          deviceStrings.theSourceFileSizeChangedDuringTransfer,
+          source.path,
+        );
       }
       if (!overwrite && await exists(destination)) {
-        throw FileSystemException('전송 중 같은 이름의 파일이 생겼습니다.', destination);
+        throw FileSystemException(
+          deviceStrings.aFileWithTheSameNameAppearedDuringTransfer,
+          destination,
+        );
       }
       control.check();
       await channel.rename(temporary, destination, overwrite: overwrite);
@@ -117,13 +128,17 @@ class SftpTransfer {
         } on SftpStatusError catch (error) {
           if (error.code != SftpStatusCode.noSuchFile) {
             throw FileSystemException(
-              '임시 업로드 파일을 지우지 못했습니다. 서버에서 확인하세요. $error',
+              deviceStrings.couldNotRemoveTheTemporaryUploadFileCheckThe(
+                (error).toString(),
+              ),
               temporary,
             );
           }
         } catch (error) {
           throw FileSystemException(
-            '임시 업로드 파일을 확인하지 못했습니다. 서버에서 확인하세요. $error',
+            deviceStrings.couldNotInspectTheTemporaryUploadFileCheckThe(
+              (error).toString(),
+            ),
             temporary,
           );
         }
@@ -139,7 +154,9 @@ class SftpTransfer {
     void Function(int)? onProgress,
   }) async {
     final stat = await _files.stat(source).timeout(const Duration(seconds: 30));
-    if (!stat.isFile) throw FileSystemException('일반 파일을 선택하세요.', source);
+    if (!stat.isFile) {
+      throw FileSystemException(deviceStrings.selectARegularFile, source);
+    }
     control.total = stat.size;
     final channel = await _transferChannel(control);
     try {

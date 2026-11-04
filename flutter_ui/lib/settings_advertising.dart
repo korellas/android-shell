@@ -1,10 +1,12 @@
 /* Copyright 2026 Kenny Root
  * SPDX-License-Identifier: Apache-2.0 */
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'l10n/strings.dart';
 
 class SettingsAdvertising extends StatefulWidget {
   const SettingsAdvertising({super.key});
@@ -141,6 +143,7 @@ class _SettingsAdvertisingState extends State<SettingsAdvertising>
   }
 
   Future<void> _showPrivacyOptions() async {
+    final contextStrings = context.l10n;
     final generation = ++_generation;
     setState(() {
       _privacyBusy = true;
@@ -150,7 +153,11 @@ class _SettingsAdvertisingState extends State<SettingsAdvertising>
       await ConsentForm.showPrivacyOptionsForm((error) {
         if (error != null && _current(generation)) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('광고 개인정보 설정을 열지 못했습니다. 다시 시도해 주세요.')),
+            SnackBar(
+              content: Text(
+                contextStrings.couldNotOpenAdPrivacySettingsTryAgain,
+              ),
+            ),
           );
         }
       });
@@ -158,7 +165,9 @@ class _SettingsAdvertisingState extends State<SettingsAdvertising>
     } catch (_) {
       if (mounted && _current(generation)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('광고 개인정보 설정을 열지 못했습니다. 다시 시도해 주세요.')),
+          SnackBar(
+            content: Text(contextStrings.couldNotOpenAdPrivacySettingsTryAgain),
+          ),
         );
       }
     } finally {
@@ -200,7 +209,7 @@ class _SettingsAdvertisingState extends State<SettingsAdvertising>
           children: [
             if (_loaded && _banner != null)
               Semantics(
-                label: '광고',
+                label: context.l10n.ad,
                 child: SizedBox(
                   width: _banner!.size.width.toDouble(),
                   height: _banner!.size.height.toDouble(),
@@ -211,7 +220,7 @@ class _SettingsAdvertisingState extends State<SettingsAdvertising>
               if (_loaded) const SizedBox(height: 16),
               TextButton(
                 onPressed: _privacyBusy ? null : _showPrivacyOptions,
-                child: const Text('광고 개인정보 설정'),
+                child: Text(context.l10n.adPrivacySettings),
               ),
             ],
           ],

@@ -21,6 +21,7 @@ import android.net.Uri
 import android.util.Base64
 import androidx.room.withTransaction
 import kotlinx.coroutines.withContext
+import org.connectbot.R
 import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.KnownHost
 import java.io.ByteArrayOutputStream
@@ -32,7 +33,7 @@ import java.security.MessageDigest
 import java.util.WeakHashMap
 
 internal suspend fun AndroidShellEngine.sshPlatformOperation(method: String, args: Wire): Any? {
-    check(authenticated) { "App is locked" }
+    check(authenticated) { activity.getString(R.string.flutter_app_locked) }
     if (method == "session.prepare") {
         withContext(activity.dispatchers.main) {
             if (activity.appState.shouldRequestNotificationPermission()) activity.requestNotifications()
@@ -120,10 +121,10 @@ internal suspend fun AndroidShellEngine.resolveSshUri(text: String): Host {
     val uri = Uri.parse(if (text.contains("://")) text else "ssh://$text")
     val defaults = activity.settings.uiState.value.newHostDefaults()
     if (uri.scheme == "local") return Host.createLocalHost(uri.fragment ?: "Local").copy(profileId = defaults.profileId, scrollbackLines = defaults.scrollbackLines)
-    require(uri.scheme == "ssh") { "Only SSH and local connections are supported" }
-    val hostname = requireNotNull(uri.host) { "Missing SSH hostname" }
+    require(uri.scheme == "ssh") { activity.getString(R.string.flutter_only_ssh_and_local_connections_are_supported) }
+    val hostname = requireNotNull(uri.host) { activity.getString(R.string.flutter_missing_ssh_hostname) }
     val username = uri.userInfo.orEmpty()
-    require(!username.contains(':')) { "Passwords in SSH addresses are not supported" }
+    require(!username.contains(':')) { activity.getString(R.string.flutter_password_in_ssh_address) }
     val port = if (uri.port == -1) 22 else uri.port
     require(port in 1..65535 && hostname.isNotBlank())
     val existing = hosts.findHost(mapOf("protocol" to "ssh", "hostname" to hostname, "username" to username, "port" to port.toString()))
@@ -131,7 +132,7 @@ internal suspend fun AndroidShellEngine.resolveSshUri(text: String): Host {
 }
 
 private suspend fun AndroidShellEngine.prepareSshHost(configured: Host): Wire {
-    require(configured.protocol in setOf("ssh", "local")) { "Only SSH and local connections are supported" }
+    require(configured.protocol in setOf("ssh", "local")) { activity.getString(R.string.flutter_only_ssh_and_local_connections_are_supported) }
     val identity = configured.identityId?.let { database.identityDao().getById(it) }
     require(configured.identityId == null || identity != null) { "Missing SSH identity" }
     val host = if (identity == null) configured else configured.copy(username = identity.username, pubkeyId = identity.pubkeyId)

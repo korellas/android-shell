@@ -87,12 +87,12 @@ void main() {
       await enroll('INDETERMINATE');
       expect(saved, isEmpty);
       expect(controller.state['stage'], 'FAILED');
-      expect(controller.state['error'], contains('additional authentication'));
+      expect(controller.state['error'], contains('추가 인증'));
       controller.begin('key');
       currentHost = {...currentHost, 'jumpHostId': 4};
       await enroll('VERIFIED');
       expect(saved, isEmpty);
-      expect(controller.state['error'], contains('address changed'));
+      expect(controller.state['error'], contains('주소가 변경'));
       controller.begin('key');
       currentHost = {...currentHost, 'jumpHostId': 2};
       await enroll('VERIFIED');

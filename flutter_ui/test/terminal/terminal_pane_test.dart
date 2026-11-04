@@ -9,6 +9,7 @@ import 'package:xterm2/xterm.dart';
 
 import 'package:android_shell_ui/terminal/terminal_input.dart';
 import 'package:android_shell_ui/terminal/terminal_pane.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   late Terminal terminal;
@@ -29,6 +30,9 @@ void main() {
   });
 
   Widget view({bool enabled = true}) => MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    locale: const Locale('ko'),
     home: Scaffold(
       body: TerminalPane(
         terminal: terminal,
@@ -87,6 +91,9 @@ void main() {
     final key = GlobalKey<TerminalPaneState>();
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           body: TerminalPane(
             key: key,
@@ -246,6 +253,9 @@ void main() {
       final key = GlobalKey<TerminalPaneState>();
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: Scaffold(
             body: TerminalPane(
               key: key,
@@ -320,6 +330,9 @@ void main() {
     final fonts = <bool>[];
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           body: TerminalPane(
             terminal: terminal,

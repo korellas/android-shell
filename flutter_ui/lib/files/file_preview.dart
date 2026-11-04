@@ -1,5 +1,6 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:dartssh2/dartssh2.dart';
@@ -8,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../main.dart' show confirm, showErrorDetails;
 import '../tilde_design.dart';
 import 'transfer.dart';
+import '../l10n/strings.dart';
 
 class FilePreview extends StatefulWidget {
   const FilePreview({
@@ -49,16 +51,16 @@ class _FilePreviewState extends State<FilePreview> {
       _allowPop = false;
   Object? _error;
   bool _loaded = false;
-  String _savedText = '', _status = '읽기 전용';
+  String _savedText = '', _status = deviceStrings.readOnly;
   bool get _dirty => _textFile && _text.text != _savedText;
   Future<bool> _canClose() async =>
       !_saving &&
       (!_dirty ||
           await confirm(
             context,
-            '변경 내용 버리기',
-            '${widget.path}\n저장하지 않은 변경 내용을 버릴까요?',
-            action: '버리기',
+            context.l10n.discardChanges2,
+            context.l10n.discardUnsavedChanges((widget.path).toString()),
+            action: context.l10n.discard,
           ));
   Future<void> _close() async {
     if (widget.embedded && widget.onClose != null) {
@@ -82,10 +84,10 @@ class _FilePreviewState extends State<FilePreview> {
     setState(() {
       _error = null;
       _status = _dirty
-          ? '저장하지 않음'
+          ? context.l10n.doNotSave
           : _editing
-          ? '편집 중'
-          : '읽기 전용';
+          ? context.l10n.editing
+          : context.l10n.readOnly;
     });
   }
 
@@ -132,6 +134,7 @@ class _FilePreviewState extends State<FilePreview> {
   ]);
 
   Future<void> _saveCopy() async {
+    final contextStrings = context.l10n;
     if (_saving || widget.saveCopy == null) return;
     setState(() => _saving = true);
     try {
@@ -139,11 +142,15 @@ class _FilePreviewState extends State<FilePreview> {
       if (mounted && destination != null) {
         setState(() {
           _error = null;
-          _status = '사본 저장 · 원본은 저장하지 않음';
+          _status = contextStrings.saveCopyKeepOriginalUnchanged;
         });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$destination에 사본을 저장했습니다.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              contextStrings.savedACopyTo((destination).toString()),
+            ),
+          ),
+        );
       }
     } catch (error) {
       if (mounted) setState(() => _error = error);
@@ -153,6 +160,7 @@ class _FilePreviewState extends State<FilePreview> {
   }
 
   Future<void> _save() async {
+    final contextStrings = context.l10n;
     if (!_dirty || _saving) return;
     setState(() => _saving = true);
     try {
@@ -160,7 +168,7 @@ class _FilePreviewState extends State<FilePreview> {
       if (mounted) {
         setState(() {
           _savedText = _text.text;
-          _status = '저장했습니다.';
+          _status = contextStrings.saved2;
           _error = null;
         });
         widget.onDirtyChanged?.call(false);
@@ -272,7 +280,7 @@ class _FilePreviewState extends State<FilePreview> {
           leading: widget.embedded
               ? null
               : IconButton(
-                  tooltip: '뒤로',
+                  tooltip: context.l10n.back,
                   onPressed: _saving ? null : _close,
                   icon: const Icon(Icons.arrow_back),
                 ),
@@ -301,21 +309,23 @@ class _FilePreviewState extends State<FilePreview> {
                 TextButton(
                   onPressed: () => setState(() {
                     _editing = true;
-                    _status = '편집 중';
+                    _status = context.l10n.editing;
                   }),
-                  child: const Text('편집'),
+                  child: Text(context.l10n.edit2),
                 )
               else ...[
                 ValueListenableBuilder<UndoHistoryValue>(
                   valueListenable: _undo,
                   builder: (context, value, _) => TextButton(
                     onPressed: value.canUndo && !_saving ? _undo.undo : null,
-                    child: const Text('되돌리기'),
+                    child: Text(context.l10n.undo),
                   ),
                 ),
                 TextButton(
                   onPressed: _dirty && !_saving ? _save : null,
-                  child: Text(_saving ? '저장 중…' : '저장'),
+                  child: Text(
+                    _saving ? context.l10n.saving2 : context.l10n.save,
+                  ),
                 ),
               ],
           ],
@@ -342,7 +352,7 @@ class _FilePreviewState extends State<FilePreview> {
                             FilledButton.icon(
                               onPressed: widget.onDownload,
                               icon: const Icon(Icons.download_outlined),
-                              label: const Text('다운로드'),
+                              label: Text(context.l10n.download),
                             ),
                           ],
                         ],
@@ -365,7 +375,7 @@ class _FilePreviewState extends State<FilePreview> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              '파일을 열지 못했습니다',
+                              context.l10n.couldNotOpenFile,
                               style: Theme.of(context).textTheme.titleLarge,
                             ),
                             const SizedBox(height: 8),
@@ -382,17 +392,18 @@ class _FilePreviewState extends State<FilePreview> {
                                   onPressed: () => setState(() {
                                     _data = _load();
                                   }),
-                                  child: const Text('다시 시도'),
+                                  child: Text(context.l10n.retry),
                                 ),
                                 TextButton(
                                   onPressed: () => showErrorDetails(
                                     context,
                                     snapshot.error!,
-                                    summary:
-                                        '${widget.path.split('/').last}을 열지 못했습니다',
+                                    summary: context.l10n.couldNotOpen(
+                                      (widget.path.split('/').last).toString(),
+                                    ),
                                     target: widget.path,
                                   ),
-                                  child: const Text('자세히'),
+                                  child: Text(context.l10n.details),
                                 ),
                               ],
                             ),
@@ -408,8 +419,9 @@ class _FilePreviewState extends State<FilePreview> {
                   return InteractiveViewer(
                     child: Image.memory(
                       snapshot.data!,
-                      errorBuilder: (context, error, stack) =>
-                          unavailable('이 파일 형식은 미리보기를 지원하지 않습니다.'),
+                      errorBuilder: (context, error, stack) => unavailable(
+                        context.l10n.previewIsUnsupportedForThisFileType,
+                      ),
                     ),
                   );
                 },
@@ -417,12 +429,14 @@ class _FilePreviewState extends State<FilePreview> {
             ),
             if (_error != null)
               ListTile(
-                title: const Text('저장하지 못했습니다. 변경 내용은 유지됩니다.'),
+                title: Text(context.l10n.couldNotSaveYourChangesHaveBeenKept),
                 trailing: TextButton(
                   onPressed: () => showErrorDetails(
                     context,
                     _error!,
-                    summary: '${widget.path.split('/').last}을 저장하지 못했습니다',
+                    summary: context.l10n.couldNotSave2(
+                      (widget.path.split('/').last).toString(),
+                    ),
                     target: widget.path,
                     retry: _save,
                     saveElsewhere:
@@ -433,7 +447,7 @@ class _FilePreviewState extends State<FilePreview> {
                         ? _saveCopy
                         : null,
                   ),
-                  child: const Text('자세히'),
+                  child: Text(context.l10n.details),
                 ),
               ),
             if (_loaded && _textFile)
@@ -452,7 +466,7 @@ class _FilePreviewState extends State<FilePreview> {
                     vertical: 8,
                   ),
                   child: Text(
-                    '$_status${_textFile ? ' · UTF-8${_bom ? ' BOM' : ''} · ${_text.text.split('\n').length}줄 · ${utf8.encode(_text.text).length + (_bom ? 3 : 0)} B' : ''}',
+                    '$_status${_textFile ? context.l10n.utf8LineBytes((_bom ? ' BOM' : '').toString(), (_text.text.split('\n').length).toString(), (utf8.encode(_text.text).length + (_bom ? 3 : 0)).toString()) : ''}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),

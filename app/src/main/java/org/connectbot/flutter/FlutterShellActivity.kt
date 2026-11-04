@@ -33,6 +33,7 @@ import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
+import org.connectbot.R
 import org.connectbot.data.ColorSchemeRepository
 import org.connectbot.data.ConnectBotDatabase
 import org.connectbot.data.HostRepository
@@ -78,14 +79,14 @@ class FlutterShellActivity : FlutterFragmentActivity() {
         documentResult = null
     }
     suspend fun pickDocument(types: Array<String>): android.net.Uri? {
-        check(documentResult == null) { "파일 선택이 진행 중입니다." }
+        check(documentResult == null) { getString(R.string.flutter_a_file_picker_is_already_open) }
         val pending = CompletableDeferred<android.net.Uri?>()
         documentResult = pending
         openDocument.launch(types)
         return pending.await()
     }
     suspend fun createDocument(name: String): android.net.Uri? {
-        check(documentResult == null) { "파일 선택이 진행 중입니다." }
+        check(documentResult == null) { getString(R.string.flutter_a_file_picker_is_already_open) }
         val pending = CompletableDeferred<android.net.Uri?>()
         documentResult = pending
         createDocument.launch(name)
@@ -158,7 +159,7 @@ class FlutterShellActivity : FlutterFragmentActivity() {
         )
         val info = BiometricPrompt.PromptInfo.Builder().setTitle(title)
             .setAllowedAuthenticators(if (appLock) BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL else BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .apply { if (!appLock) setNegativeButtonText("취소") }.build()
+            .apply { if (!appLock) setNegativeButtonText(getString(R.string.flutter_cancel)) }.build()
         if (crypto == null) prompt.authenticate(info) else prompt.authenticate(info, crypto)
         pending.invokeOnCompletion { if (pending.isCancelled) prompt.cancelAuthentication() }
         return try {

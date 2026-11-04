@@ -28,6 +28,7 @@ import 'editors.dart';
 import 'management.dart';
 import 'settings_widgets.dart';
 import 'settings_advertising.dart';
+import 'l10n/strings.dart';
 
 class SettingsPage extends StatefulWidget {
   final AndroidEngine engine;
@@ -102,7 +103,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final current = engine.preferences[key] ?? values.firstOrNull?.$1;
     final options = [...values];
     if (current != null && !options.any((v) => v.$1 == current)) {
-      options.add((current, '$current (현재 값)'));
+      options.add((current, c.l10n.currentValue((current).toString())));
     }
     return tracked(
       key,
@@ -113,7 +114,8 @@ class _SettingsPageState extends State<SettingsPage> {
               builder: (anchor) => ListTile(
                 title: Text(label),
                 subtitle: Text(
-                  options.where((v) => v.$1 == current).firstOrNull?.$2 ?? '선택',
+                  options.where((v) => v.$1 == current).firstOrNull?.$2 ??
+                      c.l10n.select,
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async {
@@ -150,6 +152,7 @@ class _SettingsPageState extends State<SettingsPage> {
     ),
   );
   Future<void> googleFonts(BuildContext c) async {
+    final cStrings = c.l10n;
     final values = [
       for (final font in rows(engine.preferences['fonts']))
         if (font['value'] != 'SYSTEM_DEFAULT' && font['value'] != 'D2CODING')
@@ -157,7 +160,7 @@ class _SettingsPageState extends State<SettingsPage> {
     ];
     final result = await pickTildeOption(
       c,
-      'Google Fonts · 고정폭',
+      cStrings.googleFontsMonospace,
       values,
       engine.preferences['fontFamily'],
     );
@@ -203,10 +206,11 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> searchSettings([BuildContext? anchor]) async {
+    final contextStrings = context.l10n;
     indexSettings();
     final result = await pickTildeOption(
       anchor ?? context,
-      '설정 검색',
+      contextStrings.searchSettings,
       [for (final e in searchTargets.entries) (e.key, e.value.$2)],
       null,
       navigation: true,
@@ -243,15 +247,15 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   String title(String id) => switch (id) {
-    'display' => '화면',
-    'keyboard' => '키보드',
-    'gesture' => '제스처',
-    'terminal' => '터미널',
-    'connection' => '연결·알림',
-    'security' => '보안·백업',
-    'fonts' => '폰트 관리',
-    'bar' => '특수키 바',
-    _ => '설정',
+    'display' => context.l10n.display,
+    'keyboard' => context.l10n.keyboard,
+    'gesture' => context.l10n.gestures,
+    'terminal' => context.l10n.terminal,
+    'connection' => context.l10n.connectionsAndNotifications,
+    'security' => context.l10n.securityAndBackup,
+    'fonts' => context.l10n.manageFonts,
+    'bar' => context.l10n.specialKeyBar,
+    _ => context.l10n.settings,
   };
   String summary(String id) {
     final p = engine.preferences;
@@ -262,17 +266,22 @@ class _SettingsPageState extends State<SettingsPage> {
         .firstOrNull;
     return switch (id) {
       'display' => '${scheme?['name'] ?? 'Tilde Night'}',
-      'keyboard' =>
-        '특수키 ${((p['terminalBarOrder'] as List? ?? []).where((k) => !(p['terminalBarHidden'] as List? ?? []).contains(k))).length}개',
-      'gesture' =>
-        '두 손가락 가로 · ${p['swipeTmux'] == true
-            ? 'tmux 창'
-            : p['swipeSessions'] == true
-            ? '세션'
-            : '사용 안 함'}',
-      'terminal' => '${profile['name'] ?? '기본 터미널'}',
-      'connection' => '알림 · 벨 소리',
-      'security' => 'SSH 키 ${engine.list('keys').length}개',
+      'keyboard' => context.l10n.specialKeys(
+        (((p['terminalBarOrder'] as List? ?? []).where(
+          (k) => !(p['terminalBarHidden'] as List? ?? []).contains(k),
+        )).length).toString(),
+      ),
+      'gesture' => context.l10n.twoFingerHorizontalSwipe(
+        (p['swipeTmux'] == true
+                ? context.l10n.tmuxWindows
+                : p['swipeSessions'] == true
+                ? context.l10n.session2
+                : context.l10n.disabled2)
+            .toString(),
+      ),
+      'terminal' => '${profile['name'] ?? context.l10n.defaultTerminal}',
+      'connection' => context.l10n.notificationsAndBell,
+      'security' => context.l10n.sshKeys2((engine.list('keys').length)),
       _ => '',
     };
   }
@@ -328,9 +337,9 @@ class _SettingsPageState extends State<SettingsPage> {
             },
             child: TextField(
               focusNode: searchFocus,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 prefixIcon: Icon(Icons.search, size: 18),
-                hintText: '설정 검색',
+                hintText: context.l10n.searchSettings,
               ),
               onChanged: (value) {
                 indexSettings();
@@ -444,7 +453,7 @@ class _SettingsPageState extends State<SettingsPage> {
         const SizedBox(height: 20),
         ListTile(
           leading: const Icon(Icons.help_outline, size: 22),
-          title: const Text('도움말 및 로그'),
+          title: Text(context.l10n.helpAndLogs2),
           selected: selected == 'help',
           trailing: const Icon(Icons.chevron_right),
           onTap: () async {
@@ -475,12 +484,13 @@ class _SettingsPageState extends State<SettingsPage> {
         (engine.preferences['terminalMargin'] as num?)?.toInt() ?? 0;
     return tracked(
       'terminalMargin',
-      '좌우 여백',
+      c.l10n.horizontalMargins,
       tildeSegments(
         c,
-        '좌우 여백',
+        c.l10n.horizontalMargins,
         [
-          for (final v in {0, 4, 8, 12, current}) (v, v == 0 ? '없음' : '$v'),
+          for (final v in {0, 4, 8, 12, current})
+            (v, v == 0 ? c.l10n.none : '$v'),
         ],
         current,
         (v) => update(c, 'terminalMargin', v),
@@ -490,10 +500,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget scrollback(BuildContext c) => tracked(
     'scrollback',
-    '스크롤 기록',
+    c.l10n.scrollback,
     TildeStepper(
-      title: '스크롤 기록',
-      unit: '줄',
+      title: c.l10n.scrollback,
+      unit: c.l10n.lines,
       value: int.tryParse('${engine.preferences['scrollback'] ?? 140}') ?? 140,
       step: 500,
       onChanged: (v) => update(c, 'scrollback', '$v'),
@@ -559,7 +569,7 @@ class _SettingsPageState extends State<SettingsPage> {
           group('', [
             tracked(
               'themeMode',
-              '앱 테마',
+              c.l10n.appTheme,
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: OverflowBar(
@@ -567,27 +577,27 @@ class _SettingsPageState extends State<SettingsPage> {
                   overflowSpacing: 8,
                   alignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('앱 테마'),
+                    Text(c.l10n.appTheme),
                     SegmentedButton<String>(
                       showSelectedIcon: false,
-                      segments: const [
+                      segments: [
                         ButtonSegment(
                           value: 'SYSTEM',
                           icon: Icon(Icons.brightness_auto_outlined),
-                          tooltip: '시스템 테마',
-                          label: Text('자동'),
+                          tooltip: c.l10n.systemTheme,
+                          label: Text(c.l10n.automatic),
                         ),
                         ButtonSegment(
                           value: 'LIGHT',
                           icon: Icon(Icons.light_mode_outlined),
-                          tooltip: '밝게',
-                          label: Text('밝게'),
+                          tooltip: c.l10n.light,
+                          label: Text(c.l10n.light),
                         ),
                         ButtonSegment(
                           value: 'DARK',
                           icon: Icon(Icons.dark_mode_outlined),
-                          tooltip: '어둡게',
-                          label: Text('어둡게'),
+                          tooltip: c.l10n.dark,
+                          label: Text(c.l10n.dark),
                         ),
                       ],
                       selected: {'${p['themeMode'] ?? 'SYSTEM'}'},
@@ -600,9 +610,9 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             tracked(
               'schemes',
-              '색상 테마',
+              c.l10n.colorTheme,
               ListTile(
-                title: const Text('색상 테마'),
+                title: Text(c.l10n.colorTheme),
                 subtitle: largeText
                     ? Text('${scheme?['name'] ?? 'Tilde Night'}')
                     : null,
@@ -627,9 +637,9 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             tracked(
               'fontFamily',
-              '글꼴',
+              c.l10n.font,
               ListTile(
-                title: const Text('글꼴'),
+                title: Text(c.l10n.font),
                 subtitle: largeText ? fontPreview : null,
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -646,9 +656,9 @@ class _SettingsPageState extends State<SettingsPage> {
             group('', [
               tracked(
                 'fontSize',
-                '글자 크기',
+                c.l10n.fontSize,
                 TildeStepper(
-                  title: '글자 크기',
+                  title: c.l10n.fontSize,
                   unit: 'sp',
                   value: (profile['fontSize'] as num? ?? 14).toInt(),
                   min: 4,
@@ -662,14 +672,14 @@ class _SettingsPageState extends State<SettingsPage> {
             ]),
           if (!tildePointer(c))
             group('', [
-              choice(c, 'rotation', '화면 방향', [
-                ('Default', '자동'),
-                ('Automatic', '항상 회전'),
-                ('Force portrait', '세로'),
-                ('Force landscape', '가로'),
+              choice(c, 'rotation', c.l10n.orientation, [
+                ('Default', c.l10n.automatic),
+                ('Automatic', c.l10n.alwaysRotate),
+                ('Force portrait', c.l10n.portrait),
+                ('Force landscape', c.l10n.landscape),
               ]),
-              toggle(c, 'fullscreen', '상태 표시줄 숨기기'),
-              toggle(c, 'titlebarhide', '제목 줄 자동 숨김'),
+              toggle(c, 'fullscreen', c.l10n.hideStatusBar),
+              toggle(c, 'titlebarhide', c.l10n.autoHideTitleBar),
             ]),
         ];
       case 'keyboard':
@@ -677,9 +687,9 @@ class _SettingsPageState extends State<SettingsPage> {
           group('', [
             tracked(
               'terminalBar',
-              '특수키 구성',
+              c.l10n.specialKeyLayout,
               ListTile(
-                title: const Text('특수키 바'),
+                title: Text(c.l10n.specialKeyBar),
                 subtitle: Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: TerminalBarPreview(
@@ -697,21 +707,25 @@ class _SettingsPageState extends State<SettingsPage> {
                 onTap: () => setState(() => category = 'bar'),
               ),
             ),
-            toggle(c, 'alwaysvisible', '키보드를 닫아도 표시'),
+            toggle(c, 'alwaysvisible', c.l10n.showWhenKeyboardIsClosed),
             tracked(
               'stickymodifiers',
-              'Ctrl·Alt를 누르면',
+              c.l10n.whenPressingCtrlOrAlt,
               tildeSegments(
                 c,
-                'Ctrl·Alt를 누르면',
-                [('no', '한 번'), ('yes', '고정'), ('alt', 'Alt만 고정')],
+                c.l10n.whenPressingCtrlOrAlt,
+                [
+                  ('no', c.l10n.once),
+                  ('yes', c.l10n.sticky),
+                  ('alt', c.l10n.stickyAltOnly),
+                ],
                 p['stickymodifiers'] ?? 'no',
                 (v) => update(c, 'stickymodifiers', v),
                 labels: {
                   for (final (value, label) in [
-                    ('no', '한 번'),
-                    ('yes', '고정'),
-                    ('alt', 'Alt만 고정'),
+                    ('no', c.l10n.once),
+                    ('yes', c.l10n.sticky),
+                    ('alt', c.l10n.stickyAltOnly),
                   ])
                     value: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -767,7 +781,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ]),
-          group('', [toggle(c, 'imeTogglekey', '키보드 전환 버튼')]),
+          group('', [toggle(c, 'imeTogglekey', c.l10n.keyboardToggleButton)]),
         ];
       case 'gesture':
         final horizontal = p['swipeTmux'] == true
@@ -776,16 +790,16 @@ class _SettingsPageState extends State<SettingsPage> {
             ? 'sessions'
             : 'none';
         return [
-          group('두 손가락으로 좌우로 밀면', [
+          group(c.l10n.twoFingerHorizontalSwipe2, [
             tracked(
               'swipeSessions',
-              '두 손가락으로 좌우로 밀면',
+              c.l10n.twoFingerHorizontalSwipe2,
               tildeRadioOptions(
                 c,
                 [
-                  ('none', '아무것도 안 함'),
-                  ('sessions', '세션 전환'),
-                  ('tmux', 'tmux 창 전환'),
+                  ('none', c.l10n.doNothing),
+                  ('sessions', c.l10n.switchSessions),
+                  ('tmux', c.l10n.switchTmuxWindows),
                 ],
                 horizontal,
                 (value) async {
@@ -805,11 +819,14 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             if (horizontal == 'tmux')
-              choice(c, 'tmuxCtrlA', '접두키', [(false, 'C-b'), (true, 'C-a')]),
+              choice(c, 'tmuxCtrlA', c.l10n.prefixKey, [
+                (false, 'C-b'),
+                (true, 'C-a'),
+              ]),
           ]),
           group('', [
-            choice(c, 'pgupdngesture', '두 손가락으로 위아래로 밀면', [
-              (false, '스크롤'),
+            choice(c, 'pgupdngesture', c.l10n.twoFingerVerticalSwipe, [
+              (false, c.l10n.scroll),
               (true, 'PgUp/PgDn'),
             ]),
           ]),
@@ -818,36 +835,38 @@ class _SettingsPageState extends State<SettingsPage> {
               toggle(
                 c,
                 'volumefont',
-                '볼륨 버튼으로 글자 크기',
+                c.l10n.volumeButtonsChangeFontSize,
                 icon: Icons.volume_up_outlined,
               ),
             if (!tildePointer(c))
               toggle(
                 c,
                 'bumpyarrows',
-                '특수키 진동',
+                c.l10n.specialKeyVibration,
                 icon: Icons.vibration_outlined,
               ),
           ]),
         ];
       case 'terminal':
         return [
-          group('프로필', [
-            choice(c, 'defaultProfileId', '기본 터미널 프로필', [
+          group(c.l10n.profile, [
+            choice(c, 'defaultProfileId', c.l10n.defaultTerminalProfile, [
               for (final profile in engine.list('profiles'))
                 (profile['id'], '${profile['name']}'),
             ], forceList: true),
             go(
               'profiles',
-              '터미널 프로필 관리',
+              c.l10n.manageTerminalProfiles,
               () => page(
                 RecordListPage(engine: engine, kind: RecordKind.profile),
               ),
-              sub: '${engine.list('profiles').length}개',
+              sub: c.l10n.itemCount(
+                (engine.list('profiles').length).toString(),
+              ),
             ),
           ]),
-          group('표시', [scrollback(c), margin(c)]),
-          group('터미널 종류 (TERM)', [
+          group(c.l10n.appearance, [scrollback(c), margin(c)]),
+          group(c.l10n.terminalTypeTerm, [
             ListTile(
               title: Text(
                 '${profile['emulation'] ?? 'xterm-256color'}',
@@ -870,11 +889,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     'terminalType.delete',
                     {'name': type},
                   ),
-                  itemBuilder: (_) => const [
+                  itemBuilder: (_) => [
                     PopupMenuItem(
                       value: 'delete',
                       child: TildeMenuLabel(
-                        '삭제',
+                        c.l10n.delete,
                         Icons.delete_outline,
                         danger: true,
                       ),
@@ -882,8 +901,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ),
               ),
-            go('terminalType', '터미널 종류 추가', () async {
-              final name = await askText(c, '터미널 종류', action: '추가');
+            go('terminalType', c.l10n.addTerminalType, () async {
+              final cStrings = c.l10n;
+              final name = await askText(
+                c,
+                cStrings.terminalType,
+                action: cStrings.add,
+              );
               if (name != null && c.mounted) {
                 await runEngine(c, engine, 'terminalType.add', {'name': name});
               }
@@ -892,35 +916,40 @@ class _SettingsPageState extends State<SettingsPage> {
         ];
       case 'connection':
         return [
-          group('연결', [
+          group(c.l10n.connect, [
             toggle(
               c,
               'keepalive',
-              '연결 중 화면 켜짐 유지',
-              sub: '터미널 화면이 자동으로 꺼지지 않습니다',
+              c.l10n.keepScreenAwakeWhileConnected,
+              sub: c.l10n.theTerminalScreenWillStayAwake,
             ),
-            toggle(c, 'wifilock', 'Wi-Fi 절전 방지', sub: '배터리를 더 씁니다'),
+            toggle(
+              c,
+              'wifilock',
+              c.l10n.preventWiFiSleep,
+              sub: c.l10n.usesMoreBattery,
+            ),
             go(
               'backgroundNotification',
-              '백그라운드 연결 알림',
+              c.l10n.backgroundConnectionNotification,
               () => runEngine(c, engine, 'settings.notifications'),
-              sub: '연결 중일 때 상단에 고정',
+              sub: c.l10n.pinnedWhileConnected,
               icon: Icons.notifications_active_outlined,
             ),
           ]),
-          group('터미널 벨', [
+          group(c.l10n.terminalBell, [
             tracked(
               'bellMode',
-              '벨이 울리면',
+              c.l10n.whenTheBellRings,
               tildeSegments(
                 c,
-                '벨이 울리면',
+                c.l10n.whenTheBellRings,
                 [
-                  (0, '무시'),
-                  (1, '소리'),
-                  (2, '진동'),
+                  (0, c.l10n.ignore),
+                  (1, c.l10n.sound),
+                  (2, c.l10n.vibration),
                   if (p['bell'] == true && p['bellVibrate'] == true)
-                    (3, '소리·진동'),
+                    (3, c.l10n.soundAndVibration),
                 ],
                 p['bell'] == true
                     ? (p['bellVibrate'] == true ? 3 : 1)
@@ -933,13 +962,13 @@ class _SettingsPageState extends State<SettingsPage> {
             if (p['bell'] == true)
               tracked(
                 'bellVolume',
-                '음량',
+                c.l10n.volume,
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('음량'),
+                      Text(c.l10n.volume),
                       Row(
                         children: [
                           Expanded(
@@ -960,91 +989,102 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
           ]),
-          group('알림', [
+          group(c.l10n.notifications, [
             if (p['notificationsAvailable'] == false)
               ListTile(
                 leading: Icon(
                   Icons.info_outline,
                   color: Theme.of(c).colorScheme.tertiary,
                 ),
-                title: const Text('알림 권한이 필요합니다'),
+                title: Text(c.l10n.notificationPermissionRequired),
                 trailing: TextButton(
                   onPressed: () =>
                       runEngine(c, engine, 'settings.notifications'),
-                  child: const Text('허용'),
+                  child: Text(c.l10n.allow),
                 ),
               ),
-            toggle(c, 'connectionAlerts', '연결 알림 사용', sub: '벨·연결 끊김 알림을 허용합니다'),
+            toggle(
+              c,
+              'connectionAlerts',
+              c.l10n.enableConnectionNotifications,
+              sub: c.l10n.allowBellAndDisconnectionNotifications,
+            ),
             toggle(
               c,
               'bellNotification',
-              '백그라운드에서 벨',
+              c.l10n.bellInBackground,
               enabled: p['connectionAlerts'] == true,
             ),
             toggle(
               c,
               'connectionLostNotification',
-              '연결이 끊기면',
+              c.l10n.onDisconnect,
               enabled: p['connectionAlerts'] == true,
             ),
             go(
               'notifications',
-              'Android 알림 설정',
+              c.l10n.androidNotificationSettings,
               () => runEngine(c, engine, 'settings.notifications'),
-              sub: p['notificationsAvailable'] == false ? '알림 꺼짐' : '알림 허용됨',
+              sub: p['notificationsAvailable'] == false
+                  ? c.l10n.notificationsOff
+                  : c.l10n.notificationsAllowed,
               icon: Icons.open_in_new,
             ),
           ]),
         ];
       case 'security':
         return [
-          group('잠금', [
+          group(c.l10n.lock, [
             toggle(
               c,
               'authOnLaunch',
-              '앱 실행 시 잠금 해제',
+              c.l10n.unlockWhenStartingTheApp,
               enabled: p['canAuthenticate'] != false,
               sub: p['canAuthenticate'] == false
-                  ? '화면 잠금을 먼저 설정하세요'
-                  : '지문 또는 화면 잠금',
+                  ? c.l10n.setUpAScreenLockFirst
+                  : c.l10n.fingerprintOrScreenLock,
             ),
           ]),
-          group('키와 서버', [
+          group(c.l10n.keysAndServers, [
             go(
               'keys',
-              'SSH 키',
+              c.l10n.sshKeys,
               () => page(KeyPage(engine: engine)),
-              sub: '${engine.list('keys').length}개',
+              sub: c.l10n.itemCount((engine.list('keys').length).toString()),
               icon: Icons.key_outlined,
             ),
             go(
               'identities',
-              '공용 로그인 계정',
+              c.l10n.sharedLoginAccount,
               () => page(
                 RecordListPage(engine: engine, kind: RecordKind.identity),
               ),
-              sub: '${engine.list('identities').length}개',
+              sub: c.l10n.itemCount(
+                (engine.list('identities').length).toString(),
+              ),
               icon: Icons.badge_outlined,
             ),
             go(
               'knownHosts',
-              '신뢰한 서버 키',
+              c.l10n.trustedServerKeys,
               () => page(KnownHostsPage(engine: engine)),
-              sub: '${engine.list('knownHosts').length}개',
+              sub: c.l10n.itemCount(
+                (engine.list('knownHosts').length).toString(),
+              ),
               icon: Icons.verified_user_outlined,
             ),
           ]),
-          group('설정 파일', [
+          group(c.l10n.configurationFile, [
             go(
               'export',
-              '호스트 내보내기',
+              c.l10n.exportHosts,
               () => exportTildeHosts(c, engine),
               sub: 'tilde-hosts.json',
               icon: Icons.upload_outlined,
             ),
             go(
               'import',
-              '호스트 가져오기',
+              c.l10n.importHosts,
               () => importTildeHosts(c, engine),
               icon: Icons.download_outlined,
             ),
@@ -1052,7 +1092,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ];
       case 'fonts':
         return [
-          group('기본 폰트 선택', [
+          group(c.l10n.selectDefaultFont, [
             for (final option in fontOptions(engine).where(
               (f) =>
                   f.$1 == 'D2CODING' ||
@@ -1075,7 +1115,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   framed: false,
                   overrides: {
                     'fontFamily': option.$1,
-                    'sampleText': '${option.$2} 가나다',
+                    'sampleText': c.l10n.fontSample((option.$2).toString()),
                     'compact': true,
                     'backgroundColor': 0,
                     'foregroundColor': Theme.of(
@@ -1086,24 +1126,25 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 subtitle: Text(
                   option.$1 == 'D2CODING' || option.$1 == 'JETBRAINS_MONO'
-                      ? '앱에 포함'
+                      ? c.l10n.bundledWithApp
                       : option.$1.toString().startsWith('local:')
                       ? option.$1.toString().substring(6)
                       : option.$1.toString().startsWith('custom:')
                       ? 'Google Fonts'
-                      : '고정폭 폰트',
+                      : c.l10n.monospaceFont,
                 ),
                 onTap: () => update(c, 'fontFamily', option.$1),
                 trailing: option.$1.toString().startsWith('local:')
                     ? IconButton(
-                        tooltip: '폰트 삭제',
+                        tooltip: c.l10n.deleteFont,
                         icon: const Icon(Icons.close),
                         onPressed: () async {
+                          final cStrings = c.l10n;
                           if (await confirm(
                                 c,
-                                '폰트 삭제',
-                                '이 폰트 파일을 삭제할까요?',
-                                action: '폰트 삭제',
+                                cStrings.deleteFont,
+                                cStrings.deleteThisFontFile,
+                                action: cStrings.deleteFont,
                               ) &&
                               c.mounted) {
                             await runEngine(c, engine, 'font.delete', {
@@ -1114,7 +1155,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       )
                     : option.$1.toString().startsWith('custom:')
                     ? IconButton(
-                        tooltip: '폰트 제거',
+                        tooltip: c.l10n.removeFont,
                         icon: const Icon(Icons.close),
                         onPressed: () => runEngine(
                           c,
@@ -1126,17 +1167,17 @@ class _SettingsPageState extends State<SettingsPage> {
                     : null,
               ),
             if (p['fontBusy'] == true)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.all(16),
-                child: TildeProgress(label: '폰트 준비 중'),
+                child: TildeProgress(label: c.l10n.preparingFont),
               ),
             if (p['fontError'] != null) settingsNote(c, '${p['fontError']}'),
           ]),
           if (!const {'windows', 'ios'}.contains(engine.state['platform']))
-            group('추가', [
+            group(c.l10n.add, [
               go(
                 'fontImport',
-                '폰트 파일 가져오기',
+                c.l10n.importFontFile,
                 () => importFont(c),
                 enabled: p['fontBusy'] != true,
                 sub: '.ttf · .otf · .ttc',
@@ -1144,10 +1185,10 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               go(
                 'fontSearch',
-                'Google Fonts에서 찾기',
+                c.l10n.findOnGoogleFonts,
                 () => googleFonts(c),
                 enabled: p['fontBusy'] != true,
-                sub: '고정폭 폰트만 보여 줍니다',
+                sub: c.l10n.onlyMonospaceFontsAreShown,
                 icon: Icons.travel_explore,
               ),
             ]),
@@ -1198,7 +1239,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     onPressed: () => back(wide),
                     icon: const Icon(Icons.arrow_back, size: 18),
                     label: Text(
-                      '설정 › ${managementPage is HelpPage ? '도움말' : title(selected ?? 'display')}',
+                      context.l10n.settings2(
+                        (managementPage is HelpPage
+                                ? context.l10n.help
+                                : title(selected ?? 'display'))
+                            .toString(),
+                      ),
                     ),
                   ),
                   Expanded(
@@ -1271,23 +1317,23 @@ class _SettingsPageState extends State<SettingsPage> {
             appBar: AppBar(
               title: Text(
                 !wide && selected == null
-                    ? '설정'
+                    ? context.l10n.settings
                     : !wide
                     ? title(selected!)
-                    : '설정',
+                    : context.l10n.settings,
               ),
               actions: [
                 if (!wide || !tildePointer(context))
                   Builder(
                     builder: (anchor) => IconButton(
-                      tooltip: '설정 검색',
+                      tooltip: context.l10n.searchSettings,
                       onPressed: () => searchSettings(anchor),
                       icon: const Icon(Icons.search),
                     ),
                   ),
               ],
               leading: IconButton(
-                tooltip: '뒤로',
+                tooltip: context.l10n.back,
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => back(wide),
               ),
@@ -1371,6 +1417,7 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
     int? nextHeight,
     bool? nextGroup,
   }) async {
+    final contextStrings = context.l10n;
     if (busy) return;
     setState(() => busy = true);
     try {
@@ -1395,9 +1442,9 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('설정을 저장하지 못했습니다'),
+            content: Text(contextStrings.couldNotSaveSettings),
             action: SnackBarAction(
-              label: '자세히',
+              label: contextStrings.details,
               onPressed: () => showErrorDetails(context, e),
             ),
           ),
@@ -1409,13 +1456,14 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
   }
 
   Future<void> reset() async {
+    final contextStrings = context.l10n;
     final defaults = row(widget.engine.preferences['terminalBarDefaults']);
     if (busy || defaults.isEmpty) return;
     if (await confirm(
           context,
-          '특수키 바를 되돌릴까요?',
-          '높이와 키 순서·표시를 기본값으로 되돌려요.',
-          action: '되돌리기',
+          contextStrings.resetSpecialKeyBar,
+          contextStrings.restoreTheDefaultHeightKeyOrderAndVisibility,
+          action: contextStrings.undo,
           destructive: false,
         ) &&
         mounted) {
@@ -1493,11 +1541,11 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
       appBar: showAppBar
           ? AppBar(
               automaticallyImplyLeading: !widget.embedded,
-              title: const Text('특수키 바'),
+              title: Text(context.l10n.specialKeyBar),
               actions: [
                 TextButton(
                   onPressed: busy || defaults.isEmpty ? null : reset,
-                  child: const Text('기본값'),
+                  child: Text(context.l10n.defaultValue),
                 ),
               ],
             )
@@ -1513,7 +1561,7 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: busy || defaults.isEmpty ? null : reset,
-                      child: const Text('기본값'),
+                      child: Text(context.l10n.defaultValue),
                     ),
                   ),
                 Row(
@@ -1526,7 +1574,7 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '길게 눌러 끌기 · 탭하면 숨김',
+                        context.l10n.longPressToDragTapToHide,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
@@ -1573,7 +1621,7 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
                               color: cs.onSurfaceVariant,
                             ),
                             const SizedBox(width: 8),
-                            const Text('숨긴 키'),
+                            Text(context.l10n.hiddenKeys),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -1587,7 +1635,7 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
                         ),
                         if (hidden.isEmpty)
                           Text(
-                            '키를 탭하면 여기로 옮겨져요',
+                            context.l10n.tapAKeyToMoveItHere,
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                       ],
@@ -1597,12 +1645,12 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
                 const SizedBox(height: 16),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('F1–F12를 Fn 하나로'),
+                  title: Text(context.l10n.combineF1F12IntoFn),
                   value: group,
                   onChanged: busy ? null : (value) => save(nextGroup: value),
                 ),
                 const SizedBox(height: 16),
-                const Text('높이'),
+                Text(context.l10n.height),
                 const SizedBox(height: 12),
                 SegmentedButton<int>(
                   showSelectedIcon: false,
@@ -1613,10 +1661,10 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
                         value: heights[i],
                         label: Tooltip(
                           message: i == 0
-                              ? '작게'
+                              ? context.l10n.small
                               : i == heights.length - 1
-                              ? '크게'
-                              : '기본',
+                              ? context.l10n.large
+                              : context.l10n.default3,
                           child: SizedBox(
                             width: 48,
                             height: 48,
@@ -1642,7 +1690,10 @@ class _TerminalBarPageState extends State<TerminalBarPage> {
                       ? null
                       : (v) => save(nextHeight: v.first),
                 ),
-                settingsNote(context, 'Esc·Ctrl은 왼쪽, 키보드·Fn·tab은 오른쪽에 고정돼요.'),
+                settingsNote(
+                  context,
+                  context.l10n.escAndCtrlStayOnTheLeftKeyboardFn,
+                ),
               ],
             ),
           ),
@@ -1682,6 +1733,7 @@ class HelpPage extends StatelessWidget {
     String section,
     String title,
   ) async {
+    final contextStrings = context.l10n;
     final bundle = DefaultAssetBundle.of(context);
     final prefix = engine.state['platform'] == 'windows'
         ? 'packages/android_shell_ui/'
@@ -1715,7 +1767,7 @@ class HelpPage extends StatelessWidget {
                         context: context,
                         applicationName: 'Tilde',
                       ),
-                      child: const Text('Flutter 라이브러리 라이선스'),
+                      child: Text(contextStrings.flutterLibraryLicenses),
                     ),
                   ),
                 SelectableText(text),
@@ -1729,7 +1781,7 @@ class HelpPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('도움말')),
+    appBar: AppBar(title: Text(context.l10n.help)),
     body: ListView(
       children: [
         Padding(
@@ -1744,11 +1796,15 @@ class HelpPage extends StatelessWidget {
             ],
           ),
         ),
-        settingsSection(context, '도움말', [
+        settingsSection(context, context.l10n.help, [
           for (final (section, title, icon) in [
-            ('hints', '사용 팁', Icons.lightbulb_outline),
-            ('license', '라이선스 및 이용 조건', Icons.description_outlined),
-            ('contact', '프로젝트 및 문의', Icons.mail_outline),
+            ('hints', context.l10n.tips, Icons.lightbulb_outline),
+            (
+              'license',
+              context.l10n.licensesAndTerms,
+              Icons.description_outlined,
+            ),
+            ('contact', context.l10n.projectAndContact, Icons.mail_outline),
           ])
             ListTile(
               leading: Icon(icon),
@@ -1758,10 +1814,10 @@ class HelpPage extends StatelessWidget {
             ),
         ]),
         if (!const {'windows', 'ios'}.contains(engine.state['platform']))
-          settingsSection(context, '진단', [
+          settingsSection(context, context.l10n.diagnostics, [
             ListTile(
               leading: const Icon(Icons.subject),
-              title: const Text('진단 로그'),
+              title: Text(context.l10n.diagnosticLogs),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.push<void>(
                 context,
@@ -1782,7 +1838,7 @@ class LogsPage extends StatefulWidget {
 }
 
 class _LogsPageState extends State<LogsPage> {
-  String logs = '', search = '', severity = '전체';
+  String logs = '', search = '', severity = 'ALL';
   bool searching = false;
   RegExpMatch? levelMatch(String line) => RegExp(
     r'\b(TRACE|DEBUG|INFO|WARN|ERROR|FATAL)\b|\s([VDIWEF])\s',
@@ -1832,10 +1888,10 @@ class _LogsPageState extends State<LogsPage> {
         .toList();
     return Scaffold(
       appBar: AppBar(
-        title: const Text('진단 로그'),
+        title: Text(context.l10n.diagnosticLogs),
         actions: [
           IconButton(
-            tooltip: '로그 검색',
+            tooltip: context.l10n.searchLogs,
             onPressed: () => setState(() {
               searching = !searching;
               if (!searching) search = '';
@@ -1863,16 +1919,19 @@ class _LogsPageState extends State<LogsPage> {
               PopupMenuItem(
                 value: 'refresh',
                 enabled: !busy,
-                child: const TildeMenuLabel('새로고침', Icons.refresh),
+                child: TildeMenuLabel(context.l10n.refresh, Icons.refresh),
               ),
               PopupMenuItem(
                 value: 'share',
                 enabled: logs.isNotEmpty,
-                child: const TildeMenuLabel('공유', Icons.ios_share),
+                child: TildeMenuLabel(context.l10n.share, Icons.ios_share),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'crash',
-                child: TildeMenuLabel('네이티브 크래시 기록 저장', Icons.save_alt),
+                child: TildeMenuLabel(
+                  context.l10n.saveNativeCrashLog,
+                  Icons.save_alt,
+                ),
               ),
             ],
           ),
@@ -1885,9 +1944,9 @@ class _LogsPageState extends State<LogsPage> {
               padding: const EdgeInsets.all(16),
               child: TextField(
                 autofocus: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   prefixIcon: Icon(Icons.search),
-                  hintText: '로그 검색',
+                  hintText: context.l10n.searchLogs,
                 ),
                 onChanged: (value) => setState(() => search = value),
               ),
@@ -1899,13 +1958,13 @@ class _LogsPageState extends State<LogsPage> {
               child: Wrap(
                 spacing: 8,
                 children: [
-                  for (final filter in ['전체', 'WARN', 'ERROR'])
+                  for (final filter in ['ALL', 'WARN', 'ERROR'])
                     ChoiceChip(
                       label: Text(
                         '${switch (filter) {
-                          'WARN' => '경고',
-                          'ERROR' => '오류',
-                          _ => '전체',
+                          'WARN' => context.l10n.warning,
+                          'ERROR' => context.l10n.error,
+                          _ => context.l10n.all,
                         }} ${lines.where((line) => matches(line, filter)).length}',
                       ),
                       selected: severity == filter,
@@ -1919,10 +1978,10 @@ class _LogsPageState extends State<LogsPage> {
           if (busy) const TildeProgress(),
           if (error != null)
             ListTile(
-              title: const Text('로그를 불러오지 못했습니다'),
+              title: Text(context.l10n.couldNotLoadLogs),
               trailing: TextButton(
                 onPressed: () => showErrorDetails(context, error!),
-                child: const Text('자세히'),
+                child: Text(context.l10n.details),
               ),
             ),
           Expanded(

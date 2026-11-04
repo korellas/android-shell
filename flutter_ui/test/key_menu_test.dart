@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'ui_engine_fixture.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -51,7 +52,14 @@ void main() {
   testWidgets('legacy software keys expose no private-key operations', (
     tester,
   ) async {
-    await tester.pumpWidget(MaterialApp(home: KeyPage(engine: engine)));
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
+        home: KeyPage(engine: engine),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Legacy key 옵션'));
     await tester.pumpAndSettle();
@@ -68,6 +76,9 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: RecordEditor(
           engine: engine,
           kind: RecordKind.key,
@@ -84,7 +95,14 @@ void main() {
   testWidgets('new key UI offers only Android Keystore P-256 generation', (
     tester,
   ) async {
-    await tester.pumpWidget(MaterialApp(home: GenerateKeyPage(engine: engine)));
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
+        home: GenerateKeyPage(engine: engine),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.textContaining('P-256'), findsOneWidget);
     expect(find.text('RSA'), findsNothing);

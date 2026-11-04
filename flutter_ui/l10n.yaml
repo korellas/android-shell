@@ -1,0 +1,7 @@
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+use-escaping: true
+header: |
+  // Copyright 2026 Kenny Root
+  // SPDX-License-Identifier: Apache-2.0

@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'ui_engine_fixture.dart';
 import 'label_layout_test.dart' show capture;
 import 'package:flutter/services.dart' show FontLoader, rootBundle;
+import 'package:android_shell_ui/l10n/strings.dart';
 
 class SaveEngine extends UiEngineFixture {
   Completer<Object?>? pending;
@@ -49,7 +50,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
-      MaterialApp(theme: tildeTheme(Brightness.dark, engine), home: page),
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
+        theme: tildeTheme(Brightness.dark, engine),
+        home: page,
+      ),
     );
     await tester.pumpAndSettle();
   }
@@ -222,6 +229,9 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         await tester.pumpWidget(
           MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
             theme: tildeTheme(Brightness.dark, engine),
             builder: (c, child) => MediaQuery(
               data: MediaQuery.of(

@@ -26,6 +26,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xterm2/xterm.dart';
 
 import 'ui_engine_fixture.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 Future<void> deferAuthentication(WidgetTester tester) async {
   if (find.byType(TerminalPrompt).evaluate().isNotEmpty &&
@@ -144,7 +145,12 @@ void main() {
           return call.method == 'snapshot' ? engine.state : null;
         });
     await tester.pumpWidget(
-      MaterialApp(home: ConsolePage(engine: engine, sessionId: 101)),
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
+        home: ConsolePage(engine: engine, sessionId: 101),
+      ),
     );
     await tester.pumpAndSettle();
     final session = engine.terminalSession(101)!;
@@ -252,7 +258,14 @@ void main() {
               }
               return null;
             });
-        await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
+            home: ShellHome(engine: engine),
+          ),
+        );
         await tester.pumpAndSettle();
         tester
             .state<NavigatorState>(find.byType(Navigator))
@@ -417,7 +430,12 @@ void main() {
           return null;
         });
     await tester.pumpWidget(
-      MaterialApp(home: ConsolePage(engine: engine, sessionId: 101)),
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
+        home: ConsolePage(engine: engine, sessionId: 101),
+      ),
     );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'unsent');
@@ -493,7 +511,12 @@ void main() {
             return null;
           });
       await tester.pumpWidget(
-        MaterialApp(home: ConsolePage(engine: engine, sessionId: 101)),
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: ConsolePage(engine: engine, sessionId: 101),
+        ),
       );
       await tester.pumpAndSettle();
       expect(find.text('SHA256:example'), findsOneWidget);
@@ -516,6 +539,9 @@ void main() {
       Object? response;
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: Scaffold(
             body: TerminalPrompt(
               prompt: {
@@ -655,6 +681,9 @@ void main() {
           });
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: ConsolePage(
             engine: engine,
             sessionId: 102,
@@ -686,6 +715,9 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: Scaffold(
             body: Builder(
               builder: (context) => TextButton(
@@ -767,6 +799,9 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: EnrollmentPage(
             engine: engine,
             host: const {'id': 7, 'nickname': 'Research'},
@@ -801,7 +836,12 @@ void main() {
         'preferences': {'titlebarhide': false},
       };
       await tester.pumpWidget(
-        MaterialApp(home: ConsolePage(engine: engine, sessionId: 101)),
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: ConsolePage(engine: engine, sessionId: 101),
+        ),
       );
       await tester.pumpAndSettle();
       await deferAuthentication(tester);
@@ -848,7 +888,14 @@ void main() {
             }
             return null;
           });
-      await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: ShellHome(engine: engine),
+        ),
+      );
       await tester.pumpAndSettle();
       tester
           .state<NavigatorState>(find.byType(Navigator))
@@ -928,6 +975,9 @@ void main() {
     String? result;
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Builder(
           builder: (context) => TextButton(
             onPressed: () async => result = await askText(
@@ -1116,7 +1166,12 @@ void main() {
         },
       };
       await tester.pumpWidget(
-        MaterialApp(home: ConsolePage(engine: engine, sessionId: 7)),
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: ConsolePage(engine: engine, sessionId: 7),
+        ),
       );
       await tester.pumpAndSettle();
       final rect = tester.getRect(find.byType(TerminalPane));
@@ -1163,7 +1218,12 @@ void main() {
           },
         };
         await tester.pumpWidget(
-          MaterialApp(home: ConsolePage(engine: engine, sessionId: 7)),
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
+            home: ConsolePage(engine: engine, sessionId: 7),
+          ),
         );
         await tester.pumpAndSettle();
         final viewport = tester.getRect(find.byType(TerminalPane));
@@ -1223,7 +1283,12 @@ void main() {
         },
       };
       await tester.pumpWidget(
-        MaterialApp(home: ConsolePage(engine: engine, sessionId: 7)),
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: ConsolePage(engine: engine, sessionId: 7),
+        ),
       );
       await tester.pumpAndSettle();
       final before = tester.getRect(find.byType(TerminalPane));
@@ -1274,7 +1339,12 @@ void main() {
       },
     };
     await tester.pumpWidget(
-      MaterialApp(home: ConsolePage(engine: engine, sessionId: 7)),
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
+        home: ConsolePage(engine: engine, sessionId: 7),
+      ),
     );
     await tester.pumpAndSettle();
     final rect = tester.getRect(find.byType(TerminalPane));

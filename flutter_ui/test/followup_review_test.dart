@@ -13,10 +13,19 @@ import 'package:android_shell_ui/tilde_design.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'ui_engine_fixture.dart';
+import 'file_browser_actions_test.dart' show BrowserFiles;
 
 void main() {
+  setUpAll(() async {
+    final font = FontLoader('Pretendard');
+    for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold']) {
+      font.addFont(rootBundle.load('assets/fonts/Pretendard-$weight.ttf'));
+    }
+    await font.load();
+  });
   test('display timestamps use minutes and enough date context', () {
     final now = DateTime(2026, 11, 4, 15, 45);
     expect(
@@ -38,6 +47,8 @@ void main() {
       Object? result;
       await t.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (c) => TextButton(
               onPressed: () async {
@@ -78,6 +89,8 @@ void main() {
     var copied = false;
     await t.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
           builder: (c) => TextButton(
             onPressed: () => showErrorDetails(
@@ -114,6 +127,8 @@ void main() {
       addTearDown(engine.dispose);
       await t.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           theme: tildeTheme(Brightness.dark, engine),
           home: SettingsPage(engine: engine),
         ),
@@ -138,6 +153,8 @@ void main() {
   testWidgets('unsupported preview has no read-only footer', (t) async {
     await t.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: FilePreview(
           path: '/binary.bin',
           load: () async => Uint8List.fromList([0, 255, 2]),
@@ -197,7 +214,11 @@ void main() {
       messenger.setMockMethodCallHandler(SystemChannels.platform, null);
     });
     await t.pumpWidget(
-      MaterialApp(home: ConsolePage(engine: engine, sessionId: 101)),
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: ConsolePage(engine: engine, sessionId: 101),
+      ),
     );
     await t.pumpAndSettle();
     await t.tap(find.text('자세히'));
@@ -218,6 +239,8 @@ void main() {
       final engine = UiEngineFixture();
       await t.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           theme: tildeTheme(Brightness.dark, engine),
           builder: (c, child) => MediaQuery(
             data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(2)),
@@ -238,6 +261,16 @@ void main() {
       final save = find.widgetWithText(FilledButton, '저장');
       final before = t.getRect(save);
       expect(before.bottom, lessThanOrEqualTo(844));
+      final firstPort = t.getRect(find.byKey(const ValueKey('sourcePort:0')));
+      final viewport = t.getRect(
+        find.byWidgetPredicate(
+          (w) => w is Scrollbar && w.thumbVisibility == true,
+        ),
+      );
+      expect(
+        firstPort.intersect(viewport).height,
+        greaterThanOrEqualTo(firstPort.height / 2),
+      );
       final port = find.byKey(const ValueKey('destPort:0'));
       await t.ensureVisible(port);
       await t.pumpAndSettle();
@@ -247,4 +280,29 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
+  for (final language in ['ko', 'en']) {
+    testWidgets(
+      'destination picker initializes after localization ($language)',
+      (t) async {
+        final files = BrowserFiles()
+          ..nodes['/home'] = SftpFileAttrs(mode: SftpFileMode.value(0x4000));
+        await t.pumpWidget(
+          MaterialApp(
+            locale: Locale(language),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: RemoteFolderPicker(files: files, path: '/home'),
+            ),
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(
+          find.text(language == 'ko' ? '이동할 폴더' : 'Destination folder'),
+          findsOneWidget,
+        );
+        expect(t.takeException(), isNull);
+      },
+    );
+  }
 }

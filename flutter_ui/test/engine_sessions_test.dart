@@ -10,6 +10,7 @@ import 'package:android_shell_ui/main.dart' show ShellHome;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:android_shell_ui/engine.dart';
 import 'package:android_shell_ui/ssh/ssh_session.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 class _EngineTransport extends SshSession {
   _EngineTransport({
@@ -329,7 +330,14 @@ void main() {
         final first = await engine.query('connect', {'id': 1}) as int;
         await waitConnected(first);
       });
-      await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: ShellHome(engine: engine),
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('새 탭 (Ctrl Shift T)'));
       await tester.pumpAndSettle();

@@ -1,7 +1,9 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/material.dart';
 import 'transfer.dart';
+import '../l10n/strings.dart';
 
 class TransferProgress extends StatelessWidget {
   const TransferProgress({
@@ -30,10 +32,13 @@ class TransferProgress extends StatelessWidget {
         ? null
         : ((total - control.bytes).clamp(0, total) / speed).ceil();
     final timing = remaining == null
-        ? '남은 시간 계산 중'
+        ? context.l10n.calculatingTimeRemaining
         : remaining >= 60
-        ? '${remaining ~/ 60}분 ${remaining % 60}초 남음'
-        : '$remaining초 남음';
+        ? context.l10n.minutesSecondsRemaining(
+            (remaining ~/ 60).toString(),
+            (remaining % 60).toString(),
+          )
+        : context.l10n.secondsRemaining((remaining).toString());
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Column(
@@ -43,8 +48,10 @@ class TransferProgress extends StatelessWidget {
           Text(
             [
               if (status.isNotEmpty) status,
-              if (control.cancelled) '취소 중…',
-              speed > 0 ? '${formatBytes(speed.round())}/s' : '속도 계산 중',
+              if (control.cancelled) context.l10n.cancellingOperation,
+              speed > 0
+                  ? '${formatBytes(speed.round())}/s'
+                  : context.l10n.calculatingSpeed,
               timing,
             ].join(' · '),
             style: Theme.of(context).textTheme.bodySmall,
@@ -53,7 +60,7 @@ class TransferProgress extends StatelessWidget {
           LinearProgressIndicator(value: fraction),
           const SizedBox(height: 6),
           Text(
-            '${formatBytes(control.bytes)} / ${total == null ? '크기 확인 중' : formatBytes(total)}${fraction == null ? '' : ' · ${(fraction * 100).floor()}%'}',
+            '${formatBytes(control.bytes)} / ${total == null ? context.l10n.checkingSize : formatBytes(total)}${fraction == null ? '' : ' · ${(fraction * 100).floor()}%'}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

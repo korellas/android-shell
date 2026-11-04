@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../engine.dart';
 import '../tilde_design.dart';
 import '../tilde_controls.dart';
+import '../l10n/strings.dart';
 
 /// Authentication belongs to its console and leaves other sessions accessible.
 class TerminalPrompt extends StatefulWidget {
@@ -60,20 +61,22 @@ class _TerminalPromptState extends State<TerminalPrompt> {
     final hostKey = prompt['type'] == 'hostKey';
     final biometric = prompt['type'] == 'biometric';
     final formats = [
-      for (final option in const [
+      for (final option in [
         ('sha256', 'SHA-256'),
         ('md5', 'MD5'),
-        ('randomArt', '그림'),
-        ('bubblebabble', '단어'),
+        ('randomArt', context.l10n.image),
+        ('bubblebabble', context.l10n.words),
       ])
         if ('${prompt[option.$1] ?? ''}'.isNotEmpty) option,
     ];
     final rawFingerprint = '${prompt[fingerprint] ?? ''}';
     final title = hostKey
-        ? '처음 연결하는 서버입니다'
+        ? context.l10n.firstConnectionToThisServer
         : biometric
-        ? '생체인증'
-        : '${prompt['nickname'] ?? '서버'} 로그인';
+        ? context.l10n.biometricAuthentication
+        : context.l10n.logInTo(
+            (prompt['nickname'] ?? context.l10n.server).toString(),
+          );
     final instructions = '${prompt['instructions'] ?? ''}';
     final message = '${prompt['message'] ?? ''}';
     final showInstructions =
@@ -117,7 +120,7 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      '서버 메시지',
+                      context.l10n.serverMessage,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -144,11 +147,13 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                 onSubmitted: enabled ? respond : null,
                 decoration: InputDecoration(
                   labelText: prompt['passwordKind'] == 'host'
-                      ? '비밀번호'
-                      : '${prompt['hint'] ?? '인증'}',
+                      ? context.l10n.password
+                      : '${prompt['hint'] ?? context.l10n.authentication}',
                   suffixIcon: prompt['password'] == true
                       ? IconButton(
-                          tooltip: revealPassword ? '비밀번호 숨기기' : '비밀번호 보기',
+                          tooltip: revealPassword
+                              ? context.l10n.hidePassword
+                              : context.l10n.showPassword,
                           onPressed: () =>
                               setState(() => revealPassword = !revealPassword),
                           icon: Icon(
@@ -163,7 +168,7 @@ class _TerminalPromptState extends State<TerminalPrompt> {
               if (prompt['canSavePassword'] == true)
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('이 기기에 저장'),
+                  title: Text(context.l10n.saveOnThisDevice),
                   value: savePassword,
                   onChanged: enabled
                       ? (value) => setState(() => savePassword = value ?? false)
@@ -171,7 +176,9 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                 ),
             ] else if (hostKey) ...[
               const SizedBox(height: 12),
-              const Text('서버 관리자가 알려 준 지문과 같은지 확인하세요.'),
+              Text(
+                context.l10n.checkThatThisFingerprintMatchesTheOneProvidedBy,
+              ),
               const SizedBox(height: 16),
               Text(
                 '${prompt['keyType']}${prompt['keySize'] == null ? '' : ' · ${prompt['keySize']}'}',
@@ -214,7 +221,7 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                           ),
                   ),
                   IconButton(
-                    tooltip: '지문 복사',
+                    tooltip: context.l10n.copyFingerprint,
                     onPressed: () =>
                         Clipboard.setData(ClipboardData(text: rawFingerprint)),
                     icon: const Icon(Icons.copy_outlined),
@@ -224,7 +231,7 @@ class _TerminalPromptState extends State<TerminalPrompt> {
               if (formats.length > 1)
                 tildeSegments(
                   context,
-                  '지문 형식',
+                  context.l10n.fingerprintFormat,
                   formats,
                   fingerprint,
                   enabled
@@ -233,7 +240,9 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                 ),
             ] else if (biometric) ...[
               const SizedBox(height: 12),
-              SelectableText('${prompt['nickname']} 키로 인증합니다.'),
+              SelectableText(
+                context.l10n.authenticateWithKey('${prompt['nickname']}'),
+              ),
             ],
             const SizedBox(height: 20),
             Wrap(
@@ -245,7 +254,11 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                   onPressed: enabled
                       ? () => respond(string ? null : false)
                       : null,
-                  child: Text(string || hostKey || biometric ? '연결 취소' : '거절'),
+                  child: Text(
+                    string || hostKey || biometric
+                        ? context.l10n.cancelConnection
+                        : context.l10n.reject,
+                  ),
                 ),
                 FilledButton(
                   onPressed: enabled
@@ -253,12 +266,12 @@ class _TerminalPromptState extends State<TerminalPrompt> {
                       : null,
                   child: Text(
                     hostKey
-                        ? '신뢰하고 연결'
+                        ? context.l10n.trustAndConnect
                         : string
-                        ? '로그인'
+                        ? context.l10n.logIn
                         : biometric
-                        ? '인증'
-                        : '계속',
+                        ? context.l10n.authentication
+                        : context.l10n.continueAction,
                   ),
                 ),
               ],
@@ -359,10 +372,14 @@ class _TerminalPromptSurfaceState extends State<TerminalPromptSurface> {
       : Material(
           color: Theme.of(context).colorScheme.surfaceContainerLow,
           child: ListTile(
-            title: Text('${widget.prompt['nickname'] ?? '서버'} 로그인 대기'),
+            title: Text(
+              context.l10n.waitingForLogin(
+                (widget.prompt['nickname'] ?? context.l10n.server).toString(),
+              ),
+            ),
             trailing: TextButton(
               onPressed: widget.enabled ? present : null,
-              child: const Text('로그인 계속'),
+              child: Text(context.l10n.continueLogin),
             ),
           ),
         );

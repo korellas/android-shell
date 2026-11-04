@@ -1,0 +1,8 @@
+// Copyright 2026 Kenny Root
+// SPDX-License-Identifier: Apache-2.0
+"invalid_credentials" = "인증정보 형식이 올바르지 않습니다.";
+"unsupported_link" = "지원하지 않는 링크입니다.";
+"could_not_open_link" = "링크를 열 수 없습니다.";
+"export_file_missing" = "내보낼 파일이 없습니다.";
+"close_file_picker" = "열려 있는 파일 선택 창을 먼저 닫으세요.";
+"could_not_open_file_picker" = "파일 선택 창을 열 수 없습니다.";

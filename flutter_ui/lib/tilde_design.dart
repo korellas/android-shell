@@ -6,10 +6,12 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  */
+
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'engine.dart';
+import 'l10n/strings.dart';
 
 const tildeName = 'Tilde';
 // Built-in preset IDs are preserved when presets are appended.
@@ -374,7 +376,7 @@ class TildeMark extends StatelessWidget {
   const TildeMark({super.key, this.size = 40, this.monochrome = false});
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'Tilde 홈 디렉터리',
+    label: context.l10n.tildeHomeDirectory,
     child: SizedBox.square(
       dimension: size,
       child: CustomPaint(
@@ -447,8 +449,8 @@ class TildeProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: label ?? '진행 중',
-    value: '진행 중',
+    label: label ?? context.l10n.inProgress,
+    value: context.l10n.inProgress,
     child: circular
         ? const SizedBox(
             width: 18,
@@ -530,12 +532,12 @@ class TildeHostTile extends StatelessWidget {
     return Semantics(
       label:
           '$name ${switch (status) {
-            'CONNECTED' => '연결됨',
-            'UNREAD_OUTPUT' => '새 출력',
-            'ERROR' => '오류',
-            'DISCONNECTED' => '연결 안 됨',
+            'CONNECTED' => context.l10n.connected,
+            'UNREAD_OUTPUT' => context.l10n.newOutput,
+            'ERROR' => context.l10n.error,
+            'DISCONNECTED' => context.l10n.notConnected,
             _ => '',
-          }}${sessionCount > 1 ? ' · 세션 $sessionCount개' : ''}',
+          }}${sessionCount > 1 ? context.l10n.sessions2((sessionCount)) : ''}',
       child: SizedBox.square(
         dimension: size,
         child: Stack(
@@ -760,7 +762,7 @@ class TildeWelcome extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                '첫 서버를 연결하세요',
+                context.l10n.connectToYourFirstServer,
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -768,8 +770,8 @@ class TildeWelcome extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 pointer
-                    ? '호스트를 저장해 두면 다음부터 더블클릭으로 접속합니다.'
-                    : '서버를 저장해 두면 바로 접속할 수 있습니다.',
+                    ? context.l10n.saveAHostToConnectWithADoubleClick
+                    : context.l10n.saveAServerToConnectQuicklyNextTime,
                 style: TextStyle(
                   color: theme.colorScheme.onSurfaceVariant,
                   height: 1.6,
@@ -780,7 +782,7 @@ class TildeWelcome extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: onAdd,
                   icon: const Icon(Icons.add),
-                  label: const Text('새 호스트'),
+                  label: Text(context.l10n.newHost),
                 ),
                 const SizedBox(height: 16),
               ],
@@ -794,21 +796,27 @@ class TildeWelcome extends StatelessWidget {
                   children: [
                     if (pointer)
                       action(
-                        '새 호스트',
-                        '주소 · 사용자 · 인증을 저장',
+                        context.l10n.newHost,
+                        context.l10n.saveAddressUserAndAuthentication,
                         Icons.add,
                         onAdd,
                         primary: true,
                       ),
                     action(
-                      pointer ? '바로 접속' : '주소로 바로 접속',
-                      pointer ? '검색칸에 ssh user@host 입력 후 Enter' : null,
+                      pointer
+                          ? context.l10n.connectNow
+                          : context.l10n.connectByAddress,
+                      pointer
+                          ? context.l10n.enterSshUserHostInTheSearchFieldAnd
+                          : null,
                       Icons.bolt_outlined,
                       onQuickConnect,
                     ),
                     action(
                       keyLabel,
-                      pointer ? 'id_ed25519 같은 개인키 파일' : null,
+                      pointer
+                          ? context.l10n.privateKeyFileSuchAsIdEd25519
+                          : null,
                       Icons.key_outlined,
                       onKey,
                     ),
