@@ -594,7 +594,12 @@ class ConsolePageState extends State<ConsolePage> {
     }
   }
 
-  Widget consoleMenu(BuildContext c, VoidCallback close, {bool side = false}) {
+  Widget consoleMenu(
+    BuildContext c,
+    VoidCallback close, {
+    bool side = false,
+    int? urlCount,
+  }) {
     final connected = session['open'] == true;
     final host =
         engine
@@ -616,6 +621,7 @@ class ConsolePageState extends State<ConsolePage> {
       String label,
       IconData icon, {
       String? subtitle,
+      String? valueText,
       bool enabled = true,
       bool navigates = false,
     }) => ListTile(
@@ -624,7 +630,16 @@ class ConsolePageState extends State<ConsolePage> {
       leading: Icon(icon, size: 22),
       title: Text(label),
       subtitle: subtitle == null ? null : Text(subtitle),
-      trailing: navigates ? const Icon(Icons.chevron_right) : null,
+      trailing: navigates || valueText != null
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (valueText != null)
+                  Text(valueText, style: Theme.of(c).textTheme.bodySmall),
+                if (navigates) const Icon(Icons.chevron_right),
+              ],
+            )
+          : null,
       onTap: enabled ? () => action(value) : null,
     );
     return Material(
@@ -656,7 +671,13 @@ class ConsolePageState extends State<ConsolePage> {
                 entry('text', '텍스트 입력', Icons.edit_note_outlined),
               ],
               if (connected) const Divider(),
-              entry('urls', '링크', Icons.link_outlined),
+              entry(
+                'urls',
+                '링크',
+                Icons.link_outlined,
+                navigates: true,
+                valueText: urlCount == null ? null : '$urlCount개',
+              ),
               entry(
                 'display',
                 '화면',
@@ -665,7 +686,7 @@ class ConsolePageState extends State<ConsolePage> {
               ),
               const Divider(),
               if (session['hostId'] != null)
-                entry('files', '파일 전송', Icons.folder_outlined, navigates: true),
+                entry('files', '파일 전송', Icons.folder_outlined),
               if (connected && session['canForward'] == true)
                 entry('forwards', '포트 포워딩', Icons.swap_horiz, navigates: true),
               if (session['canEnroll'] == true)
@@ -704,6 +725,14 @@ class ConsolePageState extends State<ConsolePage> {
   Future<void> openMenu(BuildContext anchor) async {
     titleTimer?.cancel();
     final targetId = id;
+    int? urlCount;
+    try {
+      urlCount = (await engine.query('session.urls', {'id': targetId}) as List?)
+          ?.length;
+    } on EngineException {
+      // Optional metadata must not block terminal actions.
+    }
+    if (!mounted || !anchor.mounted || id != targetId) return;
     final connected = session['open'] == true;
     final String? action;
     if (tildePointer(anchor)) {
@@ -727,9 +756,20 @@ class ConsolePageState extends State<ConsolePage> {
             ),
             const PopupMenuDivider(),
           ],
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'urls',
-            child: TildeMenuLabel('링크', Icons.link_outlined),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: TildeMenuLabel('링크', Icons.link_outlined),
+                ),
+                if (urlCount != null)
+                  Text(
+                    '$urlCount개',
+                    style: Theme.of(anchor).textTheme.bodySmall,
+                  ),
+              ],
+            ),
           ),
           const PopupMenuItem(
             value: 'display',
@@ -784,7 +824,8 @@ class ConsolePageState extends State<ConsolePage> {
         isScrollControlled: true,
         builder: (c) => ListenableBuilder(
           listenable: engine,
-          builder: (_, _) => consoleMenu(c, () => Navigator.pop(c)),
+          builder: (_, _) =>
+              consoleMenu(c, () => Navigator.pop(c), urlCount: urlCount),
         ),
       );
     }
@@ -862,6 +903,10 @@ class ConsolePageState extends State<ConsolePage> {
       if (row(session['progress'])['message'] != null)
         row(session['progress'])['message'],
     ].join('\n');
+    final editLabel = phase == 'authentication' ? '인증 편집' : '호스트 편집';
+    final editCategory = phase == 'authentication'
+        ? 'authentication'
+        : 'connection';
     return ConnectionStatusView(
       record: session,
       title: title,
@@ -892,6 +937,7 @@ class ConsolePageState extends State<ConsolePage> {
               target: session['uri'] as String?,
               explanation: session['failureSummary'] as String?,
               occurredAt: DateTime.tryParse('${session['failedAt']}'),
+              editLabel: editLabel,
               edit: host == null
                   ? null
                   : () => Navigator.push<void>(
@@ -901,6 +947,7 @@ class ConsolePageState extends State<ConsolePage> {
                           engine: engine,
                           kind: RecordKind.host,
                           record: host,
+                          initialHostCategory: editCategory,
                         ),
                       ),
                     ),
@@ -917,10 +964,11 @@ class ConsolePageState extends State<ConsolePage> {
                   engine: engine,
                   kind: RecordKind.host,
                   record: host,
+                  initialHostCategory: editCategory,
                 ),
               ),
             ),
-            child: const Text('호스트 편집'),
+            child: Text(editLabel),
           ),
         if (failed)
           FilledButton(
@@ -1368,62 +1416,75 @@ class ConsolePageState extends State<ConsolePage> {
                                 left: 0,
                                 right: 0,
                                 bottom: MediaQuery.viewInsetsOf(context).bottom,
-                                child: Card(
-                                  margin: const EdgeInsets.all(16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  color: theme.colorScheme.surfaceContainerLow,
-                                  child: SafeArea(
-                                    top: false,
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 12,
+                                child: Align(
+                                  alignment: Alignment.bottomCenter,
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 560,
+                                    ),
+                                    child: Card(
+                                      margin: const EdgeInsets.all(16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
                                       ),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            switch (session['disconnectReason']) {
-                                              'USER_REQUESTED' => '연결을 종료했습니다',
-                                              'SESSION_EXIT' =>
-                                                '서버에서 세션을 종료했습니다',
-                                              'AUTH_FAIL' =>
-                                                '인증에 실패해 연결이 종료되었습니다',
-                                              _ => '연결이 끊겼습니다',
-                                            },
+                                      color:
+                                          theme.colorScheme.surfaceContainerLow,
+                                      child: SafeArea(
+                                        top: false,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 12,
                                           ),
-                                          if (session['endedAt'] != null)
-                                            Text(
-                                              '종료 · ${DateTime.tryParse('${session['endedAt']}')?.toLocal().toString().split('.').first ?? session['endedAt']}',
-                                              style: theme.textTheme.bodySmall,
-                                            ),
-                                          Wrap(
-                                            spacing: 8,
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
                                             children: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    menu('disconnect'),
-                                                child: const Text('닫기'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () async {
-                                                  await menu('selectAll');
-                                                  await menu('copy');
+                                              Text(
+                                                switch (session['disconnectReason']) {
+                                                  'USER_REQUESTED' =>
+                                                    '연결을 종료했습니다',
+                                                  'SESSION_EXIT' =>
+                                                    '서버에서 세션을 종료했습니다',
+                                                  'AUTH_FAIL' =>
+                                                    '인증에 실패해 연결이 종료되었습니다',
+                                                  _ => '연결이 끊겼습니다',
                                                 },
-                                                child: const Text('출력 복사'),
                                               ),
-                                              FilledButton.tonal(
-                                                onPressed: () =>
-                                                    menu('reconnect'),
-                                                child: const Text('다시 연결'),
+                                              if (session['endedAt'] != null)
+                                                Text(
+                                                  '종료 · ${DateTime.tryParse('${session['endedAt']}') == null ? session['endedAt'] : formatTildeTimestamp(DateTime.parse('${session['endedAt']}'))}',
+                                                  style:
+                                                      theme.textTheme.bodySmall,
+                                                ),
+                                              Wrap(
+                                                alignment: WrapAlignment.end,
+                                                spacing: 8,
+                                                runSpacing: 8,
+                                                children: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        menu('disconnect'),
+                                                    child: const Text('닫기'),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () async {
+                                                      await menu('selectAll');
+                                                      await menu('copy');
+                                                    },
+                                                    child: const Text('출력 복사'),
+                                                  ),
+                                                  FilledButton(
+                                                    onPressed: () =>
+                                                        menu('reconnect'),
+                                                    child: const Text('다시 연결'),
+                                                  ),
+                                                ],
                                               ),
                                             ],
                                           ),
-                                        ],
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -1462,11 +1523,11 @@ TerminalTheme consoleTerminalTheme(EngineRecord scheme, {bool ended = false}) {
         ? tildeTide
         : paletteColor(scheme, 'cursor'),
     selection: tildeTide.withValues(alpha: .3),
-    foreground:
-        (scheme.isEmpty
-                ? const Color(0xffeae9e7)
-                : paletteColor(scheme, 'foreground'))
-            .withValues(alpha: ended ? .55 : 1),
+    foreground: ended
+        ? const Color(0xff767470)
+        : (scheme.isEmpty
+              ? const Color(0xffeae9e7)
+              : paletteColor(scheme, 'foreground')),
     background: scheme.isEmpty
         ? tildeNightBackground
         : paletteColor(scheme, 'background'),

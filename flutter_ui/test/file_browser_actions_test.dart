@@ -131,7 +131,7 @@ void main() {
       expect(find.byKey(const ValueKey('conflict-incoming')), findsOneWidget);
       await t.tap(find.byKey(const ValueKey('conflict-incoming')));
       await t.pump();
-      await t.tap(find.text('계속'));
+      await t.tap(find.text('둘 다 보관'));
       final destination = '/home/old (${occupied ? 2 : 1}).txt';
       for (var i = 0; i < 50 && !files.nodes.containsKey(destination); i++) {
         await t.runAsync(

@@ -137,7 +137,7 @@ void main() {
       );
       await capture(tester, 'polish-save-desktop');
       engine.pending = Completer<Object?>();
-      await tester.tap(find.widgetWithText(OutlinedButton, '저장'));
+      await tester.tap(find.widgetWithText(FilledButton, '저장'));
       await tester.pump();
       expect(find.text('저장하는 중입니다'), findsOneWidget);
       engine.pending!.completeError(StateError('offline'));
@@ -146,7 +146,7 @@ void main() {
       expect(find.text('new.example'), findsWidgets);
       await capture(tester, 'polish-save-error');
       engine.pending = Completer<Object?>();
-      await tester.tap(find.widgetWithText(OutlinedButton, '저장'));
+      await tester.tap(find.widgetWithText(FilledButton, '저장'));
       engine.state['hosts'] = [
         {...host, 'hostname': 'new.example'},
       ];
@@ -194,7 +194,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('old.example'), findsWidgets);
       expect(find.text('new.example'), findsNothing);
-      expect(find.widgetWithText(OutlinedButton, '저장'), findsNothing);
+      expect(find.widgetWithText(FilledButton, '저장'), findsNothing);
     },
     variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );

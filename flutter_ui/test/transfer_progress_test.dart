@@ -23,7 +23,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('test.zip 업로드 중'), findsOneWidget);
+    expect(find.textContaining('test.zip 업로드 중'), findsOneWidget);
     expect(find.text('1.0 KB / 4.0 KB · 25%'), findsOneWidget);
     expect(find.textContaining('/s'), findsOneWidget);
     expect(find.textContaining('남음'), findsOneWidget);

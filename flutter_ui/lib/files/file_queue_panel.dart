@@ -108,9 +108,8 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
                   child: const Text('다시 시도'),
                 ),
               if (job.error != null)
-                IconButton(
-                  tooltip: '오류 자세히',
-                  icon: const Icon(Icons.info_outline, size: 18),
+                TextButton(
+                  child: const Text('자세히'),
                   onPressed: () => showErrorDetails(
                     context,
                     job.error!,
@@ -155,8 +154,7 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
           );
           final progress = running
               ? TransferProgress(
-                  status:
-                      '${job.completedFiles} / ${job.totalFiles}개${job.detail.isEmpty ? '' : ' · ${job.detail}'}',
+                  status: '${job.completedFiles} / ${job.totalFiles}개',
                   control: job.control,
                   startedAt: job.startedAt,
                 )
@@ -228,7 +226,7 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
           if (!widget.fullPage) const Divider(height: 1),
           ListTile(
             dense: pointer,
-            title: Text('전송 · $summary'),
+            title: Text(expanded ? '전송' : '전송 · $summary'),
             subtitle: !expanded && active != null
                 ? Text(
                     '${active.label} · ${formatBytes(active.control.bytes)} / ${active.control.total == null ? '크기 확인 중' : formatBytes(active.control.total!)}',

@@ -20,7 +20,7 @@ String fileFailureSummary(Object error) => switch (error) {
     61 || 111 || 10061 =>
       '서버가 ${error.port == null ? '' : '${error.port}번 포트 '}연결을 거부했습니다. SSH 실행 상태와 포트를 확인하세요.',
     60 || 110 || 10060 => '서버가 응답하지 않습니다. 주소와 네트워크를 확인하세요.',
-    _ => '서버 연결을 확인하세요.',
+    _ => '서버와 통신하지 못했습니다. 네트워크 연결을 확인하세요.',
   },
   StateError() => error.message.toString(),
   _ => '예상하지 못한 오류입니다. 아래 기록을 복사해 문의해 주세요.',

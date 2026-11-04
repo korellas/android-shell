@@ -122,14 +122,15 @@ Future<void> showErrorDetails(
   DateTime? occurredAt,
   Future<void> Function()? retry,
   VoidCallback? edit,
+  String editLabel = '호스트 편집',
   Future<void> Function()? saveElsewhere,
 }) {
   final details = error is EngineException
       ? error.details ?? error.message
       : '$error';
   final occurred = occurredAt == null
-      ? '확인 시각 · ${TimeOfDay.now().format(context)}'
-      : '발생 · ${occurredAt.toLocal().toString().split('.').first}';
+      ? '확인 시각 · ${formatTildeTimestamp(DateTime.now())}'
+      : '발생 · ${formatTildeTimestamp(occurredAt)}';
   return showTildeSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -208,17 +209,25 @@ Future<void> showErrorDetails(
                     Navigator.pop(c);
                     edit();
                   },
-                  child: const Text('호스트 편집'),
+                  child: Text(editLabel),
                 ),
               if (saveElsewhere != null)
-                OutlinedButton(
+                FilledButton(
                   onPressed: () {
                     Navigator.pop(c);
                     unawaited(saveElsewhere());
                   },
                   child: const Text('다른 위치에 저장'),
                 ),
-              if (retry != null)
+              if (retry != null && saveElsewhere != null)
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(c);
+                    unawaited(retry());
+                  },
+                  child: const Text('다시 시도'),
+                ),
+              if (retry != null && saveElsewhere == null)
                 FilledButton(
                   onPressed: () {
                     Navigator.pop(c);

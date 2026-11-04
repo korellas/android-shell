@@ -445,6 +445,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ListTile(
           leading: const Icon(Icons.help_outline, size: 22),
           title: const Text('도움말 및 로그'),
+          selected: selected == 'help',
           trailing: const Icon(Icons.chevron_right),
           onTap: () async {
             if (!await leaveManagement()) return;
@@ -1297,7 +1298,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       SizedBox(
                         key: const ValueKey('settings-navigation'),
                         width: tildePointer(context) ? 320 : 264,
-                        child: categories(switch (selected) {
+                        child: categories(switch (managementPage is HelpPage
+                            ? 'help'
+                            : selected) {
+                          'help' => 'help',
                           'fonts' => 'display',
                           'bar' => 'keyboard',
                           _ => selected,

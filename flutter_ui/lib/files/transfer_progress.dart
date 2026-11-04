@@ -40,22 +40,20 @@ class TransferProgress extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (status.isNotEmpty)
-            Text(
-              control.cancelled ? '$status · 취소 중…' : status,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+          Text(
+            [
+              if (status.isNotEmpty) status,
+              if (control.cancelled) '취소 중…',
+              speed > 0 ? '${formatBytes(speed.round())}/s' : '속도 계산 중',
+              timing,
+            ].join(' · '),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
           const SizedBox(height: 6),
           LinearProgressIndicator(value: fraction),
           const SizedBox(height: 6),
           Text(
             '${formatBytes(control.bytes)} / ${total == null ? '크기 확인 중' : formatBytes(total)}${fraction == null ? '' : ' · ${(fraction * 100).floor()}%'}',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          Text(
-            '${speed > 0 ? '${formatBytes(speed.round())}/s' : '속도 계산 중'} · $timing',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

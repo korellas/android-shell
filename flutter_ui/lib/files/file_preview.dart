@@ -436,7 +436,7 @@ class _FilePreviewState extends State<FilePreview> {
                   child: const Text('자세히'),
                 ),
               ),
-            if (_loaded)
+            if (_loaded && _textFile)
               SafeArea(
                 top: false,
                 child: Container(

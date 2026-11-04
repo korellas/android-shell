@@ -528,7 +528,7 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
               ),
               isThreeLine: true,
             ),
-          const Divider(),
+          const SizedBox(height: 12),
           Semantics(
             liveRegion: true,
             child: Text(
@@ -536,7 +536,7 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
                 'skip' => '기존 파일을 유지하고 이 파일의 복사를 건너뜁니다.',
                 'keep' => '둘 다 보관합니다. 복사되는 파일은 확장자 앞에 (1)부터 비어 있는 번호를 붙입니다.',
                 'replace' => '복사되는 파일로 기존 파일을 덮어씁니다. 되돌릴 수 없습니다.',
-                _ => '복사를 취소합니다. 기존 파일은 그대로 유지됩니다.',
+                _ => '현재 복사 작업을 취소합니다. 이 작업의 남은 파일도 중단하며, 기존 파일은 그대로 유지됩니다.',
               },
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: choice == 'replace'
@@ -554,6 +554,9 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
                 '남은 ${widget.totalFiles! - widget.currentFile!}개에도 적용',
               ),
               value: apply,
+              subtitle: choice == 'cancel'
+                  ? const Text('현재 작업을 취소하므로 일괄 적용하지 않습니다.')
+                  : null,
               onChanged: choice == 'cancel'
                   ? null
                   : (value) => setState(() => apply = value ?? false),
@@ -570,7 +573,22 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
               FilledButton(
                 onPressed: () =>
                     Navigator.pop(context, (action: choice, apply: apply)),
-                child: Text(choice == 'cancel' ? '복사 취소' : '계속'),
+                style: choice == 'replace'
+                    ? FilledButton.styleFrom(
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.errorContainer,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onErrorContainer,
+                      )
+                    : null,
+                child: Text(switch (choice) {
+                  'skip' => '건너뛰기',
+                  'keep' => '둘 다 보관',
+                  'replace' => '덮어쓰기',
+                  _ => '복사 취소',
+                }),
               ),
             ],
           ),

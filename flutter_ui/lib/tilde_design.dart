@@ -290,8 +290,8 @@ ThemeData tildeTheme(
     ),
     popupMenuTheme: PopupMenuThemeData(
       color: s3,
-      elevation: 12,
-      shadowColor: Colors.black.withValues(alpha: .55),
+      elevation: 4,
+      shadowColor: Colors.black.withValues(alpha: .35),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(color: dark ? const Color(0xff3e3b37) : line),
@@ -669,7 +669,13 @@ Future<T?> showTildeSheet<T>({
     context: context,
     builder: (c) => Dialog(
       clipBehavior: Clip.antiAlias,
-      constraints: BoxConstraints(maxWidth: maxWidth),
+      constraints: BoxConstraints(
+        maxWidth: maxWidth,
+        maxHeight:
+            (MediaQuery.sizeOf(c).height -
+                MediaQuery.viewInsetsOf(c).vertical) *
+            .9,
+      ),
       child: Padding(
         padding: const EdgeInsets.only(top: 24),
         child: Theme(

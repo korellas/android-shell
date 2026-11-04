@@ -10,6 +10,20 @@ import 'package:flutter/material.dart';
 import 'tilde_design.dart';
 import 'settings_widgets.dart' show formatCount;
 
+String formatTildeTimestamp(DateTime value, {DateTime? now}) {
+  final local = value.toLocal();
+  final today = (now ?? DateTime.now()).toLocal();
+  String two(int part) => part.toString().padLeft(2, '0');
+  final time = '${two(local.hour)}:${two(local.minute)}';
+  if (local.year == today.year &&
+      local.month == today.month &&
+      local.day == today.day) {
+    return time;
+  }
+  final date = '${two(local.month)}-${two(local.day)}';
+  return local.year == today.year ? '$date $time' : '${local.year}-$date $time';
+}
+
 Future<(Object?, String)?> pickTildeOption(
   BuildContext context,
   String title,
@@ -246,11 +260,12 @@ Widget tildeSegments(
   Object? value,
   ValueChanged<Object?>? onChanged, {
   Map<Object?, Widget> labels = const {},
+  EdgeInsetsGeometry padding = const EdgeInsets.all(16),
 }) {
   final values = [...options];
   if (!values.any((v) => v.$1 == value)) values.add((value, '$value (현재 값)'));
   return Padding(
-    padding: const EdgeInsets.all(16),
+    padding: padding,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

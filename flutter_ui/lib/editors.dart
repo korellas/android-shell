@@ -43,6 +43,7 @@ class RecordEditor extends StatefulWidget {
   final EngineRecord? record;
   final int? hostId;
   final int? sessionId;
+  final String? initialHostCategory;
   final Future<void> Function(EngineRecord host)? onSetup;
   final bool embedded, sheet;
   final VoidCallback? onClose;
@@ -56,6 +57,7 @@ class RecordEditor extends StatefulWidget {
     this.record,
     this.hostId,
     this.sessionId,
+    this.initialHostCategory,
     this.onSetup,
     this.embedded = false,
     this.sheet = false,
@@ -70,6 +72,7 @@ class RecordEditor extends StatefulWidget {
 
 class _RecordEditorState extends State<RecordEditor> {
   final form = GlobalKey<FormState>();
+  final detailsScroll = ScrollController();
   late EngineRecord draft;
   bool saving = false, savedNotice = false;
   Timer? savedTimer;
@@ -115,8 +118,10 @@ class _RecordEditorState extends State<RecordEditor> {
     }
     originalDraft = {...draft};
     engine.addListener(engineChanged);
-    if (widget.kind == RecordKind.host && widget.record == null) {
-      hostCategory = 'connection';
+    if (widget.kind == RecordKind.host) {
+      hostCategory =
+          widget.initialHostCategory ??
+          (widget.record == null ? 'connection' : null);
     }
   }
 
@@ -144,6 +149,7 @@ class _RecordEditorState extends State<RecordEditor> {
   @override
   void dispose() {
     savedTimer?.cancel();
+    detailsScroll.dispose();
     engine.removeListener(engineChanged);
     super.dispose();
   }
@@ -519,7 +525,7 @@ class _RecordEditorState extends State<RecordEditor> {
           padding: const EdgeInsets.all(16),
           child: Text(switch (draft['type']) {
             'remote' => '서버의 포트로 들어온 연결을 이 기기의 주소로 보냅니다.',
-            'local' => '이 기기의 포트로 들어온 연결을 서버 쪽 주소로 보냅니다.',
+            'local' => '이 기기 포트로 들어온 연결을 서버 쪽 주소로 보냅니다.',
             _ => '이 기기에 SOCKS5 프록시를 엽니다.',
           }),
         ),
@@ -1411,7 +1417,7 @@ class _RecordEditorState extends State<RecordEditor> {
                           ),
                           Tooltip(
                             message: 'Ctrl S',
-                            child: OutlinedButton(
+                            child: FilledButton(
                               onPressed: saving
                                   ? null
                                   : () => save(close: false),
@@ -1488,6 +1494,7 @@ class _RecordEditorState extends State<RecordEditor> {
         key: form,
         child: ListView(
           shrinkWrap: widget.sheet,
+          controller: detailsScroll,
           key: ValueKey(selected),
           padding: EdgeInsets.only(top: 12, bottom: widget.sheet ? 16 : 104),
           children: [
@@ -1560,7 +1567,42 @@ class _RecordEditorState extends State<RecordEditor> {
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
-                      Flexible(child: details),
+                      Flexible(
+                        child: Stack(
+                          children: [
+                            Scrollbar(
+                              controller: detailsScroll,
+                              thumbVisibility: true,
+                              child: details,
+                            ),
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              height: 16,
+                              child: IgnorePointer(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerLow
+                                            .withValues(alpha: 0),
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerLow,
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       SafeArea(
                         top: false,
                         child: Padding(

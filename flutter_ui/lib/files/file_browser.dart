@@ -1367,135 +1367,171 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                       icon: const Icon(Icons.arrow_upward),
                     ),
                     Expanded(
-                      child: _editingAddress
-                          ? CallbackShortcuts(
-                              bindings: {
-                                const SingleActivator(
-                                  LogicalKeyboardKey.escape,
-                                ): () =>
-                                    setState(() => _editingAddress = false),
-                              },
-                              child: TextField(
-                                controller: _address,
-                                focusNode: _addressFocus,
-                                onSubmitted: (path) {
-                                  setState(() => _editingAddress = false);
-                                  _navigate(path);
-                                },
-                                onTapOutside: (_) =>
-                                    setState(() => _editingAddress = false),
-                                style: const TextStyle(
-                                  fontFamily: tildeMono,
-                                  fontFamilyFallback: tildeMonoFallback,
+                      child: Container(
+                        key: const ValueKey('file-path-field'),
+                        decoration: _editingAddress
+                            ? null
+                            : BoxDecoration(
+                                border: Border.all(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.outlineVariant,
                                 ),
-                                decoration: const InputDecoration(
-                                  isDense: true,
-                                  hintText: '원격 폴더 경로',
-                                ),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                            )
-                          : InkWell(
-                              onTap: _editAddress,
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                height: tildePointer(context) ? 36 : 44,
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.outlineVariant,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children: [
-                                      TextButton(
-                                        onPressed: () => _navigate('/'),
-                                        child: const Text('/'),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _editingAddress
+                                  ? CallbackShortcuts(
+                                      bindings: {
+                                        const SingleActivator(
+                                          LogicalKeyboardKey.escape,
+                                        ): () => setState(
+                                          () => _editingAddress = false,
+                                        ),
+                                      },
+                                      child: TextField(
+                                        controller: _address,
+                                        focusNode: _addressFocus,
+                                        onSubmitted: (path) {
+                                          setState(
+                                            () => _editingAddress = false,
+                                          );
+                                          _navigate(path);
+                                        },
+                                        onTapOutside: (_) => setState(
+                                          () => _editingAddress = false,
+                                        ),
+                                        style: const TextStyle(
+                                          fontFamily: tildeMono,
+                                          fontFamilyFallback: tildeMonoFallback,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          hintText: '원격 폴더 경로',
+                                        ),
                                       ),
-                                      for (
-                                        var index = 0;
-                                        index <
-                                            _path
-                                                .split('/')
-                                                .where(
-                                                  (part) => part.isNotEmpty,
-                                                )
-                                                .length;
-                                        index++
-                                      )
-                                        TextButton(
-                                          onPressed: () => _navigate(
-                                            '/${_path.split('/').where((part) => part.isNotEmpty).take(index + 1).join('/')}',
-                                          ),
-                                          child: Text(
-                                            '${_path.split('/').where((part) => part.isNotEmpty).elementAt(index)} /',
+                                    )
+                                  : InkWell(
+                                      onTap: _editAddress,
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: SizedBox(
+                                        height: tildePointer(context) ? 36 : 44,
+                                        child: SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Row(
+                                            children: [
+                                              TextButton(
+                                                style: TextButton.styleFrom(
+                                                  minimumSize: Size(
+                                                    0,
+                                                    pointer ? 36 : 44,
+                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 4,
+                                                      ),
+                                                ),
+                                                onPressed: () => _navigate('/'),
+                                                child: const Text('/'),
+                                              ),
+                                              for (
+                                                var index = 0;
+                                                index <
+                                                    _path
+                                                        .split('/')
+                                                        .where(
+                                                          (part) =>
+                                                              part.isNotEmpty,
+                                                        )
+                                                        .length;
+                                                index++
+                                              )
+                                                TextButton(
+                                                  style: TextButton.styleFrom(
+                                                    minimumSize: Size(
+                                                      0,
+                                                      pointer ? 36 : 44,
+                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 4,
+                                                        ),
+                                                  ),
+                                                  onPressed: () => _navigate(
+                                                    '/${_path.split('/').where((part) => part.isNotEmpty).take(index + 1).join('/')}',
+                                                  ),
+                                                  child: Text(
+                                                    '${_path.split('/').where((part) => part.isNotEmpty).elementAt(index)} /',
+                                                  ),
+                                                ),
+                                              const SizedBox(width: 32),
+                                            ],
                                           ),
                                         ),
-                                      const SizedBox(width: 32),
-                                    ],
-                                  ),
+                                      ),
+                                    ),
+                            ),
+                            if (pointer) ...[
+                              IconButton(
+                                tooltip: '현재 폴더 즐겨찾기',
+                                icon: Icon(
+                                  _favorites.contains(_path)
+                                      ? Icons.star
+                                      : Icons.star_border,
                                 ),
+                                onPressed: () {
+                                  setState(
+                                    () => _favorites.contains(_path)
+                                        ? _favorites.remove(_path)
+                                        : _favorites.add(_path),
+                                  );
+                                  _saveLocations();
+                                },
                               ),
-                            ),
-                    ),
-                    if (pointer) ...[
-                      IconButton(
-                        tooltip: '현재 폴더 즐겨찾기',
-                        icon: Icon(
-                          _favorites.contains(_path)
-                              ? Icons.star
-                              : Icons.star_border,
+                              PopupMenuButton<String>(
+                                tooltip: '즐겨찾기·최근 위치',
+                                icon: const Icon(Icons.history),
+                                onSelected: _connected
+                                    ? (path) => _navigate(path)
+                                    : null,
+                                itemBuilder: (_) => [
+                                  if (_favorites.isNotEmpty)
+                                    const PopupMenuItem<String>(
+                                      enabled: false,
+                                      child: Text('즐겨찾기'),
+                                    ),
+                                  for (final path in _favorites)
+                                    PopupMenuItem(
+                                      value: path,
+                                      child: Text(
+                                        path,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  if (_recent.isNotEmpty)
+                                    const PopupMenuItem<String>(
+                                      enabled: false,
+                                      child: Text('최근 위치'),
+                                    ),
+                                  for (final path in _recent)
+                                    PopupMenuItem(
+                                      value: path,
+                                      child: Text(
+                                        path,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ],
                         ),
-                        onPressed: () {
-                          setState(
-                            () => _favorites.contains(_path)
-                                ? _favorites.remove(_path)
-                                : _favorites.add(_path),
-                          );
-                          _saveLocations();
-                        },
                       ),
-                      PopupMenuButton<String>(
-                        tooltip: '즐겨찾기·최근 위치',
-                        icon: const Icon(Icons.history),
-                        onSelected: _connected
-                            ? (path) => _navigate(path)
-                            : null,
-                        itemBuilder: (_) => [
-                          if (_favorites.isNotEmpty)
-                            const PopupMenuItem<String>(
-                              enabled: false,
-                              child: Text('즐겨찾기'),
-                            ),
-                          for (final path in _favorites)
-                            PopupMenuItem(
-                              value: path,
-                              child: Text(
-                                path,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          if (_recent.isNotEmpty)
-                            const PopupMenuItem<String>(
-                              enabled: false,
-                              child: Text('최근 위치'),
-                            ),
-                          for (final path in _recent)
-                            PopupMenuItem(
-                              value: path,
-                              child: Text(
-                                path,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
+                    ),
                     IconButton(
                       tooltip: '새로고침',
                       onPressed: _connected
