@@ -13,7 +13,7 @@ plugins {
 
 appVersioning {
     tagFilter.set("v[0-9].*")
-    overrideVersionCode { _, _, _ -> 11100065 }
+    overrideVersionCode { _, _, _ -> 11100066 }
     overrideVersionName { gitTag, _, _ ->
         if (gitTag.commitsSinceLatestTag != 0) {
             "git-${gitTag.rawTagName}-${gitTag.commitsSinceLatestTag}-g${gitTag.commitHash}"

@@ -52,6 +52,54 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
+    testWidgets('parent row navigates without selecting on $platform', (
+      tester,
+    ) async {
+      var ups = 0;
+      List<SftpName> selected = [];
+      Future<void> showPath(String path, List<SftpName> items) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: platform),
+            home: FileBrowserListing(
+              entries: items,
+              path: path,
+              loading: false,
+              onOpen: (_) {},
+              onDownload: (_) {},
+              onUp: () => ups++,
+              onSelectionChanged: (value) => selected = value,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await showPath('/home', entries);
+      expect(
+        tester.getTopLeft(find.text('..')).dy,
+        lessThan(tester.getTopLeft(find.text('z-folder')).dy),
+      );
+      await tester.tap(find.text('..'));
+      await tester.pumpAndSettle();
+      expect(ups, 1);
+      expect(selected, isEmpty);
+      expect(find.byTooltip('.. 작업'), findsNothing);
+      await tester.enterText(find.byType(TextField).first, 'missing');
+      await tester.pumpAndSettle();
+      expect(find.text('..'), findsOneWidget);
+      await showPath('/empty', []);
+      expect(find.text('..'), findsOneWidget);
+      expect(find.text('표시할 파일이 없습니다.'), findsOneWidget);
+      await tester.tap(find.text('..'));
+      expect(ups, 2);
+      await showPath('/', []);
+      expect(find.text('..'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final size in [const Size(390, 740), const Size(1400, 900)]) {
     testWidgets('file actions work at $size and folder actions are present', (
       tester,

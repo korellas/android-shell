@@ -808,7 +808,7 @@ class FileBrowserListingState extends State<FileBrowserListing> {
       final leadingExtent = !desktop && _selected.isNotEmpty
           ? 48.0
           : desktop
-          ? 18.0
+          ? 22.0
           : 24.0;
       final actionExtent = desktop ? 40.0 : 48.0;
       final entries = _visible;
@@ -1013,6 +1013,36 @@ class FileBrowserListingState extends State<FileBrowserListing> {
                       ),
                     ),
                   const Divider(height: 1),
+                  if (widget.path != '/' && widget.onUp != null)
+                    ListTile(
+                      minTileHeight: desktop ? 36 : 56,
+                      minVerticalPadding: desktop ? 0 : 4,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                      ),
+                      minLeadingWidth: leadingExtent,
+                      horizontalTitleGap: 12,
+                      dense: desktop,
+                      leading: SizedBox(
+                        width: leadingExtent,
+                        child: Icon(
+                          Icons.drive_folder_upload,
+                          size: desktop ? 22 : 24,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      title: Row(
+                        children: [
+                          const Text('..'),
+                          const SizedBox(width: 12),
+                          Text(
+                            '상위 폴더',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                      onTap: widget.onUp,
+                    ),
                   Expanded(
                     child: Focus(
                       focusNode: _listFocus,
@@ -1066,12 +1096,22 @@ class FileBrowserListingState extends State<FileBrowserListing> {
                                           )
                                         : Icon(
                                             entry.attr.isDirectory
-                                                ? Icons.folder_outlined
+                                                ? Icons.folder
                                                 : entry.attr.isSymbolicLink
                                                 ? Icons.link
                                                 : Icons
                                                       .insert_drive_file_outlined,
-                                            size: desktop ? 18 : 24,
+                                            size: desktop ? 22 : 24,
+                                            color: entry.attr.isDirectory
+                                                ? Theme.of(
+                                                            context,
+                                                          ).brightness ==
+                                                          Brightness.dark
+                                                      ? Colors.amber.shade400
+                                                      : Colors.amber.shade800
+                                                : Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
                                           ),
                                   ),
                                   title: GestureDetector(
