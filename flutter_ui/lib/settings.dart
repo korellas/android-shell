@@ -28,6 +28,7 @@ import 'editors.dart';
 import 'management.dart';
 import 'settings_widgets.dart';
 import 'settings_advertising.dart';
+import 'founders_edition.dart';
 
 class SettingsPage extends StatefulWidget {
   final AndroidEngine engine;
@@ -420,6 +421,23 @@ class _SettingsPageState extends State<SettingsPage> {
             },
           ),
         const SizedBox(height: 20),
+        if (engine.state['founders'] is Map)
+          ListTile(
+            leading: const Icon(Icons.auto_awesome_outlined, size: 22),
+            title: const Text('Founders Edition'),
+            subtitle: Text(
+              row(engine.state['founders'])['owned'] == true
+                  ? '사용 중'
+                  : '한 번 구매 · 광고 없는 설정',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push<void>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => FoundersEditionPage(engine: engine),
+              ),
+            ),
+          ),
         ListTile(
           leading: const Icon(Icons.help_outline, size: 22),
           title: const Text('도움말 및 로그'),
@@ -1195,7 +1213,10 @@ class _SettingsPageState extends State<SettingsPage> {
           },
           child: Scaffold(
             bottomNavigationBar:
-                !kIsWeb && Platform.isAndroid && (wide || selected == null)
+                !kIsWeb &&
+                    Platform.isAndroid &&
+                    row(engine.state['founders'])['owned'] != true &&
+                    row(engine.state['founders'])['checking'] != true
                 ? const SettingsAdvertising()
                 : null,
             appBar: AppBar(

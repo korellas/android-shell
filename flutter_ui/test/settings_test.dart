@@ -169,6 +169,16 @@ void main() {
     expect(find.text('1.11.0 (123)'), findsOneWidget);
   });
 
+  testWidgets('Founders Edition is available from settings', (tester) async {
+    engine.state['founders'] = {
+      'owned': false,
+      'checking': false,
+      'ready': false,
+    };
+    await open(tester);
+    expect(find.text('Founders Edition'), findsOneWidget);
+  });
+
   testWidgets('font import opens picker without a name dialog', (tester) async {
     await open(tester);
     await tester.tap(find.text('화면'));
