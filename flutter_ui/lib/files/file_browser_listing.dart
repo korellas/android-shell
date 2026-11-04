@@ -895,19 +895,21 @@ class FileBrowserListingState extends State<FileBrowserListing> {
                                 );
                                 _notify();
                               },
-                              decoration: InputDecoration(
-                                isDense: true,
-                                hintText: context.l10n.findInCurrentFolder,
-                                prefixIcon: const Icon(Icons.search),
-                                suffixIcon: IconButton(
-                                  tooltip: context.l10n.clearSearch,
-                                  onPressed: () {
-                                    _search.clear();
-                                    _filterChanged();
-                                  },
-                                  icon: const Icon(Icons.close),
+                              decoration: tildeToolbarInput(
+                                context,
+                                InputDecoration(
+                                  isDense: true,
+                                  hintText: context.l10n.findInCurrentFolder,
+                                  prefixIcon: const Icon(Icons.search),
+                                  suffixIcon: IconButton(
+                                    tooltip: context.l10n.clearSearch,
+                                    onPressed: () {
+                                      _search.clear();
+                                      _filterChanged();
+                                    },
+                                    icon: const Icon(Icons.close),
+                                  ),
                                 ),
-                                border: const OutlineInputBorder(),
                               ),
                             ),
                           ),

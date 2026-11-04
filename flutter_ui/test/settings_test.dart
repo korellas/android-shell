@@ -41,6 +41,52 @@ void main() {
     'DELETE',
     'FUNCTION_KEYS',
   ];
+  testWidgets(
+    'Windows settings search keeps focus without an idle outline',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          theme: tildeTheme(Brightness.dark, engine),
+          home: SettingsPage(engine: engine),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final field = find.widgetWithText(TextField, '설정 검색');
+      final decorator = find.descendant(
+        of: field,
+        matching: find.byType(InputDecorator),
+      );
+      expect(
+        tester
+            .widget<InputDecorator>(decorator)
+            .decoration
+            .enabledBorder!
+            .borderSide,
+        BorderSide.none,
+      );
+      await tester.tap(field);
+      await tester.pumpAndSettle();
+      expect(tester.widget<InputDecorator>(decorator).isFocused, isTrue);
+      expect(
+        tester
+            .widget<InputDecorator>(decorator)
+            .decoration
+            .focusedBorder!
+            .borderSide
+            .width,
+        2,
+      );
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
   setUp(() {
     changes = [];
     rejectBar = false;

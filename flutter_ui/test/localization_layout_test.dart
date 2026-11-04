@@ -87,6 +87,8 @@ void main() {
     ),
   ];
   for (final locale in [
+    const Locale('ko'),
+    const Locale('en'),
     const Locale('ja'),
     const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
     const Locale('pt', 'BR'),

@@ -5,9 +5,15 @@ import 'package:android_shell_ui/files/file_browser.dart';
 import 'package:android_shell_ui/ssh/app_session.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'dart:ui' as ui;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:android_shell_ui/tilde_design.dart';
 import 'sftp_file_operations_test.dart' show FakeFiles;
 import 'ui_engine_fixture.dart';
+import 'label_layout_test.dart' show capture;
 import 'package:android_shell_ui/l10n/strings.dart';
 
 class BrowserFiles extends FakeFiles {
@@ -66,8 +72,17 @@ class UploadEngine extends BrowserEngine {
 }
 
 void main() {
+  setUpAll(() async {
+    for (final (family, path) in [
+      ('Pretendard', 'assets/fonts/Pretendard-Regular.ttf'),
+      ('D2Coding', 'assets/fonts/D2Coding-Regular.ttf'),
+      ('MaterialIcons', 'fonts/MaterialIcons-Regular.otf'),
+    ]) {
+      await (FontLoader(family)..addFont(rootBundle.load(path))).load();
+    }
+  });
   late BrowserFiles files;
-  Future<void> show(WidgetTester tester) async {
+  Future<void> show(WidgetTester tester, {ThemeData? theme}) async {
     files = BrowserFiles()
       ..nodes.addAll({
         '/home': SftpFileAttrs(mode: SftpFileMode.value(0x4000)),
@@ -75,6 +90,7 @@ void main() {
       });
     await tester.pumpWidget(
       MaterialApp(
+        theme: theme,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('ko'),
@@ -86,6 +102,76 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'Windows path and search are quiet until hovered or focused',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final theme = tildeTheme(Brightness.dark, UiEngineFixture());
+      await show(tester, theme: theme);
+      final path = find.byKey(const ValueKey('file-path-field'));
+      final sample = tester.getRect(path).topRight + const Offset(-140, 10);
+      Future<Color> pathColor() async {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byType(RepaintBoundary).first,
+        );
+        final (bytes, imageWidth) = (await tester.runAsync(() async {
+          final image = await boundary.toImage();
+          final bytes = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          final width = image.width;
+          image.dispose();
+          return (bytes, width);
+        }))!;
+        final offset = (sample.dy.floor() * imageWidth + sample.dx.floor()) * 4;
+        final color = Color.fromARGB(
+          bytes.getUint8(offset + 3),
+          bytes.getUint8(offset),
+          bytes.getUint8(offset + 1),
+          bytes.getUint8(offset + 2),
+        );
+        return color;
+      }
+
+      expect(await pathColor(), theme.colorScheme.surfaceContainerHigh);
+      await capture(tester, 'windows-path-idle');
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(sample);
+      await tester.pumpAndSettle();
+      expect(await pathColor(), theme.colorScheme.surfaceContainerHighest);
+      await capture(tester, 'windows-path-hover');
+      await tester.tapAt(sample);
+      await tester.pumpAndSettle();
+      final address = find.widgetWithText(TextField, '원격 폴더 경로');
+      final input = tester.widget<InputDecorator>(
+        find.descendant(of: address, matching: find.byType(InputDecorator)),
+      );
+      expect(input.isFocused, isTrue);
+      expect(
+        input.decoration.focusedBorder!.borderSide.color,
+        theme.colorScheme.primary,
+      );
+      expect(input.decoration.focusedBorder!.borderSide.width, 2);
+      await capture(tester, 'windows-path-edit');
+      final search = find.widgetWithText(TextField, '현재 폴더에서 찾기');
+      final searchInput = tester.widget<InputDecorator>(
+        find.descendant(of: search, matching: find.byType(InputDecorator)),
+      );
+      expect(searchInput.decoration.enabledBorder!.borderSide, BorderSide.none);
+      expect(
+        searchInput.decoration.focusedBorder!.borderSide.color,
+        theme.colorScheme.primary,
+      );
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
 
   Future<void> action(WidgetTester tester, String label) async {
     await tester.tap(find.byTooltip('old.txt 작업'));
