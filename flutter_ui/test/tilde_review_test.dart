@@ -131,7 +131,7 @@ void main() {
     engine.notifyListeners();
     await tester.pump();
     final overlaySize = tester.getSize(find.byType(TerminalPane));
-    expect(overlaySize.height, size.height + 44);
+    expect(overlaySize, size);
     await tester.tap(find.byType(TerminalPane));
     await tester.pump(const Duration(seconds: 4));
     expect(tester.getSize(find.byType(TerminalPane)), overlaySize);
@@ -157,7 +157,7 @@ void main() {
     tester,
   ) async {
     await open(tester, ShellHome(engine: engine));
-    await tester.longPress(find.text('home-nas').first);
+    await tester.longPress(find.text('home-nas').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('삭제'));
     await tester.pumpAndSettle();
@@ -190,7 +190,7 @@ void main() {
           return null;
         });
     await open(tester, ShellHome(engine: engine));
-    await tester.tap(find.text('home-nas').first);
+    await tester.tap(find.text('home-nas').last);
     await tester.pumpAndSettle();
     await tester.pumpAndSettle();
     expect(find.text('home-nas에 연결하지 못했습니다'), findsOneWidget);

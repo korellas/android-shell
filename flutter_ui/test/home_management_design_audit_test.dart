@@ -239,6 +239,7 @@ void main() {
       tester,
     ) async {
       engine.state['hosts'] = [];
+      engine.state['sessions'] = [];
       await open(tester, ShellHome(engine: engine), width, 2);
       await capture(tester, 'home-empty-${width.toInt()}-2.0');
       expect(find.text('새 호스트'), findsOneWidget);

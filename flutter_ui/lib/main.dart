@@ -27,6 +27,7 @@ import 'editors.dart';
 import 'management.dart';
 import 'console.dart';
 import 'desktop_workspace.dart';
+import 'terminal/session_tabs.dart';
 import 'files/file_browser.dart';
 
 void main() => runApp(const AndroidShellApp());
@@ -558,9 +559,11 @@ class _ShellHomeState extends State<ShellHome> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _presentPrompt();
     });
-    if (tildePointer(context)) return;
     final id = engine.state['selectedSession'] as int?;
     if (id == null) _intentSession = null;
+    if (tildePointer(context) || ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
     if (id != null && id != _intentSession) {
       _intentSession = id;
       final selected = engine
@@ -570,7 +573,7 @@ class _ShellHomeState extends State<ShellHome> {
       final setup = _setupHostId != null && _setupHostId == selected?['hostId'];
       _setupHostId = null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
+        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
           Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => ConsolePage(
@@ -862,6 +865,21 @@ class _ShellHomeState extends State<ShellHome> {
     ),
   );
 
+  void _resumeSession(int id) {
+    if (!engine.list('sessions').any((s) => s['id'] == id)) return;
+    unawaited(_page(ConsolePage(engine: engine, sessionId: id)));
+  }
+
+  Future<void> _openSessions() async {
+    final result = await showTildeSessions(context, engine);
+    if (!mounted || result == null) return;
+    if (result.$2) {
+      await closeTildeSession(context, engine, result.$1);
+    } else {
+      _resumeSession(result.$1);
+    }
+  }
+
   Widget _hostList(List<EngineRecord> hosts, bool wide) {
     final sessions = engine.list('sessions');
     bool open(EngineRecord h) =>
@@ -870,6 +888,15 @@ class _ShellHomeState extends State<ShellHome> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
+        if (sessions.isNotEmpty) ...[
+          Text('열린 세션', style: Theme.of(context).textTheme.titleMedium),
+          SessionList(
+            engine: engine,
+            onSelect: _resumeSession,
+            onClose: (id) => unawaited(closeTildeSession(context, engine, id)),
+          ),
+          const Divider(height: 32),
+        ],
         for (var i = 0; i < ordered.length; i++) ...[
           if (i > 0 && open(ordered[i - 1]) && !open(ordered[i]))
             const SizedBox(height: 20),
@@ -962,7 +989,7 @@ class _ShellHomeState extends State<ShellHome> {
     final list = Column(
       children: [
         Expanded(
-          child: hosts.isEmpty
+          child: hosts.isEmpty && engine.list('sessions').isEmpty
               ? TildeWelcome(
                   onAdd: () => _page(
                     RecordEditor(engine: engine, kind: RecordKind.host),
@@ -997,6 +1024,11 @@ class _ShellHomeState extends State<ShellHome> {
       appBar: AppBar(
         title: const TildeWordmark(),
         actions: [
+          if (engine.list('sessions').isNotEmpty)
+            TextButton(
+              onPressed: _openSessions,
+              child: Text('세션 ${engine.list('sessions').length}'),
+            ),
           IconButton(
             tooltip: '호스트 추가',
             onPressed: () =>
