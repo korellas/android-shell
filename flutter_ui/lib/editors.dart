@@ -26,15 +26,16 @@ import 'settings_widgets.dart';
 import 'management.dart';
 import 'main.dart';
 import 'files/file_browser.dart';
+import 'l10n/strings.dart';
 
 enum RecordKind { host, profile, identity, forward, key }
 
 String kindTitle(RecordKind kind) => switch (kind) {
-  RecordKind.host => '호스트',
-  RecordKind.profile => '프로필',
-  RecordKind.identity => '공용 로그인 계정',
-  RecordKind.forward => '포트 포워딩',
-  RecordKind.key => 'SSH 키',
+  RecordKind.host => deviceStrings.host,
+  RecordKind.profile => deviceStrings.profile,
+  RecordKind.identity => deviceStrings.sharedLoginAccount,
+  RecordKind.forward => deviceStrings.portForwarding,
+  RecordKind.key => deviceStrings.sshKeys,
 };
 
 class RecordEditor extends StatefulWidget {
@@ -207,12 +208,12 @@ class _RecordEditorState extends State<RecordEditor> {
             errorBuilder: (context, error) => Text(error),
             validator: (value) {
               if (required && (value ?? '').trim().isEmpty) {
-                return '$label 항목을 입력하세요.';
+                return context.l10n.enter((label).toString());
               }
               if (number &&
                   (value ?? '').isNotEmpty &&
                   int.tryParse(value!) == null) {
-                return '정수를 입력하세요.';
+                return context.l10n.enterAWholeNumber;
               }
               if (number &&
                   (value ?? '').isNotEmpty &&
@@ -224,7 +225,7 @@ class _RecordEditorState extends State<RecordEditor> {
                   ].contains(key)) {
                 final n = int.tryParse(value!)!;
                 if (n < (key == 'moshPort' ? 0 : 1) || n > 65535) {
-                  return '포트 범위를 확인하세요.';
+                  return context.l10n.checkThePortRange;
                 }
               }
               return null;
@@ -290,7 +291,7 @@ class _RecordEditorState extends State<RecordEditor> {
     if (preserveUnknown &&
         current != null &&
         !values.any((v) => v.$1 == current)) {
-      values.add((current, '$current (현재 값)'));
+      values.add((current, context.l10n.currentValue((current).toString())));
     }
     void change(Object? value) {
       if (value == draft[key]) return;
@@ -307,7 +308,8 @@ class _RecordEditorState extends State<RecordEditor> {
             builder: (anchor) => ListTile(
               title: Text(label),
               subtitle: Text(
-                values.where((v) => v.$1 == current).firstOrNull?.$2 ?? '선택',
+                values.where((v) => v.$1 == current).firstOrNull?.$2 ??
+                    context.l10n.select,
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () async {
@@ -329,9 +331,9 @@ class _RecordEditorState extends State<RecordEditor> {
     String collection,
     String name, {
     Object? empty,
-    String emptyLabel = '기본값',
+    String? emptyLabel,
   }) => choices(key, label, [
-    (empty, emptyLabel),
+    (empty, emptyLabel ?? context.l10n.defaultValue),
     for (final record
         in engine.list(collection).where((record) => record["id"] != empty))
       (record['id'] as Object, '${record[name]}'),
@@ -350,15 +352,15 @@ class _RecordEditorState extends State<RecordEditor> {
               ))
         (
           key['id'],
-          '${key['nickname']}${key['supported'] == false ? ' (DSA 미지원)' : ''}',
+          '${key['nickname']}${key['supported'] == false ? context.l10n.dsaUnsupported : ''}',
         ),
       (
         -1,
         engine.state['platform'] == 'windows'
-            ? 'Windows 기본 키와 등록한 키'
-            : '사용 가능한 키 모두 시도',
+            ? context.l10n.windowsDefaultKeysAndAddedKeys
+            : context.l10n.tryAllAvailableKeys,
       ),
-      (-2, '키 쓰지 않음'),
+      (-2, context.l10n.noKey),
     ],
     draft['pubkeyId'] ?? -1,
     (v) => setState(() => draft['pubkeyId'] = v),
@@ -376,15 +378,15 @@ class _RecordEditorState extends State<RecordEditor> {
         text(
           'password',
           draft['hasPassword'] == true && '${draft['password'] ?? ''}'.isEmpty
-              ? '비밀번호 (저장됨)'
-              : '비밀번호',
+              ? context.l10n.passwordSaved
+              : context.l10n.password,
           password: true,
         ),
         settingsNote(
           context,
           widget.kind == RecordKind.host
-              ? '이 기기에 암호화해 보관합니다. 다른 기기로 복원하면 다시 입력해야 합니다.'
-              : '이 기기에 암호화해 보관합니다.',
+              ? context.l10n.storedEncryptedOnThisDeviceEnterItAgainAfter
+              : context.l10n.storedEncryptedOnThisDevice,
         ),
       ],
     ),
@@ -398,7 +400,7 @@ class _RecordEditorState extends State<RecordEditor> {
             draft['clearPassword'] = true;
             passwordRevision++;
           }),
-          child: const Text('저장된 비밀번호 삭제'),
+          child: Text(context.l10n.deleteSavedPassword),
         ),
       ),
   ];
@@ -411,39 +413,45 @@ class _RecordEditorState extends State<RecordEditor> {
   List<Widget> fields() => switch (widget.kind) {
     RecordKind.host => hostFields(hostCategory ?? 'connection'),
     RecordKind.identity => [
-      section('공용 로그인 계정', [
-        text('name', '계정 이름', required: true),
-        text('username', '사용자 이름', required: true),
+      section(context.l10n.sharedLoginAccount, [
+        text('name', context.l10n.accountName, required: true),
+        text('username', context.l10n.username, required: true),
       ]),
       if (widget.record != null)
         settingsNote(
           context,
-          '${engine.list('hosts').where((h) => h['identityId'] == draft['id']).length}개 호스트에 적용됩니다',
+          context.l10n.appliesToHosts(
+            (engine
+                    .list('hosts')
+                    .where((h) => h['identityId'] == draft['id'])
+                    .length)
+                .toString(),
+          ),
         ),
-      section('SSH 키', [pubkeySelector()]),
-      section('비밀번호', passwordFields()),
+      section(context.l10n.sshKeys, [pubkeySelector()]),
+      section(context.l10n.password, passwordFields()),
     ],
     RecordKind.profile => [
       Padding(
         padding: const EdgeInsets.all(16),
         child: TerminalPreview(engine: engine, overrides: {'profile': draft}),
       ),
-      section('화면', [
-        text('name', '프로필 이름', required: true),
+      section(context.l10n.display, [
+        text('name', context.l10n.profileName, required: true),
         references(
           'colorSchemeId',
-          '색상 테마',
+          context.l10n.colorTheme,
           'schemes',
           'name',
           empty: -1,
           emptyLabel: 'Tilde Night',
         ),
-        choices('fontFamily', '터미널 폰트', [
-          (null, '앱 기본값'),
+        choices('fontFamily', context.l10n.terminalFont, [
+          (null, context.l10n.appDefault),
           ...fontOptions(engine),
         ], forceList: true),
         TildeStepper(
-          title: '글자 크기',
+          title: context.l10n.fontSize,
           unit: 'sp',
           value: (draft['fontSize'] as num?)?.toInt() ?? 14,
           min: 4,
@@ -451,8 +459,8 @@ class _RecordEditorState extends State<RecordEditor> {
           onChanged: (v) => setState(() => draft['fontSize'] = v),
         ),
       ]),
-      section('터미널', [
-        choices('encoding', '문자 인코딩', [
+      section(context.l10n.terminal, [
+        choices('encoding', context.l10n.characterEncoding, [
           (draft['encoding'], '${draft['encoding']}'),
           for (final v
               in (engine.state['encodings'] as List? ??
@@ -471,7 +479,7 @@ class _RecordEditorState extends State<RecordEditor> {
           ])
             if (v != draft['emulation']) (v, '$v'),
         ], forceList: true),
-        choices('delKey', '삭제 키', [
+        choices('delKey', context.l10n.deleteKey, [
           ('del', 'Delete'),
           ('backspace', 'Backspace'),
         ]),
@@ -481,13 +489,13 @@ class _RecordEditorState extends State<RecordEditor> {
             builder: (context, constraints) {
               final columns = text(
                 'forceSizeColumns',
-                '열 수 · 자동',
+                context.l10n.columnsAutomatic,
                 number: true,
                 optional: true,
               );
               final rows = text(
                 'forceSizeRows',
-                '행 수 · 자동',
+                context.l10n.rowsAutomatic,
                 number: true,
                 optional: true,
               );
@@ -508,25 +516,27 @@ class _RecordEditorState extends State<RecordEditor> {
       ]),
     ],
     RecordKind.forward => [
-      section('포워딩', [
-        text('nickname', '포워딩 이름', required: true),
-        choices('type', '방식', [
-          ('local', '로컬'),
-          ('remote', '원격'),
+      section(context.l10n.forwarding, [
+        text('nickname', context.l10n.forwardingName, required: true),
+        choices('type', context.l10n.type, [
+          ('local', context.l10n.local),
+          ('remote', context.l10n.remote),
           ('dynamic5', 'SOCKS5'),
         ], preserveUnknown: false),
         Padding(
           padding: const EdgeInsets.all(16),
           child: Text(switch (draft['type']) {
-            'remote' => '서버의 포트로 들어온 연결을 이 기기의 주소로 보냅니다.',
-            'local' => '이 기기의 포트로 들어온 연결을 서버 쪽 주소로 보냅니다.',
-            _ => '이 기기에 SOCKS5 프록시를 엽니다.',
+            'remote' =>
+              context.l10n.forwardConnectionsFromAServerPortToAnAddress,
+            'local' =>
+              context.l10n.forwardConnectionsFromADevicePortToAnAddress,
+            _ => context.l10n.openASocks5ProxyOnThisDevice,
           }),
         ),
         if (draft['type'] == 'dynamic4')
           settingsNote(
             context,
-            'SOCKS4는 실행할 수 없습니다. 방식을 SOCKS5로 변경하면 사용할 수 있습니다.',
+            context.l10n.socks4IsUnsupportedChangeTheTypeToSocks5To,
           ),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -549,17 +559,37 @@ class _RecordEditorState extends State<RecordEditor> {
               children: [
                 pair(
                   draft['type'] == 'remote'
-                      ? text('sourceAddr', '서버에서 받을 주소', required: true)
-                      : const ListTile(
-                          title: Text('이 기기에서 받을 주소'),
-                          subtitle: Text('127.0.0.1 · 이 기기에서만 접근'),
+                      ? text(
+                          'sourceAddr',
+                          context.l10n.listenAddressOnServer,
+                          required: true,
+                        )
+                      : ListTile(
+                          title: Text(context.l10n.listenAddressOnThisDevice),
+                          subtitle: Text(
+                            context.l10n.text127001AccessibleOnlyOnThisDevice,
+                          ),
                         ),
-                  text('sourcePort', '포트', required: true, number: true),
+                  text(
+                    'sourcePort',
+                    context.l10n.port,
+                    required: true,
+                    number: true,
+                  ),
                 ),
                 if (draft['type'] == 'local' || draft['type'] == 'remote')
                   pair(
-                    text('destAddr', '대상 주소', required: true),
-                    text('destPort', '포트', required: true, number: true),
+                    text(
+                      'destAddr',
+                      context.l10n.destinationAddress,
+                      required: true,
+                    ),
+                    text(
+                      'destPort',
+                      context.l10n.port,
+                      required: true,
+                      number: true,
+                    ),
                   ),
               ],
             );
@@ -568,7 +598,7 @@ class _RecordEditorState extends State<RecordEditor> {
       ]),
     ],
     RecordKind.key => [
-      section('공개키', [
+      section(context.l10n.publicKey, [
         if (draft['publicKey'] != null)
           Padding(
             padding: const EdgeInsets.all(16),
@@ -598,7 +628,7 @@ class _RecordEditorState extends State<RecordEditor> {
                   onPressed: () => Clipboard.setData(
                     ClipboardData(text: '${draft['fingerprint']}'),
                   ),
-                  child: const Text('지문 복사'),
+                  child: Text(context.l10n.copyFingerprint),
                 ),
               ],
             ),
@@ -610,16 +640,17 @@ class _RecordEditorState extends State<RecordEditor> {
               'format': 'public',
             }),
             icon: const Icon(Icons.copy_outlined),
-            label: const Text('공개키 복사'),
+            label: Text(context.l10n.copyPublicKey),
           ),
       ]),
-      section('키 설정', [
-        text('nickname', '키 이름', required: true),
+      section(context.l10n.keySettings, [
+        text('nickname', context.l10n.keyName, required: true),
         if (draft['supported'] == true)
           toggle(
             'confirmation',
-            '사용할 때 확인',
-            description: '이 키로 인증하기 전에 허용 여부를 묻습니다',
+            context.l10n.confirmBeforeUse,
+            description:
+                context.l10n.askForPermissionBeforeAuthenticatingWithThisKey,
           ),
         if (draft['supported'] == true)
           ListTile(
@@ -630,21 +661,21 @@ class _RecordEditorState extends State<RecordEditor> {
             ),
             title: Text(
               draft['type'] == 'IMPORTED'
-                  ? '가져온 개인키'
-                  : 'Android Keystore P-256 키',
+                  ? context.l10n.importedPrivateKey
+                  : context.l10n.androidKeystoreP256Key,
             ),
             subtitle: Text(
               draft['type'] == 'IMPORTED'
-                  ? '가져온 개인키 파일로 인증합니다'
-                  : '비밀키는 기기 밖으로 내보낼 수 없습니다',
+                  ? context.l10n.authenticateWithAnImportedPrivateKeyFile
+                  : context.l10n.thePrivateKeyCannotBeExportedFromThisDevice,
             ),
           ),
         if (draft['supported'] != true)
           ListTile(
             leading: const Icon(Icons.block_outlined),
-            title: const Text('사용 중지된 기존 개인키'),
+            title: Text(context.l10n.disabledLegacyPrivateKey),
             subtitle: Text(
-              '${draft['supportMessage'] ?? '새 Android Keystore 키로 교체한 뒤 삭제하세요.'}',
+              '${draft['supportMessage'] ?? context.l10n.replaceItWithANewAndroidKeystoreKeyBefore}',
             ),
           ),
       ]),
@@ -673,17 +704,21 @@ class _RecordEditorState extends State<RecordEditor> {
     switch (category) {
       case 'connection':
         return [
-          choices('protocol', '연결 방식', [
+          choices('protocol', context.l10n.connectionType, [
             ('ssh', 'SSH'),
-            if (engine.state['platform'] != 'ios') ('local', '로컬'),
+            if (engine.state['platform'] != 'ios')
+              ('local', context.l10n.local),
           ], preserveUnknown: false),
           if (!supportedHost)
             settingsNote(
               context,
-              '${draft['protocol']} 연결은 지원하지 않습니다. SSH 또는 로컬로 변경하세요.',
+              context.l10n.connectionsAreUnsupportedChangeToSshOrLocal(
+                (draft['protocol']).toString(),
+              ),
             ),
-          if (!wideEditor) text('nickname', '호스트 이름', required: true),
-          if (wideEditor) text('nickname', '이름', required: true),
+          if (!wideEditor)
+            text('nickname', context.l10n.hostName, required: true),
+          if (wideEditor) text('nickname', context.l10n.name, required: true),
           if (draft['protocol'] != 'local') ...[
             if (wideEditor)
               Row(
@@ -693,7 +728,7 @@ class _RecordEditorState extends State<RecordEditor> {
                     flex: 2,
                     child: text(
                       'username',
-                      '사용자 이름',
+                      context.l10n.username,
                       enabled: draft['identityId'] == null,
                     ),
                   ),
@@ -701,42 +736,52 @@ class _RecordEditorState extends State<RecordEditor> {
                     flex: 4,
                     child: text(
                       'hostname',
-                      '서버 주소',
+                      context.l10n.serverAddress,
                       required: true,
                       hint: 'user@host:port',
                     ),
                   ),
                   SizedBox(
                     width: 104,
-                    child: text('port', '포트', number: true, required: true),
+                    child: text(
+                      'port',
+                      context.l10n.port,
+                      number: true,
+                      required: true,
+                    ),
                   ),
                 ],
               )
             else ...[
-              text('hostname', '서버 주소', required: true, hint: 'user@host:port'),
-              text('port', '포트', number: true, required: true),
+              text(
+                'hostname',
+                context.l10n.serverAddress,
+                required: true,
+                hint: 'user@host:port',
+              ),
+              text('port', context.l10n.port, number: true, required: true),
             ],
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                'user@host:port를 주소 칸에 붙여 넣으면 나눠서 채웁니다.',
+                context.l10n.pasteUserHostPortIntoTheAddressFieldTo,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
-            group('고급', [
-              choices('ipVersion', 'IP 주소', [
-                ('IPV4_AND_IPV6', '자동'),
+            group(context.l10n.advanced, [
+              choices('ipVersion', context.l10n.ipAddress, [
+                ('IPV4_AND_IPV6', context.l10n.automatic),
                 ('IPV4_ONLY', 'IPv4'),
                 ('IPV6_ONLY', 'IPv6'),
               ]),
               if (sshHost)
                 choices(
                   'jumpHostId',
-                  '점프 호스트',
+                  context.l10n.jumpHost,
                   [
-                    (null, '직접 연결'),
+                    (null, context.l10n.directConnection),
                     for (final host
                         in engine
                             .list('hosts')
@@ -755,19 +800,26 @@ class _RecordEditorState extends State<RecordEditor> {
         ];
       case 'authentication':
         if (!sshHost) {
-          return [settingsNote(context, '이 연결 방식은 SSH 인증 설정을 사용하지 않습니다.')];
+          return [
+            settingsNote(
+              context,
+              context
+                  .l10n
+                  .thisConnectionTypeDoesNotUseSshAuthenticationSettings,
+            ),
+          ];
         }
         final identity = engine
             .list('identities')
             .where((i) => i['id'] == draft['identityId'])
             .firstOrNull;
         return [
-          group('계정', [
+          group(context.l10n.account, [
             choices(
               'identityId',
-              '공용 로그인 계정',
+              context.l10n.sharedLoginAccount,
               [
-                (null, '쓰지 않음'),
+                (null, context.l10n.doNotUse),
                 for (final i in engine.list('identities'))
                   (i['id'], '${i['name']}'),
               ],
@@ -789,10 +841,12 @@ class _RecordEditorState extends State<RecordEditor> {
               }),
             ),
             if (identity == null && !wideEditor)
-              text('username', '사용자 이름')
+              text('username', context.l10n.username)
             else if (identity != null)
               ListTile(
-                title: Text('${identity['name']} 계정을 씁니다'),
+                title: Text(
+                  context.l10n.usingAccount((identity['name']).toString()),
+                ),
                 subtitle: Text(
                   '${identity['username']}',
                   style: const TextStyle(fontFamily: tildeMono),
@@ -800,19 +854,21 @@ class _RecordEditorState extends State<RecordEditor> {
                 trailing: TextButton(
                   onPressed: () =>
                       showIdentityEditor(context, engine, record: identity),
-                  child: const Text('편집'),
+                  child: Text(context.l10n.edit2),
                 ),
               ),
           ]),
           if (identity == null) ...[
-            group('로그인 키', [pubkeySelector()]),
-            group('비밀번호', [
+            group(context.l10n.loginKey, [pubkeySelector()]),
+            group(context.l10n.password, [
               ...passwordFields(),
               if (draft['protocol'] == 'ssh')
                 ListTile(
                   leading: const Icon(Icons.key_outlined),
-                  title: const Text('이 서버에 키 등록'),
-                  subtitle: const Text('비밀번호로 한 번 로그인해 공개키를 올립니다'),
+                  title: Text(context.l10n.registerKeyOnThisServer),
+                  subtitle: Text(
+                    context.l10n.logInOnceWithAPasswordToInstallThe,
+                  ),
                   onTap: savedHost && widget.onSetup != null && !saving
                       ? registerKey
                       : null,
@@ -843,11 +899,13 @@ class _RecordEditorState extends State<RecordEditor> {
           radix: 16,
         );
         return [
-          group('호스트 색', [
+          group(context.l10n.hostColor, [
             ListTile(
               leading: TildeHostTile(host: draft),
               title: Text('${draft['nickname'] ?? ''}'),
-              subtitle: const Text('홈 목록·탭·알림에서 이렇게 보입니다'),
+              subtitle: Text(
+                context.l10n.previewInTheHomeListTabsAndNotifications,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(16),
@@ -882,8 +940,9 @@ class _RecordEditorState extends State<RecordEditor> {
                       ),
                     ),
                   IconButton(
-                    tooltip: '호스트 색 직접 지정',
+                    tooltip: context.l10n.customHostColor,
                     onPressed: () async {
+                      final contextStrings = context.l10n;
                       final color = await pickTildeColor(
                         context,
                         Color(
@@ -891,7 +950,7 @@ class _RecordEditorState extends State<RecordEditor> {
                               (current ??
                                   ((draft['iconArgb'] as int?) ?? 0xff6fd8c4)),
                         ),
-                        title: '호스트 색',
+                        title: contextStrings.hostColor,
                       );
                       if (color != null && mounted) {
                         setState(
@@ -906,11 +965,16 @@ class _RecordEditorState extends State<RecordEditor> {
               ),
             ),
           ]),
-          group('터미널 프로필', [
+          group(context.l10n.terminalProfile, [
             tildeRadioOptions(
               context,
               [
-                (null, '앱 기본 · ${defaultProfile(engine)['name'] ?? 'Default'}'),
+                (
+                  null,
+                  context.l10n.appDefault2(
+                    (defaultProfile(engine)['name'] ?? 'Default').toString(),
+                  ),
+                ),
                 for (final p in engine.list('profiles'))
                   (p['id'], '${p['name']}'),
               ],
@@ -924,7 +988,7 @@ class _RecordEditorState extends State<RecordEditor> {
             ),
             ListTile(
               leading: const Icon(Icons.tune),
-              title: const Text('프로필 관리'),
+              title: Text(context.l10n.manageProfiles),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => page(
                 RecordListPage(engine: engine, kind: RecordKind.profile),
@@ -934,27 +998,37 @@ class _RecordEditorState extends State<RecordEditor> {
         ];
       case 'session':
         return [
-          group('연결', [
+          group(context.l10n.connect, [
             if (sshHost)
               toggle(
                 'stayConnected',
-                '연결 유지',
-                description: '입출력 오류로 연결이 끊기면 자동으로 다시 연결합니다',
+                context.l10n.keepConnectionAlive,
+                description: context.l10n.reconnectAutomaticallyAfterAnIOError,
               ),
             toggle(
               'quickDisconnect',
-              '닫을 때 묻지 않기',
-              description: 'exit 후 바로 탭을 닫습니다',
+              context.l10n.closeWithoutAsking,
+              description: context.l10n.closeTheTabImmediatelyAfterExit,
             ),
             if (sshHost) ...[
-              toggle('compression', 'SSH 압축', description: '느린 회선에서만 켜세요'),
-              toggle('wantSession', '터미널 열기', description: '끄면 포트 포워딩만 합니다'),
+              toggle(
+                'compression',
+                context.l10n.sshCompression,
+                description: context.l10n.enableOnlyOnSlowConnections,
+              ),
+              toggle(
+                'wantSession',
+                context.l10n.openTerminal,
+                description: context.l10n.whenOffOnlyPortForwardingIsEnabled,
+              ),
             ],
           ]),
-          group('이 호스트만 다르게', [
+          group(context.l10n.overrideForThisHost, [
             TildeStepper(
-              title: '스크롤 기록',
-              unit: '행 · 기본값 ${engine.preferences['scrollback'] ?? ''}',
+              title: context.l10n.scrollback,
+              unit: context.l10n.linesDefault(
+                (engine.preferences['scrollback'] ?? '').toString(),
+              ),
               value:
                   (draft['scrollbackLines'] as num?)?.toInt() ??
                   int.tryParse('${engine.preferences['scrollback'] ?? 140}') ??
@@ -962,7 +1036,7 @@ class _RecordEditorState extends State<RecordEditor> {
               step: 500,
               onChanged: (v) => setState(() => draft['scrollbackLines'] = v),
             ),
-            toggle('useCtrlAltAsMetaKey', 'Ctrl+Alt를 Meta로'),
+            toggle('useCtrlAltAsMetaKey', context.l10n.useCtrlAltAsMeta),
           ]),
         ];
       default:
@@ -971,11 +1045,11 @@ class _RecordEditorState extends State<RecordEditor> {
   }
 
   String hostCategoryTitle(String category) => switch (category) {
-    'connection' => '연결',
-    'authentication' => '인증',
-    'appearance' => '화면·프로필',
-    'session' => '세션',
-    _ => '호스트 편집',
+    'connection' => context.l10n.connect,
+    'authentication' => context.l10n.authentication,
+    'appearance' => context.l10n.displayAndProfile,
+    'session' => context.l10n.session2,
+    _ => context.l10n.editHost,
   };
   Widget hostCategories(String? selected) {
     final profile =
@@ -1032,18 +1106,22 @@ class _RecordEditorState extends State<RecordEditor> {
             final actions = <Widget>[
               if (sshHost)
                 quick(
-                  '파일 전송',
+                  context.l10n.fileTransfer,
                   Icons.folder_open_outlined,
                   () => page(FileBrowserPage(engine: engine, host: draft)),
                 ),
               if (sshHost)
                 quick(
-                  '포워딩',
+                  context.l10n.forwarding,
                   Icons.swap_horiz,
                   () => page(ForwardsPage(engine: engine, host: draft)),
                 ),
               if (supportedHost)
-                quick('복제', Icons.file_copy_outlined, duplicateHost),
+                quick(
+                  context.l10n.duplicate,
+                  Icons.file_copy_outlined,
+                  duplicateHost,
+                ),
             ];
             return MediaQuery.textScalerOf(context).scale(15) > 21
                 ? Column(
@@ -1074,16 +1152,21 @@ class _RecordEditorState extends State<RecordEditor> {
         (
           'connection',
           draft['protocol'] == 'local'
-              ? '로컬 셸'
+              ? context.l10n.localShell
               : '${draft['protocol'] ?? 'ssh'} · ${draft['hostname'] ?? ''}:${draft['port'] ?? ''}',
         ),
         if (sshHost)
           (
             'authentication',
-            '${key?['nickname'] ?? '키 선택'} · ${draft['username'] ?? ''}',
+            '${key?['nickname'] ?? context.l10n.selectKey} · ${draft['username'] ?? ''}',
           ),
-        ('appearance', '${profile['name'] ?? '앱 기본값'}'),
-        ('session', draft['stayConnected'] == true ? '연결 유지' : '연결 설정'),
+        ('appearance', '${profile['name'] ?? context.l10n.appDefault}'),
+        (
+          'session',
+          draft['stayConnected'] == true
+              ? context.l10n.keepConnectionAlive
+              : context.l10n.connectionSettings,
+        ),
       ])
         ListTile(
           contentPadding: EdgeInsets.zero,
@@ -1116,7 +1199,7 @@ class _RecordEditorState extends State<RecordEditor> {
       if (savedHost && sshHost)
         ListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('신뢰한 서버 키'),
+          title: Text(context.l10n.trustedServerKeys),
           trailing: const Icon(Icons.chevron_right),
           onTap: () =>
               page(KnownHostsPage(engine: engine, hostId: draft['id'] as int)),
@@ -1159,11 +1242,12 @@ class _RecordEditorState extends State<RecordEditor> {
   }
 
   Future<void> duplicateHost() async {
+    final contextStrings = context.l10n;
     final name = await askText(
       context,
-      '복제할 이름',
-      initial: '${draft['nickname']} 복사',
-      action: '복제',
+      contextStrings.nameForDuplicate,
+      initial: contextStrings.copy((draft['nickname']).toString()),
+      action: contextStrings.duplicate,
     );
     if (name != null && mounted) {
       await runEngine(context, engine, 'host.duplicate', {
@@ -1245,6 +1329,7 @@ class _RecordEditorState extends State<RecordEditor> {
   }
 
   Future<bool> save({bool close = true}) async {
+    final contextStrings = context.l10n;
     if (saving) return false;
     if (widget.kind == RecordKind.host) {
       parseAddress('${draft['hostname'] ?? ''}');
@@ -1295,9 +1380,9 @@ class _RecordEditorState extends State<RecordEditor> {
         setState(() => error = '$e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('저장하지 못했습니다'),
+            content: Text(contextStrings.couldNotSave),
             action: SnackBarAction(
-              label: '자세히',
+              label: contextStrings.details,
               onPressed: () => showErrorDetails(context, e),
             ),
           ),
@@ -1312,7 +1397,8 @@ class _RecordEditorState extends State<RecordEditor> {
   Widget desktopSaveBar(bool wide, bool dirty) {
     final keys = changedKeys.toList();
     String label(String key) =>
-        _fieldLabels[key] ?? (key == 'password' ? '비밀번호' : '설정');
+        _fieldLabels[key] ??
+        (key == 'password' ? context.l10n.password : context.l10n.settings);
     Future<void> showChanges() => showTildeSheet<void>(
       context: context,
       builder: (c) => SingleChildScrollView(
@@ -1321,15 +1407,18 @@ class _RecordEditorState extends State<RecordEditor> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('변경한 항목', style: Theme.of(c).textTheme.titleLarge),
+            Text(
+              context.l10n.changedFields,
+              style: Theme.of(c).textTheme.titleLarge,
+            ),
             for (final key in keys)
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(label(key)),
                 subtitle: Text(
                   key == 'password'
-                      ? '비밀번호 변경'
-                      : '${originalDraft[key] ?? '없음'} → ${draft[key] ?? '없음'}',
+                      ? context.l10n.changePassword
+                      : '${originalDraft[key] ?? context.l10n.none} → ${draft[key] ?? context.l10n.none}',
                 ),
               ),
           ],
@@ -1370,7 +1459,7 @@ class _RecordEditorState extends State<RecordEditor> {
                   runSpacing: 8,
                   children: [
                     if (saving)
-                      const Text('저장하는 중입니다')
+                      Text(context.l10n.saving)
                     else if (dirty && error != null)
                       TextButton.icon(
                         onPressed: () => showErrorDetails(context, error!),
@@ -1379,7 +1468,7 @@ class _RecordEditorState extends State<RecordEditor> {
                           size: 6,
                           color: Theme.of(context).colorScheme.error,
                         ),
-                        label: const Text('저장하지 못했습니다'),
+                        label: Text(context.l10n.couldNotSave),
                       )
                     else if (dirty)
                       Wrap(
@@ -1387,18 +1476,24 @@ class _RecordEditorState extends State<RecordEditor> {
                         children: [
                           Text(
                             keys.length == 1
-                                ? '${label(keys.first)}를 바꿨습니다'
-                                : '${label(keys.first)} 외',
+                                ? context.l10n.changed(
+                                    (label(keys.first)).toString(),
+                                  )
+                                : context.l10n.andOthers(
+                                    (label(keys.first)).toString(),
+                                  ),
                           ),
                           if (keys.length > 1)
                             TextButton(
                               onPressed: showChanges,
-                              child: Text('${keys.length - 1}개 항목'),
+                              child: Text(
+                                context.l10n.items((keys.length - 1)),
+                              ),
                             ),
                         ],
                       )
                     else if (savedNotice)
-                      const Text('저장했습니다'),
+                      Text(context.l10n.saved),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -1407,7 +1502,7 @@ class _RecordEditorState extends State<RecordEditor> {
                         if (dirty || saving) ...[
                           TextButton(
                             onPressed: saving ? null : cancelEdits,
-                            child: const Text('되돌리기'),
+                            child: Text(context.l10n.undo),
                           ),
                           Tooltip(
                             message: 'Ctrl S',
@@ -1415,14 +1510,18 @@ class _RecordEditorState extends State<RecordEditor> {
                               onPressed: saving
                                   ? null
                                   : () => save(close: false),
-                              child: const Text('저장'),
+                              child: Text(context.l10n.save),
                             ),
                           ),
                         ],
                         if (supportedHost && !wide) ...[
                           FilledButton(
                             onPressed: saving ? null : connectSavedHost,
-                            child: Text(dirty ? '저장하고 새 터미널' : '새 터미널'),
+                            child: Text(
+                              dirty
+                                  ? context.l10n.saveAndOpenNewTerminal
+                                  : context.l10n.newTerminal,
+                            ),
                           ),
                         ],
                       ],
@@ -1473,14 +1572,21 @@ class _RecordEditorState extends State<RecordEditor> {
         },
         itemBuilder: (_) => [
           if (supportedHost)
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'duplicate',
-              child: TildeMenuLabel('복제', Icons.content_copy_outlined),
+              child: TildeMenuLabel(
+                context.l10n.duplicate,
+                Icons.content_copy_outlined,
+              ),
             ),
           const PopupMenuDivider(),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'delete',
-            child: TildeMenuLabel('호스트 삭제', Icons.delete_outline, danger: true),
+            child: TildeMenuLabel(
+              context.l10n.deleteHost,
+              Icons.delete_outline,
+              danger: true,
+            ),
           ),
         ],
       );
@@ -1506,7 +1612,11 @@ class _RecordEditorState extends State<RecordEditor> {
                       OutlinedButton.icon(
                         onPressed: saving ? null : connectSavedHost,
                         icon: const Icon(Icons.terminal_outlined, size: 18),
-                        label: Text(dirty ? '저장하고 새 터미널' : '새 터미널'),
+                        label: Text(
+                          dirty
+                              ? context.l10n.saveAndOpenNewTerminal
+                              : context.l10n.newTerminal,
+                        ),
                       ),
                     if (savedHost) hostMenu,
                   ],
@@ -1516,10 +1626,10 @@ class _RecordEditorState extends State<RecordEditor> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: ListTile(
-                  title: const Text('변경 사항을 저장하지 못했습니다'),
+                  title: Text(context.l10n.couldNotSaveChanges),
                   trailing: TextButton(
                     onPressed: () => showErrorDetails(context, error!),
-                    child: const Text('자세히'),
+                    child: Text(context.l10n.details),
                   ),
                 ),
               ),
@@ -1556,7 +1666,9 @@ class _RecordEditorState extends State<RecordEditor> {
                           vertical: 8,
                         ),
                         child: Text(
-                          '${kindTitle(widget.kind)} ${widget.record == null ? '추가' : '편집'}',
+                          widget.record == null
+                              ? context.l10n.add2(kindTitle(widget.kind))
+                              : context.l10n.edit(kindTitle(widget.kind)),
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
@@ -1570,17 +1682,17 @@ class _RecordEditorState extends State<RecordEditor> {
                             children: [
                               TextButton(
                                 onPressed: saving ? null : () => back(false),
-                                child: const Text('취소'),
+                                child: Text(context.l10n.cancel),
                               ),
                               const SizedBox(width: 8),
                               FilledButton(
                                 onPressed: saving ? null : () => save(),
                                 child: Text(
                                   saving
-                                      ? '저장 중…'
+                                      ? context.l10n.saving2
                                       : widget.sessionId != null
-                                      ? '적용'
-                                      : '저장',
+                                      ? context.l10n.apply
+                                      : context.l10n.save,
                                 ),
                               ),
                             ],
@@ -1606,7 +1718,7 @@ class _RecordEditorState extends State<RecordEditor> {
                                     MediaQuery.sizeOf(context).width >= 720
                               ? null
                               : IconButton(
-                                  tooltip: '뒤로',
+                                  tooltip: context.l10n.back,
                                   icon: const Icon(Icons.arrow_back),
                                   onPressed: () => back(wide),
                                 ),
@@ -1614,8 +1726,13 @@ class _RecordEditorState extends State<RecordEditor> {
                             host && !wide && selected != null
                                 ? hostCategoryTitle(selected)
                                 : widget.embedded
-                                ? '${draft['nickname'] ?? '새 호스트'} 편집'
-                                : '${kindTitle(widget.kind)} ${widget.record == null ? '추가' : '편집'}',
+                                ? context.l10n.edit(
+                                    (draft['nickname'] ?? context.l10n.newHost)
+                                        .toString(),
+                                  )
+                                : widget.record == null
+                                ? context.l10n.add2(kindTitle(widget.kind))
+                                : context.l10n.edit(kindTitle(widget.kind)),
                           ),
                         ),
                   bottomNavigationBar:
@@ -1632,8 +1749,8 @@ class _RecordEditorState extends State<RecordEditor> {
                           saveLabel:
                               widget.kind == RecordKind.forward &&
                                   widget.record == null
-                              ? '추가'
-                              : '저장',
+                              ? context.l10n.add
+                              : context.l10n.save,
                         )
                       : host && savedHost && selected == null
                       ? SafeArea(
@@ -1655,7 +1772,7 @@ class _RecordEditorState extends State<RecordEditor> {
                                         ? null
                                         : connectSavedHost,
                                     icon: const Icon(Icons.terminal_outlined),
-                                    label: const Text('새 터미널'),
+                                    label: Text(context.l10n.newTerminal),
                                   ),
                                 ),
                               ),
@@ -1697,7 +1814,7 @@ class _RecordEditorState extends State<RecordEditor> {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                '${draft['nickname'] ?? '새 호스트'}',
+                                                '${draft['nickname'] ?? context.l10n.newHost}',
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(
@@ -1799,7 +1916,9 @@ List<(Object?, String)> fontOptions(AndroidEngine engine) => [
   for (final font in rows(engine.preferences['fonts']))
     (
       font['value'] as String,
-      font['value'] == 'SYSTEM_DEFAULT' ? '시스템 기본값' : '${font['label']}',
+      font['value'] == 'SYSTEM_DEFAULT'
+          ? deviceStrings.systemDefault
+          : '${font['label']}',
     ),
   for (final font in (engine.preferences['customFonts'] as List? ?? []))
     ('custom:$font', '$font'),
@@ -1812,7 +1931,7 @@ String fontLabel(AndroidEngine engine, Object? stored) {
   return fontOptions(
         engine,
       ).where((font) => font.$1 == value).firstOrNull?.$2 ??
-      (value == null ? '앱 기본 폰트' : '$value');
+      (value == null ? deviceStrings.appDefaultFont : '$value');
 }
 
 class GenerateKeyPage extends StatefulWidget {
@@ -1848,25 +1967,29 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('새 SSH 키', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              context.l10n.newSshKey,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 24),
-            const Text('키 이름', style: TextStyle(fontSize: 13)),
+            Text(context.l10n.keyName, style: TextStyle(fontSize: 13)),
             const SizedBox(height: 8),
             TextFormField(
               decoration: const InputDecoration(),
-              validator: (v) => (v ?? '').trim().isEmpty ? '이름을 입력하세요.' : null,
+              validator: (v) =>
+                  (v ?? '').trim().isEmpty ? context.l10n.enterAName : null,
               onChanged: (v) => name = v,
             ),
             settingsNote(
               context,
-              'P-256 개인키를 Android Keystore에 만들고 서명할 때마다 생체인증을 요구합니다. 개인키는 복사·내보내기·백업할 수 없습니다.',
+              context.l10n.createAP256PrivateKeyInAndroidKeystore,
             ),
             if (error != null)
               ListTile(
-                title: const Text('키를 만들지 못했습니다'),
+                title: Text(context.l10n.couldNotCreateKey),
                 trailing: TextButton(
                   onPressed: () => showErrorDetails(context, error!),
-                  child: const Text('자세히'),
+                  child: Text(context.l10n.details),
                 ),
               ),
             const SizedBox(height: 24),
@@ -1902,7 +2025,7 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
                     },
               child: busy
                   ? const TildeProgress.circular()
-                  : const Text('키 만들기'),
+                  : Text(context.l10n.createKey),
             ),
           ],
         ),

@@ -1,8 +1,10 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 class WindowsSecrets {
   Future<Uint8List> protect(Uint8List bytes) => _convert(bytes, true);
@@ -35,7 +37,11 @@ Add-Type -AssemblyName System.Security
     final result = await output;
     final failure = await error;
     if (exit != 0) {
-      throw FileSystemException('Windows 계정의 인증정보 보호에 실패했습니다. $failure');
+      throw FileSystemException(
+        deviceStrings.couldNotProtectCredentialsWithTheWindowsAccount(
+          (failure).toString(),
+        ),
+      );
     }
     return base64Decode(result.trim());
   }

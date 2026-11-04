@@ -7,6 +7,7 @@ import 'package:android_shell_ui/tilde_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'ui_engine_fixture.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   late UiEngineFixture engine;
@@ -36,6 +37,9 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: RecordListPage(engine: engine, kind: RecordKind.identity),
       ),
     );
@@ -53,7 +57,14 @@ void main() {
   testWidgets(
     'diagnostic actions are in overflow and severity filters retain actual counts',
     (tester) async {
-      await tester.pumpWidget(MaterialApp(home: LogsPage(engine: engine)));
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: LogsPage(engine: engine),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('새로고침'), findsNothing);
       expect(find.text('네이티브 크래시 기록 저장'), findsNothing);

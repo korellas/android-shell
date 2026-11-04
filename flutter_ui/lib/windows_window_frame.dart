@@ -1,10 +1,12 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'engine.dart';
+import 'l10n/strings.dart';
 
 class WindowsWindowFrame extends StatefulWidget {
   const WindowsWindowFrame({
@@ -155,13 +157,13 @@ class _WindowsWindowFrameState extends State<WindowsWindowFrame> {
                   child: widget.titleBar(SizedBox(key: drag, height: 40)),
                 ),
                 if (!fullscreen) ...[
-                  caption('minimize', '최소화'),
+                  caption('minimize', context.l10n.minimize),
                   caption(
                     'toggleMaximize',
-                    maximized ? '이전 크기로' : '최대화',
+                    maximized ? context.l10n.restore : context.l10n.maximize,
                     key: maximize,
                   ),
-                  caption('close', '창 닫기'),
+                  caption('close', context.l10n.closeWindow),
                 ],
               ],
             ),

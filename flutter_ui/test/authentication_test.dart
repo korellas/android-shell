@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:android_shell_ui/editors.dart';
 import 'package:android_shell_ui/engine.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -63,6 +64,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: RecordEditor(
           engine: engine,
           kind: RecordKind.host,
@@ -140,6 +144,9 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: RecordEditor(
           engine: engine,
           kind: RecordKind.identity,

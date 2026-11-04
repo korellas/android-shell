@@ -1,0 +1,3 @@
+// Copyright 2026 Kenny Root
+// SPDX-License-Identifier: Apache-2.0
+"NSLocalNetworkUsageDescription" = "Connect to SSH servers and debug apps on your local network.";

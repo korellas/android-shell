@@ -13,6 +13,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'ui_engine_fixture.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   for (final upload in [true, false]) {
@@ -28,6 +29,9 @@ void main() {
         Object? result;
         await t.pumpWidget(
           MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
             home: Builder(
               builder: (c) => TextButton(
                 onPressed: () async {
@@ -77,6 +81,9 @@ void main() {
       var attempts = 0;
       await t.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: FilePreview(
             path: '/a.txt',
             load: () async {
@@ -99,6 +106,9 @@ void main() {
     var retries = 0;
     await t.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Builder(
           builder: (c) => TextButton(
             onPressed: () => showErrorDetails(
@@ -124,6 +134,9 @@ void main() {
   testWidgets('single fingerprint format does not expose a choice', (t) async {
     await t.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           body: TerminalPrompt(
             prompt: const {
@@ -146,6 +159,9 @@ void main() {
     final engine = UiEngineFixture();
     await t.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         theme: tildeTheme(Brightness.dark, engine),
         home: MediaQuery(
           data: const MediaQueryData(
@@ -196,6 +212,9 @@ void main() {
       addTearDown(engine.dispose);
       await t.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           theme: tildeTheme(Brightness.dark, engine),
           home: SettingsPage(engine: engine),
         ),
@@ -225,6 +244,9 @@ void main() {
       Uint8List? copied;
       await t.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: FilePreview(
             path: '/locked/a.txt',
             load: () async =>

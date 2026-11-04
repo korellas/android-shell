@@ -27,6 +27,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.withContext
+import org.connectbot.R
 import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.Profile
 import org.connectbot.ui.screens.settings.SettingsUiState
@@ -193,7 +194,7 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
                     settings.updateTerminalBarLayout(TerminalBarLayout(height, order, hidden, data["groupFunctionKeys"] as Boolean))
                 }
 
-                else -> error("지원하지 않는 설정입니다.")
+                else -> error(activity.getString(R.string.flutter_unsupported_setting))
             }
             changed()
             null
@@ -276,18 +277,18 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
         "document.create" -> activity.createDocument(args.text("name"))?.toString()
 
         "document.read" -> withContext(activity.dispatchers.io) {
-            activity.contentResolver.openInputStream(Uri.parse(args.text("uri")))?.bufferedReader()?.use { it.readText() } ?: error("파일을 읽을 수 없습니다.")
+            activity.contentResolver.openInputStream(Uri.parse(args.text("uri")))?.bufferedReader()?.use { it.readText() } ?: error(activity.getString(R.string.flutter_could_not_read_file))
         }
 
         "document.write" -> withContext(activity.dispatchers.io) {
-            activity.contentResolver.openOutputStream(Uri.parse(args.text("uri")), "wt")?.bufferedWriter()?.use { it.write(args.text("text")) } ?: error("파일을 저장할 수 없습니다.")
+            activity.contentResolver.openOutputStream(Uri.parse(args.text("uri")), "wt")?.bufferedWriter()?.use { it.write(args.text("text")) } ?: error(activity.getString(R.string.flutter_could_not_save_file))
         }
 
         "help.document" -> when (args.text("section")) {
             "license" -> withContext(activity.dispatchers.io) { activity.assets.open("flutter-native-license.txt").bufferedReader().use { it.readText() } }
-            "contact" -> "Tilde\n\nProject: https://github.com/korellas/android-shell\n\nReport a bug: https://github.com/korellas/android-shell/issues"
-            "hints" -> "Ctrl+Shift+C: copy selection\nCtrl+Shift+V: paste\nCtrl+Shift++ / Ctrl+Shift+-: font size\nTouch the terminal to open the keyboard. Choose Ctrl/Alt hold behavior in Keyboard settings."
-            else -> error("지원하지 않는 문서입니다.")
+            "contact" -> activity.getString(R.string.flutter_help_contact)
+            "hints" -> activity.getString(R.string.flutter_help_hints)
+            else -> error(activity.getString(R.string.flutter_unsupported_document))
         }
 
         "logs" -> {
@@ -308,11 +309,11 @@ internal suspend fun AndroidShellEngine.platformOperation(method: String, args: 
         }
 
         "share" -> {
-            activity.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, args.text("text")), "공유"))
+            activity.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, args.text("text")), activity.getString(R.string.flutter_share)))
             null
         }
 
-        else -> error("지원하지 않는 플랫폼 작업입니다.")
+        else -> error(activity.getString(R.string.flutter_unsupported_platform_operation))
     }
 }
 
@@ -343,7 +344,7 @@ private suspend fun AndroidShellEngine.terminalPreview(args: Wire): Wire {
         val margin = if (args.flag("compact")) 0f else state.terminalMargin * density
         val inset = if (args.flag("compact")) 0f else 12f * density
         val sampleText = args.optionalText("sampleText")
-        val previewLines = sampleText?.let { listOf(it) } ?: listOf("user@shell:~$ ls", "src  build  한글.md", "$ ssh server")
+        val previewLines = sampleText?.let { listOf(it) } ?: listOf("user@shell:~$ ls", activity.getString(R.string.flutter_src_build_sample_md), "$ ssh server")
         val bitmap = createBitmap((widthDp * density).toInt(), (lineHeight * previewLines.size + (margin + inset) * 2).toInt(), Bitmap.Config.ARGB_8888)
         try {
             val canvas = Canvas(bitmap)

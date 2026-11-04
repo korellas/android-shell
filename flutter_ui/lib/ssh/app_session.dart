@@ -12,6 +12,7 @@ import '../terminal/terminal_input.dart';
 import '../terminal/app_terminal_session.dart';
 import 'ssh_session.dart';
 import 'enrollment.dart';
+import '../l10n/strings.dart';
 
 typedef AppSshTransportFactory =
     SshSession Function({
@@ -231,9 +232,11 @@ class AppSshSession implements AppTerminalSession {
     int generation, {
     bool rejectCancels = true,
   }) async {
-    if (!_current(generation)) throw StateError('SSH authentication cancelled');
+    if (!_current(generation)) {
+      throw StateError(deviceStrings.sshAuthenticationCancelled);
+    }
     if (_response != null) {
-      throw StateError('Concurrent SSH authentication prompt');
+      throw StateError(deviceStrings.concurrentSshAuthenticationPrompt);
     }
     final response = Completer<Object?>();
     _rejectCancels = rejectCancels;
@@ -249,7 +252,9 @@ class AppSshSession implements AppTerminalSession {
     };
     _changed();
     final value = await response.future;
-    if (!_current(generation)) throw StateError('SSH authentication cancelled');
+    if (!_current(generation)) {
+      throw StateError(deviceStrings.sshAuthenticationCancelled);
+    }
     return value;
   }
 
@@ -313,7 +318,9 @@ class AppSshSession implements AppTerminalSession {
         }
         return answer['value'] as String;
       }
-      if (answer is! String) throw StateError('SSH authentication cancelled');
+      if (answer is! String) {
+        throw StateError(deviceStrings.sshAuthenticationCancelled);
+      }
       return answer;
     }
 
@@ -325,7 +332,7 @@ class AppSshSession implements AppTerminalSession {
       }
       return askString(
         '${target['username']}@${target['hostname']}',
-        hint: '비밀번호',
+        hint: deviceStrings.password,
         hostPassword: true,
       );
     }
@@ -334,13 +341,13 @@ class AppSshSession implements AppTerminalSession {
       final identities = <SSHIdentity>[];
       for (final key in _maps(config['keys'])) {
         if (!_current(generation)) {
-          throw StateError('SSH authentication cancelled');
+          throw StateError(deviceStrings.sshAuthenticationCancelled);
         }
         if (key['confirmation'] == true) {
           final accepted = await _ask(
             {
               'type': 'boolean',
-              'instructions': 'SSH 키 사용 확인',
+              'instructions': deviceStrings.confirmSshKeyUse,
               'message': '${key['nickname']}',
             },
             generation,
@@ -350,11 +357,11 @@ class AppSshSession implements AppTerminalSession {
         }
         final adapter = SshKeyAdapter((method, args) async {
           if (!_current(generation)) {
-            throw StateError('SSH authentication cancelled');
+            throw StateError(deviceStrings.sshAuthenticationCancelled);
           }
           final result = await platform(method, args);
           if (!_current(generation)) {
-            throw StateError('SSH authentication cancelled');
+            throw StateError(deviceStrings.sshAuthenticationCancelled);
           }
           if (_map(result)['authcancel'] == true) {
             unawaited(disconnect());
@@ -371,8 +378,10 @@ class AppSshSession implements AppTerminalSession {
       if (loadSystemIdentities != null) {
         final system = await loadSystemIdentities!(
           config,
-          (path) =>
-              askString('SSH 개인키 암호', hint: path.split(RegExp(r'[/\\]')).last),
+          (path) => askString(
+            deviceStrings.sshPrivateKeyPassphrase,
+            hint: path.split(RegExp(r'[/\\]')).last,
+          ),
         );
         if (!_current(generation)) throw const SshKeyAuthenticationCancelled();
         identities.addAll(system);
@@ -428,7 +437,8 @@ class AppSshSession implements AppTerminalSession {
         if (changed) {
           onNotification?.call({
             'type': 'message',
-            'message': '서버 키가 변경되어 연결을 차단했습니다. 저장된 서버 키를 확인한 뒤 직접 삭제하세요.',
+            'message': deviceStrings
+                .connectionBlockedBecauseTheServerKeyChangedReviewAnd,
             'sessionId': id,
           });
           return false;
@@ -477,8 +487,8 @@ class AppSshSession implements AppTerminalSession {
       onPasswordChange: (prompt) async {
         _passwordsToSave.remove(target['id']);
         return SSHChangePasswordResponse(
-          await askString(prompt, hint: 'Current password'),
-          await askString(prompt, hint: 'New password'),
+          await askString(prompt, hint: deviceStrings.currentPassword),
+          await askString(prompt, hint: deviceStrings.newPassword),
         );
       },
       onBanner: (message) {
@@ -497,9 +507,9 @@ class AppSshSession implements AppTerminalSession {
 
   @override
   Future<void> connect() async {
-    if (_disposed) throw StateError('Session disposed');
+    if (_disposed) throw StateError(deviceStrings.sessionDisposed);
     if (_transport != null || connecting || _closing) {
-      throw StateError('Disconnect before reconnecting');
+      throw StateError(deviceStrings.disconnectBeforeReconnecting);
     }
     TerminalSessionOperations.configureInput(
       terminal,
@@ -509,7 +519,7 @@ class AppSshSession implements AppTerminalSession {
     final generation = ++_generation;
     _trustedHostKeys.clear();
     _state = SshSessionState.connecting;
-    _connectionLog = ['SSH 로그인 준비 중'];
+    _connectionLog = [deviceStrings.preparingSshLogin];
     _connectionPhase = SshConnectionPhase.server;
     _connectionHost = null;
     _connectionDurations.clear();
@@ -581,7 +591,7 @@ class AppSshSession implements AppTerminalSession {
           onNotification?.call({
             'type': 'message',
             'sessionId': id,
-            'message': '로그인했지만 비밀번호를 저장하지 못했습니다. 호스트 편집에서 다시 저장하세요.',
+            'message': deviceStrings.loggedInButCouldNotSaveThePasswordSave,
           });
         }
       }
@@ -601,7 +611,7 @@ class AppSshSession implements AppTerminalSession {
 
   Future<SftpClient> openSftp() {
     if (!connected || _transport == null) {
-      throw StateError('SSH session is not connected');
+      throw StateError(deviceStrings.sshSessionIsNotConnected);
     }
     return _transport!.openSftp();
   }
@@ -629,7 +639,9 @@ class AppSshSession implements AppTerminalSession {
 
   void refreshPrepared(Map<String, dynamic> configuration) {
     if (_disposed || _transport != null || connecting || _closing) {
-      throw StateError('Disconnect before refreshing SSH configuration');
+      throw StateError(
+        deviceStrings.disconnectBeforeRefreshingSshConfiguration,
+      );
     }
     final fresh = Map<String, dynamic>.from(configuration);
     prepared
@@ -679,13 +691,13 @@ class AppSshSession implements AppTerminalSession {
         lookupStoredKey?.call(keyId) ??
         _maps(prepared['keys']).where((key) => key['id'] == keyId).firstOrNull;
     if (key == null) {
-      throw StateError('The selected SSH key no longer exists.');
+      throw StateError(deviceStrings.theSelectedSshKeyNoLongerExists);
     }
     if (key['confirmation'] == true) {
       if (await _ask(
             {
               'type': 'boolean',
-              'instructions': 'SSH 키 사용 확인',
+              'instructions': deviceStrings.confirmSshKeyUse,
               'message': key['nickname'],
             },
             generation,
@@ -698,18 +710,18 @@ class AppSshSession implements AppTerminalSession {
     final identities = await loadStoredIdentities!(id: keyId);
     if (!_current(generation) || !canEnroll) {
       throw StateError(
-        'The original SSH connection is no longer authenticated.',
+        deviceStrings.theOriginalSshConnectionIsNoLongerAuthenticated,
       );
     }
     if (identities.isEmpty) {
-      throw StateError('Could not unlock the selected key.');
+      throw StateError(deviceStrings.couldNotUnlockTheSelectedKey);
     }
     return identities;
   }
 
   Future<String> registerEnrollmentKey(int keyId) async {
     if (!canEnroll) {
-      throw StateError('Log in to this server before registering a key.');
+      throw StateError(deviceStrings.logInToThisServerBeforeRegisteringAKey);
     }
     final identity = (await _enrollmentIdentities(keyId)).first;
     final public = identity.toPublicKey().encode();
@@ -723,7 +735,7 @@ class AppSshSession implements AppTerminalSession {
   Future<String> verifyEnrollmentKey(int keyId) async {
     if (!canEnroll) {
       throw StateError(
-        'The original SSH connection is no longer authenticated.',
+        deviceStrings.theOriginalSshConnectionIsNoLongerAuthenticated,
       );
     }
     final generation = _generation;
@@ -771,7 +783,7 @@ class AppSshSession implements AppTerminalSession {
       await verification.connect();
       if (!_current(generation) || !canEnroll) {
         throw StateError(
-          'The original SSH connection is no longer authenticated.',
+          deviceStrings.theOriginalSshConnectionIsNoLongerAuthenticated,
         );
       }
       return 'VERIFIED';
@@ -807,7 +819,9 @@ class AppSshSession implements AppTerminalSession {
   }
 
   Future<void> _send(String text) {
-    if (!sessionOpen) return Future.error(StateError('SSH shell is not open'));
+    if (!sessionOpen) {
+      return Future.error(StateError(deviceStrings.sshShellIsNotOpen));
+    }
     final transport = _transport!;
     final generation = _generation, codec = _codecId;
     final pending = _input.then<void>((_) async {
@@ -829,7 +843,7 @@ class AppSshSession implements AppTerminalSession {
   }
 
   Future<void> _sendKey(int key, int modifiers) async {
-    if (!sessionOpen) throw StateError('SSH shell is not open');
+    if (!sessionOpen) throw StateError(deviceStrings.sshShellIsNotOpen);
     if (key < 0 && key >= -0x10ffff) {
       terminal.keyInput(
         TerminalKey.none,
@@ -858,9 +872,11 @@ class AppSshSession implements AppTerminalSession {
             12 => TerminalKey.end,
             13 => TerminalKey.pageUp,
             14 => TerminalKey.pageDown,
-            _ => throw UnsupportedError('Unsupported terminal key: $key'),
+            _ => throw UnsupportedError(
+              deviceStrings.unsupportedTerminalKey((key).toString()),
+            ),
           };
-    if (!sessionOpen) throw StateError('SSH shell is not open');
+    if (!sessionOpen) throw StateError(deviceStrings.sshShellIsNotOpen);
     input.sendKey(
       terminalKey,
       shift: modifiers & 1 != 0,
@@ -884,7 +900,7 @@ class AppSshSession implements AppTerminalSession {
   Future<void> setForward(int forwardId, bool enabled) async {
     final transport = _transport;
     if (!connected || transport == null) {
-      throw StateError('SSH is not connected');
+      throw StateError(deviceStrings.sshIsNotConnected);
     }
     if (!enabled) {
       await transport.disableForward(forwardId);
@@ -894,7 +910,7 @@ class AppSshSession implements AppTerminalSession {
     final config = _maps(
       prepared['forwards'],
     ).where((row) => row['id'] == forwardId).firstOrNull;
-    if (config == null) throw StateError('Port forward is missing');
+    if (config == null) throw StateError(deviceStrings.portForwardIsMissing);
     await transport.enableForward(
       SshForward(
         id: forwardId,
@@ -902,7 +918,7 @@ class AppSshSession implements AppTerminalSession {
           'local' => SshForwardType.local,
           'remote' => SshForwardType.remote,
           'dynamic5' => SshForwardType.socks5,
-          _ => throw UnsupportedError('Unsupported SSH forward type'),
+          _ => throw UnsupportedError(deviceStrings.unsupportedSshForwardType),
         },
         bindHost: config['type'] == 'remote'
             ? config['sourceAddr'] as String? ?? 'localhost'
@@ -1037,7 +1053,7 @@ class AppSshSession implements AppTerminalSession {
           1 => 'ctrl',
           4 => 'alt',
           16 => 'shift',
-          _ => throw ArgumentError('Unknown modifier'),
+          _ => throw ArgumentError(deviceStrings.unknownModifier),
         };
         _modifiers[name] = switch (_modifiers[name]) {
           'OFF' => 'TRANSIENT',
@@ -1070,7 +1086,9 @@ class AppSshSession implements AppTerminalSession {
       case 'session.visibility':
         return null;
       default:
-        throw UnsupportedError('Unsupported app SSH operation: $method');
+        throw UnsupportedError(
+          deviceStrings.unsupportedAppSshOperation((method).toString()),
+        );
     }
     return null;
   }

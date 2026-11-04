@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2026 Kenny Root; SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <!-- Tilde Flutter host: Enter a host name. -->
+    <string name="flutter_enter_a_host_name">Enter a host name.</string>
+    <!-- Tilde Flutter host: Enter a server address. -->
+    <string name="flutter_enter_a_server_address">Enter a server address.</string>
+    <!-- Tilde Flutter host: Port must be between 1 and 65535. -->
+    <string name="flutter_port_must_be_between_1_and_65535">Port must be between 1 and 65535.</string>
+    <!-- Tilde Flutter host: Check the Mosh port range. -->
+    <string name="flutter_check_the_mosh_port_range">Check the Mosh port range.</string>
+    <!-- Tilde Flutter host: Mosh timeout must be positive. -->
+    <string name="flutter_mosh_timeout_must_be_positive">Mosh timeout must be positive.</string>
+    <!-- Tilde Flutter host: Enter a profile name. -->
+    <string name="flutter_enter_a_profile_name">Enter a profile name.</string>
+    <!-- Tilde Flutter host: Font size must be between 4 and 72. -->
+    <string name="flutter_font_size_must_be_between_4_and_72">Font size must be between 4 and 72.</string>
+    <!-- Tilde Flutter host: Check the row count. -->
+    <string name="flutter_check_the_row_count">Check the row count.</string>
+    <!-- Tilde Flutter host: Check the column count. -->
+    <string name="flutter_check_the_column_count">Check the column count.</string>
+    <!-- Tilde Flutter host: Unsupported setting. -->
+    <string name="flutter_unsupported_setting">Unsupported setting.</string>
+    <!-- Tilde Flutter host: Could not read file. -->
+    <string name="flutter_could_not_read_file">Could not read file.</string>
+    <!-- Tilde Flutter host: Could not save file. -->
+    <string name="flutter_could_not_save_file">Could not save file.</string>
+    <!-- Tilde Flutter host: Unsupported document. -->
+    <string name="flutter_unsupported_document">Unsupported document.</string>
+    <!-- Tilde Flutter host: Share -->
+    <string name="flutter_share">Share</string>
+    <!-- Tilde Flutter host: Unsupported platform operation. -->
+    <string name="flutter_unsupported_platform_operation">Unsupported platform operation.</string>
+    <!-- Tilde Flutter host: src  build  sample.md -->
+    <string name="flutter_src_build_sample_md">src  build  sample.md</string>
+    <!-- Tilde Flutter host: A file picker is already open. -->
+    <string name="flutter_a_file_picker_is_already_open">A file picker is already open.</string>
+    <!-- Tilde Flutter host: Cancel -->
+    <string name="flutter_cancel">Cancel</string>
+    <!-- Tilde Flutter host: Could not create the temporary transfer folder. -->
+    <string name="flutter_could_not_create_the_temporary_transfer_folder">Could not create the temporary transfer folder.</string>
+    <!-- Tilde Flutter host: Could not read the selected file name. -->
+    <string name="flutter_could_not_read_the_selected_file_name">Could not read the selected file name.</string>
+    <!-- Tilde Flutter host: Could not open the selected file. -->
+    <string name="flutter_could_not_open_the_selected_file">Could not open the selected file.</string>
+    <!-- Tilde Flutter host: Could not open the download file. -->
+    <string name="flutter_could_not_open_the_download_file">Could not open the download file.</string>
+    <!-- Tilde Flutter host: Could not save download: %1$s. Could not remove incomplete file: %2$s -->
+    <string name="flutter_could_not_save_download_1_s_could_not">Could not save download: %1$s. Could not remove incomplete file: %2$s</string>
+    <!-- Tilde Flutter host: Could not remove cancelled download: %1$s -->
+    <string name="flutter_could_not_remove_cancelled_download_1_s">Could not remove cancelled download: %1$s</string>
+    <!-- Tilde Flutter host: Could not remove temporary transfer file: %1$s -->
+    <string name="flutter_could_not_remove_temporary_transfer_file_1_s">Could not remove temporary transfer file: %1$s</string>
+    <!-- Tilde Flutter host: Connection failed. -->
+    <string name="flutter_connection_failed">Connection failed.</string>
+    <!-- Tilde Flutter host: Unlock Tilde -->
+    <string name="flutter_unlock_tilde">Unlock Tilde</string>
+    <!-- Tilde Flutter host: Wait for app initialization or unlock the app. -->
+    <string name="flutter_wait_for_app_initialization_or_unlock_the_app">Wait for app initialization or unlock the app.</string>
+    <!-- Tilde Flutter host: Operation cancelled. -->
+    <string name="flutter_operation_cancelled">Operation cancelled.</string>
+    <!-- Tilde Flutter host: Could not complete operation. -->
+    <string name="flutter_could_not_complete_operation">Could not complete operation.</string>
+    <!-- Tilde Flutter host: The undo period has expired. -->
+    <string name="flutter_the_undo_period_has_expired">The undo period has expired.</string>
+    <!-- Tilde Flutter host: Enter a credential name and username. -->
+    <string name="flutter_enter_a_credential_name_and_username">Enter a credential name and username.</string>
+    <!-- Tilde Flutter host: Cannot delete the default profile while it is in use. -->
+    <string name="flutter_cannot_delete_the_default_profile_while_it_is">Cannot delete the default profile while it is in use.</string>
+    <!-- Tilde Flutter host: Unsupported engine operation: %1$s -->
+    <string name="flutter_unsupported_engine_operation_1_s">Unsupported engine operation: %1$s</string>
+    <!-- Tilde Flutter host: Only SSH and local connections are supported. -->
+    <string name="flutter_only_ssh_and_local_connections_are_supported">Only SSH and local connections are supported.</string>
+    <!-- Tilde Flutter host: The jump host must be a different SSH host. -->
+    <string name="flutter_the_jump_host_must_be_a_different_ssh">The jump host must be a different SSH host.</string>
+    <!-- Tilde Flutter host: SOCKS4 forwarding is unsupported. -->
+    <string name="flutter_socks4_forwarding_is_unsupported">SOCKS4 forwarding is unsupported.</string>
+    <!-- Tilde Flutter host: Check the forwarding type. -->
+    <string name="flutter_check_the_forwarding_type">Check the forwarding type.</string>
+    <!-- Tilde Flutter host: Check the source port range. -->
+    <string name="flutter_check_the_source_port_range">Check the source port range.</string>
+    <!-- Tilde Flutter host: Check the destination address and port. -->
+    <string name="flutter_check_the_destination_address_and_port">Check the destination address and port.</string>
+    <!-- Tilde Flutter host: Unsupported protocol -->
+    <string name="flutter_unsupported_protocol">Unsupported protocol</string>
+    <!-- App is locked; Tilde key, connection, or help UI. -->
+    <string name="flutter_app_locked">App is locked</string>
+    <!-- SSH public key; Tilde key, connection, or help UI. -->
+    <string name="flutter_public_key_label">SSH public key</string>
+    <!-- Strong biometric authentication is required; Tilde key, connection, or help UI. -->
+    <string name="flutter_strong_biometrics_required">Strong biometric authentication is required</string>
+    <!-- Only P-256 Android Keystore keys are supported; Tilde key, connection, or help UI. -->
+    <string name="flutter_p256_keys_only">Only P-256 Android Keystore keys are supported</string>
+    <!-- Key name is required; Tilde key, connection, or help UI. -->
+    <string name="flutter_key_name_required">Key name is required</string>
+    <!-- A key with that name already exists; Tilde key, connection, or help UI. -->
+    <string name="flutter_duplicate_key_name">A key with that name already exists</string>
+    <!-- Only OpenSSH public keys can be copied or saved; Tilde key, connection, or help UI. -->
+    <string name="flutter_public_keys_only">Only OpenSSH public keys can be copied or saved</string>
+    <!-- Passwords in SSH addresses are not supported; Tilde key, connection, or help UI. -->
+    <string name="flutter_password_in_ssh_address">Passwords in SSH addresses are not supported</string>
+    <!-- Missing SSH hostname; Tilde key, connection, or help UI. -->
+    <string name="flutter_missing_ssh_hostname">Missing SSH hostname</string>
+    <!-- Tilde; Tilde key, connection, or help UI. -->
+    <string name="flutter_help_contact">Tilde\n\nProject: https://github.com/korellas/android-shell\n\nReport a bug: https://github.com/korellas/android-shell/issues</string>
+    <!-- Ctrl+Shift+C: copy selection; Tilde key, connection, or help UI. -->
+    <string name="flutter_help_hints">Ctrl+Shift+C: copy selection\nCtrl+Shift+V: paste\nCtrl+Shift++ / Ctrl+Shift+-: font size\nTouch the terminal to open the keyboard. Choose Ctrl/Alt hold behavior in Keyboard settings.</string>
+</resources>

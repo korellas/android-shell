@@ -5,6 +5,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:android_shell_ui/files/file_dialogs.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   testWidgets(
@@ -12,6 +13,9 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: Scaffold(
             body: FilePermissionsPrompt(
               names: const ['script.sh'],
@@ -59,6 +63,9 @@ void main() {
       final counts = Completer<Map<String, int>>();
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: Scaffold(
             body: FileDeletePrompt(
               entries: [

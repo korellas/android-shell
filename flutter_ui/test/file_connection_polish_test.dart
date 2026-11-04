@@ -7,6 +7,7 @@ import 'package:android_shell_ui/ssh/app_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'ui_engine_fixture.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 class PendingFileSession extends AppSshSession {
   PendingFileSession(this.changed)
@@ -69,6 +70,9 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: FileBrowserPage(
             engine: engine,
             host: const {

@@ -8,6 +8,7 @@ import 'package:xterm2/xterm.dart';
 import 'package:android_shell_ui/terminal/terminal_input.dart';
 import 'package:android_shell_ui/terminal/app_terminal_session.dart';
 import 'package:android_shell_ui/terminal/terminal_input_view.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   late Terminal terminal;
@@ -17,6 +18,9 @@ void main() {
   final viewKey = GlobalKey<TerminalViewState>();
 
   Widget view({bool enabled = true, bool softKeyboard = true}) => MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    locale: const Locale('ko'),
     home: Scaffold(
       body: TerminalInputView(
         terminal: terminal,

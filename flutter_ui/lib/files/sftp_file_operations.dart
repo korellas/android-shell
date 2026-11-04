@@ -1,16 +1,18 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'package:dartssh2/dartssh2.dart';
 import 'transfer.dart';
+import '../l10n/strings.dart';
 
 String? remoteNameError(String? name) {
-  if (name == null || name.trim().isEmpty) return '이름을 입력하세요.';
+  if (name == null || name.trim().isEmpty) return deviceStrings.enterAName;
   if (name == '.' ||
       name == '..' ||
       name.contains('/') ||
       name.contains(r'\') ||
       name.contains('\x00')) {
-    return '이름에 경로 구분자나 . 또는 ..를 사용할 수 없습니다.';
+    return deviceStrings.namesCannotContainPathSeparatorsOrBeOr;
   }
   return null;
 }
@@ -33,7 +35,7 @@ class SftpFileOperations {
       if (error.code == SftpStatusCode.noSuchFile) return;
       rethrow;
     }
-    throw StateError('같은 이름의 파일이나 폴더가 있습니다.');
+    throw StateError(deviceStrings.aFileOrFolderWithTheSameNameAlready);
   }
 
   Future<void> rename(String directory, String oldName, String newName) async {
@@ -47,7 +49,9 @@ class SftpFileOperations {
 
   Future<void> move(String source, String destination) async {
     if (destination == source || destination.startsWith('$source/')) {
-      throw StateError('자기 자신이나 하위 폴더로 이동할 수 없습니다.');
+      throw StateError(
+        deviceStrings.cannotMoveAFolderIntoItselfOrItsDescendants,
+      );
     }
     await _ensureAvailable(destination);
     await files.rename(source, destination, overwrite: false).timeout(_timeout);
@@ -64,7 +68,9 @@ class SftpFileOperations {
     required TransferControl control,
     void Function(int)? onDeleted,
   }) async {
-    if (path.isEmpty || path == '/') throw ArgumentError('루트 폴더는 삭제할 수 없습니다.');
+    if (path.isEmpty || path == '/') {
+      throw ArgumentError(deviceStrings.cannotDeleteTheRootFolder);
+    }
     var deleted = 0;
     Future<void> remove(String path) async {
       await control.ready;

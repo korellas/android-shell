@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:asn1lib/asn1lib.dart';
 import 'package:dartssh2/dartssh2.dart';
+import '../l10n/strings.dart';
 
 typedef SshPlatformCall =
     Future<Object?> Function(String method, Map<String, Object?> arguments);
@@ -38,11 +40,11 @@ class SshKeyAdapter {
       (await call('ssh.keyMaterial', {'id': id})) as Map,
     );
     if (material['biometric'] != true) {
-      throw StateError('Only Android Keystore SSH keys are supported');
+      throw StateError(deviceStrings.onlyAndroidKeystoreSshKeysAreSupported);
     }
     final public = _PublicKey.decode(_bytes(material['publicKey']));
     if (public.type != 'ecdsa-sha2-nistp256') {
-      throw StateError('Only P-256 Android Keystore keys are supported');
+      throw StateError(deviceStrings.onlyP256AndroidKeystoreKeysAreSupported);
     }
     return [
       SSHIdentity.custom(
@@ -63,12 +65,12 @@ class SshKeyAdapter {
           }
           final der = _sequence(_bytes(reply['signature']));
           if (der.elements.length != 2) {
-            throw const FormatException('Invalid ECDSA signature');
+            throw FormatException(deviceStrings.invalidEcdsaSignature);
           }
           final r = _integer(der.elements[0]);
           final s = _integer(der.elements[1]);
           if (r <= BigInt.zero || s <= BigInt.zero) {
-            throw const FormatException('Invalid ECDSA signature values');
+            throw FormatException(deviceStrings.invalidEcdsaSignatureValues);
           }
           return SSHRawSignature(
             _strings([
@@ -92,13 +94,13 @@ class _PublicKey {
   factory _PublicKey.decode(Uint8List x509) {
     final root = _sequence(x509);
     if (root.elements.length != 2) {
-      throw const FormatException('Invalid X509 public key');
+      throw FormatException(deviceStrings.invalidX509PublicKey);
     }
     final algorithm = root.elements[0] as ASN1Sequence;
     final oid = (algorithm.elements[0] as ASN1ObjectIdentifier).identifier!;
     final bits = root.elements[1] as ASN1BitString;
     if (bits.unusedbits != 0) {
-      throw const FormatException('Invalid public key bit string');
+      throw FormatException(deviceStrings.invalidPublicKeyBitString);
     }
     final bytes = bits.contentBytes();
     switch (oid) {
@@ -107,7 +109,7 @@ class _PublicKey {
         final n = _integer(rsa.elements[0]);
         final e = _integer(rsa.elements[1]);
         if (n <= BigInt.zero || e <= BigInt.zero) {
-          throw const FormatException('Invalid RSA public key');
+          throw FormatException(deviceStrings.invalidRsaPublicKey);
         }
         return _PublicKey(
           oid,
@@ -121,10 +123,10 @@ class _PublicKey {
           'nistp256' => 65,
           'nistp384' => 97,
           'nistp521' => 133,
-          _ => throw const FormatException('Invalid EC curve'),
+          _ => throw FormatException(deviceStrings.invalidEcCurve),
         };
         if (bytes.length != expected || bytes.first != 4) {
-          throw const FormatException('Invalid uncompressed EC point');
+          throw FormatException(deviceStrings.invalidUncompressedEcPoint);
         }
         final type = 'ecdsa-sha2-$curve';
         return _PublicKey(
@@ -136,7 +138,7 @@ class _PublicKey {
         );
       case '1.3.101.112':
         if (bytes.length != 32) {
-          throw const FormatException('Invalid Ed25519 public key');
+          throw FormatException(deviceStrings.invalidEd25519PublicKey);
         }
         return _PublicKey(
           oid,
@@ -145,7 +147,9 @@ class _PublicKey {
           _strings([utf8.encode('ssh-ed25519'), bytes]),
         );
       default:
-        throw UnsupportedError('Unsupported SSH public key algorithm: $oid');
+        throw UnsupportedError(
+          deviceStrings.unsupportedSshPublicKeyAlgorithm((oid).toString()),
+        );
     }
   }
 }
@@ -155,13 +159,13 @@ String _curve(ASN1Object object) =>
       '1.2.840.10045.3.1.7' => 'nistp256',
       '1.3.132.0.34' => 'nistp384',
       '1.3.132.0.35' => 'nistp521',
-      _ => throw UnsupportedError('Unsupported SSH EC curve'),
+      _ => throw UnsupportedError(deviceStrings.unsupportedSshEcCurve),
     };
 ASN1Sequence _sequence(Uint8List data) {
   final parser = ASN1Parser(data);
   final object = parser.nextObject();
   if (object is! ASN1Sequence || parser.hasNext()) {
-    throw const FormatException('Invalid DER sequence');
+    throw FormatException(deviceStrings.invalidDerSequence);
   }
   return object;
 }

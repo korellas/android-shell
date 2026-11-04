@@ -5,6 +5,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   testWidgets(
@@ -13,6 +14,9 @@ void main() {
       var pastes = 0;
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           theme: ThemeData(platform: TargetPlatform.windows),
           home: Scaffold(
             body: FileBrowserListing(
@@ -59,6 +63,9 @@ void main() {
       List<SftpName> selection = [], deleted = [];
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           theme: ThemeData(platform: TargetPlatform.windows),
           home: Scaffold(
             body: FileBrowserListing(

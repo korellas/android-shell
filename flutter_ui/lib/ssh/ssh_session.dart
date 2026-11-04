@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
+import '../l10n/strings.dart';
 
 enum SshSessionState { idle, connecting, connected, closed }
 
@@ -74,7 +75,7 @@ class SshPty {
 
   SSHPtyConfig _config() {
     if (columns <= 0 || rows <= 0 || pixelWidth < 0 || pixelHeight < 0) {
-      throw ArgumentError('Invalid PTY dimensions');
+      throw ArgumentError(deviceStrings.invalidPtyDimensions);
     }
     return SSHPtyConfig(
       type: type,
@@ -131,7 +132,9 @@ class SshSession {
     this.operationTimeout = const Duration(seconds: 30),
   }) : endpoints = List.unmodifiable(endpoints),
        _pty = pty {
-    if (endpoints.isEmpty) throw ArgumentError('SSH target is required');
+    if (endpoints.isEmpty) {
+      throw ArgumentError(deviceStrings.sshTargetIsRequired);
+    }
   }
 
   final List<SshEndpoint> endpoints;
@@ -171,35 +174,40 @@ class SshSession {
   }
 
   void _checkOpen() {
-    if (_closing) throw StateError('SSH session was closed');
+    if (_closing) throw StateError(deviceStrings.sshSessionWasClosed);
   }
 
   SSHClient get _client {
     _checkOpen();
     if (_state != SshSessionState.connected) {
-      throw StateError('SSH session is not connected');
+      throw StateError(deviceStrings.sshSessionIsNotConnected);
     }
     return _clients.last;
   }
 
   Future<void> connect() async {
     if (_state != SshSessionState.idle || _closing) {
-      throw StateError('SSH sessions cannot be reused');
+      throw StateError(deviceStrings.sshSessionsCannotBeReused);
     }
     _setState(SshSessionState.connecting);
     try {
       for (final endpoint in endpoints) {
         _checkOpen();
         endpoint.onConnectStart?.call();
-        endpoint.onProgress?.call('${endpoint.host}:${endpoint.port} 연결 중');
+        endpoint.onProgress?.call(
+          deviceStrings.connectingTo(
+            (endpoint.host).toString(),
+            (endpoint.port).toString(),
+          ),
+        );
         final socket = _clients.isEmpty
             ? await _connectSocket(endpoint)
             : await _connectHop(endpoint);
         if (_closing) {
           socket.destroy();
-          throw StateError('SSH session was closed');
+          throw StateError(deviceStrings.sshSessionWasClosed);
         }
-        endpoint.onProgress?.call('SSH 연결 협상 중');
+        endpoint.onProgress?.call(deviceStrings.negotiatingSshConnection);
         final client = SSHClient(
           socket,
           username: endpoint.username,
@@ -227,10 +235,12 @@ class SshSession {
           compression: endpoint.compression,
           onVerifyHostKey: (type, fingerprint) async {
             if (_closing) return false;
-            endpoint.onProgress?.call('서버 키 확인 중');
+            endpoint.onProgress?.call(deviceStrings.verifyingServerKey);
             final accepted = await endpoint.verifyHostKey(type, fingerprint);
             if (accepted && !_closing) {
-              endpoint.onProgress?.call('${endpoint.username} 인증 중');
+              endpoint.onProgress?.call(
+                deviceStrings.authenticating((endpoint.username).toString()),
+              );
             }
             return accepted && !_closing;
           },
@@ -259,17 +269,17 @@ class SshSession {
         unawaited(_watchClient(client));
         await client.authenticated;
         _checkOpen();
-        endpoint.onProgress?.call('인증 완료');
+        endpoint.onProgress?.call(deviceStrings.authenticated);
       }
       if (wantShell) {
-        endpoints.last.onProgress?.call('터미널 세션 여는 중');
+        endpoints.last.onProgress?.call(deviceStrings.openingTerminalSession);
         final shell = await _openSession(
           _clients.last.shell(pty: _pty._config()),
         );
         _shell = shell;
         if (_closing) {
           shell.channel.destroy();
-          throw StateError('SSH session was closed');
+          throw StateError(deviceStrings.sshSessionWasClosed);
         }
         _stdoutDone = _drain(shell.stdout);
         _stderrDone = _drain(shell.stderr);
@@ -301,7 +311,7 @@ class SshSession {
       type: family,
     ).timeout(endpoint.connectTimeout);
     if (addresses.isEmpty) {
-      throw SocketException('No address for requested IP version');
+      throw SocketException(deviceStrings.noAddressForRequestedIpVersion);
     }
     _checkOpen();
     return SSHSocket.connect(
@@ -318,7 +328,7 @@ class SshSession {
         .timeout(
           endpoint.connectTimeout,
           onTimeout: () {
-            throw TimeoutException('SSH hop connection timed out');
+            throw TimeoutException(deviceStrings.sshHopConnectionTimedOut);
           },
         );
   }
@@ -368,7 +378,7 @@ class SshSession {
   Future<void> write(List<int> bytes) async {
     _client;
     final shell = _shell;
-    if (shell == null) throw StateError('SSH session has no shell');
+    if (shell == null) throw StateError(deviceStrings.sshSessionHasNoShell);
     shell.write(Uint8List.fromList(bytes));
     // SSHSession's input stream preserves enqueue order. Its flush reaches the
     // outer native socket, whose flush cannot overlap another hop's packet add.
@@ -439,7 +449,7 @@ class SshSession {
       operationTimeout,
       onTimeout: () {
         abandoned = true;
-        throw TimeoutException('SSH session request timed out');
+        throw TimeoutException(deviceStrings.sshSessionRequestTimedOut);
       },
     );
   }
@@ -523,13 +533,13 @@ class _ForwardRuntime {
 
   Future<void> start() async {
     if (config.bindPort < 0 || config.bindPort > 65535) {
-      throw ArgumentError('Invalid forward bind port');
+      throw ArgumentError(deviceStrings.invalidForwardBindPort);
     }
     if (config.type != SshForwardType.socks5 &&
         (config.targetHost.isEmpty ||
             config.targetPort <= 0 ||
             config.targetPort > 65535)) {
-      throw ArgumentError('Invalid forward destination');
+      throw ArgumentError(deviceStrings.invalidForwardDestination);
     }
     switch (config.type) {
       case SshForwardType.local:
@@ -559,10 +569,14 @@ class _ForwardRuntime {
           timeout,
           onTimeout: () {
             abandoned = true;
-            throw TimeoutException('Remote forwarding request timed out');
+            throw TimeoutException(
+              deviceStrings.remoteForwardingRequestTimedOut,
+            );
           },
         );
-        if (_remote == null) throw StateError('Remote forwarding was refused');
+        if (_remote == null) {
+          throw StateError(deviceStrings.remoteForwardingWasRefused);
+        }
         _listener = _remote!.connections.listen(
           (channel) => unawaited(_acceptRemote(channel)),
           onError: (Object _) {},
@@ -599,7 +613,7 @@ class _ForwardRuntime {
         timeout,
         onTimeout: () {
           abandoned = true;
-          throw TimeoutException('Forward connection timed out');
+          throw TimeoutException(deviceStrings.forwardConnectionTimedOut);
         },
       );
       if (_closed) {
@@ -634,7 +648,9 @@ class _ForwardRuntime {
         timeout,
         onTimeout: () {
           connection!.cancel();
-          throw TimeoutException('Remote forward destination timed out');
+          throw TimeoutException(
+            deviceStrings.remoteForwardDestinationTimedOut,
+          );
         },
       );
       unawaited(
@@ -687,7 +703,7 @@ class _ForwardRuntime {
     if (client.isClosed) return;
     try {
       if (!await client.cancelForwardRemote(remote).timeout(timeout)) {
-        throw StateError('Remote forwarding cancellation was refused');
+        throw StateError(deviceStrings.remoteForwardingCancellationWasRefused);
       }
     } catch (_) {
       // A listener we cannot release must not outlive its owning transport.

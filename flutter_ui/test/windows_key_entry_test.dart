@@ -4,6 +4,7 @@ import 'package:android_shell_ui/management.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'ui_engine_fixture.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   testWidgets(
@@ -15,7 +16,14 @@ void main() {
           'keys': [],
           'generation': {'biometricAvailable': false},
         };
-      await tester.pumpWidget(MaterialApp(home: KeyPage(engine: engine)));
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
+          home: KeyPage(engine: engine),
+        ),
+      );
       await tester.pumpAndSettle();
       final button = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, '키 파일 추가'),

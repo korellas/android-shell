@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'ssh_keys.dart';
+import '../l10n/strings.dart';
 
 /// Manages public SSH key metadata and platform authentication.
 ///
@@ -75,8 +77,8 @@ class KeyManager {
       'displayType': displayType,
       if (!eligible)
         'supportMessage': key['biometric'] == true
-            ? 'Android Keystore 키를 사용할 수 없음'
-            : '기존 개인키 · 사용 중지',
+            ? deviceStrings.androidKeystoreKeyUnavailable
+            : deviceStrings.legacyPrivateKeyDisabled,
       'publicKey': wire == null
           ? null
           : '${SSHHostKey.getType(wire)} ${base64.encode(wire)} ${key['nickname']}',
@@ -108,14 +110,16 @@ class KeyManager {
       case 'key.copy':
       case 'key.export':
         if ((args['format'] as String? ?? 'public') != 'public') {
-          throw UnsupportedError('Private key export is not supported');
+          throw UnsupportedError(deviceStrings.privateKeyExportIsNotSupported);
         }
         final keys = (await call('key.storageList', {}) as List).map(
           (value) => Map<String, Object?>.from(value as Map),
         );
         final key = _decorate(keys.firstWhere((value) => value['id'] == id));
         final text = key['publicKey'];
-        if (text is! String) throw StateError('Public key is unavailable');
+        if (text is! String) {
+          throw StateError(deviceStrings.publicKeyIsUnavailable);
+        }
         return call(
           method == 'key.copy' ? 'key.storageCopy' : 'key.storageWrite',
           {'text': text, 'name': '${key['nickname']}.pub'},

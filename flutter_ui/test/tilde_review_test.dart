@@ -27,6 +27,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:android_shell_ui/terminal/terminal_pane.dart';
 
 import 'ui_engine_fixture.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   late AndroidEngine engine;
@@ -96,7 +97,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
-      MaterialApp(theme: tildeTheme(Brightness.light, engine), home: page),
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
+        theme: tildeTheme(Brightness.light, engine),
+        home: page,
+      ),
     );
     await tester.pumpAndSettle();
   }

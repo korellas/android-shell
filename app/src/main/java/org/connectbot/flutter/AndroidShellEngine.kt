@@ -18,6 +18,7 @@
 package org.connectbot.flutter
 
 import android.content.Intent
+import android.content.res.Resources
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.lifecycleScope
@@ -115,7 +116,7 @@ internal class AndroidShellEngine(
                 }
                 changed()
             } catch (e: Exception) {
-                notify(e.message ?: "연결에 실패했습니다.")
+                notify(e.message ?: activity.getString(R.string.flutter_connection_failed))
             }
         }
     }
@@ -129,7 +130,7 @@ internal class AndroidShellEngine(
                     "snapshot" -> snapshot()
 
                     "authenticateApp" -> {
-                        if (activity.authenticate("Tilde 잠금 해제", appLock = true) != null) activity.appState.onAuthenticationSuccess()
+                        if (activity.authenticate(activity.getString(R.string.flutter_unlock_tilde), appLock = true) != null) activity.appState.onAuthenticationSuccess()
                         changed()
                         authenticated
                     }
@@ -142,16 +143,16 @@ internal class AndroidShellEngine(
                     }
 
                     else -> {
-                        check(ready) { "앱 초기화 또는 잠금 해제를 기다려 주세요." }
+                        check(ready) { activity.getString(R.string.flutter_wait_for_app_initialization_or_unlock_the_app) }
                         execute(call.method, args)
                     }
                 }
                 if (!disposed) result.success(value)
             } catch (e: CancellationException) {
-                if (!disposed) result.error("cancelled", "작업이 취소되었습니다.", null)
+                if (!disposed) result.error("cancelled", activity.getString(R.string.flutter_operation_cancelled), null)
                 throw e
             } catch (e: Exception) {
-                if (!disposed) result.error("engine_error", e.message ?: "작업을 완료할 수 없습니다.", null)
+                if (!disposed) result.error("engine_error", e.message ?: activity.getString(R.string.flutter_could_not_complete_operation), null)
             }
         }
     }
@@ -177,8 +178,8 @@ internal class AndroidShellEngine(
 
             "host.save" -> {
                 val old = args.optionalId("id")?.let { hosts.findHostById(it) }
-                val host = ((old ?: activity.settings.uiState.value.newHostDefaults()).toWire() + args).toHost()
-                validateHostSelection(host, old, host.jumpHostId?.let { hosts.findHostById(it) })
+                val host = ((old ?: activity.settings.uiState.value.newHostDefaults()).toWire() + args).toHost(activity.resources)
+                validateHostSelection(activity.resources, host, old, host.jumpHostId?.let { hosts.findHostById(it) })
                 val saved = hosts.saveHost(host)
                 withContext(activity.dispatchers.io) { activity.passwords.updateHostPassword(saved, args) }
                 changed()
@@ -200,7 +201,7 @@ internal class AndroidShellEngine(
 
             "host.restore" -> {
                 val token = args.text("token")
-                val deleted = deletedHosts[token] ?: error("되돌릴 수 있는 시간이 지났습니다.")
+                val deleted = deletedHosts[token] ?: error(activity.getString(R.string.flutter_the_undo_period_has_expired))
                 withContext(activity.dispatchers.io) { hosts.restoreDeletedHost(deleted) }
                 deletedHosts.remove(token)
                 changed()
@@ -237,7 +238,7 @@ internal class AndroidShellEngine(
             "identity.save" -> {
                 val name = args.text("name").trim()
                 val username = args.text("username").trim()
-                require(name.isNotEmpty() && username.isNotEmpty()) { "인증정보 이름과 사용자 이름을 입력하세요." }
+                require(name.isNotEmpty() && username.isNotEmpty()) { activity.getString(R.string.flutter_enter_a_credential_name_and_username) }
                 val identity = hosts.saveIdentity(Identity(args.number("id"), name, username, args.number("pubkeyId", -1)))
                 withContext(activity.dispatchers.io) { activity.passwords.updateIdentityPassword(identity.id, args) }
                 changed()
@@ -252,14 +253,14 @@ internal class AndroidShellEngine(
 
             "profile.save" -> {
                 val old = args.optionalId("id")?.let { profiles.getById(it) }
-                profiles.save((old?.toWire().orEmpty() + args).toProfile()).also {
+                profiles.save((old?.toWire().orEmpty() + args).toProfile(activity.resources)).also {
                     activity.settings.refreshProfiles()
                     changed()
                 }
             }
 
             "profile.delete" -> {
-                check(profiles.delete(args.number("id"))) { "사용 중인 기본 프로필은 삭제할 수 없습니다." }
+                check(profiles.delete(args.number("id"))) { activity.getString(R.string.flutter_cannot_delete_the_default_profile_while_it_is) }
                 activity.settings.refreshProfiles()
                 changed()
                 null
@@ -270,9 +271,9 @@ internal class AndroidShellEngine(
             "forwards" -> hosts.getPortForwardsForHost(args.number("hostId")).map { it.toWire() }
 
             "forward.save" -> {
-                val forward = args.toForward()
+                val forward = args.toForward(activity.resources)
                 val old = args.optionalId("id")?.let { hosts.getPortForwardById(it) }
-                validateForwardSelection(forward, old)
+                validateForwardSelection(activity.resources, forward, old)
                 hosts.savePortForward(forward).also { changed() }.toWire()
             }
 
@@ -370,7 +371,7 @@ internal class AndroidShellEngine(
                 if (method.startsWith("session.") || method.startsWith("key.") || method == "prompt.respond" || method == "host.disconnect" || method == "forward.toggle") {
                     error("Operation is owned by Dart: $method")
                 }
-                error("지원하지 않는 엔진 작업: $method")
+                error(activity.getString(R.string.flutter_unsupported_engine_operation_1_s, method))
             }
         }
     }
@@ -428,23 +429,23 @@ internal class AndroidShellEngine(
     }
 }
 
-internal fun validateHostSelection(host: Host, previous: Host?, jumpHost: Host?) {
-    require(host.protocol in setOf("ssh", "local") || host.protocol == previous?.protocol) { "SSH와 로컬 연결만 지원합니다." }
+internal fun validateHostSelection(resources: Resources, host: Host, previous: Host?, jumpHost: Host?) {
+    require(host.protocol in setOf("ssh", "local") || host.protocol == previous?.protocol) { resources.getString(R.string.flutter_only_ssh_and_local_connections_are_supported) }
     if (host.jumpHostId != null && host.jumpHostId != previous?.jumpHostId) {
-        require(jumpHost != null && jumpHost.id != host.id && jumpHost.protocol == "ssh") { "점프 호스트는 다른 SSH 호스트여야 합니다." }
+        require(jumpHost != null && jumpHost.id != host.id && jumpHost.protocol == "ssh") { resources.getString(R.string.flutter_the_jump_host_must_be_a_different_ssh) }
     }
 }
 
-internal fun validateForwardSelection(forward: PortForward, previous: PortForward?) {
+internal fun validateForwardSelection(resources: Resources, forward: PortForward, previous: PortForward?) {
     if (forward.type == "dynamic4") {
-        require(previous?.type == "dynamic4" && (!forward.startEnabled || previous.startEnabled)) { "SOCKS4 포워딩은 지원하지 않습니다." }
+        require(previous?.type == "dynamic4" && (!forward.startEnabled || previous.startEnabled)) { resources.getString(R.string.flutter_socks4_forwarding_is_unsupported) }
     }
 }
 
-private fun Wire.toForward(): PortForward {
-    require(text("type") in setOf("local", "remote", "dynamic4", "dynamic5")) { "포워딩 유형을 확인하세요." }
-    require(number("sourcePort") in 1..65535) { "소스 포트 범위를 확인하세요." }
-    require(text("type") in setOf("dynamic4", "dynamic5") || (text("destAddr").isNotBlank() && number("destPort") in 1..65535)) { "대상 주소와 포트를 확인하세요." }
+private fun Wire.toForward(resources: Resources): PortForward {
+    require(text("type") in setOf("local", "remote", "dynamic4", "dynamic5")) { resources.getString(R.string.flutter_check_the_forwarding_type) }
+    require(number("sourcePort") in 1..65535) { resources.getString(R.string.flutter_check_the_source_port_range) }
+    require(text("type") in setOf("dynamic4", "dynamic5") || (text("destAddr").isNotBlank() && number("destPort") in 1..65535)) { resources.getString(R.string.flutter_check_the_destination_address_and_port) }
     val type = text("type")
     return PortForward(
         number("id"), number("hostId"), text("nickname"), type,

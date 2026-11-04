@@ -1,10 +1,12 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
 import 'file_job_queue.dart';
 import 'sftp_transfer.dart';
 import 'transfer.dart';
+import '../l10n/strings.dart';
 
 enum TreeEntryKind { directory, file, link }
 
@@ -72,7 +74,7 @@ class SftpTreeTransfer {
           ),
         );
       } else {
-        throw FileSystemException('지원하지 않는 파일 종류입니다.', path);
+        throw FileSystemException(deviceStrings.unsupportedFileType, path);
       }
     }
 
@@ -120,7 +122,10 @@ class SftpTreeTransfer {
           ),
         );
       } else {
-        throw FileSystemException('지원하지 않는 원격 파일 종류입니다.', path);
+        throw FileSystemException(
+          deviceStrings.unsupportedRemoteFileType,
+          path,
+        );
       }
     }
 
@@ -181,7 +186,7 @@ class SftpTreeTransfer {
                     : current!.modifyTime) !=
                 entry.modified) {
           throw FileSystemException(
-            '전송 원본이 변경되었습니다. 새 작업으로 다시 전송하세요.',
+            deviceStrings.theTransferSourceChangedStartANewTransfer,
             entry.source,
           );
         }
@@ -212,7 +217,10 @@ class SftpTreeTransfer {
       }
       if (entry.kind == TreeEntryKind.directory) {
         if (existing != null && !existing.isDirectory) {
-          throw FileSystemException('같은 이름의 폴더가 아닌 항목이 있습니다.', destination);
+          throw FileSystemException(
+            deviceStrings.anItemWithThisNameExistsAndIsNot,
+            destination,
+          );
         }
         if (existing == null) {
           if (upload) {
@@ -239,7 +247,10 @@ class SftpTreeTransfer {
           if (existing.isDirectory &&
               overwrite &&
               destination == entry.destination) {
-            throw FileSystemException('폴더를 파일로 덮어쓸 수 없습니다.', destination);
+            throw FileSystemException(
+              deviceStrings.cannotOverwriteAFolderWithAFile,
+              destination,
+            );
           }
         }
         final leaf = TransferControl(parent: control);
@@ -284,7 +295,10 @@ class SftpTreeTransfer {
                           followLinks: false,
                         ) !=
                         FileSystemEntityType.notFound) {
-                  throw FileSystemException('같은 이름의 파일이 있습니다.', destination);
+                  throw FileSystemException(
+                    deviceStrings.aFileWithTheSameNameAlreadyExists,
+                    destination,
+                  );
                 }
                 await staged.rename(destination);
               } finally {

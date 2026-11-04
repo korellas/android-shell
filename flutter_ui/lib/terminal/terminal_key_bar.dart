@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'terminal_input.dart';
 import 'package:xterm2/xterm.dart';
+import '../l10n/strings.dart';
 
 class TerminalKeyBar extends StatefulWidget {
   const TerminalKeyBar({
@@ -278,14 +279,14 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
       });
     }
     final entry = switch (id) {
-      'UP' => ('↑', 'Up', TerminalKey.arrowUp),
-      'DOWN' => ('↓', 'Down', TerminalKey.arrowDown),
-      'HOME' => ('Home', 'Home', TerminalKey.home),
-      'END' => ('End', 'End', TerminalKey.end),
-      'PAGE_UP' => ('PgUp', 'Page up', TerminalKey.pageUp),
-      'PAGE_DOWN' => ('PgDn', 'Page down', TerminalKey.pageDown),
-      'INSERT' => ('Ins', 'Insert', TerminalKey.insert),
-      'DELETE' => ('Del', 'Delete', TerminalKey.delete),
+      'UP' => ('↑', context.l10n.keyUp, TerminalKey.arrowUp),
+      'DOWN' => ('↓', context.l10n.keyDown, TerminalKey.arrowDown),
+      'HOME' => ('Home', context.l10n.keyHome, TerminalKey.home),
+      'END' => ('End', context.l10n.keyEnd, TerminalKey.end),
+      'PAGE_UP' => ('PgUp', context.l10n.keyPageUp, TerminalKey.pageUp),
+      'PAGE_DOWN' => ('PgDn', context.l10n.keyPageDown, TerminalKey.pageDown),
+      'INSERT' => ('Ins', context.l10n.keyInsert, TerminalKey.insert),
+      'DELETE' => ('Del', context.l10n.keyDelete, TerminalKey.delete),
       _ => null,
     };
     if (entry == null) return null;
@@ -345,7 +346,7 @@ class _TerminalKeyBarState extends State<TerminalKeyBar> {
                 ),
                 if (widget.showKeyboardToggle)
                   Tooltip(
-                    message: '키보드 전환',
+                    message: context.l10n.toggleKeyboard,
                     child: _button(
                       '⌨',
                       widget.onToggleKeyboard,

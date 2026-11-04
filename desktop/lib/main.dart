@@ -1,5 +1,6 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'dart:io';
 import 'package:android_shell_ui/engine.dart';
 import 'package:android_shell_ui/main.dart';
@@ -11,6 +12,7 @@ import 'windows_system_keys.dart';
 import 'windows_file_drag.dart';
 import 'windows_aes_gcm.dart';
 import 'package:android_shell_ui/ssh/ssh_session.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +30,9 @@ Future<void> main() async {
     await loader.load();
   }
   final root = Platform.environment['APPDATA'];
-  if (root == null) throw StateError('Windows 사용자 데이터 폴더가 없습니다.');
+  if (root == null) {
+    throw StateError(deviceStrings.windowsUserDataFolderIsUnavailable);
+  }
   const channel = MethodChannel('dev.korellas.tilde/windows');
   final secrets = WindowsSecrets();
   final platform = WindowsPlatform(

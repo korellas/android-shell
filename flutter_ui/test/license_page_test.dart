@@ -5,6 +5,7 @@ import 'package:android_shell_ui/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 class PackagedAssets extends CachingAssetBundle {
   PackagedAssets(this.prefix);
@@ -50,6 +51,9 @@ void main() {
         });
         await tester.pumpWidget(
           MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
             home: DefaultAssetBundle(
               bundle: assets,
               child: HelpPage(engine: engine),
@@ -76,7 +80,7 @@ void main() {
           assets.requested,
           contains('${prefix}assets/fonts/D2Coding-OFL.txt'),
         );
-        await tester.tap(find.byTooltip('Back'));
+        await tester.tap(find.byTooltip('뒤로'));
         await tester.pumpAndSettle();
         expect(find.widgetWithText(AppBar, '도움말'), findsOneWidget);
         expect(tester.takeException(), isNull);

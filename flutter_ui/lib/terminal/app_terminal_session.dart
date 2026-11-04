@@ -3,6 +3,7 @@
 
 import 'package:xterm2/xterm.dart';
 import 'terminal_input.dart';
+import '../l10n/strings.dart';
 
 typedef TerminalPlatformCall =
     Future<Object?> Function(String method, Map<String, Object?> arguments);
@@ -52,7 +53,9 @@ class TerminalSessionOperations {
             12 => TerminalKey.end,
             13 => TerminalKey.pageUp,
             14 => TerminalKey.pageDown,
-            _ => throw UnsupportedError('Unsupported terminal key: $key'),
+            _ => throw UnsupportedError(
+              deviceStrings.unsupportedTerminalKey((key).toString()),
+            ),
           };
   }
 

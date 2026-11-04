@@ -9,6 +9,7 @@ import 'package:android_shell_ui/platform/ios_platform.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -156,7 +157,14 @@ void main() {
     final engine = createIosEngine(native: native);
     addTearDown(engine.dispose);
     await tester.runAsync(engine.start);
-    await tester.pumpWidget(MaterialApp(home: KeyPage(engine: engine)));
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
+        home: KeyPage(engine: engine),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('키 파일 추가'), findsOneWidget);
     expect(find.textContaining('Android Keystore'), findsNothing);
@@ -176,6 +184,9 @@ void main() {
     await tester.runAsync(engine.start);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: RecordEditor(
           engine: engine,
           kind: RecordKind.key,
@@ -201,6 +212,9 @@ void main() {
     await tester.runAsync(engine.start);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: RecordEditor(engine: engine, kind: RecordKind.host),
       ),
     );

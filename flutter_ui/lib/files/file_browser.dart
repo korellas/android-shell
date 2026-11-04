@@ -1,5 +1,6 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'dart:async';
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
@@ -22,6 +23,7 @@ import '../tilde_design.dart';
 import '../connection_status.dart';
 import 'sftp_tree_transfer.dart';
 import 'transfer.dart';
+import '../l10n/strings.dart';
 
 class FileBrowserPage extends StatefulWidget {
   const FileBrowserPage({
@@ -45,7 +47,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   AppSshSession? _connection;
   SftpClient? _files;
   List<SftpName> _entries = [];
-  String _path = '', _status = '파일 전송 로그인 중';
+  String _path = '', _status = deviceStrings.loggingInForFileTransfer;
   bool _editingAddress = false;
   String? _error;
   bool _loading = true, _leaving = false;
@@ -153,6 +155,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   Future<void> _connect() async {
+    final contextStrings = deviceStrings;
     final generation = ++_connectGeneration;
     final previous = _connection;
     setState(() {
@@ -180,7 +183,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       if (!connection.connected) {
         throw StateError(
           row(connection.record['progress'])['message'] as String? ??
-              '파일 전송에 로그인하지 못했습니다.',
+              contextStrings.couldNotLogInForFileTransfer,
         );
       }
       final files = await connection.openSftp();
@@ -275,13 +278,16 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   Future<Uint8List> _read(String path) async {
+    final contextStrings = context.l10n;
     final channel = await _connection!.openSftp();
     try {
       final file = await channel.open(path);
       try {
         final size = (await file.stat()).size;
         if (size == null || size > 4 * 1024 * 1024) {
-          throw StateError('미리보기는 4 MiB 이하 파일을 지원합니다. 다운로드해서 열어 주세요.');
+          throw StateError(
+            contextStrings.previewSupportsFilesUpTo4MibDownloadThe,
+          );
         }
         return await file.readBytes(length: size);
       } finally {
@@ -297,9 +303,10 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     SftpName? entry, {
     bool create = false,
   }) async {
+    final contextStrings = context.l10n;
     SftpFileAttrs? original = entry?.attr;
     Future<void> saveContents(String targetPath, Uint8List bytes) async {
-      final job = _queue.add('파일 저장', targetPath, (job) async {
+      final job = _queue.add(contextStrings.saveFile, targetPath, (job) async {
         final transfer = SftpTransfer(
           files: _files!,
           openChannel: _connection!.openSftp,
@@ -309,7 +316,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
         if (exists) {
           final current = await _files!.stat(targetPath, followLink: false);
           if (current.isSymbolicLink || current.isDirectory) {
-            throw StateError('폴더나 심볼릭 링크는 편집기로 덮어쓰지 않습니다.');
+            throw StateError(
+              contextStrings.theEditorCannotOverwriteFoldersOrSymbolicLinks,
+            );
           }
           permissions = current.mode == null
               ? null
@@ -321,11 +330,18 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
             if (!mounted ||
                 !await confirm(
                   context,
-                  targetPath == path ? '서버 파일 변경됨' : '같은 이름의 파일이 있습니다',
                   targetPath == path
-                      ? '$targetPath\n서버 파일이 편집 시작 후 변경되었습니다. 덮어쓸까요?'
-                      : '$targetPath\n기존 파일을 덮어쓸까요?',
-                  action: '덮어쓰기',
+                      ? contextStrings.serverFileChanged
+                      : contextStrings.aFileWithTheSameNameExists,
+                  targetPath == path
+                      ? contextStrings
+                            .theServerFileChangedAfterEditingBeganOverwriteIt(
+                              (targetPath).toString(),
+                            )
+                      : contextStrings.overwriteTheExistingFile(
+                          (targetPath).toString(),
+                        ),
+                  action: contextStrings.overwrite,
                   destructive: false,
                 )) {
               throw TransferCancelled();
@@ -367,7 +383,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
         if (_connection?.connected != true) {
           await _connect();
           if (_connection?.connected != true) {
-            throw StateError('서버에 다시 연결하지 못했습니다. 파일 목록에서 인증을 확인하세요.');
+            throw StateError(
+              contextStrings.couldNotReconnectToTheServerCheckAuthenticationIn,
+            );
           }
         }
         return _read(path);
@@ -376,16 +394,18 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       saveCopy: (bytes) async {
         final destination = await askText(
           context,
-          '다른 위치에 사본 저장',
+          contextStrings.saveACopyElsewhere,
           initial: path,
-          action: '사본 저장',
+          action: contextStrings.saveCopy,
           hintText: '/home/user/copy.txt',
           validator: (value) {
             final target = value?.trim() ?? '';
             if (!target.startsWith('/') || target.endsWith('/')) {
-              return '파일 이름을 포함한 절대 경로를 입력하세요.';
+              return contextStrings.enterAnAbsolutePathIncludingTheFileName;
             }
-            if (target == path) return '원본과 다른 경로를 입력하세요.';
+            if (target == path) {
+              return contextStrings.enterAPathDifferentFromTheOriginal;
+            }
             return null;
           },
         );
@@ -404,12 +424,13 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   Future<void> _newFile() async {
+    final contextStrings = context.l10n;
     final directory = _path;
     final name = await askText(
       context,
-      '새 파일',
+      contextStrings.newFile,
       validator: remoteNameError,
-      action: '만들기',
+      action: contextStrings.create,
     );
     if (name == null || !mounted) return;
     final path = remoteChild(directory, name);
@@ -417,18 +438,23 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       files: _files!,
       openChannel: _connection!.openSftp,
     ).exists(path)) {
-      if (mounted) setState(() => _error = '같은 이름의 항목이 있습니다.');
+      if (mounted) {
+        setState(
+          () => _error = contextStrings.anItemWithTheSameNameAlreadyExists,
+        );
+      }
       return;
     }
     if (mounted) await _preview(path, null, create: true);
   }
 
   Future<String?> _renameTo(SftpName entry, String name) async {
+    final contextStrings = context.l10n;
     final directory = _path;
-    if (_locked(entry)) return '전송 중인 항목입니다.';
+    if (_locked(entry)) return contextStrings.thisItemIsBeingTransferred;
     try {
       final job = _queue.add(
-        '이름 변경',
+        contextStrings.rename,
         remoteChild(directory, name),
         (job) async {
           await job.control.ready;
@@ -447,12 +473,13 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   Future<void> _rename(SftpName entry) async {
+    final contextStrings = context.l10n;
     final name = await askText(
       context,
-      '이름 변경',
+      contextStrings.rename,
       initial: entry.filename,
       validator: remoteNameError,
-      action: '변경',
+      action: contextStrings.change,
     );
     if (name == null || !mounted) return;
     final error = await _renameTo(entry, name);
@@ -460,21 +487,27 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   Future<void> _createDirectory() async {
+    final contextStrings = context.l10n;
     final directory = _path;
     final name = await askText(
       context,
-      '새 폴더',
+      contextStrings.newFolder,
       validator: remoteNameError,
-      action: '만들기',
+      action: contextStrings.create,
     );
     if (name == null || !mounted) return;
-    await _runOperation('폴더 만드는 중', (files, _, completed) async {
+    await _runOperation(contextStrings.creatingFolder, (
+      files,
+      _,
+      completed,
+    ) async {
       await files.createDirectory(directory, name);
-      return '폴더를 만들었습니다.';
+      return contextStrings.folderCreated;
     }, paths: {remoteChild(directory, name)});
   }
 
   Future<void> _deleteMany(List<SftpName> entries) async {
+    final contextStrings = context.l10n;
     if (entries.isEmpty || entries.any(_locked)) return;
     final paths = entries
         .map((entry) => remoteChild(_path, entry.filename))
@@ -516,7 +549,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     }
     var deleted = 0;
     await _runOperation(
-      '삭제 중',
+      contextStrings.deleting,
       (files, control, completed) async {
         for (final path in paths) {
           if (completed.contains(path)) continue;
@@ -526,20 +559,23 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
             control: control,
             onDeleted: (count) {
               deleted = before + count;
-              _status = '$deleted개 항목 삭제 중';
+              _status = contextStrings.deletingItems((deleted).toString());
               _changed();
             },
           );
           completed.add(path);
         }
-        return '$deleted개 항목을 삭제했습니다.';
+        return contextStrings.deletedItems((deleted).toString());
       },
-      partialResult: () => deleted == 0 ? '' : ' · $deleted개 항목은 삭제되었습니다.',
+      partialResult: () => deleted == 0
+          ? ''
+          : contextStrings.itemsWereDeleted((deleted).toString()),
       paths: paths.toSet(),
     );
   }
 
   Future<void> _permissions(List<SftpName> entries) async {
+    final contextStrings = context.l10n;
     if (entries.isEmpty || entries.any(_locked)) return;
     final paths = entries
         .map((entry) => remoteChild(_path, entry.filename))
@@ -555,20 +591,28 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       ),
     );
     if (value == null || !mounted) return;
-    await _runOperation('권한 변경 중', (_, control, completed) async {
+    await _runOperation(contextStrings.changingPermissions, (
+      _,
+      control,
+      completed,
+    ) async {
       for (final path in paths) {
         if (completed.contains(path)) continue;
         await control.ready;
         final attr = await _files!
             .stat(path, followLink: false)
             .timeout(const Duration(seconds: 30));
-        if (attr.isSymbolicLink) throw StateError('심볼릭 링크의 권한은 변경하지 않습니다.');
+        if (attr.isSymbolicLink) {
+          throw StateError(
+            contextStrings.symbolicLinkPermissionsWillNotBeChanged,
+          );
+        }
         await _files!
             .setStat(path, SftpFileAttrs(mode: SftpFileMode.value(value)))
             .timeout(const Duration(seconds: 30));
         completed.add(path);
       }
-      return '권한을 변경했습니다.';
+      return contextStrings.permissionsChanged;
     }, paths: paths.toSet());
   }
 
@@ -582,6 +626,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     if (!_enabled) return Future.value();
     final directory = _path;
     final job = _queue.add(status, paths.firstOrNull ?? directory, (job) async {
+      final contextStrings = context.l10n;
       if (mounted) {
         setState(() {
           _operationControl = job.control;
@@ -598,12 +643,18 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
         );
         if (mounted) _status = result;
       } on TransferCancelled {
-        if (mounted) _status = '작업을 취소했습니다.${partialResult?.call() ?? ''}';
+        if (mounted) {
+          _status = contextStrings.operationCancelled(
+            (partialResult?.call() ?? '').toString(),
+          );
+        }
         rethrow;
       } catch (error) {
         if (mounted) {
           _error = '$error';
-          _status = '작업을 완료하지 못했습니다.${partialResult?.call() ?? ''}';
+          _status = contextStrings.couldNotCompleteOperation2(
+            (partialResult?.call() ?? '').toString(),
+          );
         }
         rethrow;
       } finally {
@@ -621,6 +672,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   Future<void> _copy(List<SftpName> entries, {bool cut = false}) async {
+    final contextStrings = context.l10n;
     if (entries.isEmpty || cut && entries.any(_locked)) return;
     final directory = _path;
     _clipboard = [
@@ -643,13 +695,16 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     }
     if (mounted) {
       setState(
-        () => _status =
-            '${entries.length}개 항목 ${cut ? '잘라내기' : '복사'} · 대상 폴더에서 붙여넣으세요.',
+        () => _status = contextStrings.itemsPasteInTheDestinationFolder(
+          (entries.length).toString(),
+          (cut ? contextStrings.cut : contextStrings.copy2).toString(),
+        ),
       );
     }
   }
 
   Future<void> _paste() async {
+    final contextStrings = context.l10n;
     final directory = _path;
     final text = await Clipboard.getData(Clipboard.kTextPlain);
     if (_clipboard.isNotEmpty &&
@@ -667,7 +722,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     if (paths != null && paths.isNotEmpty) {
       await _uploadPaths(paths, directory);
     } else if (mounted) {
-      setState(() => _status = '붙여넣을 파일이 없습니다.');
+      setState(() => _status = contextStrings.noFilesToPaste);
     }
   }
 
@@ -705,43 +760,53 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     for (final item in entries) {
       final destination = remoteChild(target, item.entry.filename);
       if (destination == item.path || destination.startsWith('${item.path}/')) {
-        setState(() => _error = '같은 위치나 자기 폴더 안으로 이동·복사할 수 없습니다.');
+        setState(
+          () => _error = context.l10n.cannotMoveOrCopyToTheSameLocationOr,
+        );
         continue;
       }
-      _queue.add(move ? '이동' : '복사 (임시 다운로드 후 업로드)', destination, (job) async {
-        if (move) {
-          await job.control.ready;
-          await SftpFileOperations(_files!).move(item.path, destination);
-        } else {
-          final temporary = await Directory.systemTemp.createTemp(
-            'tilde-copy-',
-          );
-          try {
-            final tree = SftpTreeTransfer(_files!, _connection!.openSftp);
-            job.completedPaths.clear();
-            final local = localDestination(temporary, item.entry.filename).path;
-            await tree.run(
-              await tree.planDownload(item.path, local, job.control),
-              upload: false,
-              job: job,
-              resolve: _conflicts(job, upload: false),
-              changed: _progress,
+      _queue.add(
+        move ? context.l10n.move2 : context.l10n.copyTemporaryDownloadAndUpload,
+        destination,
+        (job) async {
+          if (move) {
+            await job.control.ready;
+            await SftpFileOperations(_files!).move(item.path, destination);
+          } else {
+            final temporary = await Directory.systemTemp.createTemp(
+              'tilde-copy-',
             );
-            job.completedPaths.clear();
-            await tree.run(
-              await tree.planUpload(local, destination, job.control),
-              upload: true,
-              job: job,
-              resolve: _conflicts(job, upload: true),
-              changed: _progress,
-            );
-          } finally {
-            await temporary.delete(recursive: true);
+            try {
+              final tree = SftpTreeTransfer(_files!, _connection!.openSftp);
+              job.completedPaths.clear();
+              final local = localDestination(
+                temporary,
+                item.entry.filename,
+              ).path;
+              await tree.run(
+                await tree.planDownload(item.path, local, job.control),
+                upload: false,
+                job: job,
+                resolve: _conflicts(job, upload: false),
+                changed: _progress,
+              );
+              job.completedPaths.clear();
+              await tree.run(
+                await tree.planUpload(local, destination, job.control),
+                upload: true,
+                job: job,
+                resolve: _conflicts(job, upload: true),
+                changed: _progress,
+              );
+            } finally {
+              await temporary.delete(recursive: true);
+            }
           }
-        }
-        _refreshAt(target);
-        _refreshAt(_parent(item.path));
-      }, paths: {item.path});
+          _refreshAt(target);
+          _refreshAt(_parent(item.path));
+        },
+        paths: {item.path},
+      );
     }
   }
 
@@ -804,11 +869,12 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     String target, {
     Map<String, String> names = const {},
   }) async {
+    final contextStrings = context.l10n;
     if (!_connected) return;
     for (final path in paths) {
       final destination = remoteChild(target, names[path] ?? fileName(path));
       List<TreeEntry>? plan;
-      _queue.add('업로드', destination, (job) async {
+      _queue.add(contextStrings.upload, destination, (job) async {
         final tree = SftpTreeTransfer(_files!, _connection!.openSftp);
         plan ??= await tree.planUpload(path, destination, job.control);
         await tree.run(
@@ -846,6 +912,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   Future<void> _downloadMany(List<SftpName> entries) async {
+    final contextStrings = context.l10n;
     if (entries.isEmpty) return;
     final sourceDirectory = _path;
     if (entries.length == 1 && !entries.single.attr.isDirectory) {
@@ -859,25 +926,28 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
         );
         if (staged['path'] is! String) return;
         _staged.add(staged);
-        _queue.add('다운로드', staged['uri'] as String? ?? entry.filename, (
-          job,
-        ) async {
-          await SftpTransfer(
-            files: _files!,
-            openChannel: _connection!.openSftp,
-          ).download(
-            source,
-            File(staged['path'] as String),
-            control: job.control,
-            overwrite: true,
-            onProgress: (_) => _progress(),
-          );
-          await widget.engine.query('file.finishTransfer', {
-            ...staged,
-            'save': true,
-          });
-          _staged.remove(staged);
-        }, paths: {source});
+        _queue.add(
+          contextStrings.download,
+          staged['uri'] as String? ?? entry.filename,
+          (job) async {
+            await SftpTransfer(
+              files: _files!,
+              openChannel: _connection!.openSftp,
+            ).download(
+              source,
+              File(staged['path'] as String),
+              control: job.control,
+              overwrite: true,
+              onProgress: (_) => _progress(),
+            );
+            await widget.engine.query('file.finishTransfer', {
+              ...staged,
+              'save': true,
+            });
+            _staged.remove(staged);
+          },
+          paths: {source},
+        );
       } catch (error) {
         if (mounted) setState(() => _error = '$error');
       }
@@ -885,7 +955,10 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       final directory = await _platform?.chooseDirectory?.call();
       if (directory == null) {
         if (_platform?.chooseDirectory == null && mounted) {
-          setState(() => _error = '이 플랫폼에서는 폴더 저장 위치 선택을 지원하지 않습니다.');
+          setState(
+            () => _error = contextStrings
+                .choosingAFolderDestinationIsUnsupportedOnThisPlatform,
+          );
         }
         return;
       }
@@ -897,7 +970,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
             ).path;
         List<TreeEntry>? plan;
         _queue.add(
-          '다운로드',
+          contextStrings.download,
           target,
           (job) async {
             final tree = SftpTreeTransfer(_files!, _connection!.openSftp);
@@ -925,10 +998,11 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     File destination,
     TransferControl control,
   ) async {
-    if (!_connected) throw StateError('연결이 닫혔습니다.');
+    final contextStrings = context.l10n;
+    if (!_connected) throw StateError(contextStrings.connectionClosed2);
     final source = remoteChild(directory, entry.filename);
     final job = _queue.add(
-      '탐색기로 다운로드',
+      contextStrings.downloadToFileManager,
       destination.path,
       (job) async {
         job.control = control;
@@ -937,8 +1011,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
           await tree.planDownload(source, destination.path, control),
           upload: false,
           job: job,
-          resolve: (entry, existing) async =>
-              throw StateError('내보내기 임시 경로가 이미 존재합니다.'),
+          resolve: (entry, existing) async => throw StateError(
+            contextStrings.theTemporaryExportPathAlreadyExists,
+          ),
           changed: _progress,
         );
       },
@@ -949,12 +1024,13 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   Future<bool> _canLeave() async {
+    final contextStrings = context.l10n;
     if (!_queue.busy && _operationControl == null) return true;
     if (!await confirm(
       context,
-      '전송 취소하고 닫기',
-      '이 탭에서 진행 중인 전송과 대기 중인 작업을 취소할까요?',
-      action: '전송 취소하고 닫기',
+      contextStrings.cancelTransfersAndClose,
+      contextStrings.cancelActiveTransfersAndQueuedOperationsInThisTab,
+      action: contextStrings.cancelTransfersAndClose,
     )) {
       return false;
     }
@@ -1014,17 +1090,17 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
           ? () => _guard(() => _downloadMany(_selected))
           : null,
       icon: const Icon(Icons.download_outlined, size: 18),
-      label: const Text('다운로드'),
+      label: Text(context.l10n.download),
     ),
     TextButton(
       onPressed: _connected ? () => _guard(() => _copy(_selected)) : null,
-      child: const Text('복사'),
+      child: Text(context.l10n.copy2),
     ),
     TextButton(
       onPressed: _enabled && !_selected.any(_locked)
           ? () => _guard(() => _moveMany(_selected))
           : null,
-      child: const Text('이동'),
+      child: Text(context.l10n.move2),
     ),
     TextButton(
       style: TextButton.styleFrom(
@@ -1033,29 +1109,29 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       onPressed: _enabled && !_selected.any(_locked)
           ? () => _guard(() => _deleteMany(_selected))
           : null,
-      child: const Text('삭제'),
+      child: Text(context.l10n.delete),
     ),
   ];
   List<Widget> _normalActions() => [
     FilledButton.icon(
       onPressed: _connected ? _pickUpload : null,
       icon: const Icon(Icons.upload_outlined, size: 18),
-      label: const Text('업로드'),
+      label: Text(context.l10n.upload),
     ),
     if (_platform?.chooseDirectory != null)
       TextButton(
         onPressed: _connected ? () => _guard(_uploadFolder) : null,
-        child: const Text('폴더 업로드'),
+        child: Text(context.l10n.uploadFolder),
       ),
     TextButton.icon(
       onPressed: _enabled ? _newFile : null,
       icon: const Icon(Icons.note_add_outlined, size: 18),
-      label: const Text('새 파일'),
+      label: Text(context.l10n.newFile),
     ),
     TextButton.icon(
       onPressed: _enabled ? _createDirectory : null,
       icon: const Icon(Icons.create_new_folder_outlined, size: 18),
-      label: const Text('새 폴더'),
+      label: Text(context.l10n.newFolder),
     ),
   ];
 
@@ -1078,19 +1154,25 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     final pointer = tildePointer(context);
     final prompts = _connection?.prompts ?? [];
     final title = _leaving
-        ? '연결을 취소했습니다'
+        ? context.l10n.connectionCancelled
         : failed
         ? switch (phase) {
-            'hostKey' => '서버 키를 확인하지 못했습니다',
-            'authentication' => '로그인하지 못했습니다',
-            'ready' => '파일 목록을 열지 못했습니다',
-            _ => '서버에 연결하지 못했습니다',
+            'hostKey' => context.l10n.couldNotVerifyServerKey,
+            'authentication' => context.l10n.couldNotLogIn,
+            'ready' => context.l10n.couldNotOpenFileList,
+            _ => context.l10n.couldNotConnectToServer,
           }
-        : '${widget.host['nickname']}에 연결하는 중';
+        : context.l10n.connectingTo2((widget.host['nickname']).toString());
     return Scaffold(
       appBar: widget.embedded
           ? null
-          : AppBar(title: Text('${widget.host['nickname']} · 파일 전송')),
+          : AppBar(
+              title: Text(
+                context.l10n.fileTransfer2(
+                  (widget.host['nickname']).toString(),
+                ),
+              ),
+            ),
       body: SafeArea(
         top: false,
         child: ConnectionStatusView(
@@ -1099,16 +1181,21 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
           address:
               record['connectionHost'] as String? ??
               '${widget.host['username'] ?? ''}@${widget.host['hostname'] ?? ''}:${widget.host['port'] ?? 22}',
-          finalStage: '파일 목록',
+          finalStage: context.l10n.fileList,
           failed: failed,
           cancelled: _leaving,
           failureHint: failed
               ? switch (phase) {
-                  'hostKey' => '저장된 서버 키와 서버 관리자가 알려 준 지문을 확인하세요.',
+                  'hostKey' =>
+                    context
+                        .l10n
+                        .checkTheSavedServerKeyAndTheFingerprintProvided,
                   'authentication' =>
-                    '사용자 이름과 인증 정보를 확인하세요. SSH 키를 사용한다면 서버에 공개키가 등록되어 있어야 합니다.',
-                  'ready' => '폴더 경로와 접근 권한을 확인한 뒤 다시 시도하세요.',
-                  _ => '서버 주소와 포트, 네트워크 연결을 확인하세요.',
+                    context.l10n.checkYourUsernameAndCredentialsIfUsingAnSsh,
+                  'ready' =>
+                    context.l10n.checkTheFolderPathAndPermissionsThenTryAgain,
+                  _ =>
+                    context.l10n.checkTheServerAddressPortAndNetworkConnection,
                 }
               : null,
           prompt: prompts.isEmpty
@@ -1130,19 +1217,22 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                   summary: title,
                   retry: _connect,
                 ),
-                child: const Text('자세히'),
+                child: Text(context.l10n.details),
               ),
             if (pointer && !failed && !_leaving)
               TextButton(
                 onPressed: () => showErrorDetails(
                   context,
                   (record['connectionLog'] as List? ?? []).join('\n'),
-                  summary: '연결 기록',
+                  summary: context.l10n.connectionLog,
                 ),
-                child: const Text('연결 기록'),
+                child: Text(context.l10n.connectionLog),
               ),
             if (!failed && !_leaving)
-              TextButton(onPressed: _cancelConnection, child: const Text('취소')),
+              TextButton(
+                onPressed: _cancelConnection,
+                child: Text(context.l10n.cancel),
+              ),
             if (failed)
               OutlinedButton(
                 onPressed: () async {
@@ -1162,10 +1252,13 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                     ),
                   );
                 },
-                child: const Text('호스트 편집'),
+                child: Text(context.l10n.editHost),
               ),
             if (failed || _leaving)
-              FilledButton(onPressed: _connect, child: const Text('다시 시도')),
+              FilledButton(
+                onPressed: _connect,
+                child: Text(context.l10n.retry),
+              ),
           ],
         ),
       ),
@@ -1182,9 +1275,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       children: [
         Row(
           children: [
-            const Expanded(child: Text('즐겨찾기')),
+            Expanded(child: Text(context.l10n.favorites)),
             IconButton(
-              tooltip: '현재 폴더 즐겨찾기',
+              tooltip: context.l10n.bookmarkCurrentFolder,
               onPressed: _path.isEmpty
                   ? null
                   : () {
@@ -1210,7 +1303,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
         if (_recent.isNotEmpty)
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
-            title: const Text('최근 위치'),
+            title: Text(context.l10n.recentLocations),
             children: [
               for (final path in _recent)
                 ListTile(
@@ -1299,7 +1392,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
             : AppBar(
                 leading: !pointer && _selected.isNotEmpty
                     ? IconButton(
-                        tooltip: '선택 해제',
+                        tooltip: context.l10n.clearSelection,
                         onPressed: () =>
                             _listingKey.currentState?.clearSelection(),
                         icon: const Icon(Icons.close),
@@ -1307,8 +1400,10 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                     : null,
                 title: Text(
                   !pointer && _selected.isNotEmpty
-                      ? '${_selected.length}개 선택'
-                      : '${widget.host['nickname']} · 파일 전송',
+                      ? context.l10n.selected((_selected.length).toString())
+                      : context.l10n.fileTransfer2(
+                          (widget.host['nickname']).toString(),
+                        ),
                 ),
               ),
         bottomNavigationBar: !pointer && _selected.isNotEmpty
@@ -1337,7 +1432,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                 child: Row(
                   children: [
                     IconButton(
-                      tooltip: '뒤로',
+                      tooltip: context.l10n.back,
                       onPressed: _connected && _historyIndex > 0
                           ? () => _navigate(
                               _history[_historyIndex - 1],
@@ -1348,7 +1443,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                       icon: const Icon(Icons.arrow_back),
                     ),
                     IconButton(
-                      tooltip: '앞으로',
+                      tooltip: context.l10n.forward,
                       onPressed:
                           _connected && _historyIndex + 1 < _history.length
                           ? () => _navigate(
@@ -1360,7 +1455,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                       icon: const Icon(Icons.arrow_forward),
                     ),
                     IconButton(
-                      tooltip: '상위 폴더',
+                      tooltip: context.l10n.parentFolder,
                       onPressed: _connected && _path != '/'
                           ? () => _navigate(_parent(_path))
                           : null,
@@ -1388,9 +1483,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                                   fontFamily: tildeMono,
                                   fontFamilyFallback: tildeMonoFallback,
                                 ),
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   isDense: true,
-                                  hintText: '원격 폴더 경로',
+                                  hintText: context.l10n.remoteFolderPath,
                                 ),
                               ),
                             )
@@ -1443,7 +1538,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                     ),
                     if (pointer) ...[
                       IconButton(
-                        tooltip: '현재 폴더 즐겨찾기',
+                        tooltip: context.l10n.bookmarkCurrentFolder,
                         icon: Icon(
                           _favorites.contains(_path)
                               ? Icons.star
@@ -1459,16 +1554,16 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                         },
                       ),
                       PopupMenuButton<String>(
-                        tooltip: '즐겨찾기·최근 위치',
+                        tooltip: context.l10n.bookmarksAndRecentLocations,
                         icon: const Icon(Icons.history),
                         onSelected: _connected
                             ? (path) => _navigate(path)
                             : null,
                         itemBuilder: (_) => [
                           if (_favorites.isNotEmpty)
-                            const PopupMenuItem<String>(
+                            PopupMenuItem<String>(
                               enabled: false,
-                              child: Text('즐겨찾기'),
+                              child: Text(context.l10n.favorites),
                             ),
                           for (final path in _favorites)
                             PopupMenuItem(
@@ -1480,9 +1575,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                               ),
                             ),
                           if (_recent.isNotEmpty)
-                            const PopupMenuItem<String>(
+                            PopupMenuItem<String>(
                               enabled: false,
-                              child: Text('최근 위치'),
+                              child: Text(context.l10n.recentLocations),
                             ),
                           for (final path in _recent)
                             PopupMenuItem(
@@ -1497,7 +1592,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                       ),
                     ],
                     IconButton(
-                      tooltip: '새로고침',
+                      tooltip: context.l10n.refresh,
                       onPressed: _connected
                           ? () => _navigate(_path, record: false)
                           : null,
@@ -1528,11 +1623,15 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                               if (_selected.isEmpty)
                                 ..._normalActions()
                               else ...[
-                                Text('${_selected.length}개 선택'),
+                                Text(
+                                  context.l10n.selected(
+                                    (_selected.length).toString(),
+                                  ),
+                                ),
                                 const SizedBox(width: 8),
                                 ..._selectionActions(),
                                 IconButton(
-                                  tooltip: '선택 해제',
+                                  tooltip: context.l10n.clearSelection,
                                   onPressed: () => _listingKey.currentState
                                       ?.clearSelection(),
                                   icon: const Icon(Icons.close),
@@ -1546,9 +1645,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                                   focusNode: _filterFocus,
                                   onChanged: (_) =>
                                       _listingKey.currentState?.filterChanged(),
-                                  decoration: const InputDecoration(
+                                  decoration: InputDecoration(
                                     prefixIcon: Icon(Icons.search, size: 18),
-                                    hintText: '현재 폴더에서 찾기',
+                                    hintText: context.l10n.findInCurrentFolder,
                                     isDense: true,
                                   ),
                                 ),
@@ -1558,7 +1657,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                                   onPressed: () => _listingKey.currentState
                                       ?.showViewMenu(anchor),
                                   icon: const Icon(Icons.tune, size: 18),
-                                  label: const Text('보기'),
+                                  label: Text(context.l10n.view),
                                 ),
                               ),
                             ],

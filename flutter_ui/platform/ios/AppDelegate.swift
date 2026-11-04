@@ -86,7 +86,7 @@ private final class IosPlatform: NSObject, UIDocumentPickerDelegate {
             background(result) { try self.storageDirectory().path }
         case "protect", "unprotect":
             guard let bytes = args["bytes"] as? FlutterStandardTypedData else {
-                result(FlutterError(code: "invalid_bytes", message: "인증정보 형식이 올바르지 않습니다.", details: nil))
+                result(FlutterError(code: "invalid_bytes", message: NSLocalizedString("invalid_credentials", comment: "Tilde platform error"), details: nil))
                 return
             }
             background(result) {
@@ -103,11 +103,11 @@ private final class IosPlatform: NSObject, UIDocumentPickerDelegate {
         case "openUrl":
             guard let text = args["url"] as? String, let url = URL(string: text),
                   ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") else {
-                result(FlutterError(code: "invalid_url", message: "지원하지 않는 링크입니다.", details: nil))
+                result(FlutterError(code: "invalid_url", message: NSLocalizedString("unsupported_link", comment: "Tilde platform error"), details: nil))
                 return
             }
             UIApplication.shared.open(url, options: [:]) { opened in
-                result(opened ? nil : FlutterError(code: "open_url", message: "링크를 열 수 없습니다.", details: nil))
+                result(opened ? nil : FlutterError(code: "open_url", message: NSLocalizedString("could_not_open_link", comment: "Tilde platform error"), details: nil))
             }
         case "openFile":
             present(UIDocumentPickerViewController(documentTypes: ["public.data"], in: .import), result: result)
@@ -121,7 +121,7 @@ private final class IosPlatform: NSObject, UIDocumentPickerDelegate {
             }
         case "exportFile":
             guard let path = args["path"] as? String else {
-                result(FlutterError(code: "invalid_path", message: "내보낼 파일이 없습니다.", details: nil))
+                result(FlutterError(code: "invalid_path", message: NSLocalizedString("export_file_missing", comment: "Tilde platform error"), details: nil))
                 return
             }
             let url = URL(fileURLWithPath: path)
@@ -135,13 +135,13 @@ private final class IosPlatform: NSObject, UIDocumentPickerDelegate {
     private func present(_ picker: UIDocumentPickerViewController, export: URL? = nil,
                          result: @escaping FlutterResult) {
         guard pickerResult == nil else {
-            result(FlutterError(code: "picker_busy", message: "열려 있는 파일 선택 창을 먼저 닫으세요.", details: nil))
+            result(FlutterError(code: "picker_busy", message: NSLocalizedString("close_file_picker", comment: "Tilde platform error"), details: nil))
             return
         }
         guard let scene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene }).first(where: { $0.activationState == .foregroundActive }),
               var controller = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
-            result(FlutterError(code: "no_window", message: "파일 선택 창을 열 수 없습니다.", details: nil))
+            result(FlutterError(code: "no_window", message: NSLocalizedString("could_not_open_file_picker", comment: "Tilde platform error"), details: nil))
             return
         }
         while let presented = controller.presentedViewController { controller = presented }

@@ -24,6 +24,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xterm2/xterm.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   late TerminalInputController input;
@@ -37,6 +38,27 @@ void main() {
     final font = FontLoader('Pretendard')
       ..addFont(rootBundle.load('assets/fonts/Pretendard-Medium.ttf'));
     await font.load();
+  });
+  testWidgets('navigation tooltips follow the Korean locale', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: TerminalKeyBar(
+            input: input,
+            order: const ['UP', 'DOWN', 'PAGE_UP', 'PAGE_DOWN'],
+            onKey: (_, _, _, _) {},
+            onToggleKeyboard: () {},
+          ),
+        ),
+      ),
+    );
+    expect(find.byTooltip('위로'), findsOneWidget);
+    expect(find.byTooltip('아래로'), findsOneWidget);
+    expect(find.byTooltip('이전 페이지'), findsOneWidget);
+    expect(find.byTooltip('다음 페이지'), findsOneWidget);
   });
   testWidgets(
     'key preferences control haptics and keyboard-toggle visibility',
@@ -57,6 +79,9 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: Scaffold(
             body: TerminalKeyBar(
               input: input,
@@ -79,6 +104,9 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           body: TerminalKeyBar(
             input: input,
@@ -123,6 +151,9 @@ void main() {
     final sent = <TerminalKey>[];
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           body: Align(
             alignment: Alignment.bottomCenter,
@@ -161,6 +192,9 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           body: TerminalKeyBar(
             input: input,
@@ -206,6 +240,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,
@@ -253,6 +290,9 @@ void main() {
     final modifiers = <(bool, bool, bool)>[];
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           body: TerminalKeyBar(
             input: input,
@@ -291,6 +331,9 @@ void main() {
     var emissions = 0;
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           body: TerminalKeyBar(
             input: input,
@@ -315,6 +358,9 @@ void main() {
     final sent = <TerminalKey>[];
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: Scaffold(
           body: TerminalKeyBar(
             input: input,
@@ -328,7 +374,7 @@ void main() {
       ),
     );
     expect(find.text('Alt'), findsNothing);
-    expect(find.byTooltip('Up'), findsNothing);
+    expect(find.byTooltip('위로'), findsNothing);
     expect(find.text('Fn'), findsNothing);
     await tester.tap(find.text('Home'));
     await tester.tap(find.text('F1'));
