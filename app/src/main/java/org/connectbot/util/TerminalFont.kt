@@ -18,7 +18,7 @@
 package org.connectbot.util
 
 /**
- * Available terminal fonts that can be downloaded via Google Fonts.
+ * Available bundled and downloadable terminal fonts.
  * All fonts are monospace fonts suitable for terminal display.
  */
 enum class TerminalFont(
@@ -26,6 +26,7 @@ enum class TerminalFont(
     val googleFontName: String,
 ) {
     SYSTEM_DEFAULT("Default (Monospace)", ""),
+    D2CODING("D2Coding", "D2Coding"),
     JETBRAINS_MONO("JetBrains Mono", "JetBrains Mono"),
     FIRA_CODE("Fira Code", "Fira Code"),
     FIRA_MONO("Fira Mono", "Fira Mono"),

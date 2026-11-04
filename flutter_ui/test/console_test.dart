@@ -160,7 +160,7 @@ void main() {
 
   for (final toolbar in [false, true]) {
     testWidgets(
-      'authentication back asks before ending its session (toolbar=$toolbar)',
+      'authentication home preserves its session (toolbar=$toolbar)',
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
@@ -172,23 +172,13 @@ void main() {
         await tester.pumpAndSettle();
         await tester.pumpAndSettle();
         if (toolbar) {
-          await tester.tap(find.byTooltip('뒤로'));
+          await tester.tap(find.byTooltip('홈'));
         } else {
           await tester.binding.handlePopRoute();
         }
         await tester.pumpAndSettle();
-        expect(find.text('Research에서 나가기'), findsOneWidget);
         expect(calls.where((c) => c.method == 'session.disconnect'), isEmpty);
-        await tester.tap(find.text('세션 종료'));
-        await tester.pumpAndSettle();
-        expect(
-          calls
-              .where((c) => c.method == 'session.disconnect')
-              .map((c) => c.arguments),
-          [
-            {'id': 101},
-          ],
-        );
+        expect(authenticationPending, isTrue);
         expect(find.byType(ConsolePage), findsNothing);
         expect(find.byType(AlertDialog), findsNothing);
         expect(tester.takeException(), isNull);
@@ -200,113 +190,95 @@ void main() {
 
   for (final open in [false, true]) {
     for (final toolbar in [false, true]) {
-      testWidgets(
-        'back applies the chosen session action (open=$open toolbar=$toolbar)',
-        (tester) async {
-          tester.view.physicalSize = const Size(390, 844);
-          tester.view.devicePixelRatio = 1;
-          addTearDown(tester.view.resetPhysicalSize);
-          addTearDown(tester.view.resetDevicePixelRatio);
-          final engine = UiEngineFixture();
-          engine.state = {
-            'ready': true,
-            'hosts': [
-              {
-                'id': 7,
-                'nickname': 'Research',
-                'protocol': 'ssh',
-                'hostname': 'example.test',
-                'username': 'user',
-                'port': 22,
-              },
-            ],
-            'sessions': [
-              {'id': 101, 'hostId': 7, 'nickname': 'Research', 'open': open},
-            ],
-            'prompts': [],
-            'preferences': {'titlebarhide': false},
-          };
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-              .setMockMethodCallHandler(channel, (call) async {
-                calls.add(call);
-                if (call.method == 'snapshot') return engine.state;
-                if (call.method == 'session.disconnect') {
-                  engine.state['sessions'] = [];
-                }
-                if (call.method == 'connect') {
-                  engine.state['sessions'] = [
-                    {
-                      'id': 102,
-                      'hostId': 7,
-                      'nickname': 'Research',
-                      'open': true,
-                    },
-                  ];
-                  engine.state['selectedSession'] = 102;
-                  return 102;
-                }
-                if (call.method == 'session.consumeSelection') {
-                  engine.state['selectedSession'] = null;
-                }
-                return null;
-              });
-          await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
-          await tester.pumpAndSettle();
-          tester
-              .state<NavigatorState>(find.byType(Navigator))
-              .push(
-                MaterialPageRoute<void>(
-                  builder: (_) => ConsolePage(engine: engine, sessionId: 101),
-                ),
-              );
-          await tester.pumpAndSettle();
-          if (!open) {
-            expect(find.widgetWithText(TextButton, 'Tab'), findsNothing);
-            expect(
-              tester.widget<TerminalView>(find.byType(TerminalView)).readOnly,
-              true,
-            );
-          }
-          if (toolbar) {
-            await tester.tap(find.byTooltip('뒤로'));
-          } else {
-            await tester.binding.handlePopRoute();
-          }
-          await tester.pumpAndSettle();
-          expect(find.text('Research에서 나가기'), findsOneWidget);
-          expect(calls.where((c) => c.method == 'session.disconnect'), isEmpty);
-          await tester.tap(find.text(open ? '연결 유지' : '세션 종료'));
-          await tester.pumpAndSettle();
-          expect(find.byType(ConsolePage), findsNothing);
-          expect(find.byType(AlertDialog), findsNothing);
-          final disconnects = calls
-              .where((c) => c.method == 'session.disconnect')
-              .toList();
-          if (open) {
-            expect(disconnects, isEmpty);
-            expect(engine.list('sessions').single['id'], 101);
-          } else {
-            expect(disconnects.map((c) => c.arguments), [
-              {'id': 101},
-            ]);
-            expect(engine.list('sessions'), isEmpty);
-            await tester.tap(find.text('Research'));
-            await tester.pumpAndSettle();
-            await tester.pumpAndSettle();
-            expect(
-              tester.widget<ConsolePage>(find.byType(ConsolePage)).sessionId,
-              102,
-            );
-            expect(calls.singleWhere((c) => c.method == 'connect').arguments, {
+      testWidgets('home preserves the session (open=$open toolbar=$toolbar)', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final engine = UiEngineFixture();
+        engine.state = {
+          'ready': true,
+          'hosts': [
+            {
               'id': 7,
+              'nickname': 'Research',
+              'protocol': 'ssh',
+              'hostname': 'example.test',
+              'username': 'user',
+              'port': 22,
+            },
+          ],
+          'sessions': [
+            {'id': 101, 'hostId': 7, 'nickname': 'Research', 'open': open},
+          ],
+          'prompts': [],
+          'preferences': {'titlebarhide': false},
+        };
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (call) async {
+              calls.add(call);
+              if (call.method == 'snapshot') return engine.state;
+              if (call.method == 'session.disconnect') {
+                engine.state['sessions'] = [];
+              }
+              if (call.method == 'connect') {
+                engine.state['sessions'] = [
+                  {
+                    'id': 102,
+                    'hostId': 7,
+                    'nickname': 'Research',
+                    'open': true,
+                  },
+                ];
+                engine.state['selectedSession'] = 102;
+                return 102;
+              }
+              if (call.method == 'session.consumeSelection') {
+                engine.state['selectedSession'] = null;
+              }
+              return null;
             });
-          }
-          expect(tester.takeException(), isNull);
-          await tester.pumpWidget(const SizedBox());
-          await tester.pumpAndSettle();
-          engine.dispose();
-        },
-      );
+        await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
+        await tester.pumpAndSettle();
+        tester
+            .state<NavigatorState>(find.byType(Navigator))
+            .push(
+              MaterialPageRoute<void>(
+                builder: (_) => ConsolePage(engine: engine, sessionId: 101),
+              ),
+            );
+        await tester.pumpAndSettle();
+        if (!open) {
+          expect(find.widgetWithText(TextButton, 'Tab'), findsNothing);
+          expect(
+            tester.widget<TerminalView>(find.byType(TerminalView)).readOnly,
+            true,
+          );
+        }
+        if (toolbar) {
+          await tester.tap(find.byTooltip('홈'));
+        } else {
+          await tester.binding.handlePopRoute();
+        }
+        await tester.pumpAndSettle();
+        expect(calls.where((c) => c.method == 'session.disconnect'), isEmpty);
+        expect(find.byType(ConsolePage), findsNothing);
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(engine.list('sessions').single['id'], 101);
+        await tester.tap(find.byKey(const ValueKey('open-session-101')));
+        await tester.pumpAndSettle();
+        expect(
+          tester.state<ConsolePageState>(find.byType(ConsolePage)).id,
+          101,
+        );
+        expect(calls.where((c) => c.method == 'connect'), isEmpty);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+        engine.dispose();
+      });
     }
   }
 
@@ -431,6 +403,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'unsent');
+    await tester.tap(find.text('세션 2'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Second'));
     await tester.pumpAndSettle();
     expect(find.text('Verification'), findsOneWidget);
@@ -451,6 +425,8 @@ void main() {
       {'sessionId': 102, 'token': 'second', 'value': '123456'},
     );
     expect(engine.list('prompts').single['token'], 'first');
+    await tester.tap(find.text('세션 2'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('First'));
     await tester.pumpAndSettle();
     expect(find.byType(TerminalPrompt), findsOneWidget);
@@ -573,8 +549,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('연결 유지'));
-    await tester.pumpAndSettle();
     expect(find.byType(ConsolePage), findsNothing);
     expect(connected, isTrue);
     expect(calls.where((c) => c.method == 'session.disconnect'), isEmpty);
@@ -582,7 +556,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('cancelling exit keeps the terminal and connection', (
+  testWidgets('cancelling session picker keeps the terminal and connection', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -594,14 +568,14 @@ void main() {
     await tester.tap(find.text('Research'));
     await tester.pumpAndSettle();
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('뒤로'));
+    await tester.tap(find.text('세션 1'));
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(ConsolePage), findsOneWidget);
     expect(connected, isTrue);
     expect(calls.where((c) => c.method == 'session.disconnect'), isEmpty);
-    await tester.tap(find.byTooltip('뒤로'));
+    await tester.tap(find.text('세션 1'));
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
     await tester.binding.handlePopRoute();
@@ -854,7 +828,7 @@ void main() {
             ),
           );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Research · 101'));
+      await tester.tap(find.text('세션 2'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Research · 102'));
       await tester.tap(find.text('Research · 102'));
@@ -1100,7 +1074,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       final rect = tester.getRect(find.byType(TerminalPane));
-      expect(rect.top, 44);
+      expect(rect.top, 48);
       expect(
         rect.bottom,
         tester.view.physicalSize.height / tester.view.devicePixelRatio,
@@ -1184,7 +1158,7 @@ void main() {
   }
 
   testWidgets(
-    'auto-hidden title overlays full terminal without changing rows',
+    'auto-hidden title retains session navigation without changing rows',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -1211,11 +1185,14 @@ void main() {
           .widget<TerminalPane>(find.byType(TerminalPane))
           .terminal;
       final beforeRows = terminal.viewHeight;
-      expect(before.top, 0);
+      expect(before.top, 48);
       expect(before.bottom, 844);
       expect(find.byType(AppBar), findsOneWidget);
       await tester.pump(const Duration(seconds: 4));
-      expect(find.byType(AppBar), findsNothing);
+      expect(find.byType(AppBar), findsOneWidget);
+      expect(find.text('Research'), findsNothing);
+      expect(find.text('세션 1'), findsOneWidget);
+      expect(find.byTooltip('홈'), findsOneWidget);
       expect(tester.getRect(find.byType(TerminalPane)), before);
       expect(terminal.viewHeight, beforeRows);
       await tester.tap(find.byType(TerminalView));
@@ -1255,7 +1232,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     final rect = tester.getRect(find.byType(TerminalPane));
-    expect(rect.top, 44 + 60 / tester.view.devicePixelRatio);
+    expect(rect.top, 48 + 60 / tester.view.devicePixelRatio);
     expect(
       rect.bottom,
       (tester.view.physicalSize.height - 30) / tester.view.devicePixelRatio,

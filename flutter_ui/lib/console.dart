@@ -135,7 +135,6 @@ class ConsolePageState extends State<ConsolePage> {
       });
       if (!widget.embedded &&
           current &&
-          _desktop &&
           engine.state['selectedSession'] != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) changed();
@@ -214,7 +213,7 @@ class ConsolePageState extends State<ConsolePage> {
   void changed() {
     if (!mounted) return;
     final selected = engine.state['selectedSession'] as int?;
-    if (!widget.embedded && _desktop && visible == true && selected != null) {
+    if (!widget.embedded && visible == true && selected != null) {
       select(selected);
       unawaited(engine.invoke('session.consumeSelection'));
     }
@@ -265,7 +264,6 @@ class ConsolePageState extends State<ConsolePage> {
   Future<dynamic> command(String method, [EngineRecord args = const {}]) =>
       runEngine(actionsContext, engine, method, {'id': id, ...args});
   bool leaving = false;
-  bool exitPromptOpen = false;
   bool closingTab = false;
 
   Future<void> closeTab(int targetId) async {
@@ -277,17 +275,7 @@ class ConsolePageState extends State<ConsolePage> {
     if (target == null) return;
     closingTab = true;
     try {
-      if ((target['open'] == true || target['connecting'] == true) &&
-          !await confirm(
-            actionsContext,
-            '세션 종료',
-            '${target['nickname'] ?? '터미널'} 연결을 종료할까요?',
-            action: '종료',
-          )) {
-        return;
-      }
-      if (!mounted) return;
-      await engine.invoke('session.disconnect', {'id': targetId});
+      if (!await closeTildeSession(actionsContext, engine, targetId)) return;
       if (!mounted || id != targetId) return;
       final remaining = engine
           .list('sessions')
@@ -307,69 +295,19 @@ class ConsolePageState extends State<ConsolePage> {
     }
   }
 
-  Future<void> requestLeave() async {
-    if (leaving || exitPromptOpen) return;
-    if (session.isEmpty || session['ended'] == true) {
-      await leave(disconnect: true);
-      return;
-    }
-    exitPromptOpen = true;
-    final targetId = id;
-    try {
-      final host =
-          engine
-              .list('hosts')
-              .where((h) => h['id'] == session['hostId'])
-              .firstOrNull ??
-          session;
-      final disconnect = await showTildeSheet<bool>(
-        context: actionsContext,
-        builder: (c) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: TildeHostTile(host: host, size: 56),
-                  title: Text(
-                    '${session['nickname'] ?? '터미널'}에서 나가기',
-                    style: Theme.of(c).textTheme.titleMedium,
-                  ),
-                  subtitle: Text(
-                    hostAddress(host),
-                    style: TextStyle(
-                      fontFamily: host['protocol'] == 'local'
-                          ? 'Pretendard'
-                          : tildeMono,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                tildeActionButtons(c, [
-                  FilledButton.icon(
-                    onPressed: () => Navigator.pop(c, false),
-                    icon: const Icon(Icons.pause_circle_outline),
-                    label: const Text('연결 유지'),
-                  ),
-                  FilledButton.icon(
-                    style: tildeDangerButtonStyle(c),
-                    onPressed: () => Navigator.pop(c, true),
-                    icon: const Icon(Icons.link_off_outlined),
-                    label: const Text('세션 종료'),
-                  ),
-                ]),
-              ],
-            ),
-          ),
-        ),
-      );
-      if (disconnect != null && mounted && id == targetId) {
-        await leave(disconnect: disconnect);
-      }
-    } finally {
-      exitPromptOpen = false;
+  Future<void> requestLeave() => leave();
+
+  Future<void> openSessions() async {
+    final result = await showTildeSessions(
+      actionsContext,
+      engine,
+      selectedId: id,
+    );
+    if (!mounted || result == null) return;
+    if (result.$2) {
+      await closeTab(result.$1);
+    } else if (engine.list('sessions').any((s) => s['id'] == result.$1)) {
+      select(result.$1);
     }
   }
 
@@ -944,7 +882,7 @@ class ConsolePageState extends State<ConsolePage> {
     final storedFont =
         commonSession?.profile['fontFamily'] as String? ??
         prefs['fontFamily'] as String? ??
-        'MONOSPACE';
+        'D2CODING';
     final scheme = session.containsKey('backgroundColor')
         ? session
         : {
@@ -982,13 +920,10 @@ class ConsolePageState extends State<ConsolePage> {
     final connectionLog = session['connectionLog'] as List?;
     final showConnection = connectionLog != null;
     final desktop = _desktop;
-    final showTitle =
-        !widget.embedded &&
-        (showConnection ||
-            prompt != null ||
-            desktop ||
-            !(titleHidden && prefs['titlebarhide'] == true));
-    final toolbarHeight = showTitle ? (desktop ? 48.0 : 44.0) : 0.0;
+    final tabs =
+        desktop || MediaQuery.sizeOf(context).width >= sessionTabsMinWidth;
+    final showTitle = !widget.embedded;
+    final toolbarHeight = showTitle ? (tabs && !desktop ? 52.0 : 48.0) : 0.0;
     final contentTop = toolbarHeight;
     final content = Theme(
       data: theme,
@@ -1018,11 +953,7 @@ class ConsolePageState extends State<ConsolePage> {
                         child: Stack(
                           children: [
                             Positioned.fill(
-                              top:
-                                  widget.embedded ||
-                                      prefs['titlebarhide'] == true
-                                  ? 0
-                                  : toolbarHeight,
+                              top: widget.embedded ? 0 : toolbarHeight,
                               child: session.isEmpty || commonSession == null
                                   ? (leaving
                                         ? const SizedBox.shrink()
@@ -1205,18 +1136,16 @@ class ConsolePageState extends State<ConsolePage> {
                                   systemOverlayStyle: overlays,
                                   automaticallyImplyLeading: false,
                                   leading: IconButton(
-                                    tooltip: desktop ? '기기 목록' : '뒤로',
+                                    tooltip: desktop ? '기기 목록' : '홈',
                                     icon: Icon(
                                       desktop
                                           ? Icons.dns_outlined
-                                          : Icons.arrow_back,
+                                          : Icons.home_outlined,
                                     ),
-                                    onPressed: desktop
-                                        ? () => leave()
-                                        : requestLeave,
+                                    onPressed: () => leave(),
                                   ),
                                   titleSpacing: 0,
-                                  title: desktop
+                                  title: tabs
                                       ? DesktopSessionTabs(
                                           sessions: engine.list('sessions'),
                                           selectedId: id,
@@ -1227,78 +1156,27 @@ class ConsolePageState extends State<ConsolePage> {
                                             selectMenuAction('newSession'),
                                           ),
                                         )
-                                      : engine.list('sessions').length == 1
-                                      ? Row(
-                                          children: [
-                                            Icon(
-                                              Icons.circle,
-                                              size: 6,
-                                              color: session['open'] == true
-                                                  ? theme.colorScheme.primary
-                                                  : theme
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                '${session['nickname'] ?? '터미널'}',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                      : SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Row(
-                                            children: [
-                                              for (final target in engine.list(
-                                                'sessions',
-                                              ))
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        right: 4,
-                                                      ),
-                                                  child: TextButton(
-                                                    style: TextButton.styleFrom(
-                                                      minimumSize: const Size(
-                                                        0,
-                                                        44,
-                                                      ),
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 12,
-                                                          ),
-                                                      backgroundColor:
-                                                          target['id'] == id
-                                                          ? theme
-                                                                .colorScheme
-                                                                .surfaceContainerHigh
-                                                          : null,
-                                                      foregroundColor:
-                                                          target['id'] == id
-                                                          ? theme
-                                                                .colorScheme
-                                                                .onSurface
-                                                          : theme
-                                                                .colorScheme
-                                                                .onSurfaceVariant,
-                                                    ),
-                                                    onPressed: () => select(
-                                                      target['id'] as int,
-                                                    ),
-                                                    child: Text(
-                                                      '${target['nickname'] ?? '터미널'}',
-                                                      maxLines: 1,
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
+                                      : titleHidden &&
+                                            prefs['titlebarhide'] == true
+                                      ? const SizedBox.shrink()
+                                      : Text(
+                                          sessionLabel(
+                                            engine.list('sessions'),
+                                            session,
                                           ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                  actions: [popup()],
+                                  actions: [
+                                    if (!tabs)
+                                      TextButton(
+                                        onPressed: openSessions,
+                                        child: Text(
+                                          '세션 ${engine.list('sessions').length}',
+                                        ),
+                                      ),
+                                    popup(),
+                                  ],
                                 ),
                               ),
                             if (showConnection)

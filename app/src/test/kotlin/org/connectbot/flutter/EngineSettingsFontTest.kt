@@ -22,6 +22,8 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.provider.OpenableColumns
 import org.connectbot.ui.screens.settings.SettingsUiState
+import org.connectbot.util.PreferenceConstants
+import org.connectbot.util.TerminalFont
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,6 +33,13 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class EngineSettingsFontTest {
+    @Test
+    fun d2CodingIsTheDefaultBundledFont() {
+        assertEquals("D2CODING", PreferenceConstants.FONT_FAMILY_DEFAULT)
+        assertEquals("D2Coding", TerminalFont.getGoogleFontName("D2CODING"))
+        assertEquals("JetBrains Mono", TerminalFont.getGoogleFontName("JETBRAINS_MONO"))
+    }
+
     @Test
     fun importedFontUsesFileNameForSelectionAndDeletion() {
         val state = SettingsUiState(localFonts = listOf("My Font" to "My_Font.otf"))

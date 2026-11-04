@@ -332,13 +332,14 @@ void main() {
                   of: find.text('home-nas'),
                   matching: find.byType(ListTile),
                 )
-                .first,
+                .last,
           )
           .height,
       80,
     );
     expect(tester.getTopLeft(find.byType(TextField)).dy, greaterThan(700));
-    expect(find.text('세션 1'), findsNothing);
+    expect(find.text('세션 1'), findsOneWidget);
+    expect(find.text('열린 세션'), findsOneWidget);
     await capture(tester, 'home-day');
     await tester.tap(find.byTooltip('home-nas 메뉴'));
     await tester.pumpAndSettle();

@@ -97,7 +97,7 @@ void main() {
           expect(find.textContaining('SSH 연결 협상 중'), findsNothing);
           expect(find.byTooltip('배너 닫기'), findsNothing);
           await tester.pump(const Duration(seconds: 4));
-          expect(find.byTooltip('뒤로'), findsOneWidget);
+          expect(find.byTooltip('홈'), findsOneWidget);
           expect(
             tester.getTopLeft(find.text('개발 서버에 연결하는 중')).dy,
             greaterThanOrEqualTo(tester.getBottomLeft(find.byType(AppBar)).dy),
@@ -137,7 +137,7 @@ void main() {
           await engine.refresh();
           await tester.pump();
           expect(find.byType(TerminalPromptSurface), findsOneWidget);
-          expect(find.byTooltip('뒤로'), findsOneWidget);
+          expect(find.byTooltip('홈'), findsOneWidget);
           await tester.ensureVisible(find.text('취소').last);
           expect(tester.takeException(), isNull);
           engine.state['prompts'] = [];
@@ -153,7 +153,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('로그인하지 못했습니다'), findsOneWidget);
           expect(find.textContaining('Connection refused'), findsNothing);
-          expect(find.byTooltip('뒤로'), findsOneWidget);
+          expect(find.byTooltip('홈'), findsOneWidget);
           expect(find.text('다시 시도'), findsOneWidget);
           await tester.tap(find.text('자세히'));
           await tester.pumpAndSettle();

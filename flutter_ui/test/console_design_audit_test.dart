@@ -33,7 +33,7 @@ void main() {
     for (final surface in [
       'console',
       'menu',
-      'exit',
+      'sessions',
       'password',
       'hostKey',
       'ended',
@@ -137,8 +137,10 @@ void main() {
             expect(painter.computeLineMetrics(), hasLength(1));
             painter.dispose();
           }
-        } else if (surface == 'exit') {
-          await tester.tap(find.byTooltip('뒤로'));
+        } else if (surface == 'sessions') {
+          tester
+              .state<ConsolePageState>(find.byType(ConsolePage))
+              .openSessions();
           await tester.pumpAndSettle();
         } else if (surface == 'password' || surface == 'hostKey') {
           expect(find.byType(TerminalPrompt), findsOneWidget);

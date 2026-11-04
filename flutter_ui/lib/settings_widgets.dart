@@ -123,7 +123,7 @@ class _TerminalPreviewState extends State<TerminalPreview> {
             .firstOrNull ??
         const <String, dynamic>{};
     final name =
-        '${widget.overrides['fontFamily'] ?? profile['fontFamily'] ?? preferences['fontFamily'] ?? 'JETBRAINS_MONO'}';
+        '${widget.overrides['fontFamily'] ?? profile['fontFamily'] ?? preferences['fontFamily'] ?? 'D2CODING'}';
     if (name != _fontName) {
       _fontName = name;
       _font = widget.engine.terminalFont(name);

@@ -13,7 +13,7 @@ import 'package:flutter/services.dart';
 const _defaultProfile = <String, Object?>{
   'id': 1,
   'name': '기본 프로필',
-  'fontFamily': 'JetBrainsMono',
+  'fontFamily': 'D2CODING',
   'fontSize': 14,
   'encoding': 'UTF-8',
   'emulation': 'xterm-256color',
@@ -248,8 +248,9 @@ class StoredPlatform {
       'hardwareKeyboard': hardwareKeyboard,
       'preferences': {
         ..._preferences(),
-        'fontFamily': _preferences()['fontFamily'] ?? 'JETBRAINS_MONO',
+        'fontFamily': _preferences()['fontFamily'] ?? 'D2CODING',
         'fonts': const [
+          {'value': 'D2CODING', 'label': 'D2Coding'},
           {'value': 'JETBRAINS_MONO', 'label': 'JetBrains Mono'},
         ],
       },
@@ -821,6 +822,10 @@ class StoredPlatform {
           final profile = _find('profiles', _preferences()['defaultProfileId']);
           _upsert('profiles', {...profile, 'colorSchemeId': args['value']});
         }
+        if (args['key'] == 'fontFamily') {
+          final profile = _find('profiles', _preferences()['defaultProfileId']);
+          _upsert('profiles', {...profile, 'fontFamily': args['value']});
+        }
         _data['preferences'] = {
           ..._preferences(),
           args['key'] as String: args['value'],
@@ -830,7 +835,11 @@ class StoredPlatform {
       case 'settings.preview':
         return const <String, Object?>{};
       case 'font.bytes':
-        return {'family': 'JetBrainsMono'};
+        return {
+          'family': '${args['name']}'.toUpperCase() == 'D2CODING'
+              ? 'D2Coding'
+              : 'JetBrainsMono',
+        };
       case 'file.pickUpload':
       case 'file.prepareDownload':
       case 'file.finishTransfer':

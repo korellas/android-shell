@@ -146,7 +146,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> googleFonts(BuildContext c) async {
     final values = [
       for (final font in rows(engine.preferences['fonts']))
-        if (font['value'] != 'SYSTEM_DEFAULT')
+        if (font['value'] != 'SYSTEM_DEFAULT' && font['value'] != 'D2CODING')
           (font['value'], '${font['label']}'),
     ];
     final result = await pickTildeOption(
@@ -1020,6 +1020,7 @@ class _SettingsPageState extends State<SettingsPage> {
           group('기본 폰트 선택', [
             for (final option in fontOptions(engine).where(
               (f) =>
+                  f.$1 == 'D2CODING' ||
                   f.$1 == 'JETBRAINS_MONO' ||
                   f.$1 == p['fontFamily'] ||
                   f.$1.toString().startsWith('local:') ||
@@ -1049,7 +1050,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   },
                 ),
                 subtitle: Text(
-                  option.$1 == 'JETBRAINS_MONO'
+                  option.$1 == 'D2CODING' || option.$1 == 'JETBRAINS_MONO'
                       ? '앱에 포함'
                       : option.$1.toString().startsWith('local:')
                       ? option.$1.toString().substring(6)
@@ -1185,7 +1186,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 data: Theme.of(context).copyWith(
                   listTileTheme: Theme.of(
                     context,
-                  ).listTileTheme.copyWith(minTileHeight: 52),
+                  ).listTileTheme.copyWith(minTileHeight: 56),
                 ),
                 child: contentView,
               )
@@ -1225,7 +1226,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 ? Row(
                     children: [
                       SizedBox(
-                        width: 264,
+                        key: const ValueKey('settings-navigation'),
+                        width: tildePointer(context) ? 320 : 264,
                         child: categories(switch (selected) {
                           'fonts' => 'display',
                           'bar' => 'keyboard',
@@ -1234,10 +1236,19 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       const VerticalDivider(width: 1),
                       Expanded(
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 640),
-                            child: detail,
+                        child: Padding(
+                          padding: tildePointer(context)
+                              ? const EdgeInsets.symmetric(horizontal: 24)
+                              : EdgeInsets.zero,
+                          child: Align(
+                            alignment: tildePointer(context)
+                                ? Alignment.topLeft
+                                : Alignment.center,
+                            child: ConstrainedBox(
+                              key: const ValueKey('settings-detail'),
+                              constraints: const BoxConstraints(maxWidth: 640),
+                              child: detail,
+                            ),
                           ),
                         ),
                       ),
@@ -1598,14 +1609,19 @@ class HelpPage extends StatelessWidget {
     String section,
     String title,
   ) async {
-    final value = await runEngine(context, engine, 'help.document', {
-      'section': section,
-    });
+    final bundle = DefaultAssetBundle.of(context);
+    final prefix = engine.state['platform'] == 'windows'
+        ? 'packages/android_shell_ui/'
+        : '';
+    final document = section == 'license'
+        ? bundle.loadString('${prefix}assets/licenses/THIRD_PARTY_NOTICES.txt')
+        : runEngine(context, engine, 'help.document', {'section': section});
+    final value = await document;
     if (value == null || !context.mounted) return;
     var text = '$value';
     if (section == 'license') {
       text +=
-          '\n\n${await rootBundle.loadString('assets/fonts/Pretendard-LICENSE.txt')}\n\n${await rootBundle.loadString('assets/fonts/JetBrainsMono-OFL.txt')}';
+          '\n\n${await bundle.loadString('${prefix}assets/fonts/Pretendard-LICENSE.txt')}\n\n${await bundle.loadString('${prefix}assets/fonts/JetBrainsMono-OFL.txt')}\n\n${await bundle.loadString('${prefix}assets/fonts/D2Coding-OFL.txt')}';
     }
     if (!context.mounted) return;
     await Navigator.push<void>(
