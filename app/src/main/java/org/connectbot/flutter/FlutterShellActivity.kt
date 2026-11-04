@@ -128,6 +128,12 @@ class FlutterShellActivity : FlutterFragmentActivity() {
         if (::engine.isInitialized) engine.handleIntent(intent)
     }
 
+    override fun onPostResume() {
+        super.onPostResume()
+        // Flutter restores its system UI flags here, so apply our console options afterwards.
+        applyWindowOptions()
+    }
+
     override fun onStop() {
         if (!isChangingConfigurations && appState.authOnLaunchEnabled) {
             appState.onAuthenticationRequired()

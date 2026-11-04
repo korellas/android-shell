@@ -819,6 +819,72 @@ void main() {
     },
   );
 
+  for (final embedded in [false, true]) {
+    testWidgets(
+      'removed session can close without reconnecting (embedded=$embedded)',
+      (tester) async {
+        final engine = UiEngineFixture()
+          ..state = {
+            'ready': true,
+            'sessions': [
+              {'id': 101, 'hostId': 7, 'nickname': 'Research', 'open': true},
+            ],
+            'preferences': {'titlebarhide': false},
+          };
+        var closed = false;
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
+            home: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => Navigator.push<void>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ConsolePage(
+                      engine: engine,
+                      sessionId: 101,
+                      embedded: embedded,
+                      onClose: () async => closed = true,
+                    ),
+                  ),
+                ),
+                child: const Text('Open console'),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open console'));
+        await tester.pumpAndSettle();
+        engine.state = {...engine.state, 'sessions': []};
+        engine.notifyListeners();
+        await tester.pumpAndSettle();
+        expect(find.text('다시 연결'), findsOneWidget);
+        await tester.tap(find.widgetWithText(TextButton, '닫기'));
+        await tester.pumpAndSettle();
+        if (embedded) {
+          expect(closed, isTrue);
+        } else {
+          expect(find.byType(ConsolePage), findsNothing);
+          expect(find.text('Open console'), findsOneWidget);
+        }
+        expect(
+          calls.where(
+            (call) => const {
+              'connect',
+              'session.reconnect',
+              'session.disconnect',
+            }.contains(call.method),
+          ),
+          isEmpty,
+        );
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
   testWidgets(
     'reconnecting targets the current session among same-host sessions',
     (tester) async {

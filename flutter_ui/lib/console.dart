@@ -1140,12 +1140,24 @@ class ConsolePageState extends State<ConsolePage> {
                                   ? (leaving
                                         ? const SizedBox.shrink()
                                         : Center(
-                                            child: TextButton(
-                                              onPressed: () =>
-                                                  menu('reconnect'),
-                                              child: Text(
-                                                context.l10n.reconnect,
-                                              ),
+                                            child: Wrap(
+                                              spacing: 8,
+                                              children: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      menu('disconnect'),
+                                                  child: Text(
+                                                    context.l10n.close2,
+                                                  ),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      menu('reconnect'),
+                                                  child: Text(
+                                                    context.l10n.reconnect,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ))
                                   : Listener(
