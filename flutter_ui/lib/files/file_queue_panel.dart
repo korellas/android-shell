@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../main.dart' show showErrorDetails;
 import '../tilde_design.dart';
+import '../tilde_controls.dart';
 import 'file_job_queue.dart';
 import 'transfer_progress.dart';
 import 'transfer.dart';
@@ -66,112 +67,168 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
             FileJobState.failed => '실패',
             FileJobState.cancelled => '취소',
           };
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${job.label} · $state',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: job.state == FileJobState.failed
-                              ? Theme.of(context).colorScheme.error
-                              : null,
-                        ),
-                      ),
-                    ),
-                    if (running)
-                      TextButton(
-                        onPressed: () {
-                          job.control.paused
-                              ? job.control.resume()
-                              : job.control.pause();
-                          queue.changed();
-                        },
-                        child: Text(job.control.paused ? '계속' : '일시정지'),
-                      ),
-                    if (running || job.state == FileJobState.pending)
-                      IconButton(
-                        tooltip: '작업 취소',
-                        onPressed: () => queue.cancel(job),
-                        icon: const Icon(Icons.close),
-                      ),
-                    if (job.state == FileJobState.succeeded &&
-                        job.reveal != null)
-                      TextButton(
-                        onPressed: () async {
-                          try {
-                            await job.reveal!();
-                          } catch (error) {
-                            if (context.mounted) {
-                              await showErrorDetails(context, error);
-                            }
+          final actions = Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 4,
+            children: [
+              if (running)
+                TextButton(
+                  onPressed: () {
+                    job.control.paused
+                        ? job.control.resume()
+                        : job.control.pause();
+                    queue.changed();
+                  },
+                  child: Text(job.control.paused ? '계속' : '일시정지'),
+                ),
+              if (running || job.state == FileJobState.pending)
+                IconButton(
+                  tooltip: '작업 취소',
+                  onPressed: () => queue.cancel(job),
+                  icon: const Icon(Icons.close),
+                ),
+              if (job.state == FileJobState.succeeded && job.reveal != null)
+                TextButton(
+                  onPressed: () async {
+                    try {
+                      await job.reveal!();
+                    } catch (error) {
+                      if (context.mounted) {
+                        await showErrorDetails(context, error);
+                      }
+                    }
+                  },
+                  child: const Text('폴더 열기'),
+                ),
+              if (job.retryable &&
+                  (job.state == FileJobState.failed ||
+                      job.state == FileJobState.cancelled))
+                TextButton(
+                  onPressed: () => queue.retry(job),
+                  child: const Text('다시 시도'),
+                ),
+              if (job.error != null)
+                IconButton(
+                  tooltip: '오류 자세히',
+                  icon: const Icon(Icons.info_outline, size: 18),
+                  onPressed: () => showErrorDetails(
+                    context,
+                    job.error!,
+                    summary: '${job.label}을 완료하지 못했습니다',
+                    target: job.target,
+                    retry: job.retryable
+                        ? () async {
+                            queue.retry(job);
                           }
-                        },
-                        child: const Text('폴더 열기'),
+                        : null,
+                  ),
+                ),
+            ],
+          );
+          final name = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                job.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              tildePathText(
+                job.target,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontFamily: tildeMono,
+                  fontFamilyFallback: tildeMonoFallback,
+                ),
+              ),
+            ],
+          );
+          final status = Text(
+            job.error == null ? state : fileFailureSummary(job.error!),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: job.error == null
+                  ? null
+                  : Theme.of(context).colorScheme.error,
+            ),
+          );
+          final progress = running
+              ? TransferProgress(
+                  status:
+                      '${job.completedFiles} / ${job.totalFiles}개${job.detail.isEmpty ? '' : ' · ${job.detail}'}',
+                  control: job.control,
+                  startedAt: job.startedAt,
+                )
+              : const SizedBox.shrink();
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final compact =
+                  pointer &&
+                  constraints.maxWidth >= 800 &&
+                  MediaQuery.textScalerOf(context).scale(14) < 22;
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Column(
+                  children: [
+                    if (compact)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Icon(
+                            job.error != null
+                                ? Icons.error_outline
+                                : job.state == FileJobState.succeeded
+                                ? Icons.check_circle_outline
+                                : Icons.sync,
+                            size: 22,
+                            color: job.error != null
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(flex: 3, child: name),
+                          const SizedBox(width: 16),
+                          Expanded(flex: 2, child: status),
+                          const SizedBox(width: 16),
+                          SizedBox(width: 200, child: progress),
+                          const SizedBox(width: 12),
+                          SizedBox(width: 170, child: actions),
+                        ],
+                      )
+                    else
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          name,
+                          const SizedBox(height: 4),
+                          status,
+                          actions,
+                          progress,
+                        ],
                       ),
-                    if (job.retryable &&
-                        (job.state == FileJobState.failed ||
-                            job.state == FileJobState.cancelled))
-                      TextButton(
-                        onPressed: () => queue.retry(job),
-                        child: const Text('다시 시도'),
-                      ),
+                    const SizedBox(height: 8),
+                    const Divider(height: 1),
                   ],
                 ),
-                Text(
-                  job.target,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontFamily: tildeMono,
-                    fontFamilyFallback: tildeMonoFallback,
-                  ),
-                ),
-                if (job.error != null)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          fileFailureSummary(job.error!),
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => showErrorDetails(context, job.error!),
-                        child: const Text('자세히'),
-                      ),
-                    ],
-                  ),
-                if (running)
-                  TransferProgress(
-                    status:
-                        '${job.completedFiles} / ${job.totalFiles}개${job.detail.isEmpty ? '' : ' · ${job.detail}'}',
-                    control: job.control,
-                    startedAt: job.startedAt,
-                  ),
-                const SizedBox(height: 8),
-                const Divider(height: 1),
-              ],
-            ),
+              );
+            },
           );
         },
       );
       return Column(
         mainAxisSize: widget.fullPage ? MainAxisSize.max : MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (!widget.fullPage) const Divider(height: 1),
           ListTile(
             dense: pointer,
-            title: Text(summary),
+            title: Text('전송 · $summary'),
             subtitle: !expanded && active != null
                 ? Text(
                     '${active.label} · ${formatBytes(active.control.bytes)} / ${active.control.total == null ? '크기 확인 중' : formatBytes(active.control.total!)}',

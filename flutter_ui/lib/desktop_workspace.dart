@@ -187,7 +187,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     _revealActive();
   }
 
-  Future<void> _connect(EngineRecord host, {bool newSession = false}) async {
+  Future<void> _connect(EngineRecord host, {bool newSession = true}) async {
     if (!canConnectHost(host)) {
       _edit(host);
       return;
@@ -231,7 +231,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     late _WorkspaceTab tab;
     tab = _WorkspaceTab(
       id,
-      '${host['nickname']}',
+      '${host['nickname']} · 파일',
       _TabKind.files,
       hostId: host['id'] as int,
       child: FileBrowserPage(
@@ -403,7 +403,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
           const PopupMenuItem(
             value: 'terminal',
             child: TildeMenuLabel(
-              '터미널 열기',
+              '새 터미널',
               Icons.terminal_outlined,
               shortcut: 'Enter',
             ),
@@ -412,15 +412,6 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
           const PopupMenuItem(
             value: 'files',
             child: TildeMenuLabel('파일 전송', Icons.folder_open_outlined),
-          ),
-        if (canConnectHost(host))
-          const PopupMenuItem(
-            value: 'new',
-            child: TildeMenuLabel(
-              '새 세션',
-              Icons.add_box_outlined,
-              shortcut: 'Ctrl Shift T',
-            ),
           ),
         const PopupMenuDivider(),
         const PopupMenuItem(
@@ -465,11 +456,9 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     if (!mounted) return;
     switch (action) {
       case 'terminal':
-        await _connect(host);
+        await _connect(host, newSession: true);
       case 'files':
         _files(host);
-      case 'new':
-        await _connect(host, newSession: true);
       case 'edit':
         _edit(host);
       case 'favorite':
@@ -653,7 +642,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                             setState(() => _hoverHost = '${host['id']}'),
                         onExit: (_) => setState(() => _hoverHost = null),
                         child: GestureDetector(
-                          onDoubleTap: () => _connect(host),
+                          onDoubleTap: () => _connect(host, newSession: true),
                           onSecondaryTapUp: (event) =>
                               _hostMenu(host, anchor, event.globalPosition),
                           child: Material(
@@ -688,6 +677,36 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                                         ),
                                       ),
                                     ),
+                                    for (final kind in [
+                                      _TabKind.terminal,
+                                      _TabKind.files,
+                                    ])
+                                      if (_tabs
+                                              .where(
+                                                (tab) =>
+                                                    tab.hostId == host['id'] &&
+                                                    tab.kind == kind,
+                                              )
+                                              .firstOrNull
+                                          case final tab?)
+                                        IconButton(
+                                          tooltip: kind == _TabKind.terminal
+                                              ? '열린 터미널'
+                                              : '열린 파일',
+                                          constraints: const BoxConstraints(
+                                            minWidth: 28,
+                                            minHeight: 32,
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          iconSize: 15,
+                                          icon: Icon(
+                                            kind == _TabKind.terminal
+                                                ? Icons.terminal
+                                                : Icons.folder_outlined,
+                                          ),
+                                          onPressed: () =>
+                                              setState(() => _active = tab.id),
+                                        ),
                                     if (host['favorite'] == true)
                                       Icon(
                                         Icons.star,
@@ -739,7 +758,12 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                   minTileHeight: 36,
                   leading: const Icon(Icons.help_outline, size: 18),
                   title: const Text('도움말·로그'),
-                  onTap: () => _page(HelpPage(engine: engine)),
+                  onTap: () => _page(
+                    SettingsPage(
+                      engine: engine,
+                      initialPage: HelpPage(engine: engine),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -848,7 +872,19 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                                       Icon(
                                         _icon(tab),
                                         size: 16,
-                                        color: tab.id == _active
+                                        color:
+                                            tab.kind == _TabKind.terminal &&
+                                                engine
+                                                        .list('sessions')
+                                                        .where(
+                                                          (session) =>
+                                                              session['id'] ==
+                                                              tab.sessionId,
+                                                        )
+                                                        .firstOrNull?['ended'] ==
+                                                    true
+                                            ? colors.error
+                                            : tab.id == _active
                                             ? colors.primary
                                             : colors.onSurfaceVariant,
                                       ),
@@ -1092,7 +1128,7 @@ class HostSummary extends StatelessWidget {
       child: Align(
         alignment: Alignment.topLeft,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 680),
+          constraints: const BoxConstraints(maxWidth: 640),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1111,7 +1147,7 @@ class HostSummary extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        Text(
+                        tildePathText(
                           hostAddress(host),
                           style: TextStyle(
                             fontFamily: tildeMono,
@@ -1174,7 +1210,7 @@ class HostSummary extends StatelessWidget {
                     trailing: TextButton(
                       onPressed: () =>
                           onSelectSession(sessions[i]['id'] as int),
-                      child: const Text('탭으로 이동'),
+                      child: const Text('열기'),
                     ),
                   ),
               ],
@@ -1215,7 +1251,7 @@ class HostSummary extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Expanded(child: Text(item.$2)),
+                      Expanded(child: tildePathText(item.$2)),
                     ],
                   ),
                 ),

@@ -137,7 +137,7 @@ void main() {
     expect(find.text('터미널 프로필 관리'), findsOneWidget);
     await tester.tap(find.text('터미널 프로필 관리'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('프로필 추가'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '프로필 추가'), findsOneWidget);
   });
   testWidgets('host menus expose grouped actions without a second menu', (
     tester,

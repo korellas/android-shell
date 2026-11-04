@@ -450,71 +450,86 @@ class FileBrowserListingState extends State<FileBrowserListing> {
     ),
   );
 
-  Future<void> _viewMenu(BuildContext anchor) async {
-    final action = await TildeItemMenu.show<String>(
-      anchor,
-      title: '',
-      icon: Icons.tune,
-      itemBuilder: (_) => [
-        PopupMenuItem(
-          value: 'hidden',
-          child: TildeMenuLabel(
-            '숨김 파일·폴더 표시',
-            Icons.visibility_outlined,
-            selected: _showHidden,
+  Future<void> _viewMenu(BuildContext anchor) => showTildeSheet<void>(
+    context: anchor,
+    isScrollControlled: true,
+    builder: (c) => StatefulBuilder(
+      builder: (c, refresh) {
+        void update(VoidCallback change) {
+          setState(change);
+          _saveView();
+          refresh(() {});
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('보기', style: Theme.of(c).textTheme.titleLarge),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('숨김 파일·폴더 표시'),
+                value: _showHidden,
+                onChanged: (value) {
+                  update(() => _showHidden = value);
+                  _filterChanged();
+                },
+              ),
+              tildeSegments(
+                c,
+                '정렬',
+                const [
+                  (FileSort.name, '이름'),
+                  (FileSort.size, '크기'),
+                  (FileSort.modified, '수정일'),
+                ],
+                _sort,
+                (value) => update(() => _sort = value as FileSort),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('내림차순'),
+                value: _descending,
+                onChanged: (value) =>
+                    update(() => _descending = value ?? false),
+              ),
+              const SizedBox(height: 12),
+              const Text('목록에 보일 정보'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final column in _widths.keys)
+                    FilterChip(
+                      label: Text(column),
+                      selected: _columns.contains(column),
+                      showCheckmark: true,
+                      avatar: _columns.contains(column)
+                          ? null
+                          : const Icon(Icons.add, size: 16),
+                      onSelected: (value) => update(() {
+                        value ? _columns.add(column) : _columns.remove(column);
+                      }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(c),
+                  child: const Text('닫기'),
+                ),
+              ),
+            ],
           ),
-        ),
-        const PopupMenuDivider(),
-        for (final column in _widths.keys)
-          PopupMenuItem(
-            value: column,
-            child: TildeMenuLabel(
-              column,
-              Icons.view_column_outlined,
-              selected: _columns.contains(column),
-            ),
-          ),
-        const PopupMenuDivider(),
-        for (final sort in FileSort.values)
-          PopupMenuItem(
-            value: 'sort-${sort.name}',
-            child: TildeMenuLabel(
-              switch (sort) {
-                FileSort.name => '이름순',
-                FileSort.size => '크기순',
-                FileSort.modified => '수정일순',
-              },
-              Icons.sort,
-              selected: _sort == sort,
-            ),
-          ),
-        PopupMenuItem(
-          value: 'direction',
-          child: TildeMenuLabel('내림차순', Icons.south, selected: _descending),
-        ),
-      ],
-    );
-    if (action == null || !mounted) return;
-    if (action == 'hidden') {
-      _showHidden = !_showHidden;
-      _filterChanged();
-    } else if (action == 'direction') {
-      setState(() => _descending = !_descending);
-    } else if (action.startsWith('sort-')) {
-      setState(
-        () => _sort = FileSort.values.firstWhere(
-          (sort) => 'sort-${sort.name}' == action,
-        ),
-      );
-    } else if (_widths.containsKey(action)) {
-      setState(() {
-        _columns.contains(action)
-            ? _columns.remove(action)
-            : _columns.add(action);
-      });
-    }
-    _saveView();
-  }
+        );
+      },
+    ),
+  );
 
   String _modified(int? seconds) {
     if (seconds == null) return '—';
@@ -531,7 +546,8 @@ class FileBrowserListingState extends State<FileBrowserListing> {
     '수정일' => _modified(entry.attr.modifyTime),
     '소유자 UID' => '${entry.attr.userID ?? '—'}',
     '그룹 GID' => '${entry.attr.groupID ?? '—'}',
-    '권한' => remotePermissions(entry.attr.mode?.value),
+    '권한' =>
+      entry.attr.mode == null ? '—' : remotePermissions(entry.attr.mode!.value),
     _ => '',
   };
   Widget _metadata(SftpName entry) => Row(
@@ -616,15 +632,16 @@ class FileBrowserListingState extends State<FileBrowserListing> {
         child: const TildeMenuLabel('이동…', Icons.drive_file_move_outlined),
       ),
     const PopupMenuDivider(),
-    const PopupMenuItem(
-      value: FileAction.path,
-      child: TildeMenuLabel('경로 복사', Icons.link_outlined),
-    ),
+    if (tildePointer(context))
+      const PopupMenuItem(
+        value: FileAction.path,
+        child: TildeMenuLabel('경로 복사', Icons.link_outlined),
+      ),
     const PopupMenuItem(
       value: FileAction.info,
       child: TildeMenuLabel('정보', Icons.info_outline),
     ),
-    if (widget.onPermissions != null)
+    if (tildePointer(context) && widget.onPermissions != null)
       PopupMenuItem(
         value: FileAction.permissions,
         enabled: !_selection.any(_locked),
@@ -1031,15 +1048,21 @@ class FileBrowserListingState extends State<FileBrowserListing> {
                           color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
-                      title: Row(
-                        children: [
-                          const Text('..'),
-                          const SizedBox(width: 12),
-                          Text(
-                            '상위 폴더',
-                            style: Theme.of(context).textTheme.bodySmall,
+                      title: Semantics(
+                        label: '상위 폴더',
+                        excludeSemantics: true,
+                        child: Tooltip(
+                          message: '상위 폴더 (Backspace)',
+                          child: Text(
+                            '..',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
                           ),
-                        ],
+                        ),
                       ),
                       onTap: widget.onUp,
                     ),
@@ -1356,10 +1379,6 @@ class FileBrowserListingState extends State<FileBrowserListing> {
             : Drawer(child: _controls(context, drawer: true)),
         body: Row(
           children: [
-            if (wide) ...[
-              SizedBox(width: 200, child: _controls(context)),
-              const VerticalDivider(width: 1),
-            ],
             Expanded(
               child: Column(
                 children: [

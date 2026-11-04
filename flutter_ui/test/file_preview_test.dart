@@ -39,7 +39,10 @@ void main() {
       expect(find.textContaining('변경 내용은 유지됩니다.'), findsOneWidget);
       await tester.tap(find.text('자세히'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('offline'), findsOneWidget);
+      expect(
+        find.widgetWithText(SelectableText, 'Bad state: offline'),
+        findsOneWidget,
+      );
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(

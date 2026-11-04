@@ -6,19 +6,25 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 
-String fileFailureSummary(Object error) => error is SftpStatusError
-    ? switch (error.code) {
-        SftpStatusCode.permissionDenied => '서버에서 접근 권한을 거부했습니다.',
-        SftpStatusCode.noSuchFile => '파일이나 폴더가 더 이상 없습니다.',
-        SftpStatusCode.connectionLost ||
-        SftpStatusCode.noConnection => '서버 연결이 끊겼습니다.',
-        _ => '서버에서 작업을 완료하지 못했습니다.',
-      }
-    : error is StateError
-    ? error.message.toString()
-    : error is SocketException
-    ? '서버 연결을 확인하세요.'
-    : '파일 작업을 완료하지 못했습니다.';
+String fileFailureSummary(Object error) => switch (error) {
+  SftpStatusError() => switch (error.code) {
+    SftpStatusCode.permissionDenied => '서버에서 접근 권한을 거부했습니다. 대상 경로의 권한을 확인하세요.',
+    SftpStatusCode.noSuchFile => '파일이나 폴더가 더 이상 없습니다.',
+    SftpStatusCode.connectionLost ||
+    SftpStatusCode.noConnection => '서버 연결이 끊겼습니다.',
+    _ => '서버에서 작업을 완료하지 못했습니다.',
+  },
+  TimeoutException() => '서버가 응답하지 않습니다. 주소와 네트워크를 확인하세요.',
+  SSHAuthError() => '서버에서 인증을 받지 않았습니다. 사용자 이름과 키·비밀번호를 확인하세요.',
+  SocketException() => switch (error.osError?.errorCode) {
+    61 || 111 || 10061 =>
+      '서버가 ${error.port == null ? '' : '${error.port}번 포트 '}연결을 거부했습니다. SSH 실행 상태와 포트를 확인하세요.',
+    60 || 110 || 10060 => '서버가 응답하지 않습니다. 주소와 네트워크를 확인하세요.',
+    _ => '서버 연결을 확인하세요.',
+  },
+  StateError() => error.message.toString(),
+  _ => '예상하지 못한 오류입니다. 아래 기록을 복사해 문의해 주세요.',
+};
 
 class TransferCancelled implements Exception {
   @override

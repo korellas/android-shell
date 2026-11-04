@@ -350,7 +350,7 @@ void main() {
     await tester.tap(find.byTooltip('home-nas 메뉴'));
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
-    expect(find.text('새 세션'), findsOneWidget);
+    expect(find.text('새 터미널'), findsOneWidget);
     await capture(tester, 'host-menu-day');
   });
   testWidgets(

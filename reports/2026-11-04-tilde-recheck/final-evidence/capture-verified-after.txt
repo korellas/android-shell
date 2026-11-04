@@ -1,0 +1,33 @@
+Resolving dependencies...
+Downloading packages...
+  asn1lib 1.6.7 (1.6.8 available)
+  clock 1.1.2 (1.1.3 available)
+  equatable 2.1.0 (3.0.0 available)
+  matcher 0.12.19 (0.12.20 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.17.0 (1.19.0 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.10 (0.7.15 available)
+  vector_math 2.2.0 (2.4.4 available)
+  vm_service 15.3.0 (15.4.0 available)
+  webview_flutter_android 4.12.0 (4.14.1 available)
+  webview_flutter_wkwebview 3.25.1 (3.27.2 available)
+Got dependencies!
+12 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /private/tmp/tilde-recheck-verified_test.dart
+00:00 +0: ended-touch
+00:00 +1: login-touch
+00:00 +2: refused-touch
+00:01 +3: ended-pointer
+00:01 +4: login-pointer
+00:01 +5: refused-pointer
+00:02 +6: settings-keys-route
+00:02 +7: settings-profiles-route
+00:02 +8: settings-help-route
+00:03 +9: editor-dirty
+00:03 +10: forward-large
+00:03 +11: long-address
+00:03 +12: permission-error
+00:03 +13: (tearDownAll)
+00:04 +13: All tests passed!

@@ -763,7 +763,7 @@ class TildeWelcome extends StatelessWidget {
               Text(
                 pointer
                     ? '호스트를 저장해 두면 다음부터 더블클릭으로 접속합니다.'
-                    : '저장해 두면 다음부터 탭 한 번으로 접속합니다.',
+                    : '서버를 저장해 두면 바로 접속할 수 있습니다.',
                 style: TextStyle(
                   color: theme.colorScheme.onSurfaceVariant,
                   height: 1.6,

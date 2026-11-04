@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import 'dart:convert';
 import 'dart:math' as math;
+import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../main.dart' show confirm, showErrorDetails;
@@ -14,6 +15,7 @@ class FilePreview extends StatefulWidget {
     required this.path,
     required this.load,
     required this.save,
+    this.saveCopy,
     this.newFile = false,
     this.size,
     this.embedded = false,
@@ -27,6 +29,7 @@ class FilePreview extends StatefulWidget {
   final int? size;
   final Future<Uint8List> Function() load;
   final Future<void> Function(Uint8List) save;
+  final Future<String?> Function(Uint8List)? saveCopy;
   final bool newFile, embedded;
   final VoidCallback? onDownload, onClose;
   final ValueChanged<bool>? onDirtyChanged;
@@ -38,13 +41,14 @@ class FilePreview extends StatefulWidget {
 class _FilePreviewState extends State<FilePreview> {
   final _text = TextEditingController(), _scroll = ScrollController();
   final _undo = UndoHistoryController();
-  late final Future<Uint8List> _data;
+  late Future<Uint8List> _data;
   bool _textFile = false,
       _editing = false,
       _saving = false,
       _bom = false,
       _allowPop = false;
-  String? _error;
+  Object? _error;
+  bool _loaded = false;
   String _savedText = '', _status = '읽기 전용';
   bool get _dirty => _textFile && _text.text != _savedText;
   Future<bool> _canClose() async =>
@@ -90,26 +94,29 @@ class _FilePreviewState extends State<FilePreview> {
     super.initState();
     _editing = widget.newFile;
     widget.registerLeaveGuard?.call(_canClose);
-    _data = widget.load().then((bytes) {
-      if (!mounted) return bytes;
-      try {
-        final text = utf8.decode(bytes);
-        _textFile = !text.contains('\x00');
-        _text.text = text;
-        _savedText = text;
-        _bom =
-            bytes.length >= 3 &&
-            bytes[0] == 239 &&
-            bytes[1] == 187 &&
-            bytes[2] == 191;
-      } on FormatException {
-        _textFile = false;
-      }
-      _text.addListener(_changed);
-      setState(() {});
-      return bytes;
-    });
+    _data = _load();
   }
+
+  Future<Uint8List> _load() => widget.load().then((bytes) {
+    if (!mounted) return bytes;
+    try {
+      final text = utf8.decode(bytes);
+      _textFile = !text.contains('\x00');
+      _text.text = text;
+      _savedText = text;
+      _bom =
+          bytes.length >= 3 &&
+          bytes[0] == 239 &&
+          bytes[1] == 187 &&
+          bytes[2] == 191;
+    } on FormatException {
+      _textFile = false;
+    }
+    _text.removeListener(_changed);
+    _text.addListener(_changed);
+    setState(() => _loaded = true);
+    return bytes;
+  });
 
   @override
   void dispose() {
@@ -119,16 +126,37 @@ class _FilePreviewState extends State<FilePreview> {
     super.dispose();
   }
 
+  Uint8List _encoded() => Uint8List.fromList([
+    ...(_bom ? [239, 187, 191] : <int>[]),
+    ...utf8.encode(_text.text),
+  ]);
+
+  Future<void> _saveCopy() async {
+    if (_saving || widget.saveCopy == null) return;
+    setState(() => _saving = true);
+    try {
+      final destination = await widget.saveCopy!(_encoded());
+      if (mounted && destination != null) {
+        setState(() {
+          _error = null;
+          _status = '사본 저장 · 원본은 저장하지 않음';
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$destination에 사본을 저장했습니다.')));
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   Future<void> _save() async {
     if (!_dirty || _saving) return;
     setState(() => _saving = true);
     try {
-      await widget.save(
-        Uint8List.fromList([
-          ...(_bom ? [239, 187, 191] : <int>[]),
-          ...utf8.encode(_text.text),
-        ]),
-      );
+      await widget.save(_encoded());
       if (mounted) {
         setState(() {
           _savedText = _text.text;
@@ -138,7 +166,7 @@ class _FilePreviewState extends State<FilePreview> {
         widget.onDirtyChanged?.call(false);
       }
     } catch (error) {
-      if (mounted) setState(() => _error = '$error');
+      if (mounted) setState(() => _error = error);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -322,7 +350,56 @@ class _FilePreviewState extends State<FilePreview> {
                     ),
                   );
                   if (snapshot.hasError) {
-                    return unavailable(fileFailureSummary(snapshot.error!));
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.cloud_off_outlined,
+                              size: 36,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '파일을 열지 못했습니다',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              fileFailureSummary(snapshot.error!),
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: 20),
+                            Wrap(
+                              spacing: 8,
+                              children: [
+                                FilledButton(
+                                  onPressed: () => setState(() {
+                                    _data = _load();
+                                  }),
+                                  child: const Text('다시 시도'),
+                                ),
+                                TextButton(
+                                  onPressed: () => showErrorDetails(
+                                    context,
+                                    snapshot.error!,
+                                    summary:
+                                        '${widget.path.split('/').last}을 열지 못했습니다',
+                                    target: widget.path,
+                                  ),
+                                  child: const Text('자세히'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
                   }
                   if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
@@ -342,30 +419,44 @@ class _FilePreviewState extends State<FilePreview> {
               ListTile(
                 title: const Text('저장하지 못했습니다. 변경 내용은 유지됩니다.'),
                 trailing: TextButton(
-                  onPressed: () => showErrorDetails(context, _error!),
+                  onPressed: () => showErrorDetails(
+                    context,
+                    _error!,
+                    summary: '${widget.path.split('/').last}을 저장하지 못했습니다',
+                    target: widget.path,
+                    retry: _save,
+                    saveElsewhere:
+                        widget.saveCopy != null &&
+                            _error is SftpStatusError &&
+                            (_error as SftpStatusError).code ==
+                                SftpStatusCode.permissionDenied
+                        ? _saveCopy
+                        : null,
+                  ),
                   child: const Text('자세히'),
                 ),
               ),
-            SafeArea(
-              top: false,
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: BorderSide(
-                      color: Theme.of(context).colorScheme.outlineVariant,
+            if (_loaded)
+              SafeArea(
+                top: false,
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
                     ),
                   ),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Text(
-                  '$_status${_textFile ? ' · UTF-8${_bom ? ' BOM' : ''} · ${_text.text.split('\n').length}줄 · ${utf8.encode(_text.text).length + (_bom ? 3 : 0)} B' : ''}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    '$_status${_textFile ? ' · UTF-8${_bom ? ' BOM' : ''} · ${_text.text.split('\n').length}줄 · ${utf8.encode(_text.text).length + (_bom ? 3 : 0)} B' : ''}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),

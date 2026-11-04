@@ -1,0 +1,140 @@
+Resolving dependencies...
+Downloading packages...
+  asn1lib 1.6.7 (1.6.8 available)
+  clock 1.1.2 (1.1.3 available)
+  equatable 2.1.0 (3.0.0 available)
+  matcher 0.12.19 (0.12.20 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.17.0 (1.19.0 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.10 (0.7.15 available)
+  vector_math 2.2.0 (2.4.4 available)
+  vm_service 15.3.0 (15.4.0 available)
+  webview_flutter_android 4.12.0 (4.14.1 available)
+  webview_flutter_wkwebview 3.25.1 (3.27.2 available)
+Got dependencies!
+12 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Resolving dependencies...
+Downloading packages...
+  asn1lib 1.6.7 (1.6.8 available)
+  clock 1.1.2 (1.1.3 available)
+  equatable 2.1.0 (3.0.0 available)
+  matcher 0.12.19 (0.12.20 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.17.0 (1.19.0 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.10 (0.7.15 available)
+  vector_math 2.2.0 (2.4.4 available)
+  vm_service 15.3.0 (15.4.0 available)
+  webview_flutter_android 4.12.0 (4.14.1 available)
+  webview_flutter_wkwebview 3.25.1 (3.27.2 available)
+Got dependencies!
+12 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Running Gradle task 'assembleAarRelease'...                        23.7s
+✓ Built build/host/outputs/repo
+
+Consuming the Module
+  1. Open <host>/app/build.gradle
+  2. Ensure you have the repositories configured, otherwise add them:
+
+      String storageUrl = System.env.FLUTTER_STORAGE_BASE_URL ?: "https://storage.googleapis.com"
+      repositories {
+        maven {
+            url '/Users/korellas/git/android_shell/flutter_ui/build/host/outputs/repo'
+        }
+        maven {
+            url "$storageUrl/download.flutter.io"
+        }
+      }
+
+  3. Make the host app depend on the Flutter module:
+
+    dependencies {
+      releaseImplementation 'dev.korellas.android_shell_ui:flutter_release:1.0'
+    }
+
+To learn more, visit https://flutter.dev/to/integrate-android-archive
+
+> Configure project :app
+WARNING: The option setting 'android.jetifier.ignorelist=bcprov-jdk15on' is experimental.
+Add android.sync.suppressAgpWarnings=UNSUPPORTED_PROJECT_OPTION_USE to the gradle.properties file to suppress this warning.
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preGoogleReleaseBuild UP-TO-DATE
+> Task :app:configureCMakeRelWithDebInfo[arm64-v8a]
+> Task :app:buildCMakeRelWithDebInfo[arm64-v8a]
+> Task :app:preOssReleaseBuild UP-TO-DATE
+> Task :app:mergeOssReleaseJniLibFolders UP-TO-DATE
+> Task :app:checkOssReleaseDuplicateClasses UP-TO-DATE
+> Task :app:mergeOssReleaseArtProfile UP-TO-DATE
+> Task :app:generateAppVersionInfoForOssRelease UP-TO-DATE
+> Task :app:generateOssReleaseBuildConfig UP-TO-DATE
+> Task :app:extractOssReleaseSupportedLocales UP-TO-DATE
+> Task :app:mapOssReleaseSourceSetPaths UP-TO-DATE
+> Task :app:generateOssReleaseLocaleConfig UP-TO-DATE
+> Task :app:generateOssReleaseResources UP-TO-DATE
+> Task :app:packageOssReleaseResources UP-TO-DATE
+> Task :app:processOssReleaseNavigationResources UP-TO-DATE
+> Task :app:parseOssReleaseLocalResources UP-TO-DATE
+> Task :app:generateOssReleaseRFile UP-TO-DATE
+> Task :app:kspOssReleaseKotlin UP-TO-DATE
+> Task :app:compileOssReleaseKotlin UP-TO-DATE
+> Task :app:javaPreCompileOssRelease UP-TO-DATE
+> Task :app:compileOssReleaseJavaWithJavac UP-TO-DATE
+> Task :app:hiltCollectClassesOssRelease UP-TO-DATE
+> Task :app:hiltAggregateDepsOssRelease UP-TO-DATE
+> Task :app:mergeOssReleaseNativeLibs
+> Task :app:hiltJavaCompileOssRelease
+> Task :app:checkOssReleaseAarMetadata UP-TO-DATE
+> Task :app:compileOssReleaseNavigationResources UP-TO-DATE
+> Task :app:mergeOssReleaseResources UP-TO-DATE
+> Task :app:createOssReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksOssRelease UP-TO-DATE
+> Task :app:processOssReleaseMainManifest
+> Task :app:processOssReleaseManifest
+> Task :app:extractProguardFiles UP-TO-DATE
+> Task :app:processOssReleaseJavaRes UP-TO-DATE
+> Task :app:mergeOssReleaseJavaResource UP-TO-DATE
+> Task :app:mergeOssReleaseStartupProfile UP-TO-DATE
+> Task :app:generateExportSchema UP-TO-DATE
+> Task :app:generateOssReleaseAssets UP-TO-DATE
+> Task :app:stripOssReleaseDebugSymbols
+> Task :app:mergeOssReleaseAssets
+> Task :app:extractOssReleaseVersionControlInfo
+> Task :app:compressOssReleaseAssets
+> Task :app:generateOssReleaseLintVitalReportModel
+> Task :app:collectOssReleaseDependencies
+> Task :app:sdkOssReleaseDependencyData
+> Task :app:validateSigningOssRelease UP-TO-DATE
+> Task :app:writeOssReleaseAppMetadata UP-TO-DATE
+> Task :app:writeOssReleaseSigningConfigVersions UP-TO-DATE
+> Task :app:processOssReleaseManifestForPackage
+> Task :app:processOssReleaseResources
+> Task :app:transformOssReleaseClassesWithAsm
+> Task :app:mergeOssReleaseGeneratedProguardFiles UP-TO-DATE
+> Task :app:expandOssReleaseArtProfileWildcards
+> Task :app:lintVitalAnalyzeOssRelease
+> Task :app:lintVitalReportOssRelease
+> Task :app:lintVitalOssRelease
+> Task :app:extractOssReleaseNativeDebugMetadata
+> Task :app:mergeOssReleaseNativeDebugMetadata UP-TO-DATE
+> Task :app:minifyOssReleaseWithR8
+> Task :app:compileOssReleaseArtProfile
+> Task :app:convertShrunkResourcesToBinaryOssRelease
+> Task :app:optimizeOssReleaseResources
+> Task :app:packageOssRelease
+> Task :app:createOssReleaseApkListingFileRedirect
+> Task :app:assembleOssRelease
+
+[Incubating] Problems report is available at: file:///Users/korellas/git/android_shell/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.8.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 35s
+60 actionable tasks: 28 executed, 32 up-to-date

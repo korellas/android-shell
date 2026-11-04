@@ -33,11 +33,16 @@ String formatCount(String value) => value.replaceAllMapped(
 );
 
 Widget settingsNote(BuildContext context, String text) => Padding(
-  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-  child: Text(
-    text,
-    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
+  padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+  child: Align(
+    alignment: Alignment.centerLeft,
+    child: Text(
+      text,
+      textAlign: TextAlign.left,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontSize: 12.5,
+      ),
     ),
   ),
 );

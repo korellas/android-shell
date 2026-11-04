@@ -58,18 +58,21 @@ Future<void> showForwardEditor(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
-  maxWidth: 560,
-  builder: (context) => SizedBox(
-    height: MediaQuery.sizeOf(context).height * .88,
-    child: ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      child: RecordEditor(
-        engine: engine,
-        kind: RecordKind.forward,
-        record: record,
-        hostId: host['id'] as int,
-        sessionId: sessionId,
+  maxWidth: 440,
+  builder: (context) => ConstrainedBox(
+    constraints: BoxConstraints(
+      maxHeight: (MediaQuery.sizeOf(context).height * .85).clamp(
+        0,
+        double.infinity,
       ),
+    ),
+    child: RecordEditor(
+      sheet: true,
+      engine: engine,
+      kind: RecordKind.forward,
+      record: record,
+      hostId: host['id'] as int,
+      sessionId: sessionId,
     ),
   ),
 );
@@ -196,16 +199,35 @@ class RecordListPage extends StatelessWidget {
         appBar: AppBar(
           title: Text(profile ? '터미널 프로필' : kindTitle(kind)),
           actions: [
-            IconButton(
-              tooltip: '${profile ? '프로필' : '계정'} 추가',
-              onPressed: () => edit(context),
-              icon: const Icon(Icons.add),
-            ),
+            if (tildePointer(context))
+              TextButton.icon(
+                onPressed: () => edit(context),
+                icon: const Icon(Icons.add),
+                label: Text('${profile ? '프로필' : '계정'} 추가'),
+              )
+            else if (records.isNotEmpty)
+              IconButton(
+                tooltip: '${profile ? '프로필' : '계정'} 추가',
+                onPressed: () => edit(context),
+                icon: const Icon(Icons.add),
+              ),
           ],
         ),
         body: ListView(
           padding: const EdgeInsets.only(bottom: 24),
           children: [
+            if (records.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    onPressed: () => edit(context),
+                    icon: const Icon(Icons.add),
+                    label: Text('${profile ? '프로필' : '계정'} 추가'),
+                  ),
+                ),
+              ),
             if (!profile && records.isEmpty)
               settingsNote(context, '여러 호스트에서 사용자 이름·키·비밀번호를 함께 사용합니다.'),
             for (final record in records)
@@ -388,21 +410,34 @@ class _KeyPageState extends State<KeyPage> {
     final state = row(engine.state['keyState']);
     final ios = engine.state['platform'] == 'ios';
     final fileKeys = ios || engine.state['platform'] == 'windows';
+    final VoidCallback? addKey = fileKeys
+        ? () => importTildeKeyFile(context, engine)
+        : row(engine.state['generation'])['biometricAvailable'] == true
+        ? () => showTildeSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            useSafeArea: true,
+            builder: (c) => GenerateKeyPage(engine: engine),
+          )
+        : null;
+    final addLabel = fileKeys ? '키 파일 추가' : '새 키';
     return Scaffold(
-      appBar: AppBar(title: const Text('SSH 키')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: fileKeys
-            ? () => importTildeKeyFile(context, engine)
-            : row(engine.state['generation'])['biometricAvailable'] == true
-            ? () => showTildeSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                builder: (c) => GenerateKeyPage(engine: engine),
-              )
-            : null,
-        icon: const Icon(Icons.add),
-        label: Text(fileKeys ? '키 파일 추가' : '새 키'),
+      appBar: AppBar(
+        title: const Text('SSH 키'),
+        actions: [
+          if (tildePointer(context))
+            TextButton.icon(
+              onPressed: addKey,
+              icon: const Icon(Icons.add),
+              label: Text(addLabel),
+            )
+          else if (engine.list('keys').isNotEmpty)
+            IconButton(
+              tooltip: addLabel,
+              onPressed: addKey,
+              icon: const Icon(Icons.add),
+            ),
+        ],
       ),
       body: ListView(
         children: [
@@ -429,7 +464,19 @@ class _KeyPageState extends State<KeyPage> {
                   ? '개인키 파일은 원래 위치에서 사용합니다. 저장한 키 암호는 Windows 계정으로 보호합니다.'
                   : '개인키는 Android Keystore에서 생성되며 기기 밖으로 내보낼 수 없습니다. 기존 개인키는 사용 중지 상태로 보존됩니다.',
             ),
-          settingsSection(context, 'SSH 키', [
+          if (engine.list('keys').isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.icon(
+                  onPressed: addKey,
+                  icon: const Icon(Icons.add),
+                  label: Text(addLabel),
+                ),
+              ),
+            ),
+          ...[
             for (final key in engine.list('keys'))
               Builder(
                 builder: (anchor) => GestureDetector(
@@ -439,7 +486,7 @@ class _KeyPageState extends State<KeyPage> {
                     leading: const Icon(Icons.key_outlined),
                     title: Text('${key['nickname']}'),
                     subtitle: Text(
-                      '${key['displayType'] ?? key['type']}${key['supported'] == true ? ' · ${key['providerLabel'] ?? 'Android Keystore'}' : ' · ${key['supportMessage'] ?? '사용 중지'}'}',
+                      '${key['displayType'] ?? key['type']}${key['supported'] == true ? ' · ${key['providerLabel'] ?? (fileKeys ? '키 파일' : 'Android Keystore')}' : ' · ${key['supportMessage'] ?? '사용 중지'}'}',
                     ),
                     onTap: () => keyAction(key, 'edit'),
                     onLongPress: () => showMenu(anchor, key),
@@ -458,8 +505,8 @@ class _KeyPageState extends State<KeyPage> {
                   ),
                 ),
               ),
-          ]),
-          const SizedBox(height: 96),
+          ],
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -604,106 +651,158 @@ class _ForwardsPageState extends State<ForwardsPage> {
     appBar: AppBar(
       title: Text('${widget.host['nickname']} · 포워딩'),
       actions: [
-        IconButton(
-          tooltip: '포워딩 추가',
-          onPressed: () => edit(),
-          icon: const Icon(Icons.add),
-        ),
+        if (tildePointer(context))
+          TextButton.icon(
+            onPressed: () => edit(),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('포워딩 추가'),
+          )
+        else if (forwards.isNotEmpty)
+          IconButton(
+            tooltip: '포워딩 추가',
+            onPressed: () => edit(),
+            icon: const Icon(Icons.add),
+          ),
       ],
     ),
-    body: RefreshIndicator(
-      onRefresh: load,
-      child: ListView(
-        padding: const EdgeInsets.only(bottom: 104),
-        children: [
-          if (sessions.isNotEmpty)
-            ListTile(
-              title: const Text('제어할 세션'),
-              subtitle: Text(
-                live
-                    ? '${sessions.where((s) => s['id'] == sessionId).first['nickname']} · 스위치를 바꾸면 즉시 적용됩니다'
-                    : '접속 시 기본값',
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () async {
-                final choice = await pickTildeOption(context, '제어할 세션', [
-                  (null, '접속 시 기본값'),
-                  for (final s in sessions) (s['id'], '${s['nickname']}'),
-                ], live ? sessionId : null);
-                if (choice != null && mounted) {
-                  setState(() => sessionId = choice.$1 as int?);
-                  await load();
-                }
-              },
-            ),
-
-          if (error != null)
-            ListTile(
-              title: const Text('포워딩을 불러오지 못했습니다'),
-              trailing: TextButton(
-                onPressed: () => showErrorDetails(context, error!),
-                child: const Text('자세히'),
-              ),
-            ),
-          for (final f in forwards)
-            Builder(
-              builder: (anchor) => GestureDetector(
-                onSecondaryTapUp: (event) =>
-                    menu(anchor, f, event.globalPosition),
-                child: ListTile(
-                  leading: Chip(
-                    label: Text(switch (f['type']) {
-                      'local' => '로컬',
-                      'remote' => '원격',
-                      _ => 'SOCKS',
-                    }),
-                    padding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  title: Text('${f['nickname']}'),
-                  subtitle: Text(
-                    f['type'] == 'dynamic4'
-                        ? 'SOCKS4 미지원 · 편집에서 SOCKS5로 변경하세요'
-                        : '${f['sourceAddr']}:${f['sourcePort']} → ${f['type'].toString().startsWith('dynamic') ? 'SOCKS5' : '${f['destAddr']}:${f['destPort']}'}',
-                    style: const TextStyle(fontFamily: tildeMono, fontSize: 12),
-                  ),
-                  onTap: () => edit(f),
-                  onLongPress: () => menu(anchor, f),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (live)
-                        Switch(
-                          value:
-                              f['type'] != 'dynamic4' && f['enabled'] == true,
-                          onChanged: f['type'] == 'dynamic4'
-                              ? null
-                              : (value) async {
-                                  await runEngine(
-                                    context,
-                                    widget.engine,
-                                    'forward.toggle',
-                                    {
-                                      'hostId': widget.host['id'],
-                                      'sessionId': sessionId,
-                                      'id': f['id'],
-                                      'enabled': value,
-                                    },
-                                  );
-                                  await load();
-                                },
-                        ),
-                      IconButton(
-                        tooltip: '${f['nickname']} 옵션',
-                        icon: const Icon(Icons.more_vert),
-                        onPressed: () => menu(anchor, f),
-                      ),
-                    ],
+    body: Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: tildePointer(context) ? 640 : double.infinity,
+        ),
+        child: RefreshIndicator(
+          onRefresh: load,
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: 104),
+            children: [
+              if (forwards.isEmpty && !loading)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FilledButton.icon(
+                      onPressed: () => edit(),
+                      icon: const Icon(Icons.add),
+                      label: const Text('포워딩 추가'),
+                    ),
                   ),
                 ),
-              ),
-            ),
-        ],
+              if (sessions.isNotEmpty)
+                ListTile(
+                  title: const Text('제어할 세션'),
+                  subtitle: Text(
+                    live
+                        ? '${sessions.where((s) => s['id'] == sessionId).first['nickname']} · 스위치를 바꾸면 즉시 적용됩니다'
+                        : '접속 시 기본값',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    final choice = await pickTildeOption(context, '제어할 세션', [
+                      (null, '접속 시 기본값'),
+                      for (final s in sessions) (s['id'], '${s['nickname']}'),
+                    ], live ? sessionId : null);
+                    if (choice != null && mounted) {
+                      setState(() => sessionId = choice.$1 as int?);
+                      await load();
+                    }
+                  },
+                ),
+
+              if (error != null)
+                ListTile(
+                  title: const Text('포워딩을 불러오지 못했습니다'),
+                  trailing: TextButton(
+                    onPressed: () => showErrorDetails(context, error!),
+                    child: const Text('자세히'),
+                  ),
+                ),
+              for (final f in forwards)
+                Builder(
+                  builder: (anchor) => GestureDetector(
+                    onSecondaryTapUp: (event) =>
+                        menu(anchor, f, event.globalPosition),
+                    child: ListTile(
+                      title: Text('${f['nickname']}'),
+                      subtitle: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(switch (f['type']) {
+                              'local' => '로컬',
+                              'remote' => '원격',
+                              _ => 'SOCKS',
+                            }, style: const TextStyle(fontSize: 11)),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Tooltip(
+                              message:
+                                  '${f['sourceAddr']}:${f['sourcePort']} → ${f['destAddr']}:${f['destPort']}',
+                              child: Text(
+                                f['type'] == 'dynamic4'
+                                    ? 'SOCKS4 미지원 · SOCKS5로 변경하세요'
+                                    : '${['127.0.0.1', 'localhost', '::1', ''].contains(f['sourceAddr']) ? '' : '${f['sourceAddr']}:'}${f['sourcePort']} → ${f['type'].toString().startsWith('dynamic') ? 'SOCKS5' : '${f['destAddr']}:${f['destPort']}'}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: tildeMono,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      onTap: () => edit(f),
+                      onLongPress: () => menu(anchor, f),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (live)
+                            Switch(
+                              value:
+                                  f['type'] != 'dynamic4' &&
+                                  f['enabled'] == true,
+                              onChanged: f['type'] == 'dynamic4'
+                                  ? null
+                                  : (value) async {
+                                      await runEngine(
+                                        context,
+                                        widget.engine,
+                                        'forward.toggle',
+                                        {
+                                          'hostId': widget.host['id'],
+                                          'sessionId': sessionId,
+                                          'id': f['id'],
+                                          'enabled': value,
+                                        },
+                                      );
+                                      await load();
+                                    },
+                            ),
+                          IconButton(
+                            tooltip: '${f['nickname']} 옵션',
+                            icon: const Icon(Icons.more_vert),
+                            onPressed: () => menu(anchor, f),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     ),
   );
@@ -1034,6 +1133,12 @@ class _SchemesPageState extends State<SchemesPage> {
               onPressed: () => createTheme(context),
               icon: const Icon(Icons.add, size: 18),
               label: const Text('새 테마'),
+            )
+          else
+            IconButton(
+              tooltip: '새 테마',
+              onPressed: () => createTheme(context),
+              icon: const Icon(Icons.add),
             ),
           TextButton(
             child: const Text('가져오기'),
@@ -1052,13 +1157,6 @@ class _SchemesPageState extends State<SchemesPage> {
           ),
         ],
       ),
-      floatingActionButton: tildePointer(context)
-          ? null
-          : FloatingActionButton(
-              tooltip: '새 테마',
-              onPressed: () => createTheme(context),
-              child: const Icon(Icons.add),
-            ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final scale = MediaQuery.textScalerOf(context).scale(14) / 14;

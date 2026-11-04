@@ -1,6 +1,7 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
 
+import '../files/transfer.dart' show fileFailureSummary;
 import 'dart:async';
 import 'dart:convert';
 import 'package:dartssh2/dartssh2.dart';
@@ -103,8 +104,10 @@ class AppSshSession implements AppTerminalSession {
   SshSessionState _state = SshSessionState.idle;
   int _generation = 0, _promptSerial = 0, _bannerSerial = 0;
   bool _disposed = false, _closing = false;
-  String? _error;
+  String? _error, _failureSummary;
+  DateTime? _failedAt;
   String? _disconnectReason;
+  DateTime? _endedAt;
   String? _transportCloseReason;
   late double _fontSize;
   final _banners = <Map<String, dynamic>>[];
@@ -164,6 +167,9 @@ class AppSshSession implements AppTerminalSession {
       'connected': connected,
       'connectionGeneration': _generation,
       'disconnectReason': _disconnectReason,
+      'failureSummary': _failureSummary,
+      'failedAt': _failedAt?.toIso8601String(),
+      'endedAt': _endedAt?.toIso8601String(),
       'connecting': connecting,
       'connectionLog': _connectionLog?.toList(),
       'connectionPhase': _connectionPhase.name,
@@ -199,6 +205,8 @@ class AppSshSession implements AppTerminalSession {
     if (_disposed || _closing) return;
     _connectionClock.stop();
     _error = '$error';
+    _failureSummary = fileFailureSummary(error);
+    _failedAt = DateTime.now();
 
     _changed();
     onNotification?.call({
@@ -216,6 +224,8 @@ class AppSshSession implements AppTerminalSession {
     type: profile['emulation'] as String? ?? 'xterm-256color',
   );
 
+  final _passwordsToSave = <int, Map<String, dynamic>>{};
+
   Future<Object?> _ask(
     Map<String, dynamic> prompt,
     int generation, {
@@ -229,6 +239,9 @@ class AppSshSession implements AppTerminalSession {
     _rejectCancels = rejectCancels;
     _response = response;
     _prompt = {
+      'nickname': host['nickname'],
+      'address':
+          '${host['username']}@${host['hostname']}:${host['port'] ?? 22}',
       ...prompt,
       'sessionId': id,
       'token': '$id-$generation-${++_promptSerial}',
@@ -271,25 +284,49 @@ class AppSshSession implements AppTerminalSession {
       String instructions, {
       String hint = '',
       bool hidden = true,
+      bool hostPassword = false,
     }) async {
       final answer = await _ask({
         'type': 'string',
         'instructions': instructions,
         'hint': hint,
         'password': hidden,
+        'nickname': target['nickname'],
+        'address':
+            '${target['username']}@${target['hostname']}:${target['port'] ?? 22}',
+        if (hostPassword) 'passwordKind': 'host',
+        'canSavePassword':
+            hostPassword &&
+            (target['id'] as int? ?? 0) > 0 &&
+            target['identityId'] == null,
       }, generation);
+      if (answer is Map &&
+          answer['value'] is String &&
+          hostPassword &&
+          (target['id'] as int? ?? 0) > 0 &&
+          target['identityId'] == null) {
+        if (answer['savePassword'] == true) {
+          _passwordsToSave[target['id'] as int] = {
+            'id': target['id'],
+            'password': answer['value'],
+          };
+        }
+        return answer['value'] as String;
+      }
       if (answer is! String) throw StateError('SSH authentication cancelled');
       return answer;
     }
 
     Future<String> password() async {
+      _passwordsToSave.remove(target['id']);
       if (!passwordSavedTried) {
         passwordSavedTried = true;
         if (savedPassword != null) return savedPassword;
       }
       return askString(
         '${target['username']}@${target['hostname']}',
-        hint: 'Password',
+        hint: '비밀번호',
+        hostPassword: true,
       );
     }
 
@@ -417,6 +454,7 @@ class AppSshSession implements AppTerminalSession {
       },
       onPassword: password,
       onInteractive: (request) async {
+        _passwordsToSave.remove(target['id']);
         final answers = <String>[];
         for (final prompt in request.prompts) {
           if (!prompt.echo && !interactiveSavedTried && savedPassword != null) {
@@ -436,10 +474,13 @@ class AppSshSession implements AppTerminalSession {
         }
         return answers;
       },
-      onPasswordChange: (prompt) async => SSHChangePasswordResponse(
-        await askString(prompt, hint: 'Current password'),
-        await askString(prompt, hint: 'New password'),
-      ),
+      onPasswordChange: (prompt) async {
+        _passwordsToSave.remove(target['id']);
+        return SSHChangePasswordResponse(
+          await askString(prompt, hint: 'Current password'),
+          await askString(prompt, hint: 'New password'),
+        );
+      },
       onBanner: (message) {
         if (!_current(generation)) return;
         _connectionLog?.add(message);
@@ -477,7 +518,11 @@ class AppSshSession implements AppTerminalSession {
       ..reset()
       ..start();
     _error = null;
+    _failureSummary = null;
+    _failedAt = null;
+    _passwordsToSave.clear();
     _disconnectReason = null;
+    _endedAt = null;
     _transportCloseReason = null;
     _output = Future.value();
     _input = Future.value();
@@ -529,6 +574,18 @@ class AppSshSession implements AppTerminalSession {
       _transport = transport;
       await transport.connect();
       if (!_current(generation)) return;
+      for (final saved in _passwordsToSave.values.toList()) {
+        try {
+          await platform('host.save', saved);
+        } catch (error) {
+          onNotification?.call({
+            'type': 'message',
+            'sessionId': id,
+            'message': '로그인했지만 비밀번호를 저장하지 못했습니다. 호스트 편집에서 다시 저장하세요.',
+          });
+        }
+      }
+      _passwordsToSave.clear();
       _changed();
     } catch (error, stack) {
       if (_current(generation)) {
@@ -863,6 +920,8 @@ class AppSshSession implements AppTerminalSession {
   Future<void> _end(String reason) {
     if (_disconnecting != null) return _disconnecting!;
     _disconnectReason = reason;
+    _endedAt = DateTime.now();
+    _passwordsToSave.clear();
     return _disconnecting = _disconnect();
   }
 

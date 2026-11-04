@@ -1,0 +1,160 @@
+Resolving dependencies...
+Downloading packages...
+  asn1lib 1.6.7 (1.6.8 available)
+  clock 1.1.2 (1.1.3 available)
+  equatable 2.1.0 (3.0.0 available)
+  matcher 0.12.19 (0.12.20 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.17.0 (1.19.0 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.10 (0.7.15 available)
+  vector_math 2.2.0 (2.4.4 available)
+  vm_service 15.3.0 (15.4.0 available)
+  webview_flutter_android 4.12.0 (4.14.1 available)
+  webview_flutter_wkwebview 3.25.1 (3.27.2 available)
+Got dependencies!
+12 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Resolving dependencies...
+Downloading packages...
+  asn1lib 1.6.7 (1.6.8 available)
+  clock 1.1.2 (1.1.3 available)
+  equatable 2.1.0 (3.0.0 available)
+  matcher 0.12.19 (0.12.20 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.17.0 (1.19.0 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.10 (0.7.15 available)
+  vector_math 2.2.0 (2.4.4 available)
+  vm_service 15.3.0 (15.4.0 available)
+  webview_flutter_android 4.12.0 (4.14.1 available)
+  webview_flutter_wkwebview 3.25.1 (3.27.2 available)
+Got dependencies!
+12 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Running Gradle task 'assembleAarDebug'...                           7.1s
+✓ Built build/host/outputs/repo
+
+Consuming the Module
+  1. Open <host>/app/build.gradle
+  2. Ensure you have the repositories configured, otherwise add them:
+
+      String storageUrl = System.env.FLUTTER_STORAGE_BASE_URL ?: "https://storage.googleapis.com"
+      repositories {
+        maven {
+            url '/Users/korellas/git/android_shell/flutter_ui/build/host/outputs/repo'
+        }
+        maven {
+            url "$storageUrl/download.flutter.io"
+        }
+      }
+
+  3. Make the host app depend on the Flutter module:
+
+    dependencies {
+      debugImplementation 'dev.korellas.android_shell_ui:flutter_debug:1.0'
+    }
+
+To learn more, visit https://flutter.dev/to/integrate-android-archive
+
+> Configure project :app
+WARNING: The option setting 'android.jetifier.ignorelist=bcprov-jdk15on' is experimental.
+Add android.sync.suppressAgpWarnings=UNSUPPORTED_PROJECT_OPTION_USE to the gradle.properties file to suppress this warning.
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preGoogleDebugBuild UP-TO-DATE
+> Task :app:configureCMakeDebug[arm64-v8a]
+> Task :app:buildCMakeDebug[arm64-v8a]
+> Task :app:configureCMakeDebug[x86_64]
+> Task :app:buildCMakeDebug[x86_64]
+> Task :app:preOssDebugBuild UP-TO-DATE
+> Task :app:mergeOssDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeOssDebugNativeLibs UP-TO-DATE
+> Task :app:stripOssDebugDebugSymbols UP-TO-DATE
+> Task :app:extractOssDebugNativeDebugMetadata UP-TO-DATE
+> Task :app:mergeOssDebugNativeDebugMetadata UP-TO-DATE
+> Task :app:generateAppVersionInfoForOssDebug UP-TO-DATE
+> Task :app:generateOssDebugBuildConfig UP-TO-DATE
+> Task :app:extractOssDebugSupportedLocales UP-TO-DATE
+> Task :app:mapOssDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateOssDebugLocaleConfig UP-TO-DATE
+> Task :app:generateOssDebugResources UP-TO-DATE
+> Task :app:packageOssDebugResources UP-TO-DATE
+> Task :app:processOssDebugNavigationResources UP-TO-DATE
+> Task :app:parseOssDebugLocalResources UP-TO-DATE
+> Task :app:generateOssDebugRFile UP-TO-DATE
+> Task :app:kspOssDebugKotlin UP-TO-DATE
+> Task :app:compileOssDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileOssDebug UP-TO-DATE
+> Task :app:compileOssDebugJavaWithJavac UP-TO-DATE
+> Task :app:generateExportSchema UP-TO-DATE
+> Task :app:generateOssDebugAssets UP-TO-DATE
+> Task :app:mergeOssDebugAssets
+> Task :app:generateOssDebugGlobalSynthetics UP-TO-DATE
+> Task :app:checkOssDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarOssDebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexOssDebug UP-TO-DATE
+> Task :app:mergeLibDexOssDebug UP-TO-DATE
+> Task :app:generateOssDebugJacocoPropertiesFile UP-TO-DATE
+> Task :app:processOssDebugJavaRes UP-TO-DATE
+> Task :app:mergeOssDebugJavaResource UP-TO-DATE
+> Task :app:hiltCollectClassesOssDebug UP-TO-DATE
+> Task :app:hiltAggregateDepsOssDebug UP-TO-DATE
+> Task :app:hiltJavaCompileOssDebug UP-TO-DATE
+> Task :app:checkOssDebugAarMetadata UP-TO-DATE
+> Task :app:compileOssDebugNavigationResources UP-TO-DATE
+> Task :app:mergeOssDebugResources UP-TO-DATE
+> Task :app:createOssDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksOssDebug UP-TO-DATE
+> Task :app:processOssDebugMainManifest UP-TO-DATE
+> Task :app:processOssDebugManifest UP-TO-DATE
+> Task :app:processOssDebugManifestForPackage UP-TO-DATE
+> Task :app:processOssDebugResources UP-TO-DATE
+> Task :app:transformOssDebugClassesWithAsm UP-TO-DATE
+> Task :app:validateSigningOssDebug UP-TO-DATE
+> Task :app:writeOssDebugAppMetadata UP-TO-DATE
+> Task :app:writeOssDebugSigningConfigVersions UP-TO-DATE
+> Task :app:jacocoOssDebug
+> Task :app:compressOssDebugAssets
+> Task :app:dexBuilderOssDebug
+> Task :app:mergeProjectDexOssDebug
+> Task :app:packageOssDebug
+> Task :app:createOssDebugApkListingFileRedirect
+> Task :app:assembleOssDebug
+
+[Incubating] Problems report is available at: file:///Users/korellas/git/android_shell/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.8.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 7s
+54 actionable tasks: 11 executed, 43 up-to-date
+Resolving dependencies...
+Downloading packages...
+  asn1lib 1.6.7 (1.6.8 available)
+  clock 1.1.2 (1.1.3 available)
+  equatable 2.1.0 (3.0.0 available)
+  matcher 0.12.19 (0.12.20 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.17.0 (1.19.0 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.10 (0.7.15 available)
+  vector_math 2.2.0 (2.4.4 available)
+  vm_service 15.3.0 (15.4.0 available)
+  webview_flutter_android 4.12.0 (4.14.1 available)
+  webview_flutter_wkwebview 3.25.1 (3.27.2 available)
+Got dependencies!
+12 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Warning: Building for device with codesigning disabled. You will have to manually codesign before deploying to device.
+Building dev.korellas.androidShellUi for device (ios)...
+Warning: CocoaPods not installed. Skipping pod install.
+  CocoaPods is a package manager for iOS or macOS platform code.
+  Without CocoaPods, plugins will not work on iOS or macOS.
+  For more info, see https://flutter.dev/to/platform-plugins
+For installation instructions, see https://guides.cocoapods.org/using/getting-started.html#installation
+
+CocoaPods not installed or not in valid state.
