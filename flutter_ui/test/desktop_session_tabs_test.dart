@@ -72,7 +72,7 @@ void main() {
       expect(find.text('개발 서버 · 2'), findsOneWidget);
       expect(find.byKey(const ValueKey('session-close-101')), findsOneWidget);
       expect(find.byKey(const ValueKey('session-close-102')), findsOneWidget);
-      expect(find.byTooltip('새 세션'), findsOneWidget);
+      expect(find.byTooltip('새 탭'), findsOneWidget);
       expect(find.byTooltip('기기 목록'), findsOneWidget);
       expect(find.widgetWithText(TextButton, 'Tab'), findsNothing);
     },

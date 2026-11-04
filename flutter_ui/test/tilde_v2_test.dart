@@ -299,7 +299,13 @@ void main() {
           find.byType(TildeHostTile).first,
         );
         expect(tile.sessionCount, 2);
-        expect(find.text('2'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(TildeHostTile).first,
+            matching: find.text('2'),
+          ),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
         await capture(
           tester,
@@ -338,7 +344,7 @@ void main() {
       80,
     );
     expect(tester.getTopLeft(find.byType(TextField)).dy, greaterThan(700));
-    expect(find.text('세션 1'), findsOneWidget);
+    expect(find.byTooltip('열린 세션'), findsOneWidget);
     expect(find.text('열린 세션'), findsOneWidget);
     await capture(tester, 'home-day');
     await tester.tap(find.byTooltip('home-nas 메뉴'));
@@ -351,7 +357,7 @@ void main() {
     'desktop editor tabs retain drafts and guard closing',
     (tester) async {
       await open(tester, ShellHome(engine: engine), width: 1280);
-      expect(find.text('터미널 열기'), findsOneWidget);
+      expect(find.text('새 터미널'), findsOneWidget);
       await tester.tap(find.text('편집').first);
       await tester.pumpAndSettle();
       await tester.enterText(

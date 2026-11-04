@@ -170,6 +170,8 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Research'));
         await tester.pumpAndSettle();
+        await tester.tap(find.text('새 터미널'));
+        await tester.pumpAndSettle();
         await tester.pumpAndSettle();
         if (toolbar) {
           await tester.tap(find.byTooltip('홈'));
@@ -294,6 +296,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Research'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('새 터미널'));
+      await tester.pumpAndSettle();
       await tester.pumpAndSettle();
       expect(find.byType(Dialog), findsNothing);
       expect(find.byType(BottomSheet), findsNothing);
@@ -325,6 +329,8 @@ void main() {
       await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Research'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('새 터미널'));
       await tester.pumpAndSettle();
       await tester.pumpAndSettle();
       expect(
@@ -403,7 +409,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'unsent');
-    await tester.tap(find.text('세션 2'));
+    await tester.tap(find.byTooltip('열린 세션'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Second'));
     await tester.pumpAndSettle();
@@ -425,7 +431,7 @@ void main() {
       {'sessionId': 102, 'token': 'second', 'value': '123456'},
     );
     expect(engine.list('prompts').single['token'], 'first');
-    await tester.tap(find.text('세션 2'));
+    await tester.tap(find.byTooltip('열린 세션'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('First'));
     await tester.pumpAndSettle();
@@ -546,6 +552,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('새 터미널'));
+    await tester.pumpAndSettle();
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -567,15 +575,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('새 터미널'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('세션 1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('열린 세션'));
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(ConsolePage), findsOneWidget);
     expect(connected, isTrue);
     expect(calls.where((c) => c.method == 'session.disconnect'), isEmpty);
-    await tester.tap(find.text('세션 1'));
+    await tester.tap(find.byTooltip('열린 세션'));
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
     await tester.binding.handlePopRoute();
@@ -828,7 +838,7 @@ void main() {
             ),
           );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('세션 2'));
+      await tester.tap(find.byTooltip('열린 세션'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Research · 102'));
       await tester.tap(find.text('Research · 102'));
@@ -867,6 +877,8 @@ void main() {
       await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Research'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('새 터미널'));
       await tester.pumpAndSettle();
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('터미널 메뉴'));
@@ -946,6 +958,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Research'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('새 터미널'));
+      await tester.pumpAndSettle();
       await tester.pumpAndSettle();
       for (final value in ['80×24', '100x30']) {
         await tester.tap(find.byTooltip('터미널 메뉴'));
@@ -977,6 +991,8 @@ void main() {
     await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('새 터미널'));
     await tester.pumpAndSettle();
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('터미널 메뉴'));
@@ -1017,6 +1033,8 @@ void main() {
     await tester.pumpWidget(AndroidShellApp(engine: UiEngineFixture()));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Research'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('새 터미널'));
     await tester.pumpAndSettle();
     await tester.pumpAndSettle();
     expect(find.byType(ConsolePage), findsOneWidget);
@@ -1074,7 +1092,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       final rect = tester.getRect(find.byType(TerminalPane));
-      expect(rect.top, 48);
+      expect(rect.top, 40);
       expect(
         rect.bottom,
         tester.view.physicalSize.height / tester.view.devicePixelRatio,
@@ -1185,13 +1203,13 @@ void main() {
           .widget<TerminalPane>(find.byType(TerminalPane))
           .terminal;
       final beforeRows = terminal.viewHeight;
-      expect(before.top, 48);
+      expect(before.top, 40);
       expect(before.bottom, 844);
       expect(find.byType(AppBar), findsOneWidget);
       await tester.pump(const Duration(seconds: 4));
       expect(find.byType(AppBar), findsOneWidget);
       expect(find.text('Research'), findsNothing);
-      expect(find.text('세션 1'), findsOneWidget);
+      expect(find.byTooltip('열린 세션'), findsOneWidget);
       expect(find.byTooltip('홈'), findsOneWidget);
       expect(tester.getRect(find.byType(TerminalPane)), before);
       expect(terminal.viewHeight, beforeRows);
@@ -1232,7 +1250,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     final rect = tester.getRect(find.byType(TerminalPane));
-    expect(rect.top, 48 + 60 / tester.view.devicePixelRatio);
+    expect(rect.top, 40 + 60 / tester.view.devicePixelRatio);
     expect(
       rect.bottom,
       (tester.view.physicalSize.height - 30) / tester.view.devicePixelRatio,

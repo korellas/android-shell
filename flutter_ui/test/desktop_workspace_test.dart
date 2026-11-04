@@ -77,7 +77,7 @@ void main() {
     (tester) async {
       await open(tester);
       expect(find.byKey(const ValueKey('workspace-sidebar')), findsOneWidget);
-      expect(find.text('터미널 열기'), findsOneWidget);
+      expect(find.text('새 터미널'), findsOneWidget);
       expect(find.text('열린 세션'), findsOneWidget);
       expect(find.text('개발 서버 · 1'), findsOneWidget);
       expect(find.text('개발 서버 · 2'), findsOneWidget);
@@ -113,14 +113,53 @@ void main() {
     variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
   testWidgets(
-    'touch host tap connects without an SSH/SFTP mode sheet',
+    'touch host selection waits for explicit terminal or file choice',
     (tester) async {
       engine.state['sessions'] = [];
       await open(tester);
       await tester.tap(find.text('개발 서버').first);
       await tester.pumpAndSettle();
       expect(find.text('SSH 터미널'), findsNothing);
+      expect(engine.connections, 0);
+      expect(find.text('파일 전송'), findsOneWidget);
+      await tester.tap(find.text('새 터미널'));
+      await tester.pumpAndSettle();
       expect(engine.connections, 1);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.android}),
+  );
+  testWidgets(
+    'new desktop tab opens host actions without connecting',
+    (tester) async {
+      await open(tester);
+      await tester.tap(find.byKey(const ValueKey('workspace-tab-session-101')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('새 탭 (Ctrl Shift T)'));
+      await tester.pumpAndSettle();
+      expect(engine.connections, 0);
+      expect(find.text('새 터미널'), findsOneWidget);
+      expect(find.text('파일 전송'), findsOneWidget);
+      expect(engine.list('sessions'), hasLength(2));
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
+  testWidgets(
+    'phone host chooser can select an existing session without connecting',
+    (tester) async {
+      await open(tester);
+      tester.view.physicalSize = const Size(390, 844);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('개발 서버').last);
+      await tester.pumpAndSettle();
+      expect(engine.connections, 0);
+      expect(find.text('파일 전송'), findsOneWidget);
+      await tester.tap(find.text('탭으로 이동').last);
+      await tester.pumpAndSettle();
+      expect(engine.connections, 0);
+      expect(
+        tester.widget<TerminalPane>(find.byType(TerminalPane)).terminal,
+        same(engine.terminalSession(102)!.terminal),
+      );
     },
     variant: const TargetPlatformVariant({TargetPlatform.android}),
   );

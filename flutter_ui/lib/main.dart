@@ -865,6 +865,47 @@ class _ShellHomeState extends State<ShellHome> {
     ),
   );
 
+  Future<void> _selectHost(EngineRecord host) async {
+    if (!canConnectHost(host)) {
+      await _hostMenu(host, 'edit');
+      return;
+    }
+    if (MediaQuery.sizeOf(context).width >= 720) {
+      setState(() => _selectedHostId = host['id'] as int);
+      return;
+    }
+    final choice = await showTildeSheet<(String, int?)>(
+      context: context,
+      isScrollControlled: true,
+      builder: (c) => SizedBox(
+        height: MediaQuery.sizeOf(c).height * .8,
+        child: HostSummary(
+          engine: engine,
+          host: host,
+          onConnect: () => Navigator.pop(c, ('connect', null)),
+          onFiles: () => Navigator.pop(c, ('files', null)),
+          onEdit: () => Navigator.pop(c, ('edit', null)),
+          onMenu: (_) => Navigator.pop(c, ('menu', null)),
+          onForwards: () async {
+            Navigator.pop(c, ('forwards', null));
+          },
+          onSelectSession: (id) => Navigator.pop(c, ('session', id)),
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    switch (choice.$1) {
+      case 'connect':
+        await _connect(host, newSession: true);
+      case 'session':
+        _resumeSession(choice.$2!);
+      case 'menu':
+        await _showHostMenu(host);
+      default:
+        await _hostMenu(host, choice.$1);
+    }
+  }
+
   void _resumeSession(int id) {
     if (!engine.list('sessions').any((s) => s['id'] == id)) return;
     unawaited(_page(ConsolePage(engine: engine, sessionId: id)));
@@ -958,7 +999,7 @@ class _ShellHomeState extends State<ShellHome> {
                             fontSize: 13,
                           ),
                         ),
-                        onTap: () => _connect(host),
+                        onTap: () => _selectHost(host),
                       ),
                     ),
                   ),
@@ -1025,9 +1066,9 @@ class _ShellHomeState extends State<ShellHome> {
         title: const TildeWordmark(),
         actions: [
           if (engine.list('sessions').isNotEmpty)
-            TextButton(
+            SessionSwitcherButton(
+              count: engine.list('sessions').length,
               onPressed: _openSessions,
-              child: Text('세션 ${engine.list('sessions').length}'),
             ),
           IconButton(
             tooltip: '호스트 추가',
@@ -1102,7 +1143,7 @@ class _ShellHomeState extends State<ShellHome> {
                   : HostSummary(
                       engine: engine,
                       host: selected,
-                      onConnect: () => _connect(selected),
+                      onConnect: () => _connect(selected, newSession: true),
                       onFiles: () => _page(
                         FileBrowserPage(engine: engine, host: selected),
                       ),

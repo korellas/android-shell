@@ -288,7 +288,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
       await capture(tester, 'home-detail-1280-2.0');
-      expect(find.text('터미널 열기'), findsOneWidget);
+      expect(find.text('새 터미널'), findsOneWidget);
       expect(find.byTooltip('home-nas 메뉴'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },

@@ -318,7 +318,7 @@ void main() {
   );
 
   testWidgets(
-    'desktop new tab creates a second live SSH session for the same host',
+    'desktop new tab waits for explicit terminal choice before connecting',
     (tester) async {
       tester.view.physicalSize = const Size(920, 700);
       tester.view.devicePixelRatio = 1;
@@ -332,6 +332,10 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('새 탭 (Ctrl Shift T)'));
+      await tester.pumpAndSettle();
+      expect(engine.list('sessions'), hasLength(1));
+      expect(transports, hasLength(1));
+      await tester.tap(find.text('새 터미널'));
       await tester.pumpAndSettle();
       expect(engine.list('sessions'), hasLength(2));
       expect(transports, hasLength(2));
