@@ -7,6 +7,7 @@ import 'package:android_shell_ui/tilde_design.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'ui_engine_fixture.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   late UiEngineFixture engine;
@@ -38,6 +39,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         theme: tildeTheme(Brightness.dark, engine).copyWith(platform: platform),
         home: Scaffold(
           body: Align(

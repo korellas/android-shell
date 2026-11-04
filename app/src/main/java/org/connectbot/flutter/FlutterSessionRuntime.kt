@@ -119,7 +119,7 @@ class FlutterSessionRuntime @Inject constructor(
                             updateSessions(
                                 records.map { record ->
                                     @Suppress("UNCHECKED_CAST")
-                                    val host = (record["host"] as Map<String, Any?>).toHost()
+                                    val host = (record["host"] as Map<String, Any?>).toHost(context.resources)
                                     NotificationSession(record["id"].toString(), host, record["connected"] == true || record["open"] == true, record["connecting"] == true)
                                 },
                             )

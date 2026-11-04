@@ -11,6 +11,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'file_browser_actions_test.dart' show BrowserEngine, BrowserFiles;
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   setUpAll(() async {
@@ -48,6 +49,9 @@ void main() {
         final boundary = GlobalKey();
         await tester.pumpWidget(
           MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
             theme: tildeTheme(Brightness.dark, engine),
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(context).copyWith(
@@ -131,7 +135,10 @@ void main() {
         }
         await tester.pumpAndSettle();
         final back = find.byWidgetPredicate(
-          (widget) => widget is IconButton && widget.tooltip == '뒤로',
+          (widget) =>
+              widget is IconButton &&
+              widget.icon is Icon &&
+              widget.tooltip == '뒤로',
         );
         expect(tester.widget<IconButton>(back).onPressed, isNotNull);
         await tester.tap(back);

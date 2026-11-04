@@ -23,6 +23,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:android_shell_ui/terminal/terminal_pane.dart';
 
 import 'ui_engine_fixture.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -213,6 +214,9 @@ void main() {
       RepaintBoundary(
         key: boundary,
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           debugShowCheckedModeBanner: false,
           theme: tildeTheme(brightness, engine),
           builder: (c, child) => MediaQuery(

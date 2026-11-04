@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:android_shell_ui/files/file_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   testWidgets(
@@ -14,6 +15,9 @@ void main() {
       var fail = true;
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: Scaffold(
             body: FilePreview(
               path: '/test.txt',

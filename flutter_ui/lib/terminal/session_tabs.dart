@@ -1,11 +1,13 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../engine.dart';
 import '../main.dart' show confirm, hostAddress, showEngineFailure;
 import '../tilde_design.dart';
 import '../tilde_controls.dart';
+import '../l10n/strings.dart';
 
 const sessionTabsMinWidth = 600.0;
 const sessionTabsHeight = 40.0;
@@ -21,14 +23,14 @@ class SessionSwitcherButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => IconButton(
-    tooltip: '열린 세션',
+    tooltip: context.l10n.openSessions,
     onPressed: onPressed,
     icon: Badge.count(count: count, child: const Icon(Icons.tab_outlined)),
   );
 }
 
 String sessionLabel(List<EngineRecord> sessions, EngineRecord session) {
-  final name = '${session['nickname'] ?? '터미널'}';
+  final name = '${session['nickname'] ?? deviceStrings.terminal}';
   final siblings = sessions
       .where((s) => s['nickname'] == session['nickname'])
       .toList();
@@ -42,6 +44,7 @@ Future<bool> closeTildeSession(
   AndroidEngine engine,
   int id,
 ) async {
+  final contextStrings = context.l10n;
   final session = engine
       .list('sessions')
       .where((s) => s['id'] == id)
@@ -50,9 +53,11 @@ Future<bool> closeTildeSession(
   if ((session['open'] == true || session['connecting'] == true) &&
       !await confirm(
         context,
-        '세션 종료',
-        '${sessionLabel(engine.list('sessions'), session)} 연결을 종료할까요?',
-        action: '종료',
+        contextStrings.endSession,
+        contextStrings.disconnectFrom(
+          (sessionLabel(engine.list('sessions'), session)).toString(),
+        ),
+        action: contextStrings.end,
       )) {
     return false;
   }
@@ -62,7 +67,11 @@ Future<bool> closeTildeSession(
     return true;
   } catch (error) {
     if (context.mounted) {
-      showEngineFailure(context, error, summary: '연결을 닫지 못했습니다');
+      showEngineFailure(
+        context,
+        error,
+        summary: contextStrings.couldNotCloseConnection,
+      );
     }
     return false;
   }
@@ -84,7 +93,10 @@ Future<(int, bool)?> showTildeSessions(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('열린 세션', style: Theme.of(c).textTheme.titleLarge),
+            Text(
+              context.l10n.openSessions,
+              style: Theme.of(c).textTheme.titleLarge,
+            ),
             const SizedBox(height: 12),
             SessionList(
               engine: engine,
@@ -92,7 +104,8 @@ Future<(int, bool)?> showTildeSessions(
               onSelect: (id) => Navigator.pop(c, (id, false)),
               onClose: (id) => Navigator.pop(c, (id, true)),
             ),
-            if (engine.list('sessions').isEmpty) const Text('열린 세션이 없습니다.'),
+            if (engine.list('sessions').isEmpty)
+              Text(context.l10n.noOpenSessions),
           ],
         ),
       ),
@@ -135,10 +148,15 @@ class SessionList extends StatelessWidget {
               children: [
                 Text(
                   session['connecting'] == true
-                      ? '연결 중'
+                      ? context.l10n.connecting
                       : session['open'] == true
-                      ? '연결됨'
-                      : '연결 종료${session['endedAt'] == null ? '' : ' · ${DateTime.tryParse('${session['endedAt']}')?.toLocal().toString().substring(11, 16) ?? ''}'}',
+                      ? context.l10n.connected
+                      : context.l10n.disconnected2(
+                          (session['endedAt'] == null
+                                  ? ''
+                                  : ' · ${DateTime.tryParse('${session['endedAt']}')?.toLocal().toString().substring(11, 16) ?? ''}')
+                              .toString(),
+                        ),
                 ),
                 if (session['uri'] != null)
                   tildePathText('${session['uri']}')
@@ -153,7 +171,9 @@ class SessionList extends StatelessWidget {
             onTap: () => onSelect(session['id'] as int),
             trailing: IconButton(
               key: ValueKey('session-close-${session['id']}'),
-              tooltip: '${sessionLabel(sessions, session)} 종료',
+              tooltip: context.l10n.end2(
+                (sessionLabel(sessions, session)).toString(),
+              ),
               onPressed: () => onClose(session['id'] as int),
               icon: const Icon(Icons.close),
             ),
@@ -249,7 +269,7 @@ class _DesktopSessionTabsState extends State<DesktopSessionTabs> {
             ),
           ),
           IconButton(
-            tooltip: '새 탭',
+            tooltip: context.l10n.newTab,
             onPressed: widget.onNew,
             constraints: const BoxConstraints.tightFor(
               width: 40,
@@ -270,7 +290,9 @@ class _DesktopSessionTabsState extends State<DesktopSessionTabs> {
     final label = sessionLabel(widget.sessions, session);
     final connecting = session['connecting'] == true;
     final open = session['open'] == true;
-    final status = connecting ? '연결 중' : (open ? '연결됨' : '연결 종료');
+    final status = connecting
+        ? context.l10n.connecting
+        : (open ? context.l10n.connected : context.l10n.disconnected);
     final colors = Theme.of(context).colorScheme;
     return Semantics(
       key: ValueKey('session-tab-$id'),
@@ -328,7 +350,7 @@ class _DesktopSessionTabsState extends State<DesktopSessionTabs> {
                   ),
                   IconButton(
                     key: ValueKey('session-close-$id'),
-                    tooltip: '$label 닫기',
+                    tooltip: context.l10n.close((label).toString()),
                     onPressed: () => widget.onClose(id),
                     constraints: BoxConstraints.tightFor(
                       width: tildePointer(context) ? 28 : 32,

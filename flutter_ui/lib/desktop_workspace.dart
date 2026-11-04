@@ -1,5 +1,6 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'dart:async';
 import 'dart:math' as math;
 import 'windows_window_frame.dart';
@@ -21,6 +22,7 @@ import 'main.dart'
 import 'management.dart';
 import 'tilde_controls.dart';
 import 'tilde_design.dart';
+import 'l10n/strings.dart';
 
 enum _TabKind { home, terminal, files, editor, document }
 
@@ -53,7 +55,9 @@ class DesktopWorkspace extends StatefulWidget {
 }
 
 class _DesktopWorkspaceState extends State<DesktopWorkspace> {
-  final _tabs = <_WorkspaceTab>[_WorkspaceTab('home', '홈', _TabKind.home)];
+  final _tabs = <_WorkspaceTab>[
+    _WorkspaceTab('home', deviceStrings.home, _TabKind.home),
+  ];
   final _console = GlobalKey<ConsolePageState>();
   final _search = TextEditingController();
   final _activeTabKey = GlobalKey();
@@ -108,7 +112,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
           _tabs.add(
             _WorkspaceTab(
               key,
-              '${session['nickname'] ?? '터미널'}',
+              '${session['nickname'] ?? context.l10n.terminal}',
               _TabKind.terminal,
               sessionId: id,
               hostId: session['hostId'] as int?,
@@ -120,7 +124,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
             .where((s) => s['nickname'] == session['nickname'])
             .toList();
         _tabs.firstWhere((tab) => tab.id == key).title =
-            '${session['nickname'] ?? '터미널'}${siblings.length > 1 ? ' · ${siblings.indexWhere((record) => record['id'] == id) + 1}' : ''}';
+            '${session['nickname'] ?? context.l10n.terminal}${siblings.length > 1 ? ' · ${siblings.indexWhere((record) => record['id'] == id) + 1}' : ''}';
         _terminalId ??= id;
       }
       if (current &&
@@ -231,7 +235,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     late _WorkspaceTab tab;
     tab = _WorkspaceTab(
       id,
-      '${host['nickname']} · 파일',
+      context.l10n.files((host['nickname']).toString()),
       _TabKind.files,
       hostId: host['id'] as int,
       child: FileBrowserPage(
@@ -304,7 +308,9 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     late _WorkspaceTab tab;
     tab = _WorkspaceTab(
       id,
-      host == null ? '새 호스트' : '${host['nickname']} 편집',
+      host == null
+          ? context.l10n.newHost
+          : context.l10n.edit((host['nickname']).toString()),
       _TabKind.editor,
       hostId: host?['id'] as int?,
       child: RecordEditor(
@@ -319,7 +325,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
             final previous = tab.id;
             tab.id = 'editor-${record['id']}';
             tab.hostId = record['id'] as int?;
-            tab.title = '${record['nickname']} 편집';
+            tab.title = context.l10n.edit((record['nickname']).toString());
             if (_active == previous) _active = tab.id;
             _hostId = tab.hostId;
           });
@@ -339,6 +345,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
   }
 
   Future<void> _close(_WorkspaceTab tab) async {
+    final contextStrings = context.l10n;
     if (tab.kind == _TabKind.home) return;
     final children = _tabs.where((t) => t.parent == tab.id).toList();
     for (final child in children) {
@@ -354,9 +361,11 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
       if (session?['open'] == true &&
           !await confirm(
             context,
-            '연결 끊고 탭 닫기',
-            '${tab.title}의 SSH 연결을 종료하고 탭을 닫을까요?',
-            action: '연결 끊고 닫기',
+            contextStrings.disconnectAndCloseTab,
+            contextStrings.disconnectFromAndCloseThisTab(
+              (tab.title).toString(),
+            ),
+            action: contextStrings.disconnectAndClose,
           )) {
         return;
       }
@@ -390,6 +399,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
     BuildContext anchor, [
     Offset? point,
   ]) async {
+    final anchorStrings = anchor.l10n;
     final connected = engine
         .list('sessions')
         .any((s) => s['hostId'] == host['id'] && s['open'] == true);
@@ -400,52 +410,66 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
       position: point,
       itemBuilder: (_) => [
         if (canConnectHost(host))
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'terminal',
             child: TildeMenuLabel(
-              '새 터미널',
+              anchorStrings.newTerminal,
               Icons.terminal_outlined,
               shortcut: 'Enter',
             ),
           ),
         if (host['protocol'] == 'ssh')
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'files',
-            child: TildeMenuLabel('파일 전송', Icons.folder_open_outlined),
+            child: TildeMenuLabel(
+              anchorStrings.fileTransfer,
+              Icons.folder_open_outlined,
+            ),
           ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'edit',
-          child: TildeMenuLabel('편집', Icons.edit_outlined),
+          child: TildeMenuLabel(anchorStrings.edit2, Icons.edit_outlined),
         ),
         PopupMenuItem(
           value: 'favorite',
           child: TildeMenuLabel(
-            host['favorite'] == true ? '즐겨찾기에서 제거' : '즐겨찾기에 추가',
+            host['favorite'] == true
+                ? anchorStrings.removeFromFavorites
+                : anchorStrings.addToFavorites,
             Icons.star_border,
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'duplicate',
-          child: TildeMenuLabel('복제', Icons.content_copy_outlined),
+          child: TildeMenuLabel(
+            anchorStrings.duplicate,
+            Icons.content_copy_outlined,
+          ),
         ),
         if (host['protocol'] == 'ssh')
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'forwards',
-            child: TildeMenuLabel('포트 포워딩', Icons.swap_horiz),
+            child: TildeMenuLabel(
+              anchorStrings.portForwarding,
+              Icons.swap_horiz,
+            ),
           ),
         if (connected) ...[
           const PopupMenuDivider(),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'disconnect',
-            child: TildeMenuLabel('연결 끊기', Icons.link_off_outlined),
+            child: TildeMenuLabel(
+              anchorStrings.disconnect,
+              Icons.link_off_outlined,
+            ),
           ),
         ],
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'delete',
           child: TildeMenuLabel(
-            '삭제',
+            anchorStrings.delete,
             Icons.delete_outline,
             danger: true,
             shortcut: 'Del',
@@ -466,9 +490,9 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
       case 'duplicate':
         final name = await askText(
           context,
-          '복제할 호스트 이름',
-          initial: '${host['nickname']} 복사',
-          action: '복제',
+          anchorStrings.nameForDuplicateHost,
+          initial: anchorStrings.copy((host['nickname']).toString()),
+          action: anchorStrings.duplicate,
         );
         if (name != null && mounted) {
           await runEngine(context, engine, 'host.duplicate', {
@@ -481,9 +505,11 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
       case 'disconnect':
         if (await confirm(
               context,
-              '연결 끊기',
-              '${host['nickname']}의 연결을 모두 종료할까요?',
-              action: '연결 끊기',
+              anchorStrings.disconnect,
+              anchorStrings.disconnectAllSessionsFor(
+                (host['nickname']).toString(),
+              ),
+              action: anchorStrings.disconnect,
             ) &&
             mounted) {
           await runEngine(context, engine, 'host.disconnect', {
@@ -603,11 +629,11 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                   child: TextField(
                     controller: _search,
                     focusNode: _searchFocus,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
-                      hintText: '호스트 검색',
+                      hintText: context.l10n.searchHosts,
                       prefixIcon: Tooltip(
-                        message: '호스트 검색 또는 SSH 주소 입력 (Ctrl K)',
+                        message: context.l10n.searchHostsOrEnterSshAddressCtrlK,
                         child: Icon(Icons.search, size: 18),
                       ),
                     ),
@@ -616,7 +642,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                   ),
                 ),
                 IconButton(
-                  tooltip: '호스트 추가',
+                  tooltip: context.l10n.addHost,
                   onPressed: () => _edit(),
                   icon: const Icon(Icons.add, size: 20),
                 ),
@@ -628,9 +654,9 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               children: [
                 if (engine.list('hosts').isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.all(10),
-                    child: Text('아직 호스트가 없습니다'),
+                    child: Text(context.l10n.noHostsYet),
                   ),
                 for (final host in filtered)
                   Builder(
@@ -691,8 +717,8 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                                           case final tab?)
                                         IconButton(
                                           tooltip: kind == _TabKind.terminal
-                                              ? '열린 터미널'
-                                              : '열린 파일',
+                                              ? context.l10n.openTerminals
+                                              : context.l10n.openFiles,
                                           constraints: const BoxConstraints(
                                             minWidth: 28,
                                             minHeight: 32,
@@ -717,7 +743,9 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                                       ),
                                     if (hover)
                                       IconButton(
-                                        tooltip: '${host['nickname']} 메뉴',
+                                        tooltip: context.l10n.menu(
+                                          (host['nickname']).toString(),
+                                        ),
                                         onPressed: () =>
                                             _hostMenu(host, anchor),
                                         icon: const Icon(
@@ -747,7 +775,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                 ListTile(
                   minTileHeight: 36,
                   leading: const Icon(Icons.settings_outlined, size: 18),
-                  title: const Text('설정'),
+                  title: Text(context.l10n.settings),
                   trailing: Text(
                     'Ctrl ,',
                     style: Theme.of(context).textTheme.bodySmall,
@@ -757,7 +785,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                 ListTile(
                   minTileHeight: 36,
                   leading: const Icon(Icons.help_outline, size: 18),
-                  title: const Text('도움말·로그'),
+                  title: Text(context.l10n.helpAndLogs),
                   onTap: () => _page(
                     SettingsPage(
                       engine: engine,
@@ -816,7 +844,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
           return Row(
             children: [
               button(
-                '호스트 목록 (Ctrl B)',
+                context.l10n.hostListCtrlB,
                 Icons.vertical_split_outlined,
                 () => setState(() => _showSidebar = !sidebar),
               ),
@@ -826,7 +854,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                 child: SizedBox(
                   width: 40,
                   child: IconButton(
-                    tooltip: '홈',
+                    tooltip: context.l10n.home,
                     isSelected: _active == 'home',
                     onPressed: () => _select(_tabs.first),
                     icon: const Icon(Icons.home_outlined, size: 19),
@@ -919,7 +947,9 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                                         child: SizedBox(
                                           width: 32,
                                           child: IconButton(
-                                            tooltip: '${tab.title} 탭 닫기',
+                                            tooltip: context.l10n.closeTab(
+                                              (tab.title).toString(),
+                                            ),
                                             onPressed: () => _close(tab),
                                             icon: const Icon(
                                               Icons.close,
@@ -939,11 +969,11 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
                   ],
                 ),
               ),
-              button('새 탭 (Ctrl Shift T)', Icons.add, () => _newTab()),
+              button(context.l10n.newTabCtrlShiftT, Icons.add, () => _newTab()),
               if (active.kind == _TabKind.terminal)
                 Builder(
                   builder: (anchor) => button(
-                    '터미널 메뉴',
+                    context.l10n.terminalMenu,
                     Icons.more_horiz,
                     () => _console.currentState?.openMenu(anchor),
                   ),
@@ -1068,7 +1098,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
           });
         },
         onKey: () => importTildeKeyFile(context, engine),
-        keyLabel: 'SSH 키 가져오기',
+        keyLabel: context.l10n.importSshKey,
       );
     }
     return HostSummary(
@@ -1172,17 +1202,17 @@ class HostSummary extends StatelessWidget {
                     FilledButton.icon(
                       onPressed: onConnect,
                       icon: const Icon(Icons.terminal_outlined, size: 18),
-                      label: const Text('새 터미널'),
+                      label: Text(context.l10n.newTerminal),
                     ),
                   if (host['protocol'] == 'ssh')
                     OutlinedButton.icon(
                       onPressed: onFiles,
                       icon: const Icon(Icons.folder_open_outlined, size: 18),
-                      label: const Text('파일 전송'),
+                      label: Text(context.l10n.fileTransfer),
                     ),
                   Builder(
                     builder: (anchor) => IconButton(
-                      tooltip: '${host['nickname']} 메뉴',
+                      tooltip: context.l10n.menu((host['nickname']).toString()),
                       onPressed: () => onMenu(anchor),
                       icon: const Icon(Icons.more_vert),
                     ),
@@ -1191,49 +1221,58 @@ class HostSummary extends StatelessWidget {
               ),
               if (sessions.isNotEmpty) ...[
                 const SizedBox(height: 28),
-                const Text(
-                  '열린 세션',
+                Text(
+                  context.l10n.openSessions,
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
                 for (var i = 0; i < sessions.length; i++)
                   ListTile(
                     minTileHeight: 48,
-                    title: Text('세션 ${i + 1}'),
+                    title: Text(context.l10n.session((i + 1).toString())),
                     subtitle: Text(
                       sessions[i]['open'] == true
-                          ? '연결됨'
+                          ? context.l10n.connected
                           : sessions[i]['connecting'] == true
-                          ? '연결 중'
-                          : '연결 종료',
+                          ? context.l10n.connecting
+                          : context.l10n.disconnected,
                     ),
                     trailing: TextButton(
                       onPressed: () =>
                           onSelectSession(sessions[i]['id'] as int),
-                      child: const Text('열기'),
+                      child: Text(context.l10n.open),
                     ),
                   ),
               ],
               const SizedBox(height: 24),
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      '연결',
+                      context.l10n.connect,
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
-                  TextButton(onPressed: onEdit, child: const Text('편집')),
+                  TextButton(
+                    onPressed: onEdit,
+                    child: Text(context.l10n.edit2),
+                  ),
                 ],
               ),
               for (final item in [
-                ('주소', hostAddress(host)),
+                (context.l10n.address, hostAddress(host)),
                 (
-                  '인증',
+                  context.l10n.authentication,
                   key?['nickname']?.toString() ??
-                      (host['pubkeyId'] == -1 ? '사용 가능한 키 모두 시도' : '서버 설정에 따름'),
+                      (host['pubkeyId'] == -1
+                          ? context.l10n.tryAllAvailableKeys
+                          : context.l10n.useServerSettings),
                 ),
-                ('터미널 프로필', profile?['name']?.toString() ?? '앱 기본 프로필'),
+                (
+                  context.l10n.terminalProfile,
+                  profile?['name']?.toString() ??
+                      context.l10n.appDefaultProfile,
+                ),
               ])
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1306,9 +1345,9 @@ class _HostForwardsState extends State<_HostForwards> {
     children: [
       Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Text(
-              '포트 포워딩',
+              context.l10n.portForwarding,
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
@@ -1317,7 +1356,7 @@ class _HostForwardsState extends State<_HostForwards> {
               await widget.onManage();
               reload();
             },
-            child: const Text('관리'),
+            child: Text(context.l10n.manage),
           ),
         ],
       ),

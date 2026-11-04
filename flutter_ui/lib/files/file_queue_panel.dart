@@ -1,5 +1,6 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/material.dart';
 import '../main.dart' show showErrorDetails;
 import '../tilde_design.dart';
@@ -7,6 +8,7 @@ import '../tilde_controls.dart';
 import 'file_job_queue.dart';
 import 'transfer_progress.dart';
 import 'transfer.dart';
+import '../l10n/strings.dart';
 
 class FileQueuePanel extends StatefulWidget {
   const FileQueuePanel({super.key, required this.queue, this.fullPage = false});
@@ -43,14 +45,26 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
               .length;
       final parts = [
         if (active != null)
-          '진행 ${queue.jobs.where((job) => job.state == FileJobState.running).length}',
-        if (pending > 0) '대기 $pending',
-        if (failed > 0) '실패 $failed',
-        if (done > 0) '완료 $done',
+          context.l10n.active(
+            (queue.jobs
+                    .where((job) => job.state == FileJobState.running)
+                    .length)
+                .toString(),
+          ),
+        if (pending > 0) context.l10n.queued((pending).toString()),
+        if (failed > 0) context.l10n.failed((failed).toString()),
+        if (done > 0) context.l10n.completed((done).toString()),
         if (queue.jobs.any((job) => job.state == FileJobState.cancelled))
-          '취소 ${queue.jobs.where((job) => job.state == FileJobState.cancelled).length}',
+          context.l10n.cancelled(
+            (queue.jobs
+                    .where((job) => job.state == FileJobState.cancelled)
+                    .length)
+                .toString(),
+          ),
       ];
-      final summary = parts.isEmpty ? '전송 없음' : parts.join(' · ');
+      final summary = parts.isEmpty
+          ? context.l10n.noTransfers
+          : parts.join(' · ');
       final jobs = queue.jobs.reversed
           .where((job) => _filter == null || job.state == _filter)
           .toList();
@@ -61,11 +75,14 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
           final job = jobs[index];
           final running = job.state == FileJobState.running;
           final state = switch (job.state) {
-            FileJobState.pending => '대기',
-            FileJobState.running => job.control.paused ? '일시정지' : '진행 중',
-            FileJobState.succeeded => '완료',
-            FileJobState.failed => '실패',
-            FileJobState.cancelled => '취소',
+            FileJobState.pending => context.l10n.queued2,
+            FileJobState.running =>
+              job.control.paused
+                  ? context.l10n.paused
+                  : context.l10n.inProgress,
+            FileJobState.succeeded => context.l10n.completed2,
+            FileJobState.failed => context.l10n.failed2,
+            FileJobState.cancelled => context.l10n.cancel,
           };
           final actions = Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -79,11 +96,15 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
                         : job.control.pause();
                     queue.changed();
                   },
-                  child: Text(job.control.paused ? '계속' : '일시정지'),
+                  child: Text(
+                    job.control.paused
+                        ? context.l10n.continueAction
+                        : context.l10n.paused,
+                  ),
                 ),
               if (running || job.state == FileJobState.pending)
                 IconButton(
-                  tooltip: '작업 취소',
+                  tooltip: context.l10n.cancelOperation,
                   onPressed: () => queue.cancel(job),
                   icon: const Icon(Icons.close),
                 ),
@@ -98,23 +119,25 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
                       }
                     }
                   },
-                  child: const Text('폴더 열기'),
+                  child: Text(context.l10n.openFolder),
                 ),
               if (job.retryable &&
                   (job.state == FileJobState.failed ||
                       job.state == FileJobState.cancelled))
                 TextButton(
                   onPressed: () => queue.retry(job),
-                  child: const Text('다시 시도'),
+                  child: Text(context.l10n.retry),
                 ),
               if (job.error != null)
                 IconButton(
-                  tooltip: '오류 자세히',
+                  tooltip: context.l10n.errorDetails,
                   icon: const Icon(Icons.info_outline, size: 18),
                   onPressed: () => showErrorDetails(
                     context,
                     job.error!,
-                    summary: '${job.label}을 완료하지 못했습니다',
+                    summary: context.l10n.couldNotComplete(
+                      (job.label).toString(),
+                    ),
                     target: job.target,
                     retry: job.retryable
                         ? () async {
@@ -155,8 +178,11 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
           );
           final progress = running
               ? TransferProgress(
-                  status:
-                      '${job.completedFiles} / ${job.totalFiles}개${job.detail.isEmpty ? '' : ' · ${job.detail}'}',
+                  status: context.l10n.items2(
+                    (job.completedFiles).toString(),
+                    (job.totalFiles).toString(),
+                    (job.detail.isEmpty ? '' : ' · ${job.detail}').toString(),
+                  ),
                   control: job.control,
                   startedAt: job.startedAt,
                 )
@@ -228,10 +254,10 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
           if (!widget.fullPage) const Divider(height: 1),
           ListTile(
             dense: pointer,
-            title: Text('전송 · $summary'),
+            title: Text(context.l10n.transfer((summary).toString())),
             subtitle: !expanded && active != null
                 ? Text(
-                    '${active.label} · ${formatBytes(active.control.bytes)} / ${active.control.total == null ? '크기 확인 중' : formatBytes(active.control.total!)}',
+                    '${active.label} · ${formatBytes(active.control.bytes)} / ${active.control.total == null ? context.l10n.checkingSize : formatBytes(active.control.total!)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   )
@@ -244,7 +270,7 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => Scaffold(
-                      appBar: AppBar(title: const Text('전송 목록')),
+                      appBar: AppBar(title: Text(context.l10n.transferQueue)),
                       body: FileQueuePanel(queue: queue, fullPage: true),
                     ),
                   ),
@@ -263,11 +289,13 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
                     ))
                   TextButton(
                     onPressed: queue.clearFinished,
-                    child: const Text('완료 지우기'),
+                    child: Text(context.l10n.clearCompleted),
                   ),
                 if (!widget.fullPage)
                   IconButton(
-                    tooltip: expanded ? '전송 목록 접기' : '전송 목록 펼치기',
+                    tooltip: expanded
+                        ? context.l10n.collapseTransferQueue
+                        : context.l10n.expandTransferQueue,
                     onPressed: () {
                       if (pointer) {
                         setState(() => _expanded = !expanded);
@@ -276,7 +304,9 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => Scaffold(
-                              appBar: AppBar(title: const Text('전송 목록')),
+                              appBar: AppBar(
+                                title: Text(context.l10n.transferQueue),
+                              ),
                               body: FileQueuePanel(
                                 queue: queue,
                                 fullPage: true,
@@ -321,12 +351,12 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
                         selected: _filter == state,
                         label: Text(
                           '${switch (state) {
-                            null => '전체',
-                            FileJobState.pending => '대기',
-                            FileJobState.running => '진행',
-                            FileJobState.succeeded => '완료',
-                            FileJobState.failed => '실패',
-                            FileJobState.cancelled => '취소',
+                            null => context.l10n.all,
+                            FileJobState.pending => context.l10n.queued2,
+                            FileJobState.running => context.l10n.progress,
+                            FileJobState.succeeded => context.l10n.completed2,
+                            FileJobState.failed => context.l10n.failed2,
+                            FileJobState.cancelled => context.l10n.cancel,
                           }} ${queue.jobs.where((job) => state == null || job.state == state).length}',
                         ),
                         onSelected: (_) => setState(() => _filter = state),

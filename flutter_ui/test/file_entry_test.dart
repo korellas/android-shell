@@ -8,6 +8,7 @@ import 'package:android_shell_ui/ssh/app_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'ui_engine_fixture.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 class FileEntryEngine extends UiEngineFixture {
   int? fileHostId;
@@ -61,7 +62,14 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
+        home: ShellHome(engine: engine),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Test host').first);
     await tester.pumpAndSettle();
@@ -82,7 +90,14 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
+        home: ShellHome(engine: engine),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Test host 메뉴'));
     await tester.pumpAndSettle();
@@ -105,7 +120,14 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(MaterialApp(home: ShellHome(engine: engine)));
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
+        home: ShellHome(engine: engine),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Test host').first);
     await tester.pumpAndSettle();

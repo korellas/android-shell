@@ -24,6 +24,7 @@ import 'package:flutter/services.dart';
 import 'package:xterm2/xterm.dart';
 import '../tilde_design.dart';
 import '../tilde_controls.dart';
+import '../l10n/strings.dart';
 
 class TerminalActions extends StatefulWidget {
   const TerminalActions({
@@ -359,16 +360,20 @@ class _TerminalActionsState extends State<TerminalActions> {
           if (mounted) setState(() {});
         },
         menuChildren: [
-          option('줄 전체 선택', Icons.segment, _selectLine),
-          option('보이는 화면 선택', Icons.crop_free, _selectVisible),
+          option(context.l10n.selectEntireLine, Icons.segment, _selectLine),
           option(
-            '전체 선택',
+            context.l10n.selectVisibleScreen,
+            Icons.crop_free,
+            _selectVisible,
+          ),
+          option(
+            context.l10n.selectAll,
             Icons.select_all,
             () => _selectRows(0, widget.terminal.buffer.height - 1),
           ),
           const Divider(height: 13),
           option(
-            '블록 선택',
+            context.l10n.blockSelection,
             Icons.view_column_outlined,
             () => widget.controller.setSelectionMode(
               widget.controller.selectionMode == SelectionMode.block
@@ -381,7 +386,7 @@ class _TerminalActionsState extends State<TerminalActions> {
           ),
           if (widget.onShare != null) ...[
             const Divider(height: 13),
-            option('공유', Icons.share_outlined, () {
+            option(context.l10n.share, Icons.share_outlined, () {
               final text = _selectedText();
               if (text == null) return;
               setState(() => _contextPoint = null);
@@ -415,19 +420,19 @@ class _TerminalActionsState extends State<TerminalActions> {
                       children: [
                         if (!selected && widget.inputEnabled)
                           action(
-                            '붙여넣기',
+                            context.l10n.paste,
                             Icons.content_paste_outlined,
                             () => unawaited(_paste()),
                           ),
                         if (selected) ...[
                           action(
-                            '복사',
+                            context.l10n.copy2,
                             Icons.content_copy_outlined,
                             () => unawaited(_copy()),
                           ),
                           if (widget.inputEnabled)
                             action(
-                              '편집 후 전송',
+                              context.l10n.editAndSend,
                               Icons.send_outlined,
                               () => unawaited(_edit()),
                             ),
@@ -445,7 +450,7 @@ class _TerminalActionsState extends State<TerminalActions> {
                     ),
                   ),
                   IconButton(
-                    tooltip: '선택 메뉴 더보기',
+                    tooltip: context.l10n.moreSelectionOptions,
                     style: IconButton.styleFrom(
                       fixedSize: const Size(36, 36),
                       minimumSize: const Size(36, 36),
@@ -490,7 +495,7 @@ class _TerminalActionsState extends State<TerminalActions> {
         math.max(viewport.top, viewport.bottom - 48),
       ),
       child: Semantics(
-        label: extent ? '선택 끝' : '선택 시작',
+        label: extent ? context.l10n.selectionEnd : context.l10n.selectionStart,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onPanDown: (details) {
@@ -725,6 +730,7 @@ class _TerminalActionsState extends State<TerminalActions> {
   }
 
   Future<void> _pointerMenu(Offset position) async {
+    final contextStrings = context.l10n;
     final selected = _selection != null && !_selection!.isCollapsed;
     final action = await TildeItemMenu.show<String>(
       context,
@@ -733,46 +739,53 @@ class _TerminalActionsState extends State<TerminalActions> {
       position: position,
       itemBuilder: (_) => [
         if (selected)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'copy',
             child: TildeMenuLabel(
-              '복사',
+              contextStrings.copy2,
               Icons.content_copy_outlined,
               shortcut: 'Ctrl Shift C',
             ),
           ),
         if (widget.inputEnabled)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'paste',
             child: TildeMenuLabel(
-              '붙여넣기',
+              contextStrings.paste,
               Icons.content_paste_outlined,
               shortcut: 'Ctrl Shift V',
             ),
           ),
         if (selected && widget.inputEnabled)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'edit',
-            child: TildeMenuLabel('편집 후 전송', Icons.edit_note_outlined),
+            child: TildeMenuLabel(
+              contextStrings.editAndSend,
+              Icons.edit_note_outlined,
+            ),
           ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'all',
-          child: TildeMenuLabel('전체 선택', Icons.select_all),
+          child: TildeMenuLabel(contextStrings.selectAll, Icons.select_all),
         ),
         PopupMenuItem(
           value: 'block',
           child: TildeMenuLabel(
-            '블록 선택',
+            contextStrings.blockSelection,
             Icons.view_column_outlined,
             selected: _blockMode,
-            shortcut: 'Alt Drag',
+            shortcut: contextStrings.altDrag,
           ),
         ),
         if (selected)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'clear',
-            child: TildeMenuLabel('선택 해제', Icons.close, shortcut: 'Esc'),
+            child: TildeMenuLabel(
+              contextStrings.clearSelection,
+              Icons.close,
+              shortcut: 'Esc',
+            ),
           ),
       ],
     );

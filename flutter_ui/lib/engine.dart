@@ -25,6 +25,7 @@ import 'platform/key_manager.dart';
 import 'platform/ssh_keys.dart' show SshPlatformCall;
 import 'terminal/app_terminal_session.dart';
 import 'terminal/local_session.dart';
+import 'l10n/strings.dart';
 
 typedef EngineRecord = Map<String, dynamic>;
 EngineRecord row(Object? value) =>
@@ -94,7 +95,7 @@ class AndroidEngine extends ChangeNotifier {
     final prepared = row(await _platformQuery('ssh.prepare', {'id': hostId}));
     final host = row(prepared['host']);
     if (host['protocol'] != 'ssh') {
-      throw const EngineException('SSH 호스트에서 파일 전송을 사용할 수 있습니다.');
+      throw EngineException(deviceStrings.fileTransferIsAvailableForSshHosts);
     }
     prepared['host'] = {...host, 'wantSession': false};
     for (final config in [prepared, ...rows(prepared['jumps'])]) {
@@ -525,7 +526,9 @@ class AndroidEngine extends ChangeNotifier {
     if (method == 'key.enroll') {
       final session = sshSession(args['sessionId'] as int);
       if (session == null || !session.canEnroll) {
-        throw const EngineException('연결된 SSH 세션에서 키를 등록해 주세요.');
+        throw EngineException(
+          deviceStrings.registerAKeyFromAConnectedSshSession,
+        );
       }
       return _enrollment.enroll(
         originalHost: session.enrollmentHost,
@@ -561,7 +564,9 @@ class AndroidEngine extends ChangeNotifier {
               ? Uri.tryParse(uri)?.scheme
               : 'ssh');
       if (protocol != 'ssh' && protocol != 'local') {
-        throw const EngineException('SSH와 로컬 연결만 지원합니다.');
+        throw EngineException(
+          deviceStrings.onlySshAndLocalConnectionsAreSupported,
+        );
       }
       return _connectTerminal(args);
     }
@@ -652,7 +657,9 @@ class AndroidEngine extends ChangeNotifier {
         });
         if (_sessions[id] != session) return null;
         if (row(prepared['host'])['protocol'] != session.host['protocol']) {
-          throw const EngineException('연결 방식이 변경되었습니다. 홈에서 새 세션을 열어 주세요.');
+          throw EngineException(
+            deviceStrings.theConnectionTypeChangedOpenANewSessionFrom,
+          );
         }
         await session.disconnect();
         if (session is AppSshSession) {

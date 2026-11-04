@@ -19,6 +19,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'engine.dart';
 import 'tilde_design.dart';
+import 'l10n/strings.dart';
 
 EngineRecord defaultProfile(AndroidEngine engine) =>
     engine
@@ -151,7 +152,7 @@ class _TerminalPreviewState extends State<TerminalPreview> {
             widget.overrides['compact'] == true ||
             constraints.hasBoundedHeight && constraints.maxHeight <= 56;
         final preview = Semantics(
-          label: '색상 테마·글꼴·여백 미리보기',
+          label: context.l10n.previewColorThemeFontAndMargins,
           child: Container(
             padding: EdgeInsets.all(widget.framed ? 16 : 6),
             decoration: BoxDecoration(
@@ -171,7 +172,9 @@ class _TerminalPreviewState extends State<TerminalPreview> {
                             style: TextStyle(color: color('cursor', tildeTide)),
                           ),
                           TextSpan(
-                            text: compact ? '  Aa' : '\nsrc  build  한글.md',
+                            text: compact
+                                ? '  Aa'
+                                : context.l10n.srcBuildSampleMd,
                           ),
                           if (!compact) ...[
                             const TextSpan(text: '\n'),
@@ -318,7 +321,7 @@ class _TerminalBarPreviewState extends State<TerminalBarPreview> {
       }
     }
     final bar = Semantics(
-      label: '특수키 바 미리보기',
+      label: context.l10n.specialKeyBarPreview,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(

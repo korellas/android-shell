@@ -24,6 +24,7 @@ import 'engine.dart';
 import 'editors.dart';
 import 'settings_widgets.dart';
 import 'main.dart';
+import 'l10n/strings.dart';
 export 'settings.dart';
 
 Future<void> showIdentityEditor(
@@ -104,6 +105,7 @@ class RecordListPage extends StatelessWidget {
     EngineRecord record,
     String action,
   ) async {
+    final contextStrings = context.l10n;
     if (action == 'edit') {
       await edit(context, record);
       return;
@@ -118,9 +120,9 @@ class RecordListPage extends StatelessWidget {
     if (action == 'duplicate') {
       final name = await askText(
         context,
-        '복제할 이름',
-        initial: "${record['name']} 복사본",
-        action: '복제',
+        contextStrings.nameForDuplicate,
+        initial: contextStrings.copy3((record['name']).toString()),
+        action: contextStrings.duplicate,
       );
       if (name != null && context.mounted) {
         await runEngine(context, engine, 'profile.duplicate', {
@@ -132,13 +134,19 @@ class RecordListPage extends StatelessWidget {
     }
     final count = usage(record);
     final impact = kind == RecordKind.profile
-        ? (count > 0 ? '$count개 호스트가 앱 기본 프로필을 사용하게 됩니다.' : '이 프로필을 삭제합니다.')
-        : '$count개 호스트의 연결은 남지만 공용 비밀번호는 삭제됩니다.';
+        ? (count > 0
+              ? contextStrings.hostsWillUseTheAppDefaultProfile(
+                  (count).toString(),
+                )
+              : contextStrings.deleteThisProfile)
+        : contextStrings.connectionsForHostsWillRemainButTheSharedPassword(
+            (count).toString(),
+          );
     if (await confirm(
           context,
-          '${kindTitle(kind)} 삭제',
+          contextStrings.delete2((kindTitle(kind)).toString()),
           "${record['name']}\n$impact",
-          action: '삭제',
+          action: contextStrings.delete,
         ) &&
         context.mounted) {
       await runEngine(context, engine, '${kind.name}.delete', {
@@ -148,31 +156,38 @@ class RecordListPage extends StatelessWidget {
   }
 
   List<PopupMenuEntry<String>> items(EngineRecord record) => [
-    const PopupMenuItem(
+    PopupMenuItem(
       value: 'edit',
-      child: TildeMenuLabel('편집', Icons.edit_outlined),
+      child: TildeMenuLabel(deviceStrings.edit2, Icons.edit_outlined),
     ),
     if (kind == RecordKind.profile) ...[
       if (record['id'] != engine.preferences['defaultProfileId'])
         PopupMenuItem(
           value: 'default',
           child: TildeMenuLabel(
-            '기본으로 지정',
+            deviceStrings.setAsDefault,
             Icons.task_alt,
             selected: record['id'] == engine.preferences['defaultProfileId'],
           ),
         ),
-      const PopupMenuItem(
+      PopupMenuItem(
         value: 'duplicate',
-        child: TildeMenuLabel('복제', Icons.content_copy_outlined),
+        child: TildeMenuLabel(
+          deviceStrings.duplicate,
+          Icons.content_copy_outlined,
+        ),
       ),
     ],
     if (kind != RecordKind.profile ||
         record['id'] != engine.preferences['defaultProfileId']) ...[
       const PopupMenuDivider(),
-      const PopupMenuItem(
+      PopupMenuItem(
         value: 'delete',
-        child: TildeMenuLabel('삭제', Icons.delete_outline, danger: true),
+        child: TildeMenuLabel(
+          deviceStrings.delete,
+          Icons.delete_outline,
+          danger: true,
+        ),
       ),
     ],
   ];
@@ -197,17 +212,25 @@ class RecordListPage extends StatelessWidget {
       final records = engine.list(profile ? 'profiles' : 'identities');
       return Scaffold(
         appBar: AppBar(
-          title: Text(profile ? '터미널 프로필' : kindTitle(kind)),
+          title: Text(profile ? context.l10n.terminalProfile : kindTitle(kind)),
           actions: [
             if (tildePointer(context))
               TextButton.icon(
                 onPressed: () => edit(context),
                 icon: const Icon(Icons.add),
-                label: Text('${profile ? '프로필' : '계정'} 추가'),
+                label: Text(
+                  context.l10n.add2(
+                    (profile ? context.l10n.profile : context.l10n.account)
+                        .toString(),
+                  ),
+                ),
               )
             else if (records.isNotEmpty)
               IconButton(
-                tooltip: '${profile ? '프로필' : '계정'} 추가',
+                tooltip: context.l10n.add2(
+                  (profile ? context.l10n.profile : context.l10n.account)
+                      .toString(),
+                ),
                 onPressed: () => edit(context),
                 icon: const Icon(Icons.add),
               ),
@@ -224,12 +247,20 @@ class RecordListPage extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: () => edit(context),
                     icon: const Icon(Icons.add),
-                    label: Text('${profile ? '프로필' : '계정'} 추가'),
+                    label: Text(
+                      context.l10n.add2(
+                        (profile ? context.l10n.profile : context.l10n.account)
+                            .toString(),
+                      ),
+                    ),
                   ),
                 ),
               ),
             if (!profile && records.isEmpty)
-              settingsNote(context, '여러 호스트에서 사용자 이름·키·비밀번호를 함께 사용합니다.'),
+              settingsNote(
+                context,
+                context.l10n.shareAUsernameKeyAndPasswordAcrossMultipleHosts,
+              ),
             for (final record in records)
               Builder(
                 builder: (anchor) => GestureDetector(
@@ -255,8 +286,8 @@ class RecordListPage extends StatelessWidget {
                     title: Text('${record['name']}'),
                     subtitle: Text(
                       profile
-                          ? '${engine.list('schemes').where((s) => s['id'] == record['colorSchemeId']).firstOrNull?['name'] ?? '색상 테마'} · ${record['fontSize'] ?? ''}${record['id'] == engine.preferences['defaultProfileId'] ? ' · 기본' : ''}'
-                          : '${record['username'] ?? ''} · ${usage(record) == 0 ? '쓰는 호스트 없음' : '호스트 ${usage(record)}개'}',
+                          ? '${engine.list('schemes').where((s) => s['id'] == record['colorSchemeId']).firstOrNull?['name'] ?? context.l10n.colorTheme} · ${record['fontSize'] ?? ''}${record['id'] == engine.preferences['defaultProfileId'] ? context.l10n.default2 : ''}'
+                          : '${record['username'] ?? ''} · ${usage(record) == 0 ? context.l10n.noHostsUsingThis : context.l10n.hosts((usage(record)))}',
                     ),
                     onTap: () => edit(context, record),
                     onLongPress: () => showMenu(anchor, record),
@@ -287,14 +318,15 @@ Future<void> importTildeKeyFile(
   BuildContext context,
   AndroidEngine engine,
 ) async {
+  final contextStrings = context.l10n;
   final path = await runEngine(context, engine, 'document.pick');
   if (path is! String || !context.mounted) return;
   final password = await askText(
     context,
-    '개인키 암호',
+    contextStrings.privateKeyPassphrase,
     password: true,
-    hintText: '암호가 없으면 비워두세요.',
-    action: '추가',
+    hintText: contextStrings.leaveBlankIfThereIsNoPassphrase,
+    action: contextStrings.add,
   );
   if (password == null || !context.mounted) return;
   await runEngine(context, engine, 'key.import', {
@@ -335,6 +367,7 @@ class _KeyPageState extends State<KeyPage> {
   }
 
   Future<void> keyAction(EngineRecord key, String action) async {
+    final contextStrings = context.l10n;
     if (action == 'edit') {
       await Navigator.push(
         context,
@@ -348,9 +381,9 @@ class _KeyPageState extends State<KeyPage> {
     if (action == 'delete') {
       if (await confirm(
             context,
-            '키 삭제',
-            '${key['nickname']} 키를 삭제할까요?',
-            action: '키 삭제',
+            contextStrings.deleteKey2,
+            contextStrings.deleteKey3((key['nickname']).toString()),
+            action: contextStrings.deleteKey2,
           ) &&
           mounted) {
         await runEngine(context, engine, 'key.delete', {'id': key['id']});
@@ -368,24 +401,34 @@ class _KeyPageState extends State<KeyPage> {
   }
 
   List<PopupMenuEntry<String>> items(EngineRecord key) => [
-    const PopupMenuItem(
+    PopupMenuItem(
       value: 'edit',
-      child: TildeMenuLabel('편집', Icons.edit_outlined),
+      child: TildeMenuLabel(context.l10n.edit2, Icons.edit_outlined),
     ),
     if (key['publicKey'] != null) ...[
-      const PopupMenuItem(
+      PopupMenuItem(
         value: 'copy.public',
-        child: TildeMenuLabel('공개키 복사', Icons.content_copy_outlined),
+        child: TildeMenuLabel(
+          context.l10n.copyPublicKey,
+          Icons.content_copy_outlined,
+        ),
       ),
-      const PopupMenuItem(
+      PopupMenuItem(
         value: 'export.public',
-        child: TildeMenuLabel('공개키 파일 저장', Icons.download_outlined),
+        child: TildeMenuLabel(
+          context.l10n.savePublicKeyFile,
+          Icons.download_outlined,
+        ),
       ),
     ],
     const PopupMenuDivider(),
-    const PopupMenuItem(
+    PopupMenuItem(
       value: 'delete',
-      child: TildeMenuLabel('삭제', Icons.delete_outline, danger: true),
+      child: TildeMenuLabel(
+        context.l10n.delete,
+        Icons.delete_outline,
+        danger: true,
+      ),
     ),
   ];
 
@@ -420,10 +463,10 @@ class _KeyPageState extends State<KeyPage> {
             builder: (c) => GenerateKeyPage(engine: engine),
           )
         : null;
-    final addLabel = fileKeys ? '키 파일 추가' : '새 키';
+    final addLabel = fileKeys ? context.l10n.addKeyFile : context.l10n.newKey;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SSH 키'),
+        title: Text(context.l10n.sshKeys),
         actions: [
           if (tildePointer(context))
             TextButton.icon(
@@ -445,13 +488,13 @@ class _KeyPageState extends State<KeyPage> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: ListTile(
-                title: const Text('키 작업을 완료하지 못했습니다'),
+                title: Text(context.l10n.couldNotCompleteKeyOperation),
                 trailing: TextButton(
                   onPressed: () => showErrorDetails(
                     context,
                     '${state['error'] ?? state['nicknameError']}',
                   ),
-                  child: const Text('자세히'),
+                  child: Text(context.l10n.details),
                 ),
               ),
             ),
@@ -459,10 +502,14 @@ class _KeyPageState extends State<KeyPage> {
             settingsNote(
               context,
               ios
-                  ? '가져온 개인키는 앱의 보호된 저장소에서 사용합니다. 저장한 키 암호는 iOS Keychain으로 보호합니다.'
+                  ? context
+                        .l10n
+                        .importedPrivateKeysAreUsedFromProtectedAppStorage
                   : fileKeys
-                  ? '개인키 파일은 원래 위치에서 사용합니다. 저장한 키 암호는 Windows 계정으로 보호합니다.'
-                  : '개인키는 Android Keystore에서 생성되며 기기 밖으로 내보낼 수 없습니다. 기존 개인키는 사용 중지 상태로 보존됩니다.',
+                  ? context.l10n.privateKeyFilesAreUsedFromTheirOriginalLocation
+                  : context
+                        .l10n
+                        .privateKeysAreCreatedInAndroidKeystoreAndCannot,
             ),
           if (engine.list('keys').isEmpty)
             Padding(
@@ -486,7 +533,7 @@ class _KeyPageState extends State<KeyPage> {
                     leading: const Icon(Icons.key_outlined),
                     title: Text('${key['nickname']}'),
                     subtitle: Text(
-                      '${key['displayType'] ?? key['type']}${key['supported'] == true ? ' · ${key['providerLabel'] ?? (fileKeys ? '키 파일' : 'Android Keystore')}' : ' · ${key['supportMessage'] ?? '사용 중지'}'}',
+                      '${key['displayType'] ?? key['type']}${key['supported'] == true ? ' · ${key['providerLabel'] ?? (fileKeys ? context.l10n.keyFile : 'Android Keystore')}' : ' · ${key['supportMessage'] ?? context.l10n.disabled}'}',
                     ),
                     onTap: () => keyAction(key, 'edit'),
                     onLongPress: () => showMenu(anchor, key),
@@ -496,7 +543,9 @@ class _KeyPageState extends State<KeyPage> {
                         TildeItemMenu<String>(
                           title: '${key['nickname']}',
                           icon: Icons.key_outlined,
-                          tooltip: '${key['nickname']} 옵션',
+                          tooltip: context.l10n.options(
+                            (key['nickname']).toString(),
+                          ),
                           onSelected: (action) => keyAction(key, action),
                           itemBuilder: (_) => items(key),
                         ),
@@ -597,24 +646,32 @@ class _ForwardsPageState extends State<ForwardsPage> {
     EngineRecord forward, [
     Offset? position,
   ]) async {
+    final anchorStrings = anchor.l10n;
     final action = await TildeItemMenu.show<String>(
       anchor,
       position: position,
       title: '${forward['nickname']}',
       icon: Icons.swap_horiz,
-      itemBuilder: (_) => const [
+      itemBuilder: (_) => [
         PopupMenuItem(
           value: 'edit',
-          child: TildeMenuLabel('편집', Icons.edit_outlined),
+          child: TildeMenuLabel(anchorStrings.edit2, Icons.edit_outlined),
         ),
         PopupMenuItem(
           value: 'copy',
-          child: TildeMenuLabel('복제', Icons.content_copy_outlined),
+          child: TildeMenuLabel(
+            anchorStrings.duplicate,
+            Icons.content_copy_outlined,
+          ),
         ),
         PopupMenuDivider(),
         PopupMenuItem(
           value: 'delete',
-          child: TildeMenuLabel('삭제', Icons.delete_outline, danger: true),
+          child: TildeMenuLabel(
+            anchorStrings.delete,
+            Icons.delete_outline,
+            danger: true,
+          ),
         ),
       ],
     );
@@ -627,16 +684,16 @@ class _ForwardsPageState extends State<ForwardsPage> {
       final copy = {
         ...forward,
         'id': 0,
-        'nickname': '${forward['nickname']} 복사본',
+        'nickname': anchorStrings.copy3((forward['nickname']).toString()),
       };
       await edit(copy);
       return;
     }
     if (await confirm(
           context,
-          '포워딩 삭제',
-          '${forward['nickname']} 설정을 삭제할까요?',
-          action: '삭제',
+          anchorStrings.deleteForwarding,
+          anchorStrings.deleteSettingsFor((forward['nickname']).toString()),
+          action: anchorStrings.delete,
         ) &&
         mounted) {
       await runEngine(context, widget.engine, 'forward.delete', {
@@ -649,17 +706,19 @@ class _ForwardsPageState extends State<ForwardsPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text('${widget.host['nickname']} · 포워딩'),
+      title: Text(
+        context.l10n.forwarding2((widget.host['nickname']).toString()),
+      ),
       actions: [
         if (tildePointer(context))
           TextButton.icon(
             onPressed: () => edit(),
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('포워딩 추가'),
+            label: Text(context.l10n.addForwarding),
           )
         else if (forwards.isNotEmpty)
           IconButton(
-            tooltip: '포워딩 추가',
+            tooltip: context.l10n.addForwarding,
             onPressed: () => edit(),
             icon: const Icon(Icons.add),
           ),
@@ -684,24 +743,35 @@ class _ForwardsPageState extends State<ForwardsPage> {
                     child: FilledButton.icon(
                       onPressed: () => edit(),
                       icon: const Icon(Icons.add),
-                      label: const Text('포워딩 추가'),
+                      label: Text(context.l10n.addForwarding),
                     ),
                   ),
                 ),
               if (sessions.isNotEmpty)
                 ListTile(
-                  title: const Text('제어할 세션'),
+                  title: Text(context.l10n.sessionToControl),
                   subtitle: Text(
                     live
-                        ? '${sessions.where((s) => s['id'] == sessionId).first['nickname']} · 스위치를 바꾸면 즉시 적용됩니다'
-                        : '접속 시 기본값',
+                        ? context.l10n.switchChangesApplyImmediately(
+                            (sessions
+                                    .where((s) => s['id'] == sessionId)
+                                    .first['nickname'])
+                                .toString(),
+                          )
+                        : context.l10n.defaultOnConnection,
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () async {
-                    final choice = await pickTildeOption(context, '제어할 세션', [
-                      (null, '접속 시 기본값'),
-                      for (final s in sessions) (s['id'], '${s['nickname']}'),
-                    ], live ? sessionId : null);
+                    final contextStrings = context.l10n;
+                    final choice = await pickTildeOption(
+                      context,
+                      contextStrings.sessionToControl,
+                      [
+                        (null, contextStrings.defaultOnConnection),
+                        for (final s in sessions) (s['id'], '${s['nickname']}'),
+                      ],
+                      live ? sessionId : null,
+                    );
                     if (choice != null && mounted) {
                       setState(() => sessionId = choice.$1 as int?);
                       await load();
@@ -711,10 +781,10 @@ class _ForwardsPageState extends State<ForwardsPage> {
 
               if (error != null)
                 ListTile(
-                  title: const Text('포워딩을 불러오지 못했습니다'),
+                  title: Text(context.l10n.couldNotLoadForwarding),
                   trailing: TextButton(
                     onPressed: () => showErrorDetails(context, error!),
-                    child: const Text('자세히'),
+                    child: Text(context.l10n.details),
                   ),
                 ),
               for (final f in forwards)
@@ -738,8 +808,8 @@ class _ForwardsPageState extends State<ForwardsPage> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(switch (f['type']) {
-                              'local' => '로컬',
-                              'remote' => '원격',
+                              'local' => context.l10n.local,
+                              'remote' => context.l10n.remote,
                               _ => 'SOCKS',
                             }, style: const TextStyle(fontSize: 11)),
                           ),
@@ -750,7 +820,9 @@ class _ForwardsPageState extends State<ForwardsPage> {
                                   '${f['sourceAddr']}:${f['sourcePort']} → ${f['destAddr']}:${f['destPort']}',
                               child: Text(
                                 f['type'] == 'dynamic4'
-                                    ? 'SOCKS4 미지원 · SOCKS5로 변경하세요'
+                                    ? context
+                                          .l10n
+                                          .socks4UnsupportedChangeToSocks5
                                     : '${['127.0.0.1', 'localhost', '::1', ''].contains(f['sourceAddr']) ? '' : '${f['sourceAddr']}:'}${f['sourcePort']} → ${f['type'].toString().startsWith('dynamic') ? 'SOCKS5' : '${f['destAddr']}:${f['destPort']}'}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -791,7 +863,9 @@ class _ForwardsPageState extends State<ForwardsPage> {
                                     },
                             ),
                           IconButton(
-                            tooltip: '${f['nickname']} 옵션',
+                            tooltip: context.l10n.options(
+                              (f['nickname']).toString(),
+                            ),
                             icon: const Icon(Icons.more_vert),
                             onPressed: () => menu(anchor, f),
                           ),
@@ -817,6 +891,7 @@ class KnownHostsPage extends StatelessWidget {
     EngineRecord host,
     String value,
   ) async {
+    final contextStrings = context.l10n;
     if (value == 'copy') {
       await Clipboard.setData(
         ClipboardData(text: '${host['fingerprint'] ?? ''}'),
@@ -851,7 +926,7 @@ class KnownHostsPage extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () => action(c, host, 'copy'),
-                  child: const Text('지문 복사'),
+                  child: Text(contextStrings.copyFingerprint),
                 ),
               ),
             ],
@@ -862,9 +937,12 @@ class KnownHostsPage extends StatelessWidget {
     }
     if (await confirm(
           context,
-          '서버 키 신뢰 삭제',
-          '${host['hostname']}:${host['port']}\n다음 접속에서 서버 키를 다시 확인합니다.',
-          action: '서버 키 삭제',
+          contextStrings.removeServerKeyTrust,
+          contextStrings.theServerKeyWillBeVerifiedOnTheNext(
+            (host['hostname']).toString(),
+            (host['port']).toString(),
+          ),
+          action: contextStrings.deleteServerKey,
         ) &&
         context.mounted) {
       await runEngine(context, engine, 'knownHost.delete', {'id': host['id']});
@@ -880,11 +958,12 @@ class KnownHostsPage extends StatelessWidget {
           .where((host) => hostId == null || host['hostId'] == hostId)
           .toList();
       return Scaffold(
-        appBar: AppBar(title: const Text('신뢰한 서버 키')),
+        appBar: AppBar(title: Text(context.l10n.trustedServerKeys)),
         body: ListView(
           padding: const EdgeInsets.only(bottom: 24),
           children: [
-            if (hosts.isEmpty) settingsNote(context, '신뢰한 서버 키가 없습니다.'),
+            if (hosts.isEmpty)
+              settingsNote(context, context.l10n.noTrustedServerKeys),
             for (final host in hosts)
               ListTile(
                 title: Text(
@@ -916,11 +995,11 @@ class KnownHostsPage extends StatelessWidget {
                   title: '${host['hostname']}',
                   icon: Icons.verified_user_outlined,
                   onSelected: (value) => action(context, host, value),
-                  itemBuilder: (_) => const [
+                  itemBuilder: (_) => [
                     PopupMenuItem(
                       value: 'copy',
                       child: TildeMenuLabel(
-                        '지문 복사',
+                        context.l10n.copyFingerprint,
                         Icons.content_copy_outlined,
                       ),
                     ),
@@ -928,7 +1007,7 @@ class KnownHostsPage extends StatelessWidget {
                     PopupMenuItem(
                       value: 'delete',
                       child: TildeMenuLabel(
-                        '서버 키 신뢰 삭제',
+                        context.l10n.removeServerKeyTrust,
                         Icons.delete_outline,
                         danger: true,
                       ),
@@ -954,37 +1033,50 @@ class _SchemesPageState extends State<SchemesPage> {
   AndroidEngine get engine => widget.engine;
   int? hover;
   List<PopupMenuEntry<String>> items(EngineRecord scheme) => [
-    const PopupMenuItem(
+    PopupMenuItem(
       value: 'use',
-      child: TildeMenuLabel('사용', Icons.check_circle_outline),
+      child: TildeMenuLabel(context.l10n.use, Icons.check_circle_outline),
     ),
     if ((scheme['id'] as int) >= 0) ...[
-      const PopupMenuItem(
+      PopupMenuItem(
         value: 'edit',
-        child: TildeMenuLabel('팔레트 편집', Icons.tune),
+        child: TildeMenuLabel(context.l10n.editPalette, Icons.tune),
       ),
-      const PopupMenuItem(
+      PopupMenuItem(
         value: 'copyEdit',
-        child: TildeMenuLabel('복제', Icons.content_copy_outlined),
+        child: TildeMenuLabel(
+          context.l10n.duplicate,
+          Icons.content_copy_outlined,
+        ),
       ),
     ] else
-      const PopupMenuItem(
+      PopupMenuItem(
         value: 'copyEdit',
-        child: TildeMenuLabel('복제', Icons.content_copy_outlined),
+        child: TildeMenuLabel(
+          context.l10n.duplicate,
+          Icons.content_copy_outlined,
+        ),
       ),
-    const PopupMenuItem(
+    PopupMenuItem(
       value: 'export',
-      child: TildeMenuLabel('내보내기', Icons.ios_share),
+      child: TildeMenuLabel(context.l10n.export, Icons.ios_share),
     ),
     if ((scheme['id'] as int) >= 0) ...[
-      const PopupMenuItem(
+      PopupMenuItem(
         value: 'rename',
-        child: TildeMenuLabel('이름 변경', Icons.drive_file_rename_outline),
+        child: TildeMenuLabel(
+          context.l10n.rename,
+          Icons.drive_file_rename_outline,
+        ),
       ),
       const PopupMenuDivider(),
-      const PopupMenuItem(
+      PopupMenuItem(
         value: 'delete',
-        child: TildeMenuLabel('삭제', Icons.delete_outline, danger: true),
+        child: TildeMenuLabel(
+          context.l10n.delete,
+          Icons.delete_outline,
+          danger: true,
+        ),
       ),
     ],
   ];
@@ -994,6 +1086,7 @@ class _SchemesPageState extends State<SchemesPage> {
     EngineRecord scheme, [
     Offset? position,
   ]) async {
+    final contextStrings = context.l10n;
     final value = await TildeItemMenu.show<String>(
       context,
       title: '${scheme['name']}',
@@ -1010,7 +1103,9 @@ class _SchemesPageState extends State<SchemesPage> {
           },
         ),
       ),
-      subtitle: (scheme['id'] as int) < 0 ? '기본 테마' : '사용자 테마',
+      subtitle: (scheme['id'] as int) < 0
+          ? contextStrings.defaultTheme
+          : contextStrings.customTheme,
       icon: Icons.palette_outlined,
       itemBuilder: (_) => items(scheme),
     );
@@ -1022,6 +1117,7 @@ class _SchemesPageState extends State<SchemesPage> {
     EngineRecord scheme,
     String action,
   ) async {
+    final contextStrings = context.l10n;
     if (action == 'use') {
       await runEngine(context, engine, 'settings.update', {
         'key': 'colorScheme',
@@ -1032,9 +1128,9 @@ class _SchemesPageState extends State<SchemesPage> {
     if (action == 'copyEdit') {
       final name = await askText(
         context,
-        '복제할 테마 이름',
-        initial: '${scheme['name']} 복사본',
-        action: '복제',
+        contextStrings.nameForDuplicateTheme,
+        initial: contextStrings.copy3((scheme['name']).toString()),
+        action: contextStrings.duplicate,
       );
       if (name == null || !context.mounted) return;
       final id = await runEngine(context, engine, 'scheme.duplicate', {
@@ -1069,9 +1165,9 @@ class _SchemesPageState extends State<SchemesPage> {
     if (action == 'rename') {
       final name = await askText(
         context,
-        '테마 이름',
+        contextStrings.themeName,
         initial: '${scheme['name']}',
-        action: '이름 변경',
+        action: contextStrings.rename,
       );
       if (name != null && context.mounted) {
         await runEngine(context, engine, 'scheme.$action', {
@@ -1082,7 +1178,11 @@ class _SchemesPageState extends State<SchemesPage> {
     }
     if (action == 'delete' &&
         context.mounted &&
-        await confirm(context, '테마 삭제', '${scheme['name']} 테마를 삭제할까요?') &&
+        await confirm(
+          context,
+          contextStrings.deleteTheme,
+          contextStrings.deleteTheme2((scheme['name']).toString()),
+        ) &&
         context.mounted) {
       await runEngine(context, engine, 'scheme.delete', {'id': scheme['id']});
     }
@@ -1106,7 +1206,12 @@ class _SchemesPageState extends State<SchemesPage> {
   }
 
   Future<void> createTheme(BuildContext context) async {
-    final name = await askText(context, '새 테마 이름', action: '만들기');
+    final contextStrings = context.l10n;
+    final name = await askText(
+      context,
+      contextStrings.newThemeName,
+      action: contextStrings.create,
+    );
     if (name == null || !context.mounted) return;
     final id = await runEngine(context, engine, 'scheme.create', {
       'name': name,
@@ -1126,22 +1231,22 @@ class _SchemesPageState extends State<SchemesPage> {
     listenable: engine,
     builder: (context, _) => Scaffold(
       appBar: AppBar(
-        title: const Text('색상 테마'),
+        title: Text(context.l10n.colorTheme),
         actions: [
           if (tildePointer(context))
             TextButton.icon(
               onPressed: () => createTheme(context),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('새 테마'),
+              label: Text(context.l10n.newTheme),
             )
           else
             IconButton(
-              tooltip: '새 테마',
+              tooltip: context.l10n.newTheme,
               onPressed: () => createTheme(context),
               icon: const Icon(Icons.add),
             ),
           TextButton(
-            child: const Text('가져오기'),
+            child: Text(context.l10n.import),
             onPressed: () async {
               final uri = await runEngine(context, engine, 'document.pick');
               if (uri == null || !context.mounted) return;
@@ -1314,7 +1419,9 @@ class _SchemesPageState extends State<SchemesPage> {
                                           child: TildeItemMenu<String>(
                                             title: '${scheme['name']}',
                                             icon: Icons.palette_outlined,
-                                            tooltip: '${scheme['name']} 옵션',
+                                            tooltip: context.l10n.options(
+                                              (scheme['name']).toString(),
+                                            ),
                                             onSelected: (value) =>
                                                 action(context, scheme, value),
                                             itemBuilder: (_) => items(scheme),
@@ -1377,6 +1484,7 @@ class _PalettePageState extends State<PalettePage> {
             : tildeTide.toARGB32()),
   );
   Future<void> editColor({String? key, int? index}) async {
+    final contextStrings = context.l10n;
     final original = Map<String, dynamic>.from(palette);
     final colors = List<int>.from(palette['colors'] as List? ?? []);
     final initial = key == null ? Color(colors[index!]) : role(key);
@@ -1399,9 +1507,9 @@ class _PalettePageState extends State<PalettePage> {
       title: key == null
           ? 'ANSI $index'
           : switch (key) {
-              'foreground' => '글자 색',
-              'background' => '배경 색',
-              _ => '커서 · 앱 강조색',
+              'foreground' => contextStrings.textColor,
+              'background' => contextStrings.backgroundColor,
+              _ => contextStrings.cursorAndAppAccent,
             },
       onPreview: preview,
       swatches: [for (final color in colors) Color(color)],
@@ -1457,10 +1565,10 @@ class _PalettePageState extends State<PalettePage> {
             title: '${widget.scheme['name']}',
             icon: Icons.palette_outlined,
             onSelected: menu,
-            itemBuilder: (_) => const [
+            itemBuilder: (_) => [
               PopupMenuItem(
                 value: 'export',
-                child: TildeMenuLabel('내보내기', Icons.ios_share),
+                child: TildeMenuLabel(context.l10n.export, Icons.ios_share),
               ),
             ],
           ),
@@ -1471,13 +1579,14 @@ class _PalettePageState extends State<PalettePage> {
         children: [
           if (error != null)
             ListTile(
-              title: const Text('색상 테마를 불러오지 못했습니다'),
+              title: Text(context.l10n.couldNotLoadColorTheme),
               trailing: TextButton(
                 onPressed: () => showErrorDetails(context, error!),
-                child: const Text('자세히'),
+                child: Text(context.l10n.details),
               ),
             ),
-          if (!editable) settingsNote(context, '복사본을 만들어 색상을 편집하세요.'),
+          if (!editable)
+            settingsNote(context, context.l10n.makeACopyToEditTheColors),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Container(
@@ -1490,7 +1599,7 @@ class _PalettePageState extends State<PalettePage> {
                 TextSpan(
                   children: [
                     TextSpan(
-                      text: '~ \$ ls\nsrc  build  한글.md\n',
+                      text: context.l10n.lsSrcBuildSampleMd,
                       style: TextStyle(color: role('foreground')),
                     ),
                     TextSpan(
@@ -1507,18 +1616,18 @@ class _PalettePageState extends State<PalettePage> {
               ),
             ),
           ),
-          settingsSection(context, '기본 색', [
+          settingsSection(context, context.l10n.defaultColors, [
             for (final key in ['foreground', 'background', 'cursor'])
               ListTile(
                 title: Text(switch (key) {
-                  'foreground' => '글자 색',
-                  'background' => '배경 색',
-                  _ => '커서 · 앱 강조색',
+                  'foreground' => context.l10n.textColor,
+                  'background' => context.l10n.backgroundColor,
+                  _ => context.l10n.cursorAndAppAccent,
                 }),
                 subtitle: Text(
                   key != 'background' &&
                           contrast(role(key), role('background')) < 3
-                      ? '배경과 대비가 낮습니다'
+                      ? context.l10n.lowContrastAgainstBackground
                       : '#${role(key).toARGB32().toRadixString(16).substring(2).toUpperCase()}',
                   style: TextStyle(
                     fontFamily:
@@ -1547,7 +1656,7 @@ class _PalettePageState extends State<PalettePage> {
                 onTap: editable ? () => editColor(key: key) : null,
               ),
           ]),
-          settingsSection(context, 'ANSI 팔레트', [
+          settingsSection(context, context.l10n.ansiPalette, [
             Padding(
               padding: const EdgeInsets.all(16),
               child: LayoutBuilder(
@@ -1557,7 +1666,7 @@ class _PalettePageState extends State<PalettePage> {
                   children: [
                     for (var i = 0; i < colors.length; i++)
                       Semantics(
-                        label: 'ANSI $i 색상',
+                        label: context.l10n.ansiColor((i).toString()),
                         button: true,
                         child: InkWell(
                           onTap: editable ? () => editColor(index: i) : null,

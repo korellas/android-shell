@@ -17,6 +17,7 @@
 
 package org.connectbot.flutter
 
+import android.content.res.Resources
 import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.Profile
 import org.connectbot.data.entity.Pubkey
@@ -25,29 +26,34 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.mockito.Mockito
 
 class EngineWireTest {
+    private val resources = Mockito.mock(Resources::class.java).apply {
+        Mockito.`when`(getString(Mockito.anyInt())).thenReturn("Invalid value")
+    }
+
     @Test fun hostEditingPreservesAdvancedConnectionOptions() {
         val host = Host(
             id = 9, nickname = "server", hostname = "example.test", compression = true, wantSession = false,
             jumpHostId = 4, identityId = 3, pubkeyId = 2, moshPort = 60001, moshNetworkTimeout = 30, useAuthAgent = "confirm",
         )
-        val edited = (host.toWire() + mapOf("nickname" to "renamed")).toHost()
+        val edited = (host.toWire() + mapOf("nickname" to "renamed")).toHost(resources)
         assertEquals(host.copy(nickname = "renamed", useAuthAgent = null), edited)
     }
 
     @Test fun hostEditingRejectsInvalidPorts() {
         for (port in listOf(-1L, 0L, 65536L)) {
             assertThrows(IllegalArgumentException::class.java) {
-                mapOf("nickname" to "server", "hostname" to "example.test", "port" to port).toHost()
+                mapOf("nickname" to "server", "hostname" to "example.test", "port" to port).toHost(resources)
             }
         }
     }
 
     @Test fun localHostEditingDoesNotRequireANetworkPort() {
         val local = Host.createLocalHost("Local shell").copy(id = 7)
-        assertEquals(local.copy(useAuthAgent = null), local.toWire().toHost())
-        assertEquals(0, (local.toWire() + mapOf("port" to 22)).toHost().port)
+        assertEquals(local.copy(useAuthAgent = null), local.toWire().toHost(resources))
+        assertEquals(0, (local.toWire() + mapOf("port" to 22)).toHost(resources).port)
     }
 
     @Test fun keySnapshotsContainNoPrivateKeyMaterialOrKeystoreAlias() {
@@ -66,7 +72,7 @@ class EngineWireTest {
 
     @Test fun profileEditingDisablesInlineImagesAndPreservesFixedSize() {
         val profile = Profile(name = "work", inlineImages = "ask", forceSizeRows = 30, forceSizeColumns = 120, fontFamily = "local:work.ttf")
-        assertEquals(profile.copy(inlineImages = "off"), profile.toWire().toProfile())
-        assertEquals("off", (profile.toWire() + mapOf("inlineImages" to "anything")).toProfile().inlineImages)
+        assertEquals(profile.copy(inlineImages = "off"), profile.toWire().toProfile(resources))
+        assertEquals("off", (profile.toWire() + mapOf("inlineImages" to "anything")).toProfile(resources).inlineImages)
     }
 }

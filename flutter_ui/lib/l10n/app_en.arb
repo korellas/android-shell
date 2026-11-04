@@ -1,0 +1,4101 @@
+{
+  "@@locale": "en",
+  "home": "Home",
+  "@home": {
+    "description": "Tilde app: Home"
+  },
+  "terminal": "Terminal",
+  "@terminal": {
+    "description": "Tilde app: Terminal"
+  },
+  "files": "{arg0} · Files",
+  "@files": {
+    "description": "Tilde app: {arg0} · Files",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "newHost": "New host",
+  "@newHost": {
+    "description": "Tilde app: New host"
+  },
+  "edit": "Edit {arg0}",
+  "@edit": {
+    "description": "Tilde app: Edit {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "disconnectAndCloseTab": "Disconnect and close tab",
+  "@disconnectAndCloseTab": {
+    "description": "Tilde app: Disconnect and close tab"
+  },
+  "disconnectFromAndCloseThisTab": "Disconnect from {arg0} and close this tab?",
+  "@disconnectFromAndCloseThisTab": {
+    "description": "Tilde app: Disconnect from {arg0} and close this tab?",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "disconnectAndClose": "Disconnect and close",
+  "@disconnectAndClose": {
+    "description": "Tilde app: Disconnect and close"
+  },
+  "newTerminal": "New terminal",
+  "@newTerminal": {
+    "description": "Tilde app: New terminal"
+  },
+  "fileTransfer": "File transfer",
+  "@fileTransfer": {
+    "description": "Tilde app: File transfer"
+  },
+  "edit2": "Edit",
+  "@edit2": {
+    "description": "Tilde app: Edit"
+  },
+  "removeFromFavorites": "Remove from favorites",
+  "@removeFromFavorites": {
+    "description": "Tilde app: Remove from favorites"
+  },
+  "addToFavorites": "Add to favorites",
+  "@addToFavorites": {
+    "description": "Tilde app: Add to favorites"
+  },
+  "duplicate": "Duplicate",
+  "@duplicate": {
+    "description": "Tilde app: Duplicate"
+  },
+  "portForwarding": "Port forwarding",
+  "@portForwarding": {
+    "description": "Tilde app: Port forwarding"
+  },
+  "disconnect": "Disconnect",
+  "@disconnect": {
+    "description": "Tilde app: Disconnect"
+  },
+  "delete": "Delete",
+  "@delete": {
+    "description": "Tilde app: Delete"
+  },
+  "nameForDuplicateHost": "Name for duplicate host",
+  "@nameForDuplicateHost": {
+    "description": "Tilde app: Name for duplicate host"
+  },
+  "copy": "{arg0} copy",
+  "@copy": {
+    "description": "Tilde app: {arg0} copy",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "disconnectAllSessionsFor": "Disconnect all sessions for {arg0}?",
+  "@disconnectAllSessionsFor": {
+    "description": "Tilde app: Disconnect all sessions for {arg0}?",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "searchHosts": "Search hosts",
+  "@searchHosts": {
+    "description": "Tilde app: Search hosts"
+  },
+  "searchHostsOrEnterSshAddressCtrlK": "Search hosts or enter SSH address (Ctrl K)",
+  "@searchHostsOrEnterSshAddressCtrlK": {
+    "description": "Tilde app: Search hosts or enter SSH address (Ctrl K)"
+  },
+  "addHost": "Add host",
+  "@addHost": {
+    "description": "Tilde app: Add host"
+  },
+  "noHostsYet": "No hosts yet",
+  "@noHostsYet": {
+    "description": "Tilde app: No hosts yet"
+  },
+  "openTerminals": "Open terminals",
+  "@openTerminals": {
+    "description": "Tilde app: Open terminals"
+  },
+  "openFiles": "Open files",
+  "@openFiles": {
+    "description": "Tilde app: Open files"
+  },
+  "menu": "{arg0} menu",
+  "@menu": {
+    "description": "Tilde app: {arg0} menu",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "settings": "Settings",
+  "@settings": {
+    "description": "Tilde app: Settings"
+  },
+  "helpAndLogs": "Help and logs",
+  "@helpAndLogs": {
+    "description": "Tilde app: Help and logs"
+  },
+  "hostListCtrlB": "Host list (Ctrl B)",
+  "@hostListCtrlB": {
+    "description": "Tilde app: Host list (Ctrl B)"
+  },
+  "closeTab": "Close {arg0} tab",
+  "@closeTab": {
+    "description": "Tilde app: Close {arg0} tab",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "newTabCtrlShiftT": "New tab (Ctrl Shift T)",
+  "@newTabCtrlShiftT": {
+    "description": "Tilde app: New tab (Ctrl Shift T)"
+  },
+  "terminalMenu": "Terminal menu",
+  "@terminalMenu": {
+    "description": "Tilde app: Terminal menu"
+  },
+  "importSshKey": "Import SSH key",
+  "@importSshKey": {
+    "description": "Tilde app: Import SSH key"
+  },
+  "openSessions": "Open sessions",
+  "@openSessions": {
+    "description": "Tilde app: Open sessions"
+  },
+  "session": "Session {arg0}",
+  "@session": {
+    "description": "Tilde app: Session {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "connected": "Connected",
+  "@connected": {
+    "description": "Tilde app: Connected"
+  },
+  "connecting": "Connecting",
+  "@connecting": {
+    "description": "Tilde app: Connecting"
+  },
+  "disconnected": "Disconnected",
+  "@disconnected": {
+    "description": "Tilde app: Disconnected"
+  },
+  "open": "Open",
+  "@open": {
+    "description": "Tilde app: Open"
+  },
+  "connect": "Connect",
+  "@connect": {
+    "description": "Tilde app: Connect"
+  },
+  "address": "Address",
+  "@address": {
+    "description": "Tilde app: Address"
+  },
+  "authentication": "Authentication",
+  "@authentication": {
+    "description": "Tilde app: Authentication"
+  },
+  "tryAllAvailableKeys": "Try all available keys",
+  "@tryAllAvailableKeys": {
+    "description": "Tilde app: Try all available keys"
+  },
+  "useServerSettings": "Use server settings",
+  "@useServerSettings": {
+    "description": "Tilde app: Use server settings"
+  },
+  "terminalProfile": "Terminal profile",
+  "@terminalProfile": {
+    "description": "Tilde app: Terminal profile"
+  },
+  "appDefaultProfile": "App default profile",
+  "@appDefaultProfile": {
+    "description": "Tilde app: App default profile"
+  },
+  "manage": "Manage",
+  "@manage": {
+    "description": "Tilde app: Manage"
+  },
+  "minimize": "Minimize",
+  "@minimize": {
+    "description": "Tilde app: Minimize"
+  },
+  "restore": "Restore",
+  "@restore": {
+    "description": "Tilde app: Restore"
+  },
+  "maximize": "Maximize",
+  "@maximize": {
+    "description": "Tilde app: Maximize"
+  },
+  "closeWindow": "Close window",
+  "@closeWindow": {
+    "description": "Tilde app: Close window"
+  },
+  "host": "Host",
+  "@host": {
+    "description": "Tilde app: Host"
+  },
+  "profile": "Profile",
+  "@profile": {
+    "description": "Tilde app: Profile"
+  },
+  "sharedLoginAccount": "Shared login account",
+  "@sharedLoginAccount": {
+    "description": "Tilde app: Shared login account"
+  },
+  "sshKeys": "SSH keys",
+  "@sshKeys": {
+    "description": "Tilde app: SSH keys"
+  },
+  "enter": "Enter {arg0}.",
+  "@enter": {
+    "description": "Tilde app: Enter {arg0}.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "enterAWholeNumber": "Enter a whole number.",
+  "@enterAWholeNumber": {
+    "description": "Tilde app: Enter a whole number."
+  },
+  "checkThePortRange": "Check the port range.",
+  "@checkThePortRange": {
+    "description": "Tilde app: Check the port range."
+  },
+  "currentValue": "{arg0} (current value)",
+  "@currentValue": {
+    "description": "Tilde app: {arg0} (current value)",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "select": "Select",
+  "@select": {
+    "description": "Tilde app: Select"
+  },
+  "defaultValue": "Default",
+  "@defaultValue": {
+    "description": "Tilde app: Default"
+  },
+  "dsaUnsupported": " (DSA unsupported)",
+  "@dsaUnsupported": {
+    "description": "Tilde app:  (DSA unsupported)"
+  },
+  "windowsDefaultKeysAndAddedKeys": "Windows default keys and added keys",
+  "@windowsDefaultKeysAndAddedKeys": {
+    "description": "Tilde app: Windows default keys and added keys"
+  },
+  "noKey": "No key",
+  "@noKey": {
+    "description": "Tilde app: No key"
+  },
+  "passwordSaved": "Password (saved)",
+  "@passwordSaved": {
+    "description": "Tilde app: Password (saved)"
+  },
+  "password": "Password",
+  "@password": {
+    "description": "Tilde app: Password"
+  },
+  "storedEncryptedOnThisDeviceEnterItAgainAfter": "Stored encrypted on this device. Enter it again after restoring to another device.",
+  "@storedEncryptedOnThisDeviceEnterItAgainAfter": {
+    "description": "Tilde app: Stored encrypted on this device. Enter it again after restoring to another device."
+  },
+  "storedEncryptedOnThisDevice": "Stored encrypted on this device.",
+  "@storedEncryptedOnThisDevice": {
+    "description": "Tilde app: Stored encrypted on this device."
+  },
+  "deleteSavedPassword": "Delete saved password",
+  "@deleteSavedPassword": {
+    "description": "Tilde app: Delete saved password"
+  },
+  "accountName": "Account name",
+  "@accountName": {
+    "description": "Tilde app: Account name"
+  },
+  "username": "Username",
+  "@username": {
+    "description": "Tilde app: Username"
+  },
+  "appliesToHosts": "Applies to {arg0} hosts",
+  "@appliesToHosts": {
+    "description": "Tilde app: Applies to {arg0} hosts",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "display": "Display",
+  "@display": {
+    "description": "Tilde app: Display"
+  },
+  "profileName": "Profile name",
+  "@profileName": {
+    "description": "Tilde app: Profile name"
+  },
+  "colorTheme": "Color theme",
+  "@colorTheme": {
+    "description": "Tilde app: Color theme"
+  },
+  "terminalFont": "Terminal font",
+  "@terminalFont": {
+    "description": "Tilde app: Terminal font"
+  },
+  "appDefault": "App default",
+  "@appDefault": {
+    "description": "Tilde app: App default"
+  },
+  "fontSize": "Font size",
+  "@fontSize": {
+    "description": "Tilde app: Font size"
+  },
+  "characterEncoding": "Character encoding",
+  "@characterEncoding": {
+    "description": "Tilde app: Character encoding"
+  },
+  "deleteKey": "Delete key",
+  "@deleteKey": {
+    "description": "Tilde app: Delete key"
+  },
+  "columnsAutomatic": "Columns · automatic",
+  "@columnsAutomatic": {
+    "description": "Tilde app: Columns · automatic"
+  },
+  "rowsAutomatic": "Rows · automatic",
+  "@rowsAutomatic": {
+    "description": "Tilde app: Rows · automatic"
+  },
+  "forwarding": "Forwarding",
+  "@forwarding": {
+    "description": "Tilde app: Forwarding"
+  },
+  "forwardingName": "Forwarding name",
+  "@forwardingName": {
+    "description": "Tilde app: Forwarding name"
+  },
+  "type": "Type",
+  "@type": {
+    "description": "Tilde app: Type"
+  },
+  "local": "Local",
+  "@local": {
+    "description": "Tilde app: Local"
+  },
+  "remote": "Remote",
+  "@remote": {
+    "description": "Tilde app: Remote"
+  },
+  "forwardConnectionsFromAServerPortToAnAddress": "Forward connections from a server port to an address on this device.",
+  "@forwardConnectionsFromAServerPortToAnAddress": {
+    "description": "Tilde app: Forward connections from a server port to an address on this device."
+  },
+  "forwardConnectionsFromADevicePortToAnAddress": "Forward connections from a device port to an address on the server side.",
+  "@forwardConnectionsFromADevicePortToAnAddress": {
+    "description": "Tilde app: Forward connections from a device port to an address on the server side."
+  },
+  "openASocks5ProxyOnThisDevice": "Open a SOCKS5 proxy on this device.",
+  "@openASocks5ProxyOnThisDevice": {
+    "description": "Tilde app: Open a SOCKS5 proxy on this device."
+  },
+  "socks4IsUnsupportedChangeTheTypeToSocks5To": "SOCKS4 is unsupported. Change the type to SOCKS5 to use it.",
+  "@socks4IsUnsupportedChangeTheTypeToSocks5To": {
+    "description": "Tilde app: SOCKS4 is unsupported. Change the type to SOCKS5 to use it."
+  },
+  "listenAddressOnServer": "Listen address on server",
+  "@listenAddressOnServer": {
+    "description": "Tilde app: Listen address on server"
+  },
+  "listenAddressOnThisDevice": "Listen address on this device",
+  "@listenAddressOnThisDevice": {
+    "description": "Tilde app: Listen address on this device"
+  },
+  "text127001AccessibleOnlyOnThisDevice": "127.0.0.1 · accessible only on this device",
+  "@text127001AccessibleOnlyOnThisDevice": {
+    "description": "Tilde app: 127.0.0.1 · accessible only on this device"
+  },
+  "port": "Port",
+  "@port": {
+    "description": "Tilde app: Port"
+  },
+  "destinationAddress": "Destination address",
+  "@destinationAddress": {
+    "description": "Tilde app: Destination address"
+  },
+  "publicKey": "Public key",
+  "@publicKey": {
+    "description": "Tilde app: Public key"
+  },
+  "copyFingerprint": "Copy fingerprint",
+  "@copyFingerprint": {
+    "description": "Tilde app: Copy fingerprint"
+  },
+  "copyPublicKey": "Copy public key",
+  "@copyPublicKey": {
+    "description": "Tilde app: Copy public key"
+  },
+  "keySettings": "Key settings",
+  "@keySettings": {
+    "description": "Tilde app: Key settings"
+  },
+  "keyName": "Key name",
+  "@keyName": {
+    "description": "Tilde app: Key name"
+  },
+  "confirmBeforeUse": "Confirm before use",
+  "@confirmBeforeUse": {
+    "description": "Tilde app: Confirm before use"
+  },
+  "askForPermissionBeforeAuthenticatingWithThisKey": "Ask for permission before authenticating with this key",
+  "@askForPermissionBeforeAuthenticatingWithThisKey": {
+    "description": "Tilde app: Ask for permission before authenticating with this key"
+  },
+  "importedPrivateKey": "Imported private key",
+  "@importedPrivateKey": {
+    "description": "Tilde app: Imported private key"
+  },
+  "androidKeystoreP256Key": "Android Keystore P-256 key",
+  "@androidKeystoreP256Key": {
+    "description": "Tilde app: Android Keystore P-256 key"
+  },
+  "authenticateWithAnImportedPrivateKeyFile": "Authenticate with an imported private key file",
+  "@authenticateWithAnImportedPrivateKeyFile": {
+    "description": "Tilde app: Authenticate with an imported private key file"
+  },
+  "thePrivateKeyCannotBeExportedFromThisDevice": "The private key cannot be exported from this device",
+  "@thePrivateKeyCannotBeExportedFromThisDevice": {
+    "description": "Tilde app: The private key cannot be exported from this device"
+  },
+  "disabledLegacyPrivateKey": "Disabled legacy private key",
+  "@disabledLegacyPrivateKey": {
+    "description": "Tilde app: Disabled legacy private key"
+  },
+  "replaceItWithANewAndroidKeystoreKeyBefore": "Replace it with a new Android Keystore key before deleting it.",
+  "@replaceItWithANewAndroidKeystoreKeyBefore": {
+    "description": "Tilde app: Replace it with a new Android Keystore key before deleting it."
+  },
+  "connectionType": "Connection type",
+  "@connectionType": {
+    "description": "Tilde app: Connection type"
+  },
+  "connectionsAreUnsupportedChangeToSshOrLocal": "{arg0} connections are unsupported. Change to SSH or local.",
+  "@connectionsAreUnsupportedChangeToSshOrLocal": {
+    "description": "Tilde app: {arg0} connections are unsupported. Change to SSH or local.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "hostName": "Host name",
+  "@hostName": {
+    "description": "Tilde app: Host name"
+  },
+  "name": "Name",
+  "@name": {
+    "description": "Tilde app: Name"
+  },
+  "serverAddress": "Server address",
+  "@serverAddress": {
+    "description": "Tilde app: Server address"
+  },
+  "pasteUserHostPortIntoTheAddressFieldTo": "Paste user@host:port into the address field to fill in the details.",
+  "@pasteUserHostPortIntoTheAddressFieldTo": {
+    "description": "Tilde app: Paste user@host:port into the address field to fill in the details."
+  },
+  "advanced": "Advanced",
+  "@advanced": {
+    "description": "Tilde app: Advanced"
+  },
+  "ipAddress": "IP address",
+  "@ipAddress": {
+    "description": "Tilde app: IP address"
+  },
+  "automatic": "Automatic",
+  "@automatic": {
+    "description": "Tilde app: Automatic"
+  },
+  "jumpHost": "Jump host",
+  "@jumpHost": {
+    "description": "Tilde app: Jump host"
+  },
+  "directConnection": "Direct connection",
+  "@directConnection": {
+    "description": "Tilde app: Direct connection"
+  },
+  "thisConnectionTypeDoesNotUseSshAuthenticationSettings": "This connection type does not use SSH authentication settings.",
+  "@thisConnectionTypeDoesNotUseSshAuthenticationSettings": {
+    "description": "Tilde app: This connection type does not use SSH authentication settings."
+  },
+  "account": "Account",
+  "@account": {
+    "description": "Tilde app: Account"
+  },
+  "doNotUse": "Do not use",
+  "@doNotUse": {
+    "description": "Tilde app: Do not use"
+  },
+  "usingAccount": "Using account {arg0}",
+  "@usingAccount": {
+    "description": "Tilde app: Using account {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "loginKey": "Login key",
+  "@loginKey": {
+    "description": "Tilde app: Login key"
+  },
+  "registerKeyOnThisServer": "Register key on this server",
+  "@registerKeyOnThisServer": {
+    "description": "Tilde app: Register key on this server"
+  },
+  "logInOnceWithAPasswordToInstallThe": "Log in once with a password to install the public key",
+  "@logInOnceWithAPasswordToInstallThe": {
+    "description": "Tilde app: Log in once with a password to install the public key"
+  },
+  "hostColor": "Host color",
+  "@hostColor": {
+    "description": "Tilde app: Host color"
+  },
+  "previewInTheHomeListTabsAndNotifications": "Preview in the home list, tabs, and notifications",
+  "@previewInTheHomeListTabsAndNotifications": {
+    "description": "Tilde app: Preview in the home list, tabs, and notifications"
+  },
+  "customHostColor": "Custom host color",
+  "@customHostColor": {
+    "description": "Tilde app: Custom host color"
+  },
+  "appDefault2": "App default · {arg0}",
+  "@appDefault2": {
+    "description": "Tilde app: App default · {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "manageProfiles": "Manage profiles",
+  "@manageProfiles": {
+    "description": "Tilde app: Manage profiles"
+  },
+  "keepConnectionAlive": "Keep connection alive",
+  "@keepConnectionAlive": {
+    "description": "Tilde app: Keep connection alive"
+  },
+  "reconnectAutomaticallyAfterAnIOError": "Reconnect automatically after an I/O error",
+  "@reconnectAutomaticallyAfterAnIOError": {
+    "description": "Tilde app: Reconnect automatically after an I/O error"
+  },
+  "closeWithoutAsking": "Close without asking",
+  "@closeWithoutAsking": {
+    "description": "Tilde app: Close without asking"
+  },
+  "closeTheTabImmediatelyAfterExit": "Close the tab immediately after exit",
+  "@closeTheTabImmediatelyAfterExit": {
+    "description": "Tilde app: Close the tab immediately after exit"
+  },
+  "sshCompression": "SSH compression",
+  "@sshCompression": {
+    "description": "Tilde app: SSH compression"
+  },
+  "enableOnlyOnSlowConnections": "Enable only on slow connections",
+  "@enableOnlyOnSlowConnections": {
+    "description": "Tilde app: Enable only on slow connections"
+  },
+  "openTerminal": "Open terminal",
+  "@openTerminal": {
+    "description": "Tilde app: Open terminal"
+  },
+  "whenOffOnlyPortForwardingIsEnabled": "When off, only port forwarding is enabled",
+  "@whenOffOnlyPortForwardingIsEnabled": {
+    "description": "Tilde app: When off, only port forwarding is enabled"
+  },
+  "overrideForThisHost": "Override for this host",
+  "@overrideForThisHost": {
+    "description": "Tilde app: Override for this host"
+  },
+  "scrollback": "Scrollback",
+  "@scrollback": {
+    "description": "Tilde app: Scrollback"
+  },
+  "linesDefault": "Lines · default {arg0}",
+  "@linesDefault": {
+    "description": "Tilde app: Lines · default {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "useCtrlAltAsMeta": "Use Ctrl+Alt as Meta",
+  "@useCtrlAltAsMeta": {
+    "description": "Tilde app: Use Ctrl+Alt as Meta"
+  },
+  "displayAndProfile": "Display and profile",
+  "@displayAndProfile": {
+    "description": "Tilde app: Display and profile"
+  },
+  "session2": "Session",
+  "@session2": {
+    "description": "Tilde app: Session"
+  },
+  "editHost": "Edit host",
+  "@editHost": {
+    "description": "Tilde app: Edit host"
+  },
+  "localShell": "Local shell",
+  "@localShell": {
+    "description": "Tilde app: Local shell"
+  },
+  "selectKey": "Select key",
+  "@selectKey": {
+    "description": "Tilde app: Select key"
+  },
+  "connectionSettings": "Connection settings",
+  "@connectionSettings": {
+    "description": "Tilde app: Connection settings"
+  },
+  "trustedServerKeys": "Trusted server keys",
+  "@trustedServerKeys": {
+    "description": "Tilde app: Trusted server keys"
+  },
+  "nameForDuplicate": "Name for duplicate",
+  "@nameForDuplicate": {
+    "description": "Tilde app: Name for duplicate"
+  },
+  "couldNotSave": "Could not save",
+  "@couldNotSave": {
+    "description": "Tilde app: Could not save"
+  },
+  "details": "Details",
+  "@details": {
+    "description": "Tilde app: Details"
+  },
+  "changedFields": "Changed fields",
+  "@changedFields": {
+    "description": "Tilde app: Changed fields"
+  },
+  "changePassword": "Change password",
+  "@changePassword": {
+    "description": "Tilde app: Change password"
+  },
+  "none": "None",
+  "@none": {
+    "description": "Tilde app: None"
+  },
+  "saving": "Saving",
+  "@saving": {
+    "description": "Tilde app: Saving"
+  },
+  "changed": "Changed {arg0}",
+  "@changed": {
+    "description": "Tilde app: Changed {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "andOthers": "{arg0} and others",
+  "@andOthers": {
+    "description": "Tilde app: {arg0} and others",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "items": "{count, plural, one{{count} item} other{{count} items}}",
+  "@items": {
+    "description": "Tilde app: {arg0} items",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "saved": "Saved",
+  "@saved": {
+    "description": "Tilde app: Saved"
+  },
+  "undo": "Undo",
+  "@undo": {
+    "description": "Tilde app: Undo"
+  },
+  "save": "Save",
+  "@save": {
+    "description": "Tilde app: Save"
+  },
+  "saveAndOpenNewTerminal": "Save and open new terminal",
+  "@saveAndOpenNewTerminal": {
+    "description": "Tilde app: Save and open new terminal"
+  },
+  "deleteHost": "Delete host",
+  "@deleteHost": {
+    "description": "Tilde app: Delete host"
+  },
+  "couldNotSaveChanges": "Could not save changes",
+  "@couldNotSaveChanges": {
+    "description": "Tilde app: Could not save changes"
+  },
+  "add": "Add",
+  "@add": {
+    "description": "Tilde app: Add"
+  },
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Tilde app: Cancel"
+  },
+  "saving2": "Saving…",
+  "@saving2": {
+    "description": "Tilde app: Saving…"
+  },
+  "apply": "Apply",
+  "@apply": {
+    "description": "Tilde app: Apply"
+  },
+  "back": "Back",
+  "@back": {
+    "description": "Tilde app: Back"
+  },
+  "systemDefault": "System default",
+  "@systemDefault": {
+    "description": "Tilde app: System default"
+  },
+  "appDefaultFont": "App default font",
+  "@appDefaultFont": {
+    "description": "Tilde app: App default font"
+  },
+  "newSshKey": "New SSH key",
+  "@newSshKey": {
+    "description": "Tilde app: New SSH key"
+  },
+  "enterAName": "Enter a name.",
+  "@enterAName": {
+    "description": "Tilde app: Enter a name."
+  },
+  "createAP256PrivateKeyInAndroidKeystore": "Create a P-256 private key in Android Keystore and require biometric authentication for each signature. The private key cannot be copied, exported, or backed up.",
+  "@createAP256PrivateKeyInAndroidKeystore": {
+    "description": "Tilde app: Create a P-256 private key in Android Keystore and require biometric authentication for each signature. The private key cannot be "
+  },
+  "couldNotCreateKey": "Could not create key",
+  "@couldNotCreateKey": {
+    "description": "Tilde app: Could not create key"
+  },
+  "createKey": "Create key",
+  "@createKey": {
+    "description": "Tilde app: Create key"
+  },
+  "search": "Search",
+  "@search": {
+    "description": "Tilde app: Search"
+  },
+  "saving3": "Saving",
+  "@saving3": {
+    "description": "Tilde app: Saving"
+  },
+  "changes": "{arg0} changes",
+  "@changes": {
+    "description": "Tilde app: {arg0} changes",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "enterAValueBetweenAnd": "Enter a value between {arg0} and {arg1}",
+  "@enterAValueBetweenAnd": {
+    "description": "Tilde app: Enter a value between {arg0} and {arg1}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      },
+      "arg1": {
+        "type": "String"
+      }
+    }
+  },
+  "decrease": "Decrease {arg0}",
+  "@decrease": {
+    "description": "Tilde app: Decrease {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "increase": "Increase {arg0}",
+  "@increase": {
+    "description": "Tilde app: Increase {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "discardChanges": "Discard changes",
+  "@discardChanges": {
+    "description": "Tilde app: Discard changes"
+  },
+  "unsavedChangesWillBeLost": "Unsaved changes will be lost.",
+  "@unsavedChangesWillBeLost": {
+    "description": "Tilde app: Unsaved changes will be lost."
+  },
+  "keepEditing": "Keep editing",
+  "@keepEditing": {
+    "description": "Tilde app: Keep editing"
+  },
+  "discard": "Discard",
+  "@discard": {
+    "description": "Tilde app: Discard"
+  },
+  "selectColor": "Select color",
+  "@selectColor": {
+    "description": "Tilde app: Select color"
+  },
+  "brightness": "Brightness",
+  "@brightness": {
+    "description": "Tilde app: Brightness"
+  },
+  "hexColor": "Hex color",
+  "@hexColor": {
+    "description": "Tilde app: Hex color"
+  },
+  "enterASixDigitColor": "Enter a six-digit color",
+  "@enterASixDigitColor": {
+    "description": "Tilde app: Enter a six-digit color"
+  },
+  "menu2": "Menu",
+  "@menu2": {
+    "description": "Tilde app: Menu"
+  },
+  "defaultProfile": "Default profile",
+  "@defaultProfile": {
+    "description": "Tilde app: Default profile"
+  },
+  "theSavedConnectionSettingsAreInvalid": "The saved connection settings are invalid.",
+  "@theSavedConnectionSettingsAreInvalid": {
+    "description": "Tilde app: The saved connection settings are invalid."
+  },
+  "theSavedSettingsAreInvalid": "The saved {arg0} settings are invalid.",
+  "@theSavedSettingsAreInvalid": {
+    "description": "Tilde app: The saved {arg0} settings are invalid.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "theSavedColorThemeIsInvalid": "The saved color theme is invalid.",
+  "@theSavedColorThemeIsInvalid": {
+    "description": "Tilde app: The saved color theme is invalid."
+  },
+  "checkTheSshAddress": "Check the SSH address.",
+  "@checkTheSshAddress": {
+    "description": "Tilde app: Check the SSH address."
+  },
+  "useAnSshHost": "Use an SSH host.",
+  "@useAnSshHost": {
+    "description": "Tilde app: Use an SSH host."
+  },
+  "thisTerminalUsesUtf8": "This terminal uses UTF-8.",
+  "@thisTerminalUsesUtf8": {
+    "description": "Tilde app: This terminal uses UTF-8."
+  },
+  "colorThemeNotFound": "Color theme not found.",
+  "@colorThemeNotFound": {
+    "description": "Tilde app: Color theme not found."
+  },
+  "enterAThemeName": "Enter a theme name.",
+  "@enterAThemeName": {
+    "description": "Tilde app: Enter a theme name."
+  },
+  "aThemeWithThisNameAlreadyExists": "A theme with this name already exists.",
+  "@aThemeWithThisNameAlreadyExists": {
+    "description": "Tilde app: A theme with this name already exists."
+  },
+  "colorsMustBeThreeOrSixDigitHexValues": "Colors must be three- or six-digit hex values.",
+  "@colorsMustBeThreeOrSixDigitHexValues": {
+    "description": "Tilde app: Colors must be three- or six-digit hex values."
+  },
+  "invalidColorThemeFileFormat": "Invalid color theme file format.",
+  "@invalidColorThemeFileFormat": {
+    "description": "Tilde app: Invalid color theme file format."
+  },
+  "defaultColorIndicesMustBeBetween0And15": "Default color indices must be between 0 and 15.",
+  "@defaultColorIndicesMustBeBetween0And15": {
+    "description": "Tilde app: Default color indices must be between 0 and 15."
+  },
+  "ansiColorIndicesMustBeBetween0And15": "ANSI color indices must be between 0 and 15.",
+  "@ansiColorIndicesMustBeBetween0And15": {
+    "description": "Tilde app: ANSI color indices must be between 0 and 15."
+  },
+  "invalidThemeDescriptionFormat": "Invalid theme description format.",
+  "@invalidThemeDescriptionFormat": {
+    "description": "Tilde app: Invalid theme description format."
+  },
+  "duplicateTheDefaultThemeBeforeEditingIt": "Duplicate the default theme before editing it.",
+  "@duplicateTheDefaultThemeBeforeEditingIt": {
+    "description": "Tilde app: Duplicate the default theme before editing it."
+  },
+  "checkTheColorRole": "Check the color role.",
+  "@checkTheColorRole": {
+    "description": "Tilde app: Check the color role."
+  },
+  "unsupportedThemeOperation": "Unsupported theme operation.",
+  "@unsupportedThemeOperation": {
+    "description": "Tilde app: Unsupported theme operation."
+  },
+  "onlyExplicitlyConfirmedNewServerKeysCanBeSaved": "Only explicitly confirmed new server keys can be saved.",
+  "@onlyExplicitlyConfirmedNewServerKeysCanBeSaved": {
+    "description": "Tilde app: Only explicitly confirmed new server keys can be saved."
+  },
+  "onlyTemporaryTransferFilesCanBeProcessed": "Only temporary transfer files can be processed.",
+  "@onlyTemporaryTransferFilesCanBeProcessed": {
+    "description": "Tilde app: Only temporary transfer files can be processed."
+  },
+  "checkTheSshJumpHostConnection": "Check the SSH jump host connection.",
+  "@checkTheSshJumpHostConnection": {
+    "description": "Tilde app: Check the SSH jump host connection."
+  },
+  "enterAServerAddress": "Enter a server address.",
+  "@enterAServerAddress": {
+    "description": "Tilde app: Enter a server address."
+  },
+  "noHostToRestore": "No host to restore.",
+  "@noHostToRestore": {
+    "description": "Tilde app: No host to restore."
+  },
+  "thisProfileIsInUse": "This profile is in use.",
+  "@thisProfileIsInUse": {
+    "description": "Tilde app: This profile is in use."
+  },
+  "unsupportedLink": "Unsupported link.",
+  "@unsupportedLink": {
+    "description": "Tilde app: Unsupported link."
+  },
+  "keyFile": "Key file",
+  "@keyFile": {
+    "description": "Tilde app: Key file"
+  },
+  "unsupportedOperation": "Unsupported operation: {arg0}",
+  "@unsupportedOperation": {
+    "description": "Tilde app: Unsupported operation: {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "androidKeystoreKeyUnavailable": "Android Keystore key unavailable",
+  "@androidKeystoreKeyUnavailable": {
+    "description": "Tilde app: Android Keystore key unavailable"
+  },
+  "legacyPrivateKeyDisabled": "Legacy private key · disabled",
+  "@legacyPrivateKeyDisabled": {
+    "description": "Tilde app: Legacy private key · disabled"
+  },
+  "toggleKeyboard": "Toggle keyboard",
+  "@toggleKeyboard": {
+    "description": "Tilde app: Toggle keyboard"
+  },
+  "endSession": "End session",
+  "@endSession": {
+    "description": "Tilde app: End session"
+  },
+  "disconnectFrom": "Disconnect from {arg0}?",
+  "@disconnectFrom": {
+    "description": "Tilde app: Disconnect from {arg0}?",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "end": "End",
+  "@end": {
+    "description": "Tilde app: End"
+  },
+  "couldNotCloseConnection": "Could not close connection",
+  "@couldNotCloseConnection": {
+    "description": "Tilde app: Could not close connection"
+  },
+  "noOpenSessions": "No open sessions.",
+  "@noOpenSessions": {
+    "description": "Tilde app: No open sessions."
+  },
+  "disconnected2": "Disconnected{arg0}",
+  "@disconnected2": {
+    "description": "Tilde app: Disconnected{arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "end2": "End {arg0}",
+  "@end2": {
+    "description": "Tilde app: End {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "newTab": "New tab",
+  "@newTab": {
+    "description": "Tilde app: New tab"
+  },
+  "close": "Close {arg0}",
+  "@close": {
+    "description": "Tilde app: Close {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "image": "Image",
+  "@image": {
+    "description": "Tilde app: Image"
+  },
+  "words": "Words",
+  "@words": {
+    "description": "Tilde app: Words"
+  },
+  "firstConnectionToThisServer": "First connection to this server",
+  "@firstConnectionToThisServer": {
+    "description": "Tilde app: First connection to this server"
+  },
+  "biometricAuthentication": "Biometric authentication",
+  "@biometricAuthentication": {
+    "description": "Tilde app: Biometric authentication"
+  },
+  "logInTo": "Log in to {arg0}",
+  "@logInTo": {
+    "description": "Tilde app: Log in to {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "server": "Server",
+  "@server": {
+    "description": "Tilde app: Server"
+  },
+  "hidePassword": "Hide password",
+  "@hidePassword": {
+    "description": "Tilde app: Hide password"
+  },
+  "showPassword": "Show password",
+  "@showPassword": {
+    "description": "Tilde app: Show password"
+  },
+  "saveOnThisDevice": "Save on this device",
+  "@saveOnThisDevice": {
+    "description": "Tilde app: Save on this device"
+  },
+  "checkThatThisFingerprintMatchesTheOneProvidedBy": "Check that this fingerprint matches the one provided by the server administrator.",
+  "@checkThatThisFingerprintMatchesTheOneProvidedBy": {
+    "description": "Tilde app: Check that this fingerprint matches the one provided by the server administrator."
+  },
+  "fingerprintFormat": "Fingerprint format",
+  "@fingerprintFormat": {
+    "description": "Tilde app: Fingerprint format"
+  },
+  "authenticateWithKey": "Authenticate with key {arg0}.",
+  "@authenticateWithKey": {
+    "description": "Tilde app: Authenticate with key {arg0}.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelConnection": "Cancel connection",
+  "@cancelConnection": {
+    "description": "Tilde app: Cancel connection"
+  },
+  "reject": "Reject",
+  "@reject": {
+    "description": "Tilde app: Reject"
+  },
+  "trustAndConnect": "Trust and connect",
+  "@trustAndConnect": {
+    "description": "Tilde app: Trust and connect"
+  },
+  "logIn": "Log in",
+  "@logIn": {
+    "description": "Tilde app: Log in"
+  },
+  "continueAction": "Continue",
+  "@continueAction": {
+    "description": "Tilde app: Continue"
+  },
+  "waitingForLogin": "{arg0} waiting for login",
+  "@waitingForLogin": {
+    "description": "Tilde app: {arg0} waiting for login",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "continueLogin": "Continue login",
+  "@continueLogin": {
+    "description": "Tilde app: Continue login"
+  },
+  "pasteLines": "Paste {arg0} lines?",
+  "@pasteLines": {
+    "description": "Tilde app: Paste {arg0} lines?",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "pastingLinesIntoTheTerminalMayRunCommandsImmediately": "Pasting {arg0} lines into the terminal may run commands immediately.",
+  "@pastingLinesIntoTheTerminalMayRunCommandsImmediately": {
+    "description": "Tilde app: Pasting {arg0} lines into the terminal may run commands immediately.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "controlCharactersMayTriggerTerminalActionsOrCommandExecution": "Control characters may trigger terminal actions or command execution.",
+  "@controlCharactersMayTriggerTerminalActionsOrCommandExecution": {
+    "description": "Tilde app: Control characters may trigger terminal actions or command execution."
+  },
+  "pasteWithoutTrailingEnter": "Paste without trailing Enter",
+  "@pasteWithoutTrailingEnter": {
+    "description": "Tilde app: Paste without trailing Enter"
+  },
+  "pasteLines2": "Paste {arg0} lines",
+  "@pasteLines2": {
+    "description": "Tilde app: Paste {arg0} lines",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "editText": "Edit text",
+  "@editText": {
+    "description": "Tilde app: Edit text"
+  },
+  "textToSend": "Text to send",
+  "@textToSend": {
+    "description": "Tilde app: Text to send"
+  },
+  "send": "Send",
+  "@send": {
+    "description": "Tilde app: Send"
+  },
+  "selectEntireLine": "Select entire line",
+  "@selectEntireLine": {
+    "description": "Tilde app: Select entire line"
+  },
+  "selectVisibleScreen": "Select visible screen",
+  "@selectVisibleScreen": {
+    "description": "Tilde app: Select visible screen"
+  },
+  "selectAll": "Select all",
+  "@selectAll": {
+    "description": "Tilde app: Select all"
+  },
+  "blockSelection": "Block selection",
+  "@blockSelection": {
+    "description": "Tilde app: Block selection"
+  },
+  "share": "Share",
+  "@share": {
+    "description": "Tilde app: Share"
+  },
+  "paste": "Paste",
+  "@paste": {
+    "description": "Tilde app: Paste"
+  },
+  "copy2": "Copy",
+  "@copy2": {
+    "description": "Tilde app: Copy"
+  },
+  "editAndSend": "Edit and send",
+  "@editAndSend": {
+    "description": "Tilde app: Edit and send"
+  },
+  "moreSelectionOptions": "More selection options",
+  "@moreSelectionOptions": {
+    "description": "Tilde app: More selection options"
+  },
+  "selectionEnd": "Selection end",
+  "@selectionEnd": {
+    "description": "Tilde app: Selection end"
+  },
+  "selectionStart": "Selection start",
+  "@selectionStart": {
+    "description": "Tilde app: Selection start"
+  },
+  "clearSelection": "Clear selection",
+  "@clearSelection": {
+    "description": "Tilde app: Clear selection"
+  },
+  "couldNotConnectTo": "Could not connect to {arg0}",
+  "@couldNotConnectTo": {
+    "description": "Tilde app: Could not connect to {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotCompleteOperation": "Could not complete operation",
+  "@couldNotCompleteOperation": {
+    "description": "Tilde app: Could not complete operation"
+  },
+  "couldNotFinishOperation": "Could not finish operation",
+  "@couldNotFinishOperation": {
+    "description": "Tilde app: Could not finish operation"
+  },
+  "checked": "Checked · {arg0}",
+  "@checked": {
+    "description": "Tilde app: Checked · {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "occurred": "Occurred · {arg0}",
+  "@occurred": {
+    "description": "Tilde app: Occurred · {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "copyErrorLog": "Copy error log",
+  "@copyErrorLog": {
+    "description": "Tilde app: Copy error log"
+  },
+  "close2": "Close",
+  "@close2": {
+    "description": "Tilde app: Close"
+  },
+  "saveElsewhere": "Save elsewhere",
+  "@saveElsewhere": {
+    "description": "Tilde app: Save elsewhere"
+  },
+  "retry": "Retry",
+  "@retry": {
+    "description": "Tilde app: Retry"
+  },
+  "deletedHost": "Deleted host {arg0}",
+  "@deletedHost": {
+    "description": "Tilde app: Deleted host {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "ok": "OK",
+  "@ok": {
+    "description": "Tilde app: OK"
+  },
+  "linesEnterInsertsANewline": "{count, plural, one{{count} line} other{{count} lines}} · Enter inserts a newline{arg1}",
+  "@linesEnterInsertsANewline": {
+    "description": "Tilde app: {arg0} lines · Enter inserts a newline{arg1}",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      },
+      "arg1": {
+        "type": "String"
+      }
+    }
+  },
+  "ctrlEnterSends": ", Ctrl Enter sends",
+  "@ctrlEnterSends": {
+    "description": "Tilde app: , Ctrl Enter sends"
+  },
+  "unsupported": " · {arg0} unsupported",
+  "@unsupported": {
+    "description": "Tilde app:  · {arg0} unsupported",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyServerKeyFor": "Verify server key for {arg0}",
+  "@verifyServerKeyFor": {
+    "description": "Tilde app: Verify server key for {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "trustServerKey": "Trust server key",
+  "@trustServerKey": {
+    "description": "Tilde app: Trust server key"
+  },
+  "authenticateWithKey2": "Authenticate with key {arg0}.",
+  "@authenticateWithKey2": {
+    "description": "Tilde app: Authenticate with key {arg0}.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "disconnectAll": "Disconnect all",
+  "@disconnectAll": {
+    "description": "Tilde app: Disconnect all"
+  },
+  "disconnectAllSessions": "Disconnect all sessions?",
+  "@disconnectAllSessions": {
+    "description": "Tilde app: Disconnect all sessions?"
+  },
+  "disconnectAll2": "Disconnect all",
+  "@disconnectAll2": {
+    "description": "Tilde app: Disconnect all"
+  },
+  "removeServerKey": "Remove server key?",
+  "@removeServerKey": {
+    "description": "Tilde app: Remove server key?"
+  },
+  "theServerKeyWillBeVerifiedAgainOnThe": "The server key will be verified again on the next connection.",
+  "@theServerKeyWillBeVerifiedAgainOnThe": {
+    "description": "Tilde app: The server key will be verified again on the next connection."
+  },
+  "deleteServerKey": "Delete server key",
+  "@deleteServerKey": {
+    "description": "Tilde app: Delete server key"
+  },
+  "sessions": " · Sessions {arg0}",
+  "@sessions": {
+    "description": "Tilde app:  · Sessions {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "fileTransferSftp": "File transfer (SFTP)",
+  "@fileTransferSftp": {
+    "description": "Tilde app: File transfer (SFTP)"
+  },
+  "favorites": "Favorites",
+  "@favorites": {
+    "description": "Tilde app: Favorites"
+  },
+  "quickConnect": "Quick connect",
+  "@quickConnect": {
+    "description": "Tilde app: Quick connect"
+  },
+  "createSshKeyOnThisDevice": "Create SSH key on this device",
+  "@createSshKeyOnThisDevice": {
+    "description": "Tilde app: Create SSH key on this device"
+  },
+  "sort": "Sort",
+  "@sort": {
+    "description": "Tilde app: Sort"
+  },
+  "byColor": "By color",
+  "@byColor": {
+    "description": "Tilde app: By color"
+  },
+  "byName": "By name",
+  "@byName": {
+    "description": "Tilde app: By name"
+  },
+  "help": "Help",
+  "@help": {
+    "description": "Tilde app: Help"
+  },
+  "unlock": "Unlock",
+  "@unlock": {
+    "description": "Tilde app: Unlock"
+  },
+  "couldNotPrepareAppData": "Could not prepare app data",
+  "@couldNotPrepareAppData": {
+    "description": "Tilde app: Could not prepare app data"
+  },
+  "preparingTilde": "Preparing Tilde",
+  "@preparingTilde": {
+    "description": "Tilde app: Preparing Tilde"
+  },
+  "errorDetails": "Error details",
+  "@errorDetails": {
+    "description": "Tilde app: Error details"
+  },
+  "tildeHomeDirectory": "Tilde home directory",
+  "@tildeHomeDirectory": {
+    "description": "Tilde app: Tilde home directory"
+  },
+  "inProgress": "In progress",
+  "@inProgress": {
+    "description": "Tilde app: In progress"
+  },
+  "newOutput": "New output",
+  "@newOutput": {
+    "description": "Tilde app: New output"
+  },
+  "error": "Error",
+  "@error": {
+    "description": "Tilde app: Error"
+  },
+  "notConnected": "Not connected",
+  "@notConnected": {
+    "description": "Tilde app: Not connected"
+  },
+  "sessions2": " · {count, plural, one{{count} session} other{{count} sessions}}",
+  "@sessions2": {
+    "description": "Tilde app:  · {arg0} sessions",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "connectToYourFirstServer": "Connect to your first server",
+  "@connectToYourFirstServer": {
+    "description": "Tilde app: Connect to your first server"
+  },
+  "saveAHostToConnectWithADoubleClick": "Save a host to connect with a double-click next time.",
+  "@saveAHostToConnectWithADoubleClick": {
+    "description": "Tilde app: Save a host to connect with a double-click next time."
+  },
+  "saveAServerToConnectQuicklyNextTime": "Save a server to connect quickly next time.",
+  "@saveAServerToConnectQuicklyNextTime": {
+    "description": "Tilde app: Save a server to connect quickly next time."
+  },
+  "saveAddressUserAndAuthentication": "Save address, user, and authentication",
+  "@saveAddressUserAndAuthentication": {
+    "description": "Tilde app: Save address, user, and authentication"
+  },
+  "connectNow": "Connect now",
+  "@connectNow": {
+    "description": "Tilde app: Connect now"
+  },
+  "connectByAddress": "Connect by address",
+  "@connectByAddress": {
+    "description": "Tilde app: Connect by address"
+  },
+  "enterSshUserHostInTheSearchFieldAnd": "Enter ssh user@host in the search field and press Enter",
+  "@enterSshUserHostInTheSearchFieldAnd": {
+    "description": "Tilde app: Enter ssh user@host in the search field and press Enter"
+  },
+  "privateKeyFileSuchAsIdEd25519": "Private key file such as id_ed25519",
+  "@privateKeyFileSuchAsIdEd25519": {
+    "description": "Tilde app: Private key file such as id_ed25519"
+  },
+  "connectingTo": "Connecting to {arg0}:{arg1}",
+  "@connectingTo": {
+    "description": "Tilde app: Connecting to {arg0}:{arg1}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      },
+      "arg1": {
+        "type": "String"
+      }
+    }
+  },
+  "negotiatingSshConnection": "Negotiating SSH connection",
+  "@negotiatingSshConnection": {
+    "description": "Tilde app: Negotiating SSH connection"
+  },
+  "verifyingServerKey": "Verifying server key",
+  "@verifyingServerKey": {
+    "description": "Tilde app: Verifying server key"
+  },
+  "authenticating": "Authenticating {arg0}",
+  "@authenticating": {
+    "description": "Tilde app: Authenticating {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "authenticated": "Authenticated",
+  "@authenticated": {
+    "description": "Tilde app: Authenticated"
+  },
+  "openingTerminalSession": "Opening terminal session",
+  "@openingTerminalSession": {
+    "description": "Tilde app: Opening terminal session"
+  },
+  "confirmSshKeyUse": "Confirm SSH key use",
+  "@confirmSshKeyUse": {
+    "description": "Tilde app: Confirm SSH key use"
+  },
+  "sshPrivateKeyPassphrase": "SSH private key passphrase",
+  "@sshPrivateKeyPassphrase": {
+    "description": "Tilde app: SSH private key passphrase"
+  },
+  "connectionBlockedBecauseTheServerKeyChangedReviewAnd": "Connection blocked because the server key changed. Review and manually remove the saved server key.",
+  "@connectionBlockedBecauseTheServerKeyChangedReviewAnd": {
+    "description": "Tilde app: Connection blocked because the server key changed. Review and manually remove the saved server key."
+  },
+  "preparingSshLogin": "Preparing SSH login",
+  "@preparingSshLogin": {
+    "description": "Tilde app: Preparing SSH login"
+  },
+  "loggedInButCouldNotSaveThePasswordSave": "Logged in, but could not save the password. Save it again in the host editor.",
+  "@loggedInButCouldNotSaveThePasswordSave": {
+    "description": "Tilde app: Logged in, but could not save the password. Save it again in the host editor."
+  },
+  "sendTo": "Send to {arg0}",
+  "@sendTo": {
+    "description": "Tilde app: Send to {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "send2": "Send",
+  "@send2": {
+    "description": "Tilde app: Send"
+  },
+  "terminalSize": "Terminal size",
+  "@terminalSize": {
+    "description": "Tilde app: Terminal size"
+  },
+  "columns": "Columns",
+  "@columns": {
+    "description": "Tilde app: Columns"
+  },
+  "rows": "Rows",
+  "@rows": {
+    "description": "Tilde app: Rows"
+  },
+  "fullScreen": "Full screen",
+  "@fullScreen": {
+    "description": "Tilde app: Full screen"
+  },
+  "autoHideTitleBar": "Auto-hide title bar",
+  "@autoHideTitleBar": {
+    "description": "Tilde app: Auto-hide title bar"
+  },
+  "terminalSizeColumnsRows": "Terminal size · columns×rows",
+  "@terminalSizeColumnsRows": {
+    "description": "Tilde app: Terminal size · columns×rows"
+  },
+  "resize": "Resize",
+  "@resize": {
+    "description": "Tilde app: Resize"
+  },
+  "text8024LeaveBlankForAutomaticSizing": "80×24 · leave blank for automatic sizing",
+  "@text8024LeaveBlankForAutomaticSizing": {
+    "description": "Tilde app: 80×24 · leave blank for automatic sizing"
+  },
+  "enterColumnsRowsSuchAs8024": "Enter columns×rows, such as 80×24.",
+  "@enterColumnsRowsSuchAs8024": {
+    "description": "Tilde app: Enter columns×rows, such as 80×24."
+  },
+  "terminalLinks": "Terminal links",
+  "@terminalLinks": {
+    "description": "Tilde app: Terminal links"
+  },
+  "noLinksOnScreen": "No links on screen.",
+  "@noLinksOnScreen": {
+    "description": "Tilde app: No links on screen."
+  },
+  "enterText": "Enter text",
+  "@enterText": {
+    "description": "Tilde app: Enter text"
+  },
+  "links": "Links",
+  "@links": {
+    "description": "Tilde app: Links"
+  },
+  "reconnect": "Reconnect",
+  "@reconnect": {
+    "description": "Tilde app: Reconnect"
+  },
+  "couldNotVerifyServerKey": "Could not verify server key",
+  "@couldNotVerifyServerKey": {
+    "description": "Tilde app: Could not verify server key"
+  },
+  "couldNotLogIn": "Could not log in",
+  "@couldNotLogIn": {
+    "description": "Tilde app: Could not log in"
+  },
+  "couldNotOpenTerminal": "Could not open terminal",
+  "@couldNotOpenTerminal": {
+    "description": "Tilde app: Could not open terminal"
+  },
+  "couldNotConnectToServer": "Could not connect to server",
+  "@couldNotConnectToServer": {
+    "description": "Tilde app: Could not connect to server"
+  },
+  "connectingTo2": "Connecting to {arg0}",
+  "@connectingTo2": {
+    "description": "Tilde app: Connecting to {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "checkTheSavedServerKeyAndTheFingerprintProvided": "Check the saved server key and the fingerprint provided by the server administrator.",
+  "@checkTheSavedServerKeyAndTheFingerprintProvided": {
+    "description": "Tilde app: Check the saved server key and the fingerprint provided by the server administrator."
+  },
+  "checkYourUsernameAndCredentialsIfUsingAnSsh": "Check your username and credentials. If using an SSH key, register the public key on the server.",
+  "@checkYourUsernameAndCredentialsIfUsingAnSsh": {
+    "description": "Tilde app: Check your username and credentials. If using an SSH key, register the public key on the server."
+  },
+  "checkTheServerAddressPortAndNetworkConnection": "Check the server address, port, and network connection.",
+  "@checkTheServerAddressPortAndNetworkConnection": {
+    "description": "Tilde app: Check the server address, port, and network connection."
+  },
+  "connectionLog": "Connection log",
+  "@connectionLog": {
+    "description": "Tilde app: Connection log"
+  },
+  "deviceList": "Device list",
+  "@deviceList": {
+    "description": "Tilde app: Device list"
+  },
+  "view": "View",
+  "@view": {
+    "description": "Tilde app: View"
+  },
+  "dismissBanner": "Dismiss banner",
+  "@dismissBanner": {
+    "description": "Tilde app: Dismiss banner"
+  },
+  "connectionClosed": "Connection closed",
+  "@connectionClosed": {
+    "description": "Tilde app: Connection closed"
+  },
+  "theServerEndedTheSession": "The server ended the session",
+  "@theServerEndedTheSession": {
+    "description": "Tilde app: The server ended the session"
+  },
+  "connectionEndedAfterAuthenticationFailed": "Connection ended after authentication failed",
+  "@connectionEndedAfterAuthenticationFailed": {
+    "description": "Tilde app: Connection ended after authentication failed"
+  },
+  "connectionLost": "Connection lost",
+  "@connectionLost": {
+    "description": "Tilde app: Connection lost"
+  },
+  "ended": "Ended · {arg0}",
+  "@ended": {
+    "description": "Tilde app: Ended · {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "copyOutput": "Copy output",
+  "@copyOutput": {
+    "description": "Tilde app: Copy output"
+  },
+  "sshKey": "{arg0} SSH key",
+  "@sshKey": {
+    "description": "Tilde app: {arg0} SSH key",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotPrepareRegistration": "Could not prepare registration",
+  "@couldNotPrepareRegistration": {
+    "description": "Tilde app: Could not prepare registration"
+  },
+  "keyToRegister": "Key to register",
+  "@keyToRegister": {
+    "description": "Tilde app: Key to register"
+  },
+  "newBiometricKey": "New biometric key",
+  "@newBiometricKey": {
+    "description": "Tilde app: New biometric key"
+  },
+  "createNewSshKey": "Create new SSH key",
+  "@createNewSshKey": {
+    "description": "Tilde app: Create new SSH key"
+  },
+  "registerSshKeyLogin": "Register SSH key login",
+  "@registerSshKeyLogin": {
+    "description": "Tilde app: Register SSH key login"
+  },
+  "keyRegistration": "{arg0} key registration{arg1}",
+  "@keyRegistration": {
+    "description": "Tilde app: {arg0} key registration{arg1}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      },
+      "arg1": {
+        "type": "String"
+      }
+    }
+  },
+  "anotherHost": "Another host",
+  "@anotherHost": {
+    "description": "Tilde app: Another host"
+  },
+  "isInProgress": " is in progress",
+  "@isInProgress": {
+    "description": "Tilde app:  is in progress"
+  },
+  "isComplete": " is complete",
+  "@isComplete": {
+    "description": "Tilde app:  is complete"
+  },
+  "registrationPreparationForThisHost": "Registration preparation for this host",
+  "@registrationPreparationForThisHost": {
+    "description": "Tilde app: Registration preparation for this host"
+  },
+  "installThePublicKeyThenVerifyKeyLoginWith": "Install the public key, then verify key login with a separate connection.",
+  "@installThePublicKeyThenVerifyKeyLoginWith": {
+    "description": "Tilde app: Install the public key, then verify key login with a separate connection."
+  },
+  "newKeyName": "New key name",
+  "@newKeyName": {
+    "description": "Tilde app: New key name"
+  },
+  "progress": "Progress",
+  "@progress": {
+    "description": "Tilde app: Progress"
+  },
+  "installPublicKey": "Install public key",
+  "@installPublicKey": {
+    "description": "Tilde app: Install public key"
+  },
+  "verifyKeyLogin": "Verify key login",
+  "@verifyKeyLogin": {
+    "description": "Tilde app: Verify key login"
+  },
+  "applyToHost": "Apply to host",
+  "@applyToHost": {
+    "description": "Tilde app: Apply to host"
+  },
+  "theServerRejectedTheKey": "The server rejected the key",
+  "@theServerRejectedTheKey": {
+    "description": "Tilde app: The server rejected the key"
+  },
+  "theServerRequiresAdditionalAuthentication": "The server requires additional authentication",
+  "@theServerRequiresAdditionalAuthentication": {
+    "description": "Tilde app: The server requires additional authentication"
+  },
+  "couldNotCompleteThisStep": "Could not complete this step",
+  "@couldNotCompleteThisStep": {
+    "description": "Tilde app: Could not complete this step"
+  },
+  "installedOnServer": "Installed on server",
+  "@installedOnServer": {
+    "description": "Tilde app: Installed on server"
+  },
+  "keyAlreadyInstalled": "Key already installed",
+  "@keyAlreadyInstalled": {
+    "description": "Tilde app: Key already installed"
+  },
+  "keyLoginVerified": "Key login verified",
+  "@keyLoginVerified": {
+    "description": "Tilde app: Key login verified"
+  },
+  "theServerRejectedThisKey": "The server rejected this key",
+  "@theServerRejectedThisKey": {
+    "description": "Tilde app: The server rejected this key"
+  },
+  "registrationComplete": "Registration complete",
+  "@registrationComplete": {
+    "description": "Tilde app: Registration complete"
+  },
+  "usingKey": "Using key {arg0}",
+  "@usingKey": {
+    "description": "Tilde app: Using key {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "removeSavedPasswordForThisHost": "Remove saved password for this host",
+  "@removeSavedPasswordForThisHost": {
+    "description": "Tilde app: Remove saved password for this host"
+  },
+  "registerAndVerify": "Register and verify",
+  "@registerAndVerify": {
+    "description": "Tilde app: Register and verify"
+  },
+  "continueInBackground": "Continue in background",
+  "@continueInBackground": {
+    "description": "Tilde app: Continue in background"
+  },
+  "previewColorThemeFontAndMargins": "Preview color theme, font, and margins",
+  "@previewColorThemeFontAndMargins": {
+    "description": "Tilde app: Preview color theme, font, and margins"
+  },
+  "srcBuildSampleMd": "\nsrc  build  sample.md",
+  "@srcBuildSampleMd": {
+    "description": "Tilde app:  src  build  sample.md"
+  },
+  "specialKeyBarPreview": "Special key bar preview",
+  "@specialKeyBarPreview": {
+    "description": "Tilde app: Special key bar preview"
+  },
+  "fileTransferIsAvailableForSshHosts": "File transfer is available for SSH hosts.",
+  "@fileTransferIsAvailableForSshHosts": {
+    "description": "Tilde app: File transfer is available for SSH hosts."
+  },
+  "registerAKeyFromAConnectedSshSession": "Register a key from a connected SSH session.",
+  "@registerAKeyFromAConnectedSshSession": {
+    "description": "Tilde app: Register a key from a connected SSH session."
+  },
+  "onlySshAndLocalConnectionsAreSupported": "Only SSH and local connections are supported.",
+  "@onlySshAndLocalConnectionsAreSupported": {
+    "description": "Tilde app: Only SSH and local connections are supported."
+  },
+  "theConnectionTypeChangedOpenANewSessionFrom": "The connection type changed. Open a new session from Home.",
+  "@theConnectionTypeChangedOpenANewSessionFrom": {
+    "description": "Tilde app: The connection type changed. Open a new session from Home."
+  },
+  "calculatingTimeRemaining": "Calculating time remaining",
+  "@calculatingTimeRemaining": {
+    "description": "Tilde app: Calculating time remaining"
+  },
+  "minutesSecondsRemaining": "{arg0}m {arg1}s remaining",
+  "@minutesSecondsRemaining": {
+    "description": "Tilde app: {arg0}m {arg1}s remaining",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      },
+      "arg1": {
+        "type": "String"
+      }
+    }
+  },
+  "secondsRemaining": "{arg0}s remaining",
+  "@secondsRemaining": {
+    "description": "Tilde app: {arg0}s remaining",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelling": "{arg0} · Cancelling…",
+  "@cancelling": {
+    "description": "Tilde app: {arg0} · Cancelling…",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingSize": "Checking size",
+  "@checkingSize": {
+    "description": "Tilde app: Checking size"
+  },
+  "calculatingSpeed": "Calculating speed",
+  "@calculatingSpeed": {
+    "description": "Tilde app: Calculating speed"
+  },
+  "active": "Active {arg0}",
+  "@active": {
+    "description": "Tilde app: Active {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "queued": "Queued {arg0}",
+  "@queued": {
+    "description": "Tilde app: Queued {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "failed": "Failed {arg0}",
+  "@failed": {
+    "description": "Tilde app: Failed {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "completed": "Completed {arg0}",
+  "@completed": {
+    "description": "Tilde app: Completed {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelled": "Cancelled {arg0}",
+  "@cancelled": {
+    "description": "Tilde app: Cancelled {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "noTransfers": "No transfers",
+  "@noTransfers": {
+    "description": "Tilde app: No transfers"
+  },
+  "queued2": "Queued",
+  "@queued2": {
+    "description": "Tilde app: Queued"
+  },
+  "paused": "Paused",
+  "@paused": {
+    "description": "Tilde app: Paused"
+  },
+  "completed2": "Completed",
+  "@completed2": {
+    "description": "Tilde app: Completed"
+  },
+  "failed2": "Failed",
+  "@failed2": {
+    "description": "Tilde app: Failed"
+  },
+  "cancelOperation": "Cancel operation",
+  "@cancelOperation": {
+    "description": "Tilde app: Cancel operation"
+  },
+  "openFolder": "Open folder",
+  "@openFolder": {
+    "description": "Tilde app: Open folder"
+  },
+  "couldNotComplete": "Could not complete {arg0}",
+  "@couldNotComplete": {
+    "description": "Tilde app: Could not complete {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "items2": "{arg0} / {arg1} items{arg2}",
+  "@items2": {
+    "description": "Tilde app: {arg0} / {arg1} items{arg2}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      },
+      "arg1": {
+        "type": "String"
+      },
+      "arg2": {
+        "type": "String"
+      }
+    }
+  },
+  "transfer": "Transfer · {arg0}",
+  "@transfer": {
+    "description": "Tilde app: Transfer · {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "transferQueue": "Transfer queue",
+  "@transferQueue": {
+    "description": "Tilde app: Transfer queue"
+  },
+  "clearCompleted": "Clear completed",
+  "@clearCompleted": {
+    "description": "Tilde app: Clear completed"
+  },
+  "collapseTransferQueue": "Collapse transfer queue",
+  "@collapseTransferQueue": {
+    "description": "Tilde app: Collapse transfer queue"
+  },
+  "expandTransferQueue": "Expand transfer queue",
+  "@expandTransferQueue": {
+    "description": "Tilde app: Expand transfer queue"
+  },
+  "all": "All",
+  "@all": {
+    "description": "Tilde app: All"
+  },
+  "selectARegularFile": "Select a regular file.",
+  "@selectARegularFile": {
+    "description": "Tilde app: Select a regular file."
+  },
+  "aFileWithTheSameNameAlreadyExists": "A file with the same name already exists.",
+  "@aFileWithTheSameNameAlreadyExists": {
+    "description": "Tilde app: A file with the same name already exists."
+  },
+  "theSourceFileSizeChangedDuringTransfer": "The source file size changed during transfer.",
+  "@theSourceFileSizeChangedDuringTransfer": {
+    "description": "Tilde app: The source file size changed during transfer."
+  },
+  "aFileWithTheSameNameAppearedDuringTransfer": "A file with the same name appeared during transfer.",
+  "@aFileWithTheSameNameAppearedDuringTransfer": {
+    "description": "Tilde app: A file with the same name appeared during transfer."
+  },
+  "couldNotRemoveTheTemporaryUploadFileCheckThe": "Could not remove the temporary upload file. Check the server. {arg0}",
+  "@couldNotRemoveTheTemporaryUploadFileCheckThe": {
+    "description": "Tilde app: Could not remove the temporary upload file. Check the server. {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotInspectTheTemporaryUploadFileCheckThe": "Could not inspect the temporary upload file. Check the server. {arg0}",
+  "@couldNotInspectTheTemporaryUploadFileCheckThe": {
+    "description": "Tilde app: Could not inspect the temporary upload file. Check the server. {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "changePermissions": "Change permissions",
+  "@changePermissions": {
+    "description": "Tilde app: Change permissions"
+  },
+  "read": "Read",
+  "@read": {
+    "description": "Tilde app: Read"
+  },
+  "write": "Write",
+  "@write": {
+    "description": "Tilde app: Write"
+  },
+  "execute": "Execute",
+  "@execute": {
+    "description": "Tilde app: Execute"
+  },
+  "owner": "Owner",
+  "@owner": {
+    "description": "Tilde app: Owner"
+  },
+  "group": "Group",
+  "@group": {
+    "description": "Tilde app: Group"
+  },
+  "other": "Other",
+  "@other": {
+    "description": "Tilde app: Other"
+  },
+  "octalPermissions": "Octal permissions",
+  "@octalPermissions": {
+    "description": "Tilde app: Octal permissions"
+  },
+  "enterThreeOrFourDigitsFrom0To7": "Enter three or four digits from 0 to 7.",
+  "@enterThreeOrFourDigitsFrom0To7": {
+    "description": "Tilde app: Enter three or four digits from 0 to 7."
+  },
+  "changePermissions2": "Change permissions",
+  "@changePermissions2": {
+    "description": "Tilde app: Change permissions"
+  },
+  "couldNotOpenFolderCheckThePathAndPermissions": "Could not open folder. Check the path and permissions.\n{arg0}",
+  "@couldNotOpenFolderCheckThePathAndPermissions": {
+    "description": "Tilde app: Could not open folder. Check the path and permissions. {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "newFolder": "New folder",
+  "@newFolder": {
+    "description": "Tilde app: New folder"
+  },
+  "create": "Create",
+  "@create": {
+    "description": "Tilde app: Create"
+  },
+  "destinationFolder": "Destination folder",
+  "@destinationFolder": {
+    "description": "Tilde app: Destination folder"
+  },
+  "move": "Move {arg0}",
+  "@move": {
+    "description": "Tilde app: Move {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "moveItems": "Move {arg0} items",
+  "@moveItems": {
+    "description": "Tilde app: Move {arg0} items",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "parentFolder": "Parent folder",
+  "@parentFolder": {
+    "description": "Tilde app: Parent folder"
+  },
+  "folderPath": "Folder path",
+  "@folderPath": {
+    "description": "Tilde app: Folder path"
+  },
+  "editPath": "Edit path",
+  "@editPath": {
+    "description": "Tilde app: Edit path"
+  },
+  "moveHere": "Move here",
+  "@moveHere": {
+    "description": "Tilde app: Move here"
+  },
+  "permanentlyDeleteItems": "Permanently delete {arg0} items?",
+  "@permanentlyDeleteItems": {
+    "description": "Tilde app: Permanently delete {arg0} items?",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "childItems": "{arg0} child items",
+  "@childItems": {
+    "description": "Tilde app: {arg0} child items",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "checkingContents": "Checking contents…",
+  "@checkingContents": {
+    "description": "Tilde app: Checking contents…"
+  },
+  "couldNotInspectFolderContentsTryAgain": "Could not inspect folder contents. Try again.",
+  "@couldNotInspectFolderContentsTryAgain": {
+    "description": "Tilde app: Could not inspect folder contents. Try again."
+  },
+  "deleteAllItemsIncludingFolderContentsThisCannotBe": "Delete all {arg0} items, including folder contents. This cannot be undone.",
+  "@deleteAllItemsIncludingFolderContentsThisCannotBe": {
+    "description": "Tilde app: Delete all {arg0} items, including folder contents. This cannot be undone.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteImmediatelyWithoutUsingTrashThisCannotBeUndone": "Delete immediately without using Trash. This cannot be undone.",
+  "@deleteImmediatelyWithoutUsingTrashThisCannotBeUndone": {
+    "description": "Tilde app: Delete immediately without using Trash. This cannot be undone."
+  },
+  "deletePermanently": "Delete permanently",
+  "@deletePermanently": {
+    "description": "Tilde app: Delete permanently"
+  },
+  "unknownModificationDate": "Unknown modification date",
+  "@unknownModificationDate": {
+    "description": "Tilde app: Unknown modification date"
+  },
+  "aFileWithTheSameNameExists": "A file with the same name exists",
+  "@aFileWithTheSameNameExists": {
+    "description": "Tilde app: A file with the same name exists"
+  },
+  "transferringItems": "Transferring {arg0} / {arg1} items",
+  "@transferringItems": {
+    "description": "Tilde app: Transferring {arg0} / {arg1} items",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      },
+      "arg1": {
+        "type": "String"
+      }
+    }
+  },
+  "chooseWhichFileToKeepForEachConflict": "Choose which file to keep for each conflict.",
+  "@chooseWhichFileToKeepForEachConflict": {
+    "description": "Tilde app: Choose which file to keep for each conflict."
+  },
+  "fileBeingUploaded": "File being uploaded",
+  "@fileBeingUploaded": {
+    "description": "Tilde app: File being uploaded"
+  },
+  "fileBeingDownloaded": "File being downloaded",
+  "@fileBeingDownloaded": {
+    "description": "Tilde app: File being downloaded"
+  },
+  "existingFileOnServer": "Existing file on server",
+  "@existingFileOnServer": {
+    "description": "Tilde app: Existing file on server"
+  },
+  "existingFileOnDevice": "Existing file on device",
+  "@existingFileOnDevice": {
+    "description": "Tilde app: Existing file on device"
+  },
+  "unknownSize": "Unknown size",
+  "@unknownSize": {
+    "description": "Tilde app: Unknown size"
+  },
+  "keepTheExistingFileAndSkipCopyingThisFile": "Keep the existing file and skip copying this file.",
+  "@keepTheExistingFileAndSkipCopyingThisFile": {
+    "description": "Tilde app: Keep the existing file and skip copying this file."
+  },
+  "keepBothAddTheFirstAvailableNumberStartingAt": "Keep both. Add the first available number, starting at (1), before the copied file extension.",
+  "@keepBothAddTheFirstAvailableNumberStartingAt": {
+    "description": "Tilde app: Keep both. Add the first available number, starting at (1), before the copied file extension."
+  },
+  "overwriteTheExistingFileWithTheCopiedFileThis": "Overwrite the existing file with the copied file. This cannot be undone.",
+  "@overwriteTheExistingFileWithTheCopiedFileThis": {
+    "description": "Tilde app: Overwrite the existing file with the copied file. This cannot be undone."
+  },
+  "cancelCopyingKeepTheExistingFile": "Cancel copying. Keep the existing file.",
+  "@cancelCopyingKeepTheExistingFile": {
+    "description": "Tilde app: Cancel copying. Keep the existing file."
+  },
+  "applyToRemainingItems": "Apply to {arg0} remaining items",
+  "@applyToRemainingItems": {
+    "description": "Tilde app: Apply to {arg0} remaining items",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelTransfer": "Cancel transfer",
+  "@cancelTransfer": {
+    "description": "Tilde app: Cancel transfer"
+  },
+  "cancelCopy": "Cancel copy",
+  "@cancelCopy": {
+    "description": "Tilde app: Cancel copy"
+  },
+  "loggingInForFileTransfer": "Logging in for file transfer",
+  "@loggingInForFileTransfer": {
+    "description": "Tilde app: Logging in for file transfer"
+  },
+  "couldNotLogInForFileTransfer": "Could not log in for file transfer.",
+  "@couldNotLogInForFileTransfer": {
+    "description": "Tilde app: Could not log in for file transfer."
+  },
+  "previewSupportsFilesUpTo4MibDownloadThe": "Preview supports files up to 4 MiB. Download the file to open it.",
+  "@previewSupportsFilesUpTo4MibDownloadThe": {
+    "description": "Tilde app: Preview supports files up to 4 MiB. Download the file to open it."
+  },
+  "saveFile": "Save file",
+  "@saveFile": {
+    "description": "Tilde app: Save file"
+  },
+  "theEditorCannotOverwriteFoldersOrSymbolicLinks": "The editor cannot overwrite folders or symbolic links.",
+  "@theEditorCannotOverwriteFoldersOrSymbolicLinks": {
+    "description": "Tilde app: The editor cannot overwrite folders or symbolic links."
+  },
+  "serverFileChanged": "Server file changed",
+  "@serverFileChanged": {
+    "description": "Tilde app: Server file changed"
+  },
+  "theServerFileChangedAfterEditingBeganOverwriteIt": "{arg0}\nThe server file changed after editing began. Overwrite it?",
+  "@theServerFileChangedAfterEditingBeganOverwriteIt": {
+    "description": "Tilde app: {arg0} The server file changed after editing began. Overwrite it?",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "overwriteTheExistingFile": "{arg0}\nOverwrite the existing file?",
+  "@overwriteTheExistingFile": {
+    "description": "Tilde app: {arg0} Overwrite the existing file?",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "overwrite": "Overwrite",
+  "@overwrite": {
+    "description": "Tilde app: Overwrite"
+  },
+  "couldNotReconnectToTheServerCheckAuthenticationIn": "Could not reconnect to the server. Check authentication in the file browser.",
+  "@couldNotReconnectToTheServerCheckAuthenticationIn": {
+    "description": "Tilde app: Could not reconnect to the server. Check authentication in the file browser."
+  },
+  "saveACopyElsewhere": "Save a copy elsewhere",
+  "@saveACopyElsewhere": {
+    "description": "Tilde app: Save a copy elsewhere"
+  },
+  "saveCopy": "Save copy",
+  "@saveCopy": {
+    "description": "Tilde app: Save copy"
+  },
+  "enterAnAbsolutePathIncludingTheFileName": "Enter an absolute path including the file name.",
+  "@enterAnAbsolutePathIncludingTheFileName": {
+    "description": "Tilde app: Enter an absolute path including the file name."
+  },
+  "enterAPathDifferentFromTheOriginal": "Enter a path different from the original.",
+  "@enterAPathDifferentFromTheOriginal": {
+    "description": "Tilde app: Enter a path different from the original."
+  },
+  "newFile": "New file",
+  "@newFile": {
+    "description": "Tilde app: New file"
+  },
+  "anItemWithTheSameNameAlreadyExists": "An item with the same name already exists.",
+  "@anItemWithTheSameNameAlreadyExists": {
+    "description": "Tilde app: An item with the same name already exists."
+  },
+  "thisItemIsBeingTransferred": "This item is being transferred.",
+  "@thisItemIsBeingTransferred": {
+    "description": "Tilde app: This item is being transferred."
+  },
+  "rename": "Rename",
+  "@rename": {
+    "description": "Tilde app: Rename"
+  },
+  "change": "Change",
+  "@change": {
+    "description": "Tilde app: Change"
+  },
+  "creatingFolder": "Creating folder",
+  "@creatingFolder": {
+    "description": "Tilde app: Creating folder"
+  },
+  "folderCreated": "Folder created.",
+  "@folderCreated": {
+    "description": "Tilde app: Folder created."
+  },
+  "deleting": "Deleting",
+  "@deleting": {
+    "description": "Tilde app: Deleting"
+  },
+  "deletingItems": "Deleting {arg0} items",
+  "@deletingItems": {
+    "description": "Tilde app: Deleting {arg0} items",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "deletedItems": "Deleted {arg0} items.",
+  "@deletedItems": {
+    "description": "Tilde app: Deleted {arg0} items.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "itemsWereDeleted": " · {arg0} items were deleted.",
+  "@itemsWereDeleted": {
+    "description": "Tilde app:  · {arg0} items were deleted.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "changingPermissions": "Changing permissions",
+  "@changingPermissions": {
+    "description": "Tilde app: Changing permissions"
+  },
+  "symbolicLinkPermissionsWillNotBeChanged": "Symbolic link permissions will not be changed.",
+  "@symbolicLinkPermissionsWillNotBeChanged": {
+    "description": "Tilde app: Symbolic link permissions will not be changed."
+  },
+  "permissionsChanged": "Permissions changed.",
+  "@permissionsChanged": {
+    "description": "Tilde app: Permissions changed."
+  },
+  "operationCancelled": "Operation cancelled.{arg0}",
+  "@operationCancelled": {
+    "description": "Tilde app: Operation cancelled.{arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotCompleteOperation2": "Could not complete operation.{arg0}",
+  "@couldNotCompleteOperation2": {
+    "description": "Tilde app: Could not complete operation.{arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "itemsPasteInTheDestinationFolder": "{arg0} items: {arg1} · Paste in the destination folder.",
+  "@itemsPasteInTheDestinationFolder": {
+    "description": "Tilde app: {arg0} items: {arg1} · Paste in the destination folder.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      },
+      "arg1": {
+        "type": "String"
+      }
+    }
+  },
+  "cut": "Cut",
+  "@cut": {
+    "description": "Tilde app: Cut"
+  },
+  "noFilesToPaste": "No files to paste.",
+  "@noFilesToPaste": {
+    "description": "Tilde app: No files to paste."
+  },
+  "cannotMoveOrCopyToTheSameLocationOr": "Cannot move or copy to the same location or inside the source folder.",
+  "@cannotMoveOrCopyToTheSameLocationOr": {
+    "description": "Tilde app: Cannot move or copy to the same location or inside the source folder."
+  },
+  "move2": "Move",
+  "@move2": {
+    "description": "Tilde app: Move"
+  },
+  "copyTemporaryDownloadAndUpload": "Copy (temporary download and upload)",
+  "@copyTemporaryDownloadAndUpload": {
+    "description": "Tilde app: Copy (temporary download and upload)"
+  },
+  "upload": "Upload",
+  "@upload": {
+    "description": "Tilde app: Upload"
+  },
+  "download": "Download",
+  "@download": {
+    "description": "Tilde app: Download"
+  },
+  "choosingAFolderDestinationIsUnsupportedOnThisPlatform": "Choosing a folder destination is unsupported on this platform.",
+  "@choosingAFolderDestinationIsUnsupportedOnThisPlatform": {
+    "description": "Tilde app: Choosing a folder destination is unsupported on this platform."
+  },
+  "connectionClosed2": "Connection closed.",
+  "@connectionClosed2": {
+    "description": "Tilde app: Connection closed."
+  },
+  "downloadToFileManager": "Download to file manager",
+  "@downloadToFileManager": {
+    "description": "Tilde app: Download to file manager"
+  },
+  "theTemporaryExportPathAlreadyExists": "The temporary export path already exists.",
+  "@theTemporaryExportPathAlreadyExists": {
+    "description": "Tilde app: The temporary export path already exists."
+  },
+  "cancelTransfersAndClose": "Cancel transfers and close",
+  "@cancelTransfersAndClose": {
+    "description": "Tilde app: Cancel transfers and close"
+  },
+  "cancelActiveTransfersAndQueuedOperationsInThisTab": "Cancel active transfers and queued operations in this tab?",
+  "@cancelActiveTransfersAndQueuedOperationsInThisTab": {
+    "description": "Tilde app: Cancel active transfers and queued operations in this tab?"
+  },
+  "uploadFolder": "Upload folder",
+  "@uploadFolder": {
+    "description": "Tilde app: Upload folder"
+  },
+  "connectionCancelled": "Connection cancelled",
+  "@connectionCancelled": {
+    "description": "Tilde app: Connection cancelled"
+  },
+  "couldNotOpenFileList": "Could not open file list",
+  "@couldNotOpenFileList": {
+    "description": "Tilde app: Could not open file list"
+  },
+  "fileTransfer2": "{arg0} · File transfer",
+  "@fileTransfer2": {
+    "description": "Tilde app: {arg0} · File transfer",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "fileList": "File list",
+  "@fileList": {
+    "description": "Tilde app: File list"
+  },
+  "checkTheFolderPathAndPermissionsThenTryAgain": "Check the folder path and permissions, then try again.",
+  "@checkTheFolderPathAndPermissionsThenTryAgain": {
+    "description": "Tilde app: Check the folder path and permissions, then try again."
+  },
+  "bookmarkCurrentFolder": "Bookmark current folder",
+  "@bookmarkCurrentFolder": {
+    "description": "Tilde app: Bookmark current folder"
+  },
+  "recentLocations": "Recent locations",
+  "@recentLocations": {
+    "description": "Tilde app: Recent locations"
+  },
+  "selected": "{arg0} selected",
+  "@selected": {
+    "description": "Tilde app: {arg0} selected",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "forward": "Forward",
+  "@forward": {
+    "description": "Tilde app: Forward"
+  },
+  "remoteFolderPath": "Remote folder path",
+  "@remoteFolderPath": {
+    "description": "Tilde app: Remote folder path"
+  },
+  "bookmarksAndRecentLocations": "Bookmarks and recent locations",
+  "@bookmarksAndRecentLocations": {
+    "description": "Tilde app: Bookmarks and recent locations"
+  },
+  "refresh": "Refresh",
+  "@refresh": {
+    "description": "Tilde app: Refresh"
+  },
+  "findInCurrentFolder": "Find in current folder",
+  "@findInCurrentFolder": {
+    "description": "Tilde app: Find in current folder"
+  },
+  "readOnly": "Read only",
+  "@readOnly": {
+    "description": "Tilde app: Read only"
+  },
+  "discardChanges2": "Discard changes",
+  "@discardChanges2": {
+    "description": "Tilde app: Discard changes"
+  },
+  "discardUnsavedChanges": "{arg0}\nDiscard unsaved changes?",
+  "@discardUnsavedChanges": {
+    "description": "Tilde app: {arg0} Discard unsaved changes?",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "doNotSave": "Do not save",
+  "@doNotSave": {
+    "description": "Tilde app: Do not save"
+  },
+  "editing": "Editing",
+  "@editing": {
+    "description": "Tilde app: Editing"
+  },
+  "saveCopyKeepOriginalUnchanged": "Save copy · keep original unchanged",
+  "@saveCopyKeepOriginalUnchanged": {
+    "description": "Tilde app: Save copy · keep original unchanged"
+  },
+  "savedACopyTo": "Saved a copy to {arg0}.",
+  "@savedACopyTo": {
+    "description": "Tilde app: Saved a copy to {arg0}.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "saved2": "Saved.",
+  "@saved2": {
+    "description": "Tilde app: Saved."
+  },
+  "couldNotOpenFile": "Could not open file",
+  "@couldNotOpenFile": {
+    "description": "Tilde app: Could not open file"
+  },
+  "couldNotOpen": "Could not open {arg0}",
+  "@couldNotOpen": {
+    "description": "Tilde app: Could not open {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "previewIsUnsupportedForThisFileType": "Preview is unsupported for this file type.",
+  "@previewIsUnsupportedForThisFileType": {
+    "description": "Tilde app: Preview is unsupported for this file type."
+  },
+  "couldNotSaveYourChangesHaveBeenKept": "Could not save. Your changes have been kept.",
+  "@couldNotSaveYourChangesHaveBeenKept": {
+    "description": "Tilde app: Could not save. Your changes have been kept."
+  },
+  "couldNotSave2": "Could not save {arg0}",
+  "@couldNotSave2": {
+    "description": "Tilde app: Could not save {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "utf8LineBytes": " · UTF-8{arg0} · {arg1} lines · {arg2} B",
+  "@utf8LineBytes": {
+    "description": "Tilde app:  · UTF-8{arg0} · {arg1} lines · {arg2} B",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      },
+      "arg1": {
+        "type": "String"
+      },
+      "arg2": {
+        "type": "String"
+      }
+    }
+  },
+  "unsupportedFileType": "Unsupported file type.",
+  "@unsupportedFileType": {
+    "description": "Tilde app: Unsupported file type."
+  },
+  "unsupportedRemoteFileType": "Unsupported remote file type.",
+  "@unsupportedRemoteFileType": {
+    "description": "Tilde app: Unsupported remote file type."
+  },
+  "theTransferSourceChangedStartANewTransfer": "The transfer source changed. Start a new transfer.",
+  "@theTransferSourceChangedStartANewTransfer": {
+    "description": "Tilde app: The transfer source changed. Start a new transfer."
+  },
+  "anItemWithThisNameExistsAndIsNot": "An item with this name exists and is not a folder.",
+  "@anItemWithThisNameExistsAndIsNot": {
+    "description": "Tilde app: An item with this name exists and is not a folder."
+  },
+  "cannotOverwriteAFolderWithAFile": "Cannot overwrite a folder with a file.",
+  "@cannotOverwriteAFolderWithAFile": {
+    "description": "Tilde app: Cannot overwrite a folder with a file."
+  },
+  "namesCannotContainPathSeparatorsOrBeOr": "Names cannot contain path separators or be . or ...",
+  "@namesCannotContainPathSeparatorsOrBeOr": {
+    "description": "Tilde app: Names cannot contain path separators or be . or ..."
+  },
+  "aFileOrFolderWithTheSameNameAlready": "A file or folder with the same name already exists.",
+  "@aFileOrFolderWithTheSameNameAlready": {
+    "description": "Tilde app: A file or folder with the same name already exists."
+  },
+  "cannotMoveAFolderIntoItselfOrItsDescendants": "Cannot move a folder into itself or its descendants.",
+  "@cannotMoveAFolderIntoItselfOrItsDescendants": {
+    "description": "Tilde app: Cannot move a folder into itself or its descendants."
+  },
+  "cannotDeleteTheRootFolder": "Cannot delete the root folder.",
+  "@cannotDeleteTheRootFolder": {
+    "description": "Tilde app: Cannot delete the root folder."
+  },
+  "theServerDeniedAccessCheckTheDestinationPathPermissions": "The server denied access. Check the destination path permissions.",
+  "@theServerDeniedAccessCheckTheDestinationPathPermissions": {
+    "description": "Tilde app: The server denied access. Check the destination path permissions."
+  },
+  "theFileOrFolderNoLongerExists": "The file or folder no longer exists.",
+  "@theFileOrFolderNoLongerExists": {
+    "description": "Tilde app: The file or folder no longer exists."
+  },
+  "serverConnectionLost": "Server connection lost.",
+  "@serverConnectionLost": {
+    "description": "Tilde app: Server connection lost."
+  },
+  "theServerCouldNotCompleteTheOperation": "The server could not complete the operation.",
+  "@theServerCouldNotCompleteTheOperation": {
+    "description": "Tilde app: The server could not complete the operation."
+  },
+  "theServerIsNotRespondingCheckTheAddressAnd": "The server is not responding. Check the address and network.",
+  "@theServerIsNotRespondingCheckTheAddressAnd": {
+    "description": "Tilde app: The server is not responding. Check the address and network."
+  },
+  "theServerDidNotAuthenticateYouCheckYourUsername": "The server did not authenticate you. Check your username, key, and password.",
+  "@theServerDidNotAuthenticateYouCheckYourUsername": {
+    "description": "Tilde app: The server did not authenticate you. Check your username, key, and password."
+  },
+  "theServerRefusedTheConnectionCheckSshAndPort": "The server refused the connection {arg0}. Check SSH and port settings.",
+  "@theServerRefusedTheConnectionCheckSshAndPort": {
+    "description": "Tilde app: The server refused the connection {arg0}. Check SSH and port settings.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "onPort": " on port {arg0}",
+  "@onPort": {
+    "description": "Tilde app:  on port {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "checkTheServerConnection": "Check the server connection.",
+  "@checkTheServerConnection": {
+    "description": "Tilde app: Check the server connection."
+  },
+  "unexpectedErrorCopyTheDetailsBelowAndContactSupport": "Unexpected error. Copy the details below and contact support.",
+  "@unexpectedErrorCopyTheDetailsBelowAndContactSupport": {
+    "description": "Tilde app: Unexpected error. Copy the details below and contact support."
+  },
+  "transferCancelled": "Transfer cancelled.",
+  "@transferCancelled": {
+    "description": "Tilde app: Transfer cancelled."
+  },
+  "invalidFileName": "Invalid file name.",
+  "@invalidFileName": {
+    "description": "Tilde app: Invalid file name."
+  },
+  "theFileWasNotReceivedCompletely": "The file was not received completely.",
+  "@theFileWasNotReceivedCompletely": {
+    "description": "Tilde app: The file was not received completely."
+  },
+  "size": "Size",
+  "@size": {
+    "description": "Tilde app: Size"
+  },
+  "modified": "Modified",
+  "@modified": {
+    "description": "Tilde app: Modified"
+  },
+  "permissions": "Permissions",
+  "@permissions": {
+    "description": "Tilde app: Permissions"
+  },
+  "ownerUid": "Owner UID",
+  "@ownerUid": {
+    "description": "Tilde app: Owner UID"
+  },
+  "groupGid": "Group GID",
+  "@groupGid": {
+    "description": "Tilde app: Group GID"
+  },
+  "showHiddenFilesAndFolders": "Show hidden files and folders",
+  "@showHiddenFilesAndFolders": {
+    "description": "Tilde app: Show hidden files and folders"
+  },
+  "descending": "Descending",
+  "@descending": {
+    "description": "Tilde app: Descending"
+  },
+  "visibleColumns": "Visible columns",
+  "@visibleColumns": {
+    "description": "Tilde app: Visible columns"
+  },
+  "preview": "Preview",
+  "@preview": {
+    "description": "Tilde app: Preview"
+  },
+  "move3": "Move…",
+  "@move3": {
+    "description": "Tilde app: Move…"
+  },
+  "copyPath": "Copy path",
+  "@copyPath": {
+    "description": "Tilde app: Copy path"
+  },
+  "info": "Info",
+  "@info": {
+    "description": "Tilde app: Info"
+  },
+  "changePermissions3": "Change permissions…",
+  "@changePermissions3": {
+    "description": "Tilde app: Change permissions…"
+  },
+  "fileInformation": "File information",
+  "@fileInformation": {
+    "description": "Tilde app: File information"
+  },
+  "path": "Path",
+  "@path": {
+    "description": "Tilde app: Path"
+  },
+  "type2": "Type",
+  "@type2": {
+    "description": "Tilde app: Type"
+  },
+  "folder": "Folder",
+  "@folder": {
+    "description": "Tilde app: Folder"
+  },
+  "symbolicLink": "Symbolic link",
+  "@symbolicLink": {
+    "description": "Tilde app: Symbolic link"
+  },
+  "file": "File",
+  "@file": {
+    "description": "Tilde app: File"
+  },
+  "clearSearch": "Clear search",
+  "@clearSearch": {
+    "description": "Tilde app: Clear search"
+  },
+  "location": "Location",
+  "@location": {
+    "description": "Tilde app: Location"
+  },
+  "selected2": "{arg0} selected · {arg1}",
+  "@selected2": {
+    "description": "Tilde app: {arg0} selected · {arg1}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      },
+      "arg1": {
+        "type": "String"
+      }
+    }
+  },
+  "parentFolderBackspace": "Parent folder (Backspace)",
+  "@parentFolderBackspace": {
+    "description": "Tilde app: Parent folder (Backspace)"
+  },
+  "loading": "Loading…",
+  "@loading": {
+    "description": "Tilde app: Loading…"
+  },
+  "noFilesToDisplay": "No files to display.",
+  "@noFilesToDisplay": {
+    "description": "Tilde app: No files to display."
+  },
+  "noMatchingFiles": "No matching files.",
+  "@noMatchingFiles": {
+    "description": "Tilde app: No matching files."
+  },
+  "applyNewName": "Apply new name",
+  "@applyNewName": {
+    "description": "Tilde app: Apply new name"
+  },
+  "actions": "{arg0} actions",
+  "@actions": {
+    "description": "Tilde app: {arg0} actions",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "items3": "{arg0} items{arg1}",
+  "@items3": {
+    "description": "Tilde app: {arg0} items{arg1}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      },
+      "arg1": {
+        "type": "String"
+      }
+    }
+  },
+  "hiddenFiltered": " · {arg0} hidden/filtered",
+  "@hiddenFiltered": {
+    "description": "Tilde app:  · {arg0} hidden/filtered",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "copy3": "{arg0} copy",
+  "@copy3": {
+    "description": "Tilde app: {arg0} copy",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "hostsWillUseTheAppDefaultProfile": "{arg0} hosts will use the app default profile.",
+  "@hostsWillUseTheAppDefaultProfile": {
+    "description": "Tilde app: {arg0} hosts will use the app default profile.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteThisProfile": "Delete this profile.",
+  "@deleteThisProfile": {
+    "description": "Tilde app: Delete this profile."
+  },
+  "connectionsForHostsWillRemainButTheSharedPassword": "Connections for {arg0} hosts will remain, but the shared password will be deleted.",
+  "@connectionsForHostsWillRemainButTheSharedPassword": {
+    "description": "Tilde app: Connections for {arg0} hosts will remain, but the shared password will be deleted.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "delete2": "Delete {arg0}",
+  "@delete2": {
+    "description": "Tilde app: Delete {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "setAsDefault": "Set as default",
+  "@setAsDefault": {
+    "description": "Tilde app: Set as default"
+  },
+  "add2": "Add {arg0}",
+  "@add2": {
+    "description": "Tilde app: Add {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "shareAUsernameKeyAndPasswordAcrossMultipleHosts": "Share a username, key, and password across multiple hosts.",
+  "@shareAUsernameKeyAndPasswordAcrossMultipleHosts": {
+    "description": "Tilde app: Share a username, key, and password across multiple hosts."
+  },
+  "default2": " · Default",
+  "@default2": {
+    "description": "Tilde app:  · Default"
+  },
+  "noHostsUsingThis": "No hosts using this",
+  "@noHostsUsingThis": {
+    "description": "Tilde app: No hosts using this"
+  },
+  "hosts": "{count, plural, one{{count} host} other{{count} hosts}}",
+  "@hosts": {
+    "description": "Tilde app: {arg0} hosts",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "privateKeyPassphrase": "Private key passphrase",
+  "@privateKeyPassphrase": {
+    "description": "Tilde app: Private key passphrase"
+  },
+  "leaveBlankIfThereIsNoPassphrase": "Leave blank if there is no passphrase.",
+  "@leaveBlankIfThereIsNoPassphrase": {
+    "description": "Tilde app: Leave blank if there is no passphrase."
+  },
+  "deleteKey2": "Delete key",
+  "@deleteKey2": {
+    "description": "Tilde app: Delete key"
+  },
+  "deleteKey3": "Delete key {arg0}?",
+  "@deleteKey3": {
+    "description": "Tilde app: Delete key {arg0}?",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "savePublicKeyFile": "Save public key file",
+  "@savePublicKeyFile": {
+    "description": "Tilde app: Save public key file"
+  },
+  "addKeyFile": "Add key file",
+  "@addKeyFile": {
+    "description": "Tilde app: Add key file"
+  },
+  "newKey": "New key",
+  "@newKey": {
+    "description": "Tilde app: New key"
+  },
+  "couldNotCompleteKeyOperation": "Could not complete key operation",
+  "@couldNotCompleteKeyOperation": {
+    "description": "Tilde app: Could not complete key operation"
+  },
+  "importedPrivateKeysAreUsedFromProtectedAppStorage": "Imported private keys are used from protected app storage. Saved passphrases are protected by iOS Keychain.",
+  "@importedPrivateKeysAreUsedFromProtectedAppStorage": {
+    "description": "Tilde app: Imported private keys are used from protected app storage. Saved passphrases are protected by iOS Keychain."
+  },
+  "privateKeyFilesAreUsedFromTheirOriginalLocation": "Private key files are used from their original location. Saved passphrases are protected by your Windows account.",
+  "@privateKeyFilesAreUsedFromTheirOriginalLocation": {
+    "description": "Tilde app: Private key files are used from their original location. Saved passphrases are protected by your Windows account."
+  },
+  "privateKeysAreCreatedInAndroidKeystoreAndCannot": "Private keys are created in Android Keystore and cannot be exported. Legacy private keys are preserved in a disabled state.",
+  "@privateKeysAreCreatedInAndroidKeystoreAndCannot": {
+    "description": "Tilde app: Private keys are created in Android Keystore and cannot be exported. Legacy private keys are preserved in a disabled state."
+  },
+  "disabled": "Disabled",
+  "@disabled": {
+    "description": "Tilde app: Disabled"
+  },
+  "options": "{arg0} options",
+  "@options": {
+    "description": "Tilde app: {arg0} options",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteForwarding": "Delete forwarding",
+  "@deleteForwarding": {
+    "description": "Tilde app: Delete forwarding"
+  },
+  "deleteSettingsFor": "Delete settings for {arg0}?",
+  "@deleteSettingsFor": {
+    "description": "Tilde app: Delete settings for {arg0}?",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "forwarding2": "{arg0} · Forwarding",
+  "@forwarding2": {
+    "description": "Tilde app: {arg0} · Forwarding",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "addForwarding": "Add forwarding",
+  "@addForwarding": {
+    "description": "Tilde app: Add forwarding"
+  },
+  "sessionToControl": "Session to control",
+  "@sessionToControl": {
+    "description": "Tilde app: Session to control"
+  },
+  "switchChangesApplyImmediately": "{arg0} · Switch changes apply immediately",
+  "@switchChangesApplyImmediately": {
+    "description": "Tilde app: {arg0} · Switch changes apply immediately",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "defaultOnConnection": "Default on connection",
+  "@defaultOnConnection": {
+    "description": "Tilde app: Default on connection"
+  },
+  "couldNotLoadForwarding": "Could not load forwarding",
+  "@couldNotLoadForwarding": {
+    "description": "Tilde app: Could not load forwarding"
+  },
+  "socks4UnsupportedChangeToSocks5": "SOCKS4 unsupported · Change to SOCKS5",
+  "@socks4UnsupportedChangeToSocks5": {
+    "description": "Tilde app: SOCKS4 unsupported · Change to SOCKS5"
+  },
+  "removeServerKeyTrust": "Remove server key trust",
+  "@removeServerKeyTrust": {
+    "description": "Tilde app: Remove server key trust"
+  },
+  "theServerKeyWillBeVerifiedOnTheNext": "{arg0}:{arg1}\nThe server key will be verified on the next connection.",
+  "@theServerKeyWillBeVerifiedOnTheNext": {
+    "description": "Tilde app: {arg0}:{arg1} The server key will be verified on the next connection.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      },
+      "arg1": {
+        "type": "String"
+      }
+    }
+  },
+  "noTrustedServerKeys": "No trusted server keys.",
+  "@noTrustedServerKeys": {
+    "description": "Tilde app: No trusted server keys."
+  },
+  "use": "Use",
+  "@use": {
+    "description": "Tilde app: Use"
+  },
+  "editPalette": "Edit palette",
+  "@editPalette": {
+    "description": "Tilde app: Edit palette"
+  },
+  "export": "Export",
+  "@export": {
+    "description": "Tilde app: Export"
+  },
+  "defaultTheme": "Default theme",
+  "@defaultTheme": {
+    "description": "Tilde app: Default theme"
+  },
+  "customTheme": "Custom theme",
+  "@customTheme": {
+    "description": "Tilde app: Custom theme"
+  },
+  "nameForDuplicateTheme": "Name for duplicate theme",
+  "@nameForDuplicateTheme": {
+    "description": "Tilde app: Name for duplicate theme"
+  },
+  "themeName": "Theme name",
+  "@themeName": {
+    "description": "Tilde app: Theme name"
+  },
+  "deleteTheme": "Delete theme",
+  "@deleteTheme": {
+    "description": "Tilde app: Delete theme"
+  },
+  "deleteTheme2": "Delete theme {arg0}?",
+  "@deleteTheme2": {
+    "description": "Tilde app: Delete theme {arg0}?",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "newThemeName": "New theme name",
+  "@newThemeName": {
+    "description": "Tilde app: New theme name"
+  },
+  "newTheme": "New theme",
+  "@newTheme": {
+    "description": "Tilde app: New theme"
+  },
+  "import": "Import",
+  "@import": {
+    "description": "Tilde app: Import"
+  },
+  "textColor": "Text color",
+  "@textColor": {
+    "description": "Tilde app: Text color"
+  },
+  "backgroundColor": "Background color",
+  "@backgroundColor": {
+    "description": "Tilde app: Background color"
+  },
+  "cursorAndAppAccent": "Cursor and app accent",
+  "@cursorAndAppAccent": {
+    "description": "Tilde app: Cursor and app accent"
+  },
+  "couldNotLoadColorTheme": "Could not load color theme",
+  "@couldNotLoadColorTheme": {
+    "description": "Tilde app: Could not load color theme"
+  },
+  "makeACopyToEditTheColors": "Make a copy to edit the colors.",
+  "@makeACopyToEditTheColors": {
+    "description": "Tilde app: Make a copy to edit the colors."
+  },
+  "lsSrcBuildSampleMd": "~ $ ls\nsrc  build  sample.md\n",
+  "@lsSrcBuildSampleMd": {
+    "description": "Tilde app: ~ $ ls src  build  sample.md "
+  },
+  "defaultColors": "Default colors",
+  "@defaultColors": {
+    "description": "Tilde app: Default colors"
+  },
+  "lowContrastAgainstBackground": "Low contrast against background",
+  "@lowContrastAgainstBackground": {
+    "description": "Tilde app: Low contrast against background"
+  },
+  "ansiPalette": "ANSI palette",
+  "@ansiPalette": {
+    "description": "Tilde app: ANSI palette"
+  },
+  "ansiColor": "ANSI color {arg0}",
+  "@ansiColor": {
+    "description": "Tilde app: ANSI color {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "findServer": "Find server",
+  "@findServer": {
+    "description": "Tilde app: Find server"
+  },
+  "verifyServerKey": "Verify server key",
+  "@verifyServerKey": {
+    "description": "Tilde app: Verify server key"
+  },
+  "seconds": "{arg0}s",
+  "@seconds": {
+    "description": "Tilde app: {arg0}s",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotOpenAdPrivacySettingsTryAgain": "Could not open ad privacy settings. Try again.",
+  "@couldNotOpenAdPrivacySettingsTryAgain": {
+    "description": "Tilde app: Could not open ad privacy settings. Try again."
+  },
+  "ad": "Ad",
+  "@ad": {
+    "description": "Tilde app: Ad"
+  },
+  "adPrivacySettings": "Ad privacy settings",
+  "@adPrivacySettings": {
+    "description": "Tilde app: Ad privacy settings"
+  },
+  "googleFontsMonospace": "Google Fonts · Monospace",
+  "@googleFontsMonospace": {
+    "description": "Tilde app: Google Fonts · Monospace"
+  },
+  "searchSettings": "Search settings",
+  "@searchSettings": {
+    "description": "Tilde app: Search settings"
+  },
+  "keyboard": "Keyboard",
+  "@keyboard": {
+    "description": "Tilde app: Keyboard"
+  },
+  "gestures": "Gestures",
+  "@gestures": {
+    "description": "Tilde app: Gestures"
+  },
+  "connectionsAndNotifications": "Connections and notifications",
+  "@connectionsAndNotifications": {
+    "description": "Tilde app: Connections and notifications"
+  },
+  "securityAndBackup": "Security and backup",
+  "@securityAndBackup": {
+    "description": "Tilde app: Security and backup"
+  },
+  "manageFonts": "Manage fonts",
+  "@manageFonts": {
+    "description": "Tilde app: Manage fonts"
+  },
+  "specialKeyBar": "Special key bar",
+  "@specialKeyBar": {
+    "description": "Tilde app: Special key bar"
+  },
+  "specialKeys": "{arg0} special keys",
+  "@specialKeys": {
+    "description": "Tilde app: {arg0} special keys",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "twoFingerHorizontalSwipe": "Two-finger horizontal swipe · {arg0}",
+  "@twoFingerHorizontalSwipe": {
+    "description": "Tilde app: Two-finger horizontal swipe · {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "tmuxWindows": "tmux windows",
+  "@tmuxWindows": {
+    "description": "Tilde app: tmux windows"
+  },
+  "disabled2": "Disabled",
+  "@disabled2": {
+    "description": "Tilde app: Disabled"
+  },
+  "defaultTerminal": "Default terminal",
+  "@defaultTerminal": {
+    "description": "Tilde app: Default terminal"
+  },
+  "notificationsAndBell": "Notifications and bell",
+  "@notificationsAndBell": {
+    "description": "Tilde app: Notifications and bell"
+  },
+  "sshKeys2": "{count, plural, one{{count} SSH key} other{{count} SSH keys}}",
+  "@sshKeys2": {
+    "description": "Tilde app: {arg0} SSH keys",
+    "placeholders": {
+      "count": {
+        "type": "num"
+      }
+    }
+  },
+  "helpAndLogs2": "Help and logs",
+  "@helpAndLogs2": {
+    "description": "Tilde app: Help and logs"
+  },
+  "horizontalMargins": "Horizontal margins",
+  "@horizontalMargins": {
+    "description": "Tilde app: Horizontal margins"
+  },
+  "lines": "lines",
+  "@lines": {
+    "description": "Tilde app: lines"
+  },
+  "appTheme": "App theme",
+  "@appTheme": {
+    "description": "Tilde app: App theme"
+  },
+  "systemTheme": "System theme",
+  "@systemTheme": {
+    "description": "Tilde app: System theme"
+  },
+  "light": "Light",
+  "@light": {
+    "description": "Tilde app: Light"
+  },
+  "dark": "Dark",
+  "@dark": {
+    "description": "Tilde app: Dark"
+  },
+  "font": "Font",
+  "@font": {
+    "description": "Tilde app: Font"
+  },
+  "orientation": "Orientation",
+  "@orientation": {
+    "description": "Tilde app: Orientation"
+  },
+  "alwaysRotate": "Always rotate",
+  "@alwaysRotate": {
+    "description": "Tilde app: Always rotate"
+  },
+  "portrait": "Portrait",
+  "@portrait": {
+    "description": "Tilde app: Portrait"
+  },
+  "landscape": "Landscape",
+  "@landscape": {
+    "description": "Tilde app: Landscape"
+  },
+  "hideStatusBar": "Hide status bar",
+  "@hideStatusBar": {
+    "description": "Tilde app: Hide status bar"
+  },
+  "specialKeyLayout": "Special key layout",
+  "@specialKeyLayout": {
+    "description": "Tilde app: Special key layout"
+  },
+  "showWhenKeyboardIsClosed": "Show when keyboard is closed",
+  "@showWhenKeyboardIsClosed": {
+    "description": "Tilde app: Show when keyboard is closed"
+  },
+  "whenPressingCtrlOrAlt": "When pressing Ctrl or Alt",
+  "@whenPressingCtrlOrAlt": {
+    "description": "Tilde app: When pressing Ctrl or Alt"
+  },
+  "once": "Once",
+  "@once": {
+    "description": "Tilde app: Once"
+  },
+  "sticky": "Sticky",
+  "@sticky": {
+    "description": "Tilde app: Sticky"
+  },
+  "stickyAltOnly": "Sticky Alt only",
+  "@stickyAltOnly": {
+    "description": "Tilde app: Sticky Alt only"
+  },
+  "keyboardToggleButton": "Keyboard toggle button",
+  "@keyboardToggleButton": {
+    "description": "Tilde app: Keyboard toggle button"
+  },
+  "twoFingerHorizontalSwipe2": "Two-finger horizontal swipe",
+  "@twoFingerHorizontalSwipe2": {
+    "description": "Tilde app: Two-finger horizontal swipe"
+  },
+  "doNothing": "Do nothing",
+  "@doNothing": {
+    "description": "Tilde app: Do nothing"
+  },
+  "switchSessions": "Switch sessions",
+  "@switchSessions": {
+    "description": "Tilde app: Switch sessions"
+  },
+  "switchTmuxWindows": "Switch tmux windows",
+  "@switchTmuxWindows": {
+    "description": "Tilde app: Switch tmux windows"
+  },
+  "prefixKey": "Prefix key",
+  "@prefixKey": {
+    "description": "Tilde app: Prefix key"
+  },
+  "twoFingerVerticalSwipe": "Two-finger vertical swipe",
+  "@twoFingerVerticalSwipe": {
+    "description": "Tilde app: Two-finger vertical swipe"
+  },
+  "scroll": "Scroll",
+  "@scroll": {
+    "description": "Tilde app: Scroll"
+  },
+  "volumeButtonsChangeFontSize": "Volume buttons change font size",
+  "@volumeButtonsChangeFontSize": {
+    "description": "Tilde app: Volume buttons change font size"
+  },
+  "specialKeyVibration": "Special key vibration",
+  "@specialKeyVibration": {
+    "description": "Tilde app: Special key vibration"
+  },
+  "defaultTerminalProfile": "Default terminal profile",
+  "@defaultTerminalProfile": {
+    "description": "Tilde app: Default terminal profile"
+  },
+  "manageTerminalProfiles": "Manage terminal profiles",
+  "@manageTerminalProfiles": {
+    "description": "Tilde app: Manage terminal profiles"
+  },
+  "itemCount": "{arg0}",
+  "@itemCount": {
+    "description": "Tilde app: {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "appearance": "Appearance",
+  "@appearance": {
+    "description": "Tilde app: Appearance"
+  },
+  "terminalTypeTerm": "Terminal type (TERM)",
+  "@terminalTypeTerm": {
+    "description": "Tilde app: Terminal type (TERM)"
+  },
+  "addTerminalType": "Add terminal type",
+  "@addTerminalType": {
+    "description": "Tilde app: Add terminal type"
+  },
+  "terminalType": "Terminal type",
+  "@terminalType": {
+    "description": "Tilde app: Terminal type"
+  },
+  "keepScreenAwakeWhileConnected": "Keep screen awake while connected",
+  "@keepScreenAwakeWhileConnected": {
+    "description": "Tilde app: Keep screen awake while connected"
+  },
+  "theTerminalScreenWillStayAwake": "The terminal screen will stay awake",
+  "@theTerminalScreenWillStayAwake": {
+    "description": "Tilde app: The terminal screen will stay awake"
+  },
+  "preventWiFiSleep": "Prevent Wi-Fi sleep",
+  "@preventWiFiSleep": {
+    "description": "Tilde app: Prevent Wi-Fi sleep"
+  },
+  "usesMoreBattery": "Uses more battery",
+  "@usesMoreBattery": {
+    "description": "Tilde app: Uses more battery"
+  },
+  "backgroundConnectionNotification": "Background connection notification",
+  "@backgroundConnectionNotification": {
+    "description": "Tilde app: Background connection notification"
+  },
+  "pinnedWhileConnected": "Pinned while connected",
+  "@pinnedWhileConnected": {
+    "description": "Tilde app: Pinned while connected"
+  },
+  "terminalBell": "Terminal bell",
+  "@terminalBell": {
+    "description": "Tilde app: Terminal bell"
+  },
+  "whenTheBellRings": "When the bell rings",
+  "@whenTheBellRings": {
+    "description": "Tilde app: When the bell rings"
+  },
+  "ignore": "Ignore",
+  "@ignore": {
+    "description": "Tilde app: Ignore"
+  },
+  "sound": "Sound",
+  "@sound": {
+    "description": "Tilde app: Sound"
+  },
+  "vibration": "Vibration",
+  "@vibration": {
+    "description": "Tilde app: Vibration"
+  },
+  "soundAndVibration": "Sound and vibration",
+  "@soundAndVibration": {
+    "description": "Tilde app: Sound and vibration"
+  },
+  "volume": "Volume",
+  "@volume": {
+    "description": "Tilde app: Volume"
+  },
+  "notifications": "Notifications",
+  "@notifications": {
+    "description": "Tilde app: Notifications"
+  },
+  "notificationPermissionRequired": "Notification permission required",
+  "@notificationPermissionRequired": {
+    "description": "Tilde app: Notification permission required"
+  },
+  "allow": "Allow",
+  "@allow": {
+    "description": "Tilde app: Allow"
+  },
+  "enableConnectionNotifications": "Enable connection notifications",
+  "@enableConnectionNotifications": {
+    "description": "Tilde app: Enable connection notifications"
+  },
+  "allowBellAndDisconnectionNotifications": "Allow bell and disconnection notifications",
+  "@allowBellAndDisconnectionNotifications": {
+    "description": "Tilde app: Allow bell and disconnection notifications"
+  },
+  "bellInBackground": "Bell in background",
+  "@bellInBackground": {
+    "description": "Tilde app: Bell in background"
+  },
+  "onDisconnect": "On disconnect",
+  "@onDisconnect": {
+    "description": "Tilde app: On disconnect"
+  },
+  "androidNotificationSettings": "Android notification settings",
+  "@androidNotificationSettings": {
+    "description": "Tilde app: Android notification settings"
+  },
+  "notificationsOff": "Notifications off",
+  "@notificationsOff": {
+    "description": "Tilde app: Notifications off"
+  },
+  "notificationsAllowed": "Notifications allowed",
+  "@notificationsAllowed": {
+    "description": "Tilde app: Notifications allowed"
+  },
+  "lock": "Lock",
+  "@lock": {
+    "description": "Tilde app: Lock"
+  },
+  "unlockWhenStartingTheApp": "Unlock when starting the app",
+  "@unlockWhenStartingTheApp": {
+    "description": "Tilde app: Unlock when starting the app"
+  },
+  "setUpAScreenLockFirst": "Set up a screen lock first",
+  "@setUpAScreenLockFirst": {
+    "description": "Tilde app: Set up a screen lock first"
+  },
+  "fingerprintOrScreenLock": "Fingerprint or screen lock",
+  "@fingerprintOrScreenLock": {
+    "description": "Tilde app: Fingerprint or screen lock"
+  },
+  "keysAndServers": "Keys and servers",
+  "@keysAndServers": {
+    "description": "Tilde app: Keys and servers"
+  },
+  "configurationFile": "Configuration file",
+  "@configurationFile": {
+    "description": "Tilde app: Configuration file"
+  },
+  "exportHosts": "Export hosts",
+  "@exportHosts": {
+    "description": "Tilde app: Export hosts"
+  },
+  "importHosts": "Import hosts",
+  "@importHosts": {
+    "description": "Tilde app: Import hosts"
+  },
+  "selectDefaultFont": "Select default font",
+  "@selectDefaultFont": {
+    "description": "Tilde app: Select default font"
+  },
+  "fontSample": "{arg0} Aa",
+  "@fontSample": {
+    "description": "Tilde app: {arg0} Aa",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "bundledWithApp": "Bundled with app",
+  "@bundledWithApp": {
+    "description": "Tilde app: Bundled with app"
+  },
+  "monospaceFont": "Monospace font",
+  "@monospaceFont": {
+    "description": "Tilde app: Monospace font"
+  },
+  "deleteFont": "Delete font",
+  "@deleteFont": {
+    "description": "Tilde app: Delete font"
+  },
+  "deleteThisFontFile": "Delete this font file?",
+  "@deleteThisFontFile": {
+    "description": "Tilde app: Delete this font file?"
+  },
+  "removeFont": "Remove font",
+  "@removeFont": {
+    "description": "Tilde app: Remove font"
+  },
+  "preparingFont": "Preparing font",
+  "@preparingFont": {
+    "description": "Tilde app: Preparing font"
+  },
+  "importFontFile": "Import font file",
+  "@importFontFile": {
+    "description": "Tilde app: Import font file"
+  },
+  "findOnGoogleFonts": "Find on Google Fonts",
+  "@findOnGoogleFonts": {
+    "description": "Tilde app: Find on Google Fonts"
+  },
+  "onlyMonospaceFontsAreShown": "Only monospace fonts are shown",
+  "@onlyMonospaceFontsAreShown": {
+    "description": "Tilde app: Only monospace fonts are shown"
+  },
+  "settings2": "Settings › {arg0}",
+  "@settings2": {
+    "description": "Tilde app: Settings › {arg0}",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotSaveSettings": "Could not save settings",
+  "@couldNotSaveSettings": {
+    "description": "Tilde app: Could not save settings"
+  },
+  "resetSpecialKeyBar": "Reset special key bar?",
+  "@resetSpecialKeyBar": {
+    "description": "Tilde app: Reset special key bar?"
+  },
+  "restoreTheDefaultHeightKeyOrderAndVisibility": "Restore the default height, key order, and visibility.",
+  "@restoreTheDefaultHeightKeyOrderAndVisibility": {
+    "description": "Tilde app: Restore the default height, key order, and visibility."
+  },
+  "longPressToDragTapToHide": "Long-press to drag · Tap to hide",
+  "@longPressToDragTapToHide": {
+    "description": "Tilde app: Long-press to drag · Tap to hide"
+  },
+  "hiddenKeys": "Hidden keys",
+  "@hiddenKeys": {
+    "description": "Tilde app: Hidden keys"
+  },
+  "tapAKeyToMoveItHere": "Tap a key to move it here",
+  "@tapAKeyToMoveItHere": {
+    "description": "Tilde app: Tap a key to move it here"
+  },
+  "combineF1F12IntoFn": "Combine F1–F12 into Fn",
+  "@combineF1F12IntoFn": {
+    "description": "Tilde app: Combine F1–F12 into Fn"
+  },
+  "height": "Height",
+  "@height": {
+    "description": "Tilde app: Height"
+  },
+  "small": "Small",
+  "@small": {
+    "description": "Tilde app: Small"
+  },
+  "large": "Large",
+  "@large": {
+    "description": "Tilde app: Large"
+  },
+  "default3": "Default",
+  "@default3": {
+    "description": "Tilde app: Default"
+  },
+  "escAndCtrlStayOnTheLeftKeyboardFn": "Esc and Ctrl stay on the left; keyboard, Fn, and Tab stay on the right.",
+  "@escAndCtrlStayOnTheLeftKeyboardFn": {
+    "description": "Tilde app: Esc and Ctrl stay on the left; keyboard, Fn, and Tab stay on the right."
+  },
+  "flutterLibraryLicenses": "Flutter library licenses",
+  "@flutterLibraryLicenses": {
+    "description": "Tilde app: Flutter library licenses"
+  },
+  "tips": "Tips",
+  "@tips": {
+    "description": "Tilde app: Tips"
+  },
+  "licensesAndTerms": "Licenses and terms",
+  "@licensesAndTerms": {
+    "description": "Tilde app: Licenses and terms"
+  },
+  "projectAndContact": "Project and contact",
+  "@projectAndContact": {
+    "description": "Tilde app: Project and contact"
+  },
+  "diagnostics": "Diagnostics",
+  "@diagnostics": {
+    "description": "Tilde app: Diagnostics"
+  },
+  "diagnosticLogs": "Diagnostic logs",
+  "@diagnosticLogs": {
+    "description": "Tilde app: Diagnostic logs"
+  },
+  "searchLogs": "Search logs",
+  "@searchLogs": {
+    "description": "Tilde app: Search logs"
+  },
+  "saveNativeCrashLog": "Save native crash log",
+  "@saveNativeCrashLog": {
+    "description": "Tilde app: Save native crash log"
+  },
+  "warning": "Warning",
+  "@warning": {
+    "description": "Tilde app: Warning"
+  },
+  "couldNotLoadLogs": "Could not load logs",
+  "@couldNotLoadLogs": {
+    "description": "Tilde app: Could not load logs"
+  },
+  "onlyAndroidKeystoreSshKeysAreSupported": "Only Android Keystore SSH keys are supported",
+  "@onlyAndroidKeystoreSshKeysAreSupported": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "onlyP256AndroidKeystoreKeysAreSupported": "Only P-256 Android Keystore keys are supported",
+  "@onlyP256AndroidKeystoreKeysAreSupported": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "invalidEcdsaSignature": "Invalid ECDSA signature",
+  "@invalidEcdsaSignature": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "invalidEcdsaSignatureValues": "Invalid ECDSA signature values",
+  "@invalidEcdsaSignatureValues": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "invalidX509PublicKey": "Invalid X509 public key",
+  "@invalidX509PublicKey": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "invalidPublicKeyBitString": "Invalid public key bit string",
+  "@invalidPublicKeyBitString": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "invalidRsaPublicKey": "Invalid RSA public key",
+  "@invalidRsaPublicKey": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "invalidEcCurve": "Invalid EC curve",
+  "@invalidEcCurve": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "invalidUncompressedEcPoint": "Invalid uncompressed EC point",
+  "@invalidUncompressedEcPoint": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "invalidEd25519PublicKey": "Invalid Ed25519 public key",
+  "@invalidEd25519PublicKey": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "unsupportedSshPublicKeyAlgorithm": "Unsupported SSH public key algorithm: {arg0}",
+  "@unsupportedSshPublicKeyAlgorithm": {
+    "description": "Tilde app error or authentication prompt.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "unsupportedSshEcCurve": "Unsupported SSH EC curve",
+  "@unsupportedSshEcCurve": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "invalidDerSequence": "Invalid DER sequence",
+  "@invalidDerSequence": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "privateKeyExportIsNotSupported": "Private key export is not supported",
+  "@privateKeyExportIsNotSupported": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "publicKeyIsUnavailable": "Public key is unavailable",
+  "@publicKeyIsUnavailable": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "unsupportedTerminalKey": "Unsupported terminal key: {arg0}",
+  "@unsupportedTerminalKey": {
+    "description": "Tilde app error or authentication prompt.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "disconnectBeforeReconnecting": "Disconnect before reconnecting",
+  "@disconnectBeforeReconnecting": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "localShellIsNotOpen": "Local shell is not open",
+  "@localShellIsNotOpen": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "unknownModifier": "Unknown modifier",
+  "@unknownModifier": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "unsupportedLocalTerminalOperation": "Unsupported local terminal operation: {arg0}",
+  "@unsupportedLocalTerminalOperation": {
+    "description": "Tilde app error or authentication prompt.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "invalidSshPublicKeyLine": "Invalid SSH public-key line",
+  "@invalidSshPublicKeyLine": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "serverDidNotConfirmPublicKeyRegistration": "Server did not confirm public-key registration.",
+  "@serverDidNotConfirmPublicKeyRegistration": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "logInToASavedSshHostBeforeRegistering": "Log in to a saved SSH host before registering a key.",
+  "@logInToASavedSshHostBeforeRegistering": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "theSelectedSshKeyNoLongerExists": "The selected SSH key no longer exists.",
+  "@theSelectedSshKeyNoLongerExists": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "aUniqueBiometricKeyNameIsRequired": "A unique biometric key name is required.",
+  "@aUniqueBiometricKeyNameIsRequired": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "theOriginalSshConnectionIsNoLongerAuthenticated": "The original SSH connection is no longer authenticated.",
+  "@theOriginalSshConnectionIsNoLongerAuthenticated": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "keyOnlyLoginWasNotCompletedTheServerMay": "Key-only login was not completed. The server may require additional authentication. Login settings were not changed.",
+  "@keyOnlyLoginWasNotCompletedTheServerMay": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "theSavedHostNoLongerExists": "The saved host no longer exists.",
+  "@theSavedHostNoLongerExists": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "theHostAddressChangedDuringRegistrationItsLoginSettings": "The host address changed during registration. Its login settings were not changed.",
+  "@theHostAddressChangedDuringRegistrationItsLoginSettings": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "invalidPtyDimensions": "Invalid PTY dimensions",
+  "@invalidPtyDimensions": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "sshTargetIsRequired": "SSH target is required",
+  "@sshTargetIsRequired": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "sshSessionWasClosed": "SSH session was closed",
+  "@sshSessionWasClosed": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "sshSessionIsNotConnected": "SSH session is not connected",
+  "@sshSessionIsNotConnected": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "sshSessionsCannotBeReused": "SSH sessions cannot be reused",
+  "@sshSessionsCannotBeReused": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "noAddressForRequestedIpVersion": "No address for requested IP version",
+  "@noAddressForRequestedIpVersion": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "sshHopConnectionTimedOut": "SSH hop connection timed out",
+  "@sshHopConnectionTimedOut": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "sshSessionHasNoShell": "SSH session has no shell",
+  "@sshSessionHasNoShell": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "sshSessionRequestTimedOut": "SSH session request timed out",
+  "@sshSessionRequestTimedOut": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "invalidForwardBindPort": "Invalid forward bind port",
+  "@invalidForwardBindPort": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "invalidForwardDestination": "Invalid forward destination",
+  "@invalidForwardDestination": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "remoteForwardingRequestTimedOut": "Remote forwarding request timed out",
+  "@remoteForwardingRequestTimedOut": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "remoteForwardingWasRefused": "Remote forwarding was refused",
+  "@remoteForwardingWasRefused": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "forwardConnectionTimedOut": "Forward connection timed out",
+  "@forwardConnectionTimedOut": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "remoteForwardDestinationTimedOut": "Remote forward destination timed out",
+  "@remoteForwardDestinationTimedOut": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "remoteForwardingCancellationWasRefused": "Remote forwarding cancellation was refused",
+  "@remoteForwardingCancellationWasRefused": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "sshAuthenticationCancelled": "SSH authentication cancelled",
+  "@sshAuthenticationCancelled": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "concurrentSshAuthenticationPrompt": "Concurrent SSH authentication prompt",
+  "@concurrentSshAuthenticationPrompt": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "sessionDisposed": "Session disposed",
+  "@sessionDisposed": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "disconnectBeforeRefreshingSshConfiguration": "Disconnect before refreshing SSH configuration",
+  "@disconnectBeforeRefreshingSshConfiguration": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "couldNotUnlockTheSelectedKey": "Could not unlock the selected key.",
+  "@couldNotUnlockTheSelectedKey": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "logInToThisServerBeforeRegisteringAKey": "Log in to this server before registering a key.",
+  "@logInToThisServerBeforeRegisteringAKey": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "sshShellIsNotOpen": "SSH shell is not open",
+  "@sshShellIsNotOpen": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "sshIsNotConnected": "SSH is not connected",
+  "@sshIsNotConnected": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "portForwardIsMissing": "Port forward is missing",
+  "@portForwardIsMissing": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "unsupportedSshForwardType": "Unsupported SSH forward type",
+  "@unsupportedSshForwardType": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "unsupportedAppSshOperation": "Unsupported app SSH operation: {arg0}",
+  "@unsupportedAppSshOperation": {
+    "description": "Tilde app error or authentication prompt.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "currentPassword": "Current password",
+  "@currentPassword": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "newPassword": "New password",
+  "@newPassword": {
+    "description": "Tilde app error or authentication prompt."
+  },
+  "timedOutReadingWindowsSshSettings": "Timed out reading Windows SSH settings.",
+  "@timedOutReadingWindowsSshSettings": {
+    "description": "Tilde Windows host message."
+  },
+  "couldNotReadWindowsSshSettings": "Could not read Windows SSH settings. {arg0}",
+  "@couldNotReadWindowsSshSettings": {
+    "description": "Tilde Windows host message.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "windowsUserProfilePathIsUnavailable": "Windows user profile path is unavailable.",
+  "@windowsUserProfilePathIsUnavailable": {
+    "description": "Tilde Windows host message."
+  },
+  "unsupportedSshKeyPathVariable": "Unsupported SSH key path variable: {arg0}",
+  "@unsupportedSshKeyPathVariable": {
+    "description": "Tilde Windows host message.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotImportFiles": "Could not import files: {arg0}",
+  "@couldNotImportFiles": {
+    "description": "Tilde Windows host message.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "uploadTo": "Upload to {arg0}",
+  "@uploadTo": {
+    "description": "Tilde Windows host message.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "currentFolder": "Current folder",
+  "@currentFolder": {
+    "description": "Tilde Windows host message."
+  },
+  "windowsUserDataFolderIsUnavailable": "Windows user data folder is unavailable.",
+  "@windowsUserDataFolderIsUnavailable": {
+    "description": "Tilde Windows host message."
+  },
+  "couldNotProtectCredentialsWithTheWindowsAccount": "Could not protect credentials with the Windows account. {arg0}",
+  "@couldNotProtectCredentialsWithTheWindowsAccount": {
+    "description": "Tilde Windows host message.",
+    "placeholders": {
+      "arg0": {
+        "type": "String"
+      }
+    }
+  },
+  "altDrag": "Alt drag",
+  "@altDrag": {
+    "description": "Terminal action or navigation key tooltip; keycap labels remain unchanged."
+  },
+  "keyUp": "Up",
+  "@keyUp": {
+    "description": "Terminal action or navigation key tooltip; keycap labels remain unchanged."
+  },
+  "keyDown": "Down",
+  "@keyDown": {
+    "description": "Terminal action or navigation key tooltip; keycap labels remain unchanged."
+  },
+  "keyHome": "Home",
+  "@keyHome": {
+    "description": "Terminal action or navigation key tooltip; keycap labels remain unchanged."
+  },
+  "keyEnd": "End",
+  "@keyEnd": {
+    "description": "Terminal action or navigation key tooltip; keycap labels remain unchanged."
+  },
+  "keyPageUp": "Page up",
+  "@keyPageUp": {
+    "description": "Terminal action or navigation key tooltip; keycap labels remain unchanged."
+  },
+  "keyPageDown": "Page down",
+  "@keyPageDown": {
+    "description": "Terminal action or navigation key tooltip; keycap labels remain unchanged."
+  },
+  "keyInsert": "Insert",
+  "@keyInsert": {
+    "description": "Terminal action or navigation key tooltip; keycap labels remain unchanged."
+  },
+  "keyDelete": "Delete",
+  "@keyDelete": {
+    "description": "Terminal action or navigation key tooltip; keycap labels remain unchanged."
+  }
+}

@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xterm2/xterm.dart';
 
 import 'ui_engine_fixture.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   setUpAll(() async {
@@ -81,6 +82,9 @@ void main() {
           final boundary = GlobalKey();
           await tester.pumpWidget(
             MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('ko'),
               builder: (_, child) =>
                   RepaintBoundary(key: boundary, child: child!),
               home: ConsolePage(engine: engine, sessionId: 7),

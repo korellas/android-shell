@@ -17,32 +17,38 @@
 
 package org.connectbot.flutter
 
+import android.content.res.Resources
 import org.connectbot.data.entity.Host
 import org.connectbot.data.entity.PortForward
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.mockito.Mockito
 
 class EngineSelectionValidationTest {
+    private val resources = Mockito.mock(Resources::class.java).apply {
+        Mockito.`when`(getString(Mockito.anyInt())).thenReturn("Invalid value")
+    }
+
     @Test
     fun unsupportedHostProtocolsCanBePreservedOrConvertedButNotNewlySelected() {
         for (protocol in listOf("mosh", "telnet")) {
             val previous = Host(id = 1, protocol = protocol)
-            assertThrows(IllegalArgumentException::class.java) { validateHostSelection(previous, null, null) }
-            assertThrows(IllegalArgumentException::class.java) { validateHostSelection(previous, Host(id = 1), null) }
-            validateHostSelection(previous.copy(nickname = "renamed"), previous, null)
-            validateHostSelection(previous.copy(protocol = "ssh"), previous, null)
+            assertThrows(IllegalArgumentException::class.java) { validateHostSelection(resources, previous, null, null) }
+            assertThrows(IllegalArgumentException::class.java) { validateHostSelection(resources, previous, Host(id = 1), null) }
+            validateHostSelection(resources, previous.copy(nickname = "renamed"), previous, null)
+            validateHostSelection(resources, previous.copy(protocol = "ssh"), previous, null)
         }
     }
 
     @Test
     fun newJumpSelectionRequiresAnotherExistingSshHost() {
         val host = Host(id = 1, jumpHostId = 2)
-        validateHostSelection(host, null, Host(id = 2))
+        validateHostSelection(resources, host, null, Host(id = 2))
         for (jump in listOf(null, Host(id = 1), Host(id = 2, protocol = "local"))) {
-            assertThrows(IllegalArgumentException::class.java) { validateHostSelection(host, null, jump) }
+            assertThrows(IllegalArgumentException::class.java) { validateHostSelection(resources, host, null, jump) }
         }
-        validateHostSelection(host.copy(nickname = "renamed"), host, null)
-        validateHostSelection(host.copy(jumpHostId = null), host, null)
+        validateHostSelection(resources, host.copy(nickname = "renamed"), host, null)
+        validateHostSelection(resources, host.copy(jumpHostId = null), host, null)
     }
 
     @Test
@@ -57,11 +63,11 @@ class EngineSelectionValidationTest {
             destPort = 0,
             startEnabled = true,
         )
-        assertThrows(IllegalArgumentException::class.java) { validateForwardSelection(legacy, null) }
-        validateForwardSelection(legacy.copy(nickname = "renamed"), legacy)
+        assertThrows(IllegalArgumentException::class.java) { validateForwardSelection(resources, legacy, null) }
+        validateForwardSelection(resources, legacy.copy(nickname = "renamed"), legacy)
         val disabled = legacy.copy(startEnabled = false)
-        validateForwardSelection(disabled, legacy)
-        assertThrows(IllegalArgumentException::class.java) { validateForwardSelection(legacy, disabled) }
-        validateForwardSelection(legacy.copy(type = "dynamic5"), legacy)
+        validateForwardSelection(resources, disabled, legacy)
+        assertThrows(IllegalArgumentException::class.java) { validateForwardSelection(resources, legacy, disabled) }
+        validateForwardSelection(resources, legacy.copy(type = "dynamic5"), legacy)
     }
 }

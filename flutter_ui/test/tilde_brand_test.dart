@@ -21,6 +21,7 @@ import 'package:android_shell_ui/tilde_design.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   testWidgets('progress fits a narrow action button without overflow', (
@@ -28,6 +29,9 @@ void main() {
   ) async {
     await tester.pumpWidget(
       const MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('ko'),
         home: Scaffold(
           body: Center(child: SizedBox(width: 24, child: TildeProgress())),
         ),

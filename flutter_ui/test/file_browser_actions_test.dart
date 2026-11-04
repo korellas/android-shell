@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'sftp_file_operations_test.dart' show FakeFiles;
 import 'ui_engine_fixture.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 class BrowserFiles extends FakeFiles {
   @override
@@ -74,6 +75,9 @@ void main() {
       });
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
         home: FileBrowserPage(
           engine: BrowserEngine(files),
           host: const {'id': 1, 'nickname': 'test'},
@@ -108,6 +112,9 @@ void main() {
       addTearDown(engine.dispose);
       await t.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           home: FileBrowserPage(
             engine: engine,
             host: const {'id': 1, 'nickname': 'test'},

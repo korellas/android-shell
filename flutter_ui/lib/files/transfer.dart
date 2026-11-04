@@ -5,30 +5,40 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
+import '../l10n/strings.dart';
 
 String fileFailureSummary(Object error) => switch (error) {
   SftpStatusError() => switch (error.code) {
-    SftpStatusCode.permissionDenied => '서버에서 접근 권한을 거부했습니다. 대상 경로의 권한을 확인하세요.',
-    SftpStatusCode.noSuchFile => '파일이나 폴더가 더 이상 없습니다.',
+    SftpStatusCode.permissionDenied =>
+      deviceStrings.theServerDeniedAccessCheckTheDestinationPathPermissions,
+    SftpStatusCode.noSuchFile => deviceStrings.theFileOrFolderNoLongerExists,
     SftpStatusCode.connectionLost ||
-    SftpStatusCode.noConnection => '서버 연결이 끊겼습니다.',
-    _ => '서버에서 작업을 완료하지 못했습니다.',
+    SftpStatusCode.noConnection => deviceStrings.serverConnectionLost,
+    _ => deviceStrings.theServerCouldNotCompleteTheOperation,
   },
-  TimeoutException() => '서버가 응답하지 않습니다. 주소와 네트워크를 확인하세요.',
-  SSHAuthError() => '서버에서 인증을 받지 않았습니다. 사용자 이름과 키·비밀번호를 확인하세요.',
+  TimeoutException() =>
+    deviceStrings.theServerIsNotRespondingCheckTheAddressAnd,
+  SSHAuthError() =>
+    deviceStrings.theServerDidNotAuthenticateYouCheckYourUsername,
   SocketException() => switch (error.osError?.errorCode) {
-    61 || 111 || 10061 =>
-      '서버가 ${error.port == null ? '' : '${error.port}번 포트 '}연결을 거부했습니다. SSH 실행 상태와 포트를 확인하세요.',
-    60 || 110 || 10060 => '서버가 응답하지 않습니다. 주소와 네트워크를 확인하세요.',
-    _ => '서버 연결을 확인하세요.',
+    61 ||
+    111 ||
+    10061 => deviceStrings.theServerRefusedTheConnectionCheckSshAndPort(
+      (error.port == null ? '' : deviceStrings.onPort((error.port).toString()))
+          .toString(),
+    ),
+    60 ||
+    110 ||
+    10060 => deviceStrings.theServerIsNotRespondingCheckTheAddressAnd,
+    _ => deviceStrings.checkTheServerConnection,
   },
   StateError() => error.message.toString(),
-  _ => '예상하지 못한 오류입니다. 아래 기록을 복사해 문의해 주세요.',
+  _ => deviceStrings.unexpectedErrorCopyTheDetailsBelowAndContactSupport,
 };
 
 class TransferCancelled implements Exception {
   @override
-  String toString() => '전송을 취소했습니다.';
+  String toString() => deviceStrings.transferCancelled;
 }
 
 class TransferControl {
@@ -78,7 +88,7 @@ File localDestination(Directory directory, String name) {
       name.contains('/') ||
       name.contains(r'\') ||
       name.contains('\x00')) {
-    throw ArgumentError.value(name, 'name', '파일 이름이 올바르지 않습니다.');
+    throw ArgumentError.value(name, 'name', deviceStrings.invalidFileName);
   }
   return File('${directory.absolute.path}${Platform.pathSeparator}$name');
 }
@@ -107,7 +117,10 @@ Future<void> receiveFile(
   if (!overwrite &&
       await FileSystemEntity.type(destination.path, followLinks: false) !=
           FileSystemEntityType.notFound) {
-    throw FileSystemException('같은 이름의 파일이 있습니다.', destination.path);
+    throw FileSystemException(
+      deviceStrings.aFileWithTheSameNameAlreadyExists,
+      destination.path,
+    );
   }
   final temporary = await destination.parent.createTemp('.tilde-download-');
   try {
@@ -129,10 +142,16 @@ Future<void> receiveFile(
     if (!overwrite &&
         await FileSystemEntity.type(destination.path, followLinks: false) !=
             FileSystemEntityType.notFound) {
-      throw FileSystemException('전송 중 같은 이름의 파일이 생겼습니다.', destination.path);
+      throw FileSystemException(
+        deviceStrings.aFileWithTheSameNameAppearedDuringTransfer,
+        destination.path,
+      );
     }
     if (control.total != null && control.bytes != control.total) {
-      throw FileSystemException('파일이 끝까지 도착하지 않았습니다.', destination.path);
+      throw FileSystemException(
+        deviceStrings.theFileWasNotReceivedCompletely,
+        destination.path,
+      );
     }
     await staged.rename(destination.path);
   } finally {

@@ -1,7 +1,9 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'package:flutter/material.dart';
 import 'tilde_design.dart';
+import 'l10n/strings.dart';
 
 class ConnectionStatusView extends StatelessWidget {
   const ConnectionStatusView({
@@ -59,9 +61,9 @@ class ConnectionStatusView extends StatelessWidget {
               const SizedBox(height: 24),
               if (!cancelled) ...[
                 for (final (i, label) in [
-                  '서버 찾기',
-                  '서버 키 확인',
-                  '로그인',
+                  context.l10n.findServer,
+                  context.l10n.verifyServerKey,
+                  context.l10n.logIn,
                   finalStage,
                 ].indexed)
                   Padding(
@@ -95,7 +97,11 @@ class ConnectionStatusView extends StatelessWidget {
                         if (tildePointer(context) &&
                             durations[phases[i]] is num)
                           Text(
-                            '${((durations[phases[i]] as num) / 1000).toStringAsFixed(1)}초',
+                            context.l10n.seconds(
+                              (((durations[phases[i]] as num) / 1000)
+                                      .toStringAsFixed(1))
+                                  .toString(),
+                            ),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                       ],

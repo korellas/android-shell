@@ -30,6 +30,7 @@ import 'desktop_workspace.dart';
 import 'terminal/session_tabs.dart';
 import 'files/file_browser.dart';
 import 'files/transfer.dart' show fileFailureSummary;
+import 'l10n/strings.dart';
 
 void main() => runApp(const AndroidShellApp());
 
@@ -65,6 +66,8 @@ class _AndroidShellAppState extends State<AndroidShellApp> {
     listenable: engine,
     builder: (context, _) => MaterialApp(
       title: 'Tilde',
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       debugShowCheckedModeBanner: false,
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),
@@ -92,6 +95,7 @@ Future<dynamic> runEngine(
   String method, [
   EngineRecord args = const {},
 ]) async {
+  final contextStrings = context.l10n;
   try {
     return await engine.invoke(method, args);
   } catch (e) {
@@ -100,8 +104,15 @@ Future<dynamic> runEngine(
         context,
         e,
         summary: method == 'connect'
-            ? '${engine.list('hosts').where((h) => h['id'] == args['id']).firstOrNull?['nickname'] ?? '서버'}에 연결하지 못했습니다'
-            : '작업을 완료하지 못했습니다',
+            ? contextStrings.couldNotConnectTo(
+                (engine
+                            .list('hosts')
+                            .where((h) => h['id'] == args['id'])
+                            .firstOrNull?['nickname'] ??
+                        contextStrings.server)
+                    .toString(),
+              )
+            : contextStrings.couldNotCompleteOperation,
         retry: method == 'connect'
             ? () async {
                 await runEngine(context, engine, method, args);
@@ -116,7 +127,7 @@ Future<dynamic> runEngine(
 Future<void> showErrorDetails(
   BuildContext context,
   Object error, {
-  String summary = '작업을 마치지 못했습니다',
+  String? summary,
   String? target,
   explanation,
   DateTime? occurredAt,
@@ -124,12 +135,15 @@ Future<void> showErrorDetails(
   VoidCallback? edit,
   Future<void> Function()? saveElsewhere,
 }) {
+  final resolvedSummary = summary ?? context.l10n.couldNotFinishOperation;
   final details = error is EngineException
       ? error.details ?? error.message
       : '$error';
   final occurred = occurredAt == null
-      ? '확인 시각 · ${TimeOfDay.now().format(context)}'
-      : '발생 · ${occurredAt.toLocal().toString().split('.').first}';
+      ? context.l10n.checked((TimeOfDay.now().format(context)).toString())
+      : context.l10n.occurred(
+          (occurredAt.toLocal().toString().split('.').first).toString(),
+        );
   return showTildeSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -141,7 +155,7 @@ Future<void> showErrorDetails(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(summary, style: Theme.of(c).textTheme.titleLarge),
+          Text(resolvedSummary, style: Theme.of(c).textTheme.titleLarge),
           const SizedBox(height: 12),
           Text(
             explanation ?? fileFailureSummary(error),
@@ -170,10 +184,10 @@ Future<void> showErrorDetails(
                       ),
                     ),
                     IconButton(
-                      tooltip: '오류 기록 복사',
+                      tooltip: context.l10n.copyErrorLog,
                       onPressed: () => Clipboard.setData(
                         ClipboardData(
-                          text: '$summary\n${target ?? ''}\n$details',
+                          text: '$resolvedSummary\n${target ?? ''}\n$details',
                         ),
                       ),
                       icon: const Icon(Icons.copy_outlined, size: 18),
@@ -200,7 +214,7 @@ Future<void> showErrorDetails(
             children: [
               TextButton(
                 onPressed: () => Navigator.pop(c),
-                child: const Text('닫기'),
+                child: Text(context.l10n.close2),
               ),
               if (edit != null)
                 OutlinedButton(
@@ -208,7 +222,7 @@ Future<void> showErrorDetails(
                     Navigator.pop(c);
                     edit();
                   },
-                  child: const Text('호스트 편집'),
+                  child: Text(context.l10n.editHost),
                 ),
               if (saveElsewhere != null)
                 OutlinedButton(
@@ -216,7 +230,7 @@ Future<void> showErrorDetails(
                     Navigator.pop(c);
                     unawaited(saveElsewhere());
                   },
-                  child: const Text('다른 위치에 저장'),
+                  child: Text(context.l10n.saveElsewhere),
                 ),
               if (retry != null)
                 FilledButton(
@@ -224,7 +238,7 @@ Future<void> showErrorDetails(
                     Navigator.pop(c);
                     unawaited(retry());
                   },
-                  child: const Text('다시 시도'),
+                  child: Text(context.l10n.retry),
                 ),
             ],
           ),
@@ -237,9 +251,10 @@ Future<void> showErrorDetails(
 void showEngineFailure(
   BuildContext context,
   Object error, {
-  String summary = '작업을 완료하지 못했습니다',
+  String? summary,
   Future<void> Function()? retry,
 }) {
+  summary ??= context.l10n.couldNotCompleteOperation;
   final colors = Theme.of(context).colorScheme;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
@@ -251,7 +266,7 @@ void showEngineFailure(
         style: TextStyle(color: colors.onSurface),
       ),
       action: SnackBarAction(
-        label: '자세히',
+        label: context.l10n.details,
         textColor: colors.primary,
         onPressed: () =>
             showErrorDetails(context, error, summary: summary, retry: retry),
@@ -266,6 +281,7 @@ Future<bool> deleteTildeHost(
   EngineRecord host, {
   VoidCallback? onDeleted,
 }) async {
+  final contextStrings = context.l10n;
   final token = await runEngine(context, engine, 'host.delete', {
     'id': host['id'],
     'undo': true,
@@ -282,9 +298,11 @@ Future<bool> deleteTildeHost(
   final closed = ScaffoldMessenger.of(context)
       .showSnackBar(
         SnackBar(
-          content: Text('${host['nickname']} 호스트를 삭제했습니다'),
+          content: Text(
+            contextStrings.deletedHost((host['nickname']).toString()),
+          ),
           action: SnackBarAction(
-            label: '되돌리기',
+            label: contextStrings.undo,
             onPressed: () {
               restore = runEngine(actionContext, engine, 'host.restore', {
                 'token': token,
@@ -346,7 +364,7 @@ Future<String?> askText(
   bool multiline = false,
   TextInputType? keyboardType,
   String? Function(String?)? validator,
-  String action = '확인',
+  String? action,
   double maxWidth = 440,
   String? hintText,
   bool showPasteAction = false,
@@ -362,7 +380,7 @@ Future<String?> askText(
     multiline: multiline,
     keyboardType: keyboardType,
     validator: validator,
-    action: action,
+    action: action ?? context.l10n.ok,
     hintText: hintText,
     showPasteAction: showPasteAction,
     hardwareKeyboard: hardwareKeyboard,
@@ -454,7 +472,13 @@ class _TextPromptState extends State<_TextPrompt> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  '${controller.text.split('\n').length}줄 · Enter는 줄바꿈${tildePointer(context) || widget.hardwareKeyboard ? ', Ctrl Enter는 보내기' : ''}',
+                  context.l10n.linesEnterInsertsANewline(
+                    controller.text.split('\n').length,
+                    (tildePointer(context) || widget.hardwareKeyboard
+                            ? context.l10n.ctrlEnterSends
+                            : '')
+                        .toString(),
+                  ),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -470,11 +494,11 @@ class _TextPromptState extends State<_TextPrompt> {
                     TextButton.icon(
                       onPressed: paste,
                       icon: const Icon(Icons.content_paste_outlined, size: 18),
-                      label: const Text('붙여넣기'),
+                      label: Text(context.l10n.paste),
                     ),
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('취소'),
+                    child: Text(context.l10n.cancel),
                   ),
                   FilledButton(
                     onPressed: () {
@@ -496,7 +520,7 @@ Future<bool> confirm(
   BuildContext context,
   String title,
   String message, {
-  String action = '삭제',
+  String? action,
   bool destructive = true,
 }) async =>
     await showTildeSheet<bool>(
@@ -518,7 +542,7 @@ Future<bool> confirm(
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(c, false),
-                  child: const Text('취소'),
+                  child: Text(context.l10n.cancel),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
@@ -529,7 +553,7 @@ Future<bool> confirm(
                         )
                       : null,
                   onPressed: () => Navigator.pop(c, true),
-                  child: Text(action),
+                  child: Text(action ?? context.l10n.delete),
                 ),
               ],
             ),
@@ -544,7 +568,7 @@ bool canConnectHost(EngineRecord host) =>
 
 String hostAddress(EngineRecord host) {
   final protocol = '${host['protocol'] ?? ''}';
-  if (protocol == 'local') return '로컬 셸';
+  if (protocol == 'local') return deviceStrings.localShell;
   final port = host['port'];
   final standard = switch (protocol) {
     'ssh' || 'mosh' => 22,
@@ -553,7 +577,7 @@ String hostAddress(EngineRecord host) {
   };
   final suffix = port == null || port == standard ? '' : ':$port';
   final user = '${host['username'] ?? ''}';
-  return '${user.isEmpty ? '' : '$user@'}${host['hostname'] ?? ''}$suffix${canConnectHost(host) ? '' : ' · $protocol 미지원'}';
+  return '${user.isEmpty ? '' : '$user@'}${host['hostname'] ?? ''}$suffix${canConnectHost(host) ? '' : deviceStrings.unsupported((protocol).toString())}';
 }
 
 class ShellHome extends StatefulWidget {
@@ -605,7 +629,8 @@ class _ShellHomeState extends State<ShellHome> {
           showEngineFailure(
             context,
             EngineException('${notice['message']}'),
-            summary: '${notice['summary'] ?? '작업을 완료하지 못했습니다'}',
+            summary:
+                '${notice['summary'] ?? context.l10n.couldNotCompleteOperation}',
           );
         }
       });
@@ -645,6 +670,7 @@ class _ShellHomeState extends State<ShellHome> {
   }
 
   Future<void> _presentPrompt() async {
+    final contextStrings = context.l10n;
     if (_promptOpen || !engine.ready || !mounted) return;
     final pending = engine
         .list('prompts')
@@ -666,32 +692,32 @@ class _ShellHomeState extends State<ShellHome> {
           [
             p['instructions'],
             p['hint'],
-            '인증',
+            contextStrings.authentication,
           ].whereType<String>().firstWhere((text) => text.trim().isNotEmpty),
           password: p['password'] == true,
         );
       } else if (p['type'] == 'hostKey') {
         value = await confirm(
           context,
-          '${p['hostname']} 서버 키 확인',
+          contextStrings.verifyServerKeyFor((p['hostname']).toString()),
           '${p['keyType']} ${p['keySize']}\nSHA256: ${p['sha256']}\nMD5: ${p['md5']}\n\n${p['randomArt']}\n${p['bubblebabble']}',
-          action: '서버 키 신뢰',
+          action: contextStrings.trustServerKey,
           destructive: false,
         );
       } else if (p['type'] == 'biometric') {
         value = await confirm(
           context,
-          '생체인증',
-          '${p['nickname']} 키로 인증해요.',
-          action: '인증',
+          contextStrings.biometricAuthentication,
+          contextStrings.authenticateWithKey2((p['nickname']).toString()),
+          action: contextStrings.authentication,
           destructive: false,
         );
       } else {
         value = await confirm(
           context,
-          '${p['instructions'] ?? '확인'}',
+          '${p['instructions'] ?? contextStrings.ok}',
           '${p['message'] ?? ''}',
-          action: '계속',
+          action: contextStrings.continueAction,
           destructive: false,
         );
       }
@@ -736,6 +762,7 @@ class _ShellHomeState extends State<ShellHome> {
   }
 
   Future<void> _homeMenu(String action) async {
+    final contextStrings = context.l10n;
     switch (action) {
       case 'sortColor':
       case 'sortName':
@@ -749,9 +776,9 @@ class _ShellHomeState extends State<ShellHome> {
       case 'disconnect':
         if (await confirm(
               context,
-              '연결 모두 끊기',
-              '모든 연결을 종료할까요?',
-              action: '모두 연결 끊기',
+              contextStrings.disconnectAll,
+              contextStrings.disconnectAllSessions,
+              action: contextStrings.disconnectAll2,
             ) &&
             mounted) {
           await runEngine(context, engine, 'session.disconnectAll');
@@ -762,6 +789,7 @@ class _ShellHomeState extends State<ShellHome> {
   }
 
   Future<void> _hostMenu(EngineRecord host, String action) async {
+    final contextStrings = context.l10n;
     switch (action) {
       case 'files':
         _page(FileBrowserPage(engine: engine, host: host));
@@ -783,9 +811,9 @@ class _ShellHomeState extends State<ShellHome> {
       case 'duplicate':
         final name = await askText(
           context,
-          '복제할 호스트 이름',
-          initial: '${host['nickname']} 복사',
-          action: '복제',
+          contextStrings.nameForDuplicateHost,
+          initial: contextStrings.copy((host['nickname']).toString()),
+          action: contextStrings.duplicate,
         );
         if (name != null && mounted) {
           await runEngine(context, engine, 'host.duplicate', {
@@ -796,9 +824,9 @@ class _ShellHomeState extends State<ShellHome> {
       case 'forget':
         if (await confirm(
               context,
-              '서버 키를 지울까요?',
-              '다음에 연결할 때 서버 키를 다시 확인해요.',
-              action: '서버 키 삭제',
+              contextStrings.removeServerKey,
+              contextStrings.theServerKeyWillBeVerifiedAgainOnThe,
+              action: contextStrings.deleteServerKey,
             ) &&
             mounted) {
           await runEngine(context, engine, 'host.forgetKeys', {
@@ -808,9 +836,9 @@ class _ShellHomeState extends State<ShellHome> {
       case 'disconnect':
         if (await confirm(
               context,
-              '연결 끊기',
-              '${host['nickname']} 연결을 종료할까요?',
-              action: '연결 끊기',
+              contextStrings.disconnect,
+              contextStrings.disconnectFrom((host['nickname']).toString()),
+              action: contextStrings.disconnect,
             ) &&
             mounted) {
           await runEngine(context, engine, 'host.disconnect', {
@@ -823,6 +851,7 @@ class _ShellHomeState extends State<ShellHome> {
   }
 
   Future<void> _showHostMenu(EngineRecord host, [Offset? finger]) async {
+    final contextStrings = context.l10n;
     HapticFeedback.selectionClick();
     setState(() => _menuHostId = host['id'] as int);
     final sessions = engine
@@ -834,57 +863,79 @@ class _ShellHomeState extends State<ShellHome> {
       title: '${host['nickname']}',
       leading: TildeHostTile(host: host, size: 48),
       position: finger,
-      subtitle: '${hostAddress(host)}${sessions > 0 ? ' · 세션 $sessions' : ''}',
+      subtitle:
+          '${hostAddress(host)}${sessions > 0 ? contextStrings.sessions((sessions).toString()) : ''}',
       icon: host['protocol'] == 'local' ? Icons.terminal : Icons.dns_outlined,
       itemBuilder: (c) => [
         if (host['protocol'] == 'ssh')
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'files',
-            child: TildeMenuLabel('파일 전송 (SFTP)', Icons.folder_outlined),
+            child: TildeMenuLabel(
+              contextStrings.fileTransferSftp,
+              Icons.folder_outlined,
+            ),
           ),
         if (canConnectHost(host))
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'newSession',
-            child: TildeMenuLabel('새 터미널', Icons.add_box_outlined),
+            child: TildeMenuLabel(
+              contextStrings.newTerminal,
+              Icons.add_box_outlined,
+            ),
           ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'edit',
-          child: TildeMenuLabel('편집', Icons.edit_outlined),
+          child: TildeMenuLabel(contextStrings.edit2, Icons.edit_outlined),
         ),
         PopupMenuItem(
           value: 'favorite',
           child: TildeMenuLabel(
-            '즐겨찾기',
+            contextStrings.favorites,
             Icons.star_border,
             selected: host['favorite'] == true,
           ),
         ),
         if (canConnectHost(host))
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'duplicate',
-            child: TildeMenuLabel('복제', Icons.content_copy_outlined),
+            child: TildeMenuLabel(
+              contextStrings.duplicate,
+              Icons.content_copy_outlined,
+            ),
           ),
         if (host['protocol'] == 'ssh')
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'forwards',
             child: Row(
               children: [
-                Expanded(child: TildeMenuLabel('포트 포워딩', Icons.swap_horiz)),
+                Expanded(
+                  child: TildeMenuLabel(
+                    contextStrings.portForwarding,
+                    Icons.swap_horiz,
+                  ),
+                ),
                 Icon(Icons.chevron_right, size: 20),
               ],
             ),
           ),
         if (sessions > 0) ...[
           const PopupMenuDivider(),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'disconnect',
-            child: TildeMenuLabel('연결 끊기', Icons.link_off_outlined),
+            child: TildeMenuLabel(
+              contextStrings.disconnect,
+              Icons.link_off_outlined,
+            ),
           ),
         ],
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'delete',
-          child: TildeMenuLabel('삭제', Icons.delete_outline, danger: true),
+          child: TildeMenuLabel(
+            contextStrings.delete,
+            Icons.delete_outline,
+            danger: true,
+          ),
         ),
       ],
     );
@@ -907,7 +958,7 @@ class _ShellHomeState extends State<ShellHome> {
             ),
           ),
           suffixIcon: IconButton(
-            tooltip: '빠른 연결',
+            tooltip: context.l10n.quickConnect,
             icon: const Icon(Icons.arrow_upward),
             onPressed: () => _quickConnect(_quickUri),
           ),
@@ -985,7 +1036,10 @@ class _ShellHomeState extends State<ShellHome> {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
         if (sessions.isNotEmpty) ...[
-          Text('열린 세션', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            context.l10n.openSessions,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           SessionList(
             engine: engine,
             onSelect: _resumeSession,
@@ -1059,7 +1113,7 @@ class _ShellHomeState extends State<ShellHome> {
                     ),
                   ),
                   IconButton(
-                    tooltip: '${host['nickname']} 메뉴',
+                    tooltip: context.l10n.menu((host['nickname']).toString()),
                     onPressed: () => _showHostMenu(host),
                     icon: const Icon(Icons.more_vert),
                   ),
@@ -1092,8 +1146,8 @@ class _ShellHomeState extends State<ShellHome> {
                   ),
                   onQuickConnect: () => _quickFocus.requestFocus(),
                   keyLabel: engine.state['platform'] == 'ios'
-                      ? 'SSH 키 가져오기'
-                      : '이 기기에 SSH 키 만들기',
+                      ? context.l10n.importSshKey
+                      : context.l10n.createSshKeyOnThisDevice,
                   onKey: () async {
                     if (engine.state['platform'] == 'ios') {
                       await importTildeKeyFile(context, engine);
@@ -1126,25 +1180,29 @@ class _ShellHomeState extends State<ShellHome> {
               onPressed: _openSessions,
             ),
           IconButton(
-            tooltip: '호스트 추가',
+            tooltip: context.l10n.addHost,
             onPressed: () =>
                 _page(RecordEditor(engine: engine, kind: RecordKind.host)),
             icon: const Icon(Icons.add),
           ),
           IconButton(
-            tooltip: '메뉴',
+            tooltip: context.l10n.menu2,
             icon: const Icon(Icons.more_vert),
             onPressed: () async {
+              final contextStrings = context.l10n;
               final action = await TildeItemMenu.show<String>(
                 context,
                 title: '',
                 icon: Icons.tune,
                 itemBuilder: (c) => [
-                  const PopupMenuItem(enabled: false, child: Text('정렬')),
+                  PopupMenuItem(
+                    enabled: false,
+                    child: Text(contextStrings.sort),
+                  ),
                   PopupMenuItem(
                     value: 'sortColor',
                     child: TildeMenuLabel(
-                      '색상순',
+                      contextStrings.byColor,
                       Icons.palette_outlined,
                       selected: engine.state['sortedByColor'] == true,
                     ),
@@ -1152,26 +1210,32 @@ class _ShellHomeState extends State<ShellHome> {
                   PopupMenuItem(
                     value: 'sortName',
                     child: TildeMenuLabel(
-                      '이름순',
+                      contextStrings.byName,
                       Icons.sort_by_alpha,
                       selected: engine.state['sortedByColor'] != true,
                     ),
                   ),
                   const PopupMenuDivider(),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'settings',
-                    child: TildeMenuLabel('설정', Icons.settings_outlined),
+                    child: TildeMenuLabel(
+                      contextStrings.settings,
+                      Icons.settings_outlined,
+                    ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'help',
-                    child: TildeMenuLabel('도움말', Icons.help_outline),
+                    child: TildeMenuLabel(
+                      contextStrings.help,
+                      Icons.help_outline,
+                    ),
                   ),
                   const PopupMenuDivider(),
                   if (engine.list('sessions').isNotEmpty)
                     PopupMenuItem(
                       value: 'disconnect',
-                      child: const TildeMenuLabel(
-                        '연결 모두 끊기',
+                      child: TildeMenuLabel(
+                        contextStrings.disconnectAll,
                         Icons.link_off_outlined,
                       ),
                     ),
@@ -1230,30 +1294,30 @@ class AppGate extends StatelessWidget {
           if (engine.state['authenticated'] == false)
             FilledButton(
               onPressed: () => runEngine(context, engine, 'authenticateApp'),
-              child: const Text('잠금 해제'),
+              child: Text(context.l10n.unlock),
             )
           else if (engine.state['error'] != null) ...[
-            const Text('앱 데이터를 준비하지 못했습니다'),
+            Text(context.l10n.couldNotPrepareAppData),
             TextButton(
               onPressed: () =>
                   showErrorDetails(context, '${engine.state['error']}'),
-              child: const Text('자세히'),
+              child: Text(context.l10n.details),
             ),
             FilledButton(
               onPressed: () => runEngine(context, engine, 'retryMigration'),
-              child: const Text('다시 시도'),
+              child: Text(context.l10n.retry),
             ),
           ] else
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(32),
-              child: TildeProgress(label: 'Tilde 준비 중'),
+              child: TildeProgress(label: context.l10n.preparingTilde),
             ),
           if (engine.error != null)
             Padding(
               padding: const EdgeInsets.all(16),
               child: TextButton(
                 onPressed: () => showErrorDetails(context, engine.error!),
-                child: const Text('오류 자세히'),
+                child: Text(context.l10n.errorDetails),
               ),
             ),
         ],

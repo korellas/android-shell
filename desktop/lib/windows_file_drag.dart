@@ -1,5 +1,6 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+
 import 'dart:async';
 import 'dart:io';
 import 'package:android_shell_ui/files/file_drag_scope.dart';
@@ -9,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:super_clipboard/super_clipboard.dart' show SimpleFileFormat;
 import 'package:super_clipboard/super_clipboard.dart' as clipboard;
+import 'package:android_shell_ui/l10n/strings.dart';
 
 // Native registration stays in the Windows host; mobile consumers need no plugin.
 class WindowsFileDrag extends StatelessWidget {
@@ -218,9 +220,11 @@ class _UploadDropState extends State<_UploadDrop> {
       if (mounted && paths.isNotEmpty) await upload(paths);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('파일을 가져오지 못했습니다: $error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.l10n.couldNotImportFiles((error).toString())),
+          ),
+        );
       }
     }
   }
@@ -275,7 +279,9 @@ class _UploadDropState extends State<_UploadDrop> {
                 ).colorScheme.primaryContainer.withValues(alpha: .9),
                 alignment: Alignment.center,
                 child: Text(
-                  '${widget.label ?? '현재 폴더'}에 업로드합니다',
+                  context.l10n.uploadTo(
+                    (widget.label ?? context.l10n.currentFolder).toString(),
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),

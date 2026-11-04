@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:xterm2/xterm.dart';
 import 'app_terminal_session.dart';
 import 'terminal_input.dart';
+import '../l10n/strings.dart';
 
 Map<String, dynamic> _map(Object? value) =>
     value is Map ? Map<String, dynamic>.from(value) : {};
@@ -145,7 +146,7 @@ class AppLocalSession implements AppTerminalSession {
   @override
   Future<void> connect() async {
     if (_disposed || _connecting || _open || _closing) {
-      throw StateError('Disconnect before reconnecting');
+      throw StateError(deviceStrings.disconnectBeforeReconnecting);
     }
     TerminalSessionOperations.configureInput(
       terminal,
@@ -216,7 +217,7 @@ class AppLocalSession implements AppTerminalSession {
 
   Future<void> _send(String text) {
     if (!sessionOpen) {
-      return Future.error(StateError('Local shell is not open'));
+      return Future.error(StateError(deviceStrings.localShellIsNotOpen));
     }
     final runtime = _runtimeId;
     final pending = _input.then<void>((_) async {
@@ -298,7 +299,7 @@ class AppLocalSession implements AppTerminalSession {
   }
 
   Future<void> _sendKey(int key, int modifiers) async {
-    if (!sessionOpen) throw StateError('Local shell is not open');
+    if (!sessionOpen) throw StateError(deviceStrings.localShellIsNotOpen);
     if (key < 0 && key >= -0x10ffff) {
       terminal.keyInput(
         TerminalKey.none,
@@ -333,7 +334,7 @@ class AppLocalSession implements AppTerminalSession {
           1 => 'ctrl',
           4 => 'alt',
           16 => 'shift',
-          _ => throw ArgumentError('Unknown modifier'),
+          _ => throw ArgumentError(deviceStrings.unknownModifier),
         };
         _modifiers[name] = switch (_modifiers[name]) {
           'OFF' => 'TRANSIENT',
@@ -364,7 +365,9 @@ class AppLocalSession implements AppTerminalSession {
       case 'session.dismissBanner':
         return null;
       default:
-        throw UnsupportedError('Unsupported local terminal operation: $method');
+        throw UnsupportedError(
+          deviceStrings.unsupportedLocalTerminalOperation((method).toString()),
+        );
     }
     return null;
   }

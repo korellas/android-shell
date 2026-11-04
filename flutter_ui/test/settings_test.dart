@@ -21,6 +21,7 @@ import 'package:android_shell_ui/management.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:android_shell_ui/l10n/strings.dart';
 
 void main() {
   late AndroidEngine engine;
@@ -152,7 +153,12 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
-      MaterialApp(home: page ?? SettingsPage(engine: engine)),
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
+        home: page ?? SettingsPage(engine: engine),
+      ),
     );
     await tester.pumpAndSettle();
   }
@@ -360,6 +366,9 @@ void main() {
         tester.view.physicalSize = Size(width, 900);
         await tester.pumpWidget(
           MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(
                 context,
@@ -400,6 +409,9 @@ void main() {
       tester.view.physicalSize = Size(width, 900);
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(
               context,
@@ -420,6 +432,9 @@ void main() {
       tester.view.physicalSize = Size(width, 900);
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ko'),
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(
               context,
