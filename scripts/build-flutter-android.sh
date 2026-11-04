@@ -21,12 +21,17 @@ case "$port_mode" in
   debug|release) ;;
   *) printf 'Usage: %s [debug|release]\n' "$0" >&2; exit 2 ;;
 esac
+port_test_ads="${TILDE_TEST_ADS:-false}"
+case "$port_test_ads" in
+  true|false) ;;
+  *) printf 'TILDE_TEST_ADS must be true or false.\n' >&2; exit 2 ;;
+esac
 cd "$port_root/flutter_ui"
 flutter pub get
 if [[ "$port_mode" == debug ]]; then
-  flutter build aar --debug --no-profile --no-release
+  flutter build aar --debug --no-profile --no-release "--dart-define=TILDE_TEST_ADS=$port_test_ads"
 else
-  flutter build aar --release --no-profile --no-debug
+  flutter build aar --release --no-profile --no-debug "--dart-define=TILDE_TEST_ADS=$port_test_ads"
 fi
 cd "$port_root"
 port_git_directory="$(git rev-parse --path-format=absolute --git-common-dir)"

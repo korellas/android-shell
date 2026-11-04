@@ -157,6 +157,18 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('version is shown in help details, not settings navigation', (
+    tester,
+  ) async {
+    engine.state['appVersion'] = '1.11.0 (123)';
+    await open(tester);
+    expect(find.textContaining('1.11.0'), findsNothing);
+    await tester.ensureVisible(find.text('도움말 및 로그'));
+    await tester.tap(find.text('도움말 및 로그'));
+    await tester.pumpAndSettle();
+    expect(find.text('1.11.0 (123)'), findsOneWidget);
+  });
+
   testWidgets('font import opens picker without a name dialog', (tester) async {
     await open(tester);
     await tester.tap(find.text('화면'));
