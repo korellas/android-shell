@@ -18,7 +18,7 @@ info["CFBundleDisplayName"] = "Tilde"
 info["CFBundleName"] = "Tilde"
 l10n_dir = Path(__file__).resolve().parents[2] / "flutter_ui" / "lib" / "l10n"
 info["CFBundleLocalizations"] = sorted(
-    json.loads(path.read_text())["@@locale"] for path in l10n_dir.glob("app_*.arb")
+    json.loads(path.read_text())["@@locale"].replace("_", "-") for path in l10n_dir.glob("app_*.arb")
 )
 info["NSLocalNetworkUsageDescription"] = "Connect to SSH servers and debug apps on your local network."
 with info_path.open("wb") as stream:

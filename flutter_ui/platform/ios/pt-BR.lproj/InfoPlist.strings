@@ -1,0 +1,3 @@
+// Copyright 2026 Kenny Root
+// SPDX-License-Identifier: Apache-2.0
+"NSLocalNetworkUsageDescription" = "Conectar a servidores SSH e depurar apps na sua rede local.";

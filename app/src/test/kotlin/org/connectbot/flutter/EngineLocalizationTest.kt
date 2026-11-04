@@ -38,7 +38,15 @@ class EngineLocalizationTest {
     @Test
     fun hostValidationUsesTheResourceLocale() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        for ((language, expected) in listOf("en" to "Enter a host name.", "ko" to "호스트 이름을 입력하세요.")) {
+        for ((language, expected) in listOf(
+            "en" to "Enter a host name.",
+            "ko" to "호스트 이름을 입력하세요.",
+            "ja-JP" to "ホストの名前を入力してください。",
+            "zh-CN" to "请输入主机名称。",
+            "zh-Hans-SG" to "请输入主机名称。",
+            "pt-BR" to "Digite um nome para o host.",
+            "es-MX" to "Introduce un nombre para el host.",
+        )) {
             val configuration = Configuration(context.resources.configuration).apply {
                 setLocale(Locale.forLanguageTag(language))
             }

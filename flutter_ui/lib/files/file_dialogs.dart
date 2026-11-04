@@ -387,90 +387,95 @@ class FileDeletePrompt extends StatelessWidget {
   final Future<Map<String, int>> counts;
   @override
   Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: FutureBuilder<Map<String, int>>(
-        future: counts,
-        builder: (context, snapshot) => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              context.l10n.permanentlyDeleteItems((entries.length).toString()),
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 180),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    for (final entry in entries)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          entry.attr.isDirectory
-                              ? Icons.folder_outlined
-                              : entry.attr.isSymbolicLink
-                              ? Icons.link
-                              : Icons.description_outlined,
-                        ),
-                        title: Text(entry.filename),
-                        subtitle: entry.attr.isDirectory
-                            ? Text(
-                                snapshot.hasData
-                                    ? context.l10n.childItems(
-                                        (snapshot.data![entry.filename]! - 1)
-                                            .toString(),
-                                      )
-                                    : context.l10n.checkingContents,
-                              )
-                            : entry.attr.size == null
-                            ? null
-                            : Text(formatBytes(entry.attr.size!)),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (snapshot.hasError)
-              Text(context.l10n.couldNotInspectFolderContentsTryAgain)
-            else if (!snapshot.hasData)
-              const LinearProgressIndicator()
-            else
+    child: SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        child: FutureBuilder<Map<String, int>>(
+          future: counts,
+          builder: (context, snapshot) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               Text(
-                entries.any((entry) => entry.attr.isDirectory)
-                    ? context.l10n
-                          .deleteAllItemsIncludingFolderContentsThisCannotBe(
-                            (snapshot.data!.values.fold<int>(
-                              0,
-                              (total, value) => total + value,
-                            )).toString(),
-                          )
-                    : context
-                          .l10n
-                          .deleteImmediatelyWithoutUsingTrashThisCannotBeUndone,
+                context.l10n.permanentlyDeleteItems(
+                  (entries.length).toString(),
+                ),
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(context.l10n.cancel),
+              const SizedBox(height: 16),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 180),
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      for (final entry in entries)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            entry.attr.isDirectory
+                                ? Icons.folder_outlined
+                                : entry.attr.isSymbolicLink
+                                ? Icons.link
+                                : Icons.description_outlined,
+                          ),
+                          title: Text(entry.filename),
+                          subtitle: entry.attr.isDirectory
+                              ? Text(
+                                  snapshot.hasData
+                                      ? context.l10n.childItems(
+                                          (snapshot.data![entry.filename]! - 1)
+                                              .toString(),
+                                        )
+                                      : context.l10n.checkingContents,
+                                )
+                              : entry.attr.size == null
+                              ? null
+                              : Text(formatBytes(entry.attr.size!)),
+                        ),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  style: tildeDangerButtonStyle(context),
-                  onPressed: snapshot.hasData
-                      ? () => Navigator.pop(context, true)
-                      : null,
-                  child: Text(context.l10n.deletePermanently),
+              ),
+              const SizedBox(height: 12),
+              if (snapshot.hasError)
+                Text(context.l10n.couldNotInspectFolderContentsTryAgain)
+              else if (!snapshot.hasData)
+                const LinearProgressIndicator()
+              else
+                Text(
+                  entries.any((entry) => entry.attr.isDirectory)
+                      ? context.l10n
+                            .deleteAllItemsIncludingFolderContentsThisCannotBe(
+                              (snapshot.data!.values.fold<int>(
+                                0,
+                                (total, value) => total + value,
+                              )).toString(),
+                            )
+                      : context
+                            .l10n
+                            .deleteImmediatelyWithoutUsingTrashThisCannotBeUndone,
                 ),
-              ],
-            ),
-          ],
+              const SizedBox(height: 24),
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text(context.l10n.cancel),
+                  ),
+                  FilledButton(
+                    style: tildeDangerButtonStyle(context),
+                    onPressed: snapshot.hasData
+                        ? () => Navigator.pop(context, true)
+                        : null,
+                    child: Text(context.l10n.deletePermanently),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -610,14 +615,15 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
                   : (value) => setState(() => apply = value ?? false),
             ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: Text(context.l10n.cancelTransfer),
               ),
-              const SizedBox(width: 8),
               FilledButton(
                 onPressed: () =>
                     Navigator.pop(context, (action: choice, apply: apply)),
