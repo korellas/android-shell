@@ -298,6 +298,62 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     bool create = false,
   }) async {
     SftpFileAttrs? original = entry?.attr;
+    Future<void> saveContents(String targetPath, Uint8List bytes) async {
+      final job = _queue.add('파일 저장', targetPath, (job) async {
+        final transfer = SftpTransfer(
+          files: _files!,
+          openChannel: _connection!.openSftp,
+        );
+        final exists = await transfer.exists(targetPath);
+        int? permissions;
+        if (exists) {
+          final current = await _files!.stat(targetPath, followLink: false);
+          if (current.isSymbolicLink || current.isDirectory) {
+            throw StateError('폴더나 심볼릭 링크는 편집기로 덮어쓰지 않습니다.');
+          }
+          permissions = current.mode == null
+              ? null
+              : current.mode!.value & 0xfff;
+          if (targetPath != path ||
+              original == null ||
+              current.size != original!.size ||
+              current.modifyTime != original!.modifyTime) {
+            if (!mounted ||
+                !await confirm(
+                  context,
+                  targetPath == path ? '서버 파일 변경됨' : '같은 이름의 파일이 있습니다',
+                  targetPath == path
+                      ? '$targetPath\n서버 파일이 편집 시작 후 변경되었습니다. 덮어쓸까요?'
+                      : '$targetPath\n기존 파일을 덮어쓸까요?',
+                  action: '덮어쓰기',
+                  destructive: false,
+                )) {
+              throw TransferCancelled();
+            }
+          }
+        }
+        final temporary = await Directory.systemTemp.createTemp('tilde-edit-');
+        try {
+          final file = await File('${temporary.path}/data').writeAsBytes(bytes);
+          await transfer.upload(
+            file,
+            targetPath,
+            control: job.control,
+            overwrite: exists,
+            permissions: permissions,
+            onProgress: (_) => _progress(),
+          );
+          if (targetPath == path) {
+            original = await _files!.stat(targetPath, followLink: false);
+          }
+        } finally {
+          await temporary.delete(recursive: true);
+        }
+        _refreshAt(_parent(targetPath));
+      });
+      await job.wait();
+    }
+
     final preview = FilePreview(
       path: path,
       size: entry?.attr.size,
@@ -306,60 +362,36 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
           ? null
           : () => _guard(() => _downloadMany([entry])),
       newFile: create,
-      load: () => create ? Future.value(Uint8List(0)) : _read(path),
-      save: (bytes) async {
-        final job = _queue.add('파일 저장', path, (job) async {
-          final transfer = SftpTransfer(
-            files: _files!,
-            openChannel: _connection!.openSftp,
-          );
-          final exists = await transfer.exists(path);
-          int? permissions;
-          if (exists) {
-            final current = await _files!.stat(path, followLink: false);
-            if (current.isSymbolicLink || current.isDirectory) {
-              throw StateError('폴더나 심볼릭 링크는 편집기로 덮어쓰지 않습니다.');
-            }
-            permissions = current.mode == null
-                ? null
-                : current.mode!.value & 0xfff;
-            if (original == null ||
-                current.size != original!.size ||
-                current.modifyTime != original!.modifyTime) {
-              if (!mounted ||
-                  !await confirm(
-                    context,
-                    '서버 파일 변경됨',
-                    '$path\n서버 파일이 편집 시작 후 변경되었습니다. 덮어쓸까요?',
-                    action: '덮어쓰기',
-                    destructive: false,
-                  )) {
-                throw TransferCancelled();
-              }
-            }
+      load: () async {
+        if (create) return Uint8List(0);
+        if (_connection?.connected != true) {
+          await _connect();
+          if (_connection?.connected != true) {
+            throw StateError('서버에 다시 연결하지 못했습니다. 파일 목록에서 인증을 확인하세요.');
           }
-          final temporary = await Directory.systemTemp.createTemp(
-            'tilde-edit-',
-          );
-          try {
-            final file = await File(
-              '${temporary.path}/data',
-            ).writeAsBytes(bytes);
-            await transfer.upload(
-              file,
-              path,
-              control: job.control,
-              overwrite: exists,
-              permissions: permissions,
-              onProgress: (_) => _progress(),
-            );
-            original = await _files!.stat(path, followLink: false);
-          } finally {
-            await temporary.delete(recursive: true);
-          }
-          _refreshAt(_parent(path));
-        });
-        await job.wait();
+        }
+        return _read(path);
+      },
+      save: (bytes) => saveContents(path, bytes),
+      saveCopy: (bytes) async {
+        final destination = await askText(
+          context,
+          '다른 위치에 사본 저장',
+          initial: path,
+          action: '사본 저장',
+          hintText: '/home/user/copy.txt',
+          validator: (value) {
+            final target = value?.trim() ?? '';
+            if (!target.startsWith('/') || target.endsWith('/')) {
+              return '파일 이름을 포함한 절대 경로를 입력하세요.';
+            }
+            if (target == path) return '원본과 다른 경로를 입력하세요.';
+            return null;
+          },
+        );
+        if (destination == null) return null;
+        await saveContents(destination.trim(), bytes);
+        return destination.trim();
       },
     );
     if (widget.onPreview != null) {
@@ -750,7 +782,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
         final dot = name.lastIndexOf('.');
         final stem = dot > 0 ? name.substring(0, dot) : name,
             extension = dot > 0 ? name.substring(dot) : '';
-        for (var suffix = 2; ; suffix++) {
+        for (var suffix = 1; ; suffix++) {
           await job.control.ready;
           final candidate = '$directory$stem ($suffix)$extension';
           final exists = upload
@@ -1409,6 +1441,61 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                               ),
                             ),
                     ),
+                    if (pointer) ...[
+                      IconButton(
+                        tooltip: '현재 폴더 즐겨찾기',
+                        icon: Icon(
+                          _favorites.contains(_path)
+                              ? Icons.star
+                              : Icons.star_border,
+                        ),
+                        onPressed: () {
+                          setState(
+                            () => _favorites.contains(_path)
+                                ? _favorites.remove(_path)
+                                : _favorites.add(_path),
+                          );
+                          _saveLocations();
+                        },
+                      ),
+                      PopupMenuButton<String>(
+                        tooltip: '즐겨찾기·최근 위치',
+                        icon: const Icon(Icons.history),
+                        onSelected: _connected
+                            ? (path) => _navigate(path)
+                            : null,
+                        itemBuilder: (_) => [
+                          if (_favorites.isNotEmpty)
+                            const PopupMenuItem<String>(
+                              enabled: false,
+                              child: Text('즐겨찾기'),
+                            ),
+                          for (final path in _favorites)
+                            PopupMenuItem(
+                              value: path,
+                              child: Text(
+                                path,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          if (_recent.isNotEmpty)
+                            const PopupMenuItem<String>(
+                              enabled: false,
+                              child: Text('최근 위치'),
+                            ),
+                          for (final path in _recent)
+                            PopupMenuItem(
+                              value: path,
+                              child: Text(
+                                path,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                     IconButton(
                       tooltip: '새로고침',
                       onPressed: _connected

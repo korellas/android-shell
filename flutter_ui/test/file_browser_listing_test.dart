@@ -175,8 +175,6 @@ void main() {
     await tester.tap(find.text('소유자 UID'));
     await tester.pumpAndSettle();
     expect(find.text('1000'), findsOneWidget);
-    await tester.tap(find.text('보기'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('숨김 파일·폴더 표시'));
     await tester.pumpAndSettle();
     expect(find.text('.secret'), findsOneWidget);
@@ -190,10 +188,12 @@ void main() {
     await show(tester, const Size(1400, 900));
     await tester.tap(find.text('보기'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('크기순'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('보기'));
-    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SegmentedButton<Object?>),
+        matching: find.text('크기'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('내림차순'));
     await tester.pumpAndSettle();
@@ -205,6 +205,8 @@ void main() {
       tester.getTopLeft(find.text('alpha.txt')).dy,
       lessThan(tester.getTopLeft(find.text('beta.txt')).dy),
     );
+    await tester.tap(find.text('닫기'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'BETA');
     await tester.pumpAndSettle();
     expect(find.text('alpha.txt'), findsNothing);

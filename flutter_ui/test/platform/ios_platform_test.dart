@@ -162,7 +162,7 @@ void main() {
     expect(find.textContaining('Android Keystore'), findsNothing);
     expect(
       tester
-          .widget<FloatingActionButton>(find.byType(FloatingActionButton))
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '키 파일 추가'))
           .onPressed,
       isNotNull,
     );

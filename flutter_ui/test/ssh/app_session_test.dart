@@ -48,10 +48,14 @@ void main() {
   late AppSshSession session;
   late List<FakeTransport> transports;
   late List<String> calls;
+  late List<Map<String, Object?>> savedHosts;
   late Map<String, dynamic> prepared;
   Future<Object?> platform(String method, Map<String, Object?> args) async {
     calls.add('$method:${args['final']}');
     switch (method) {
+      case 'host.save':
+        savedHosts.add(Map.of(args));
+        return args;
       case 'ssh.decode':
         return utf8.decode((args['bytes'] as List).cast<int>());
       case 'ssh.encode':
@@ -101,6 +105,7 @@ void main() {
   setUp(() {
     transports = [];
     calls = [];
+    savedHosts = [];
     prepared = {
       'host': {
         'id': 3,
@@ -479,6 +484,72 @@ void main() {
     expect(session.connected, true);
     expect(calls.any((call) => call.startsWith('ssh.keyMaterial')), false);
   });
+  for (final succeeds in [true, false]) {
+    test(
+      'typed password is saved only after successful authentication ($succeeds)',
+      () async {
+        session = create(
+          connect: (transport) async {
+            expect(
+              await transport.endpoints.single.onPassword!(),
+              'typed-secret',
+            );
+            expect(savedHosts, isEmpty);
+            if (!succeeds) throw SSHAuthFailError('rejected');
+          },
+        );
+        final connecting = session.connect();
+        while (session.prompts.isEmpty) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        expect(session.prompts.single['canSavePassword'], isTrue);
+        session.respond(session.prompts.single['token'] as String, {
+          'value': 'typed-secret',
+          'savePassword': true,
+        });
+        await connecting;
+        expect(
+          savedHosts,
+          succeeds
+              ? [
+                  {'id': 3, 'password': 'typed-secret'},
+                ]
+              : isEmpty,
+        );
+      },
+    );
+  }
+  test(
+    'password cancellation and a rejected password followed by interactive auth never save',
+    () async {
+      session = create(
+        connect: (transport) async {
+          await transport.endpoints.single.onPassword!();
+          await transport.endpoints.single.onInteractive!(
+            SSHUserInfoRequest('', '', []),
+          );
+        },
+      );
+      final connecting = session.connect();
+      while (session.prompts.isEmpty) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      session.respond(session.prompts.single['token'] as String, {
+        'value': 'rejected-secret',
+        'savePassword': true,
+      });
+      await connecting;
+      expect(savedHosts, isEmpty);
+      await session.disconnect();
+      final again = session.connect();
+      while (session.prompts.isEmpty) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      session.respond(session.prompts.single['token'] as String, null);
+      await again;
+      expect(savedHosts, isEmpty);
+    },
+  );
   test(
     'saved password used once across hidden keyboard and password requests',
     () async {

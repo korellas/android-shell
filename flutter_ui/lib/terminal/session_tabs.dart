@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../engine.dart';
 import '../main.dart' show confirm, hostAddress, showEngineFailure;
 import '../tilde_design.dart';
+import '../tilde_controls.dart';
 
 const sessionTabsMinWidth = 600.0;
 const sessionTabsHeight = 40.0;
@@ -126,25 +127,28 @@ class SessionList extends StatelessWidget {
               size: 12,
               color: session['open'] == true || session['connecting'] == true
                   ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.outline,
+                  : Theme.of(context).colorScheme.error,
             ),
             title: Text(sessionLabel(sessions, session)),
-            subtitle: Text(
-              [
-                session['connecting'] == true
-                    ? '연결 중'
-                    : session['open'] == true
-                    ? '연결됨'
-                    : '연결 종료',
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  session['connecting'] == true
+                      ? '연결 중'
+                      : session['open'] == true
+                      ? '연결됨'
+                      : '연결 종료${session['endedAt'] == null ? '' : ' · ${DateTime.tryParse('${session['endedAt']}')?.toLocal().toString().substring(11, 16) ?? ''}'}',
+                ),
                 if (session['uri'] != null)
-                  '${session['uri']}'
+                  tildePathText('${session['uri']}')
                 else if (engine
                         .list('hosts')
                         .where((h) => h['id'] == session['hostId'])
                         .firstOrNull
                     case final host?)
-                  hostAddress(host),
-              ].join(' · '),
+                  tildePathText(hostAddress(host)),
+              ],
             ),
             onTap: () => onSelect(session['id'] as int),
             trailing: IconButton(
@@ -306,9 +310,7 @@ class _DesktopSessionTabsState extends State<DesktopSessionTabs> {
                     child: Icon(
                       connecting ? Icons.more_horiz : Icons.circle,
                       size: 8,
-                      color: open || connecting
-                          ? colors.primary
-                          : colors.outline,
+                      color: open || connecting ? colors.primary : colors.error,
                     ),
                   ),
                   const SizedBox(width: 8),

@@ -19,6 +19,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'engine.dart';
+import 'files/file_browser.dart';
 import 'tilde_controls.dart';
 import 'tilde_design.dart';
 import 'connection_status.dart';
@@ -353,6 +354,67 @@ class ConsolePageState extends State<ConsolePage> {
       await terminalKey.currentState?.viewAction(action);
       return;
     }
+    if (action == 'files') {
+      final host = engine
+          .list('hosts')
+          .where((h) => h['id'] == session['hostId'])
+          .firstOrNull;
+      if (host != null) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => FileBrowserPage(engine: engine, host: host),
+          ),
+        );
+      }
+      return;
+    }
+    if (action == 'display') {
+      await showTildeSheet<void>(
+        context: actionsContext,
+        builder: (c) => StatefulBuilder(
+          builder: (c, refresh) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text(
+                  '화면',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (session['open'] == true)
+                ListTile(
+                  leading: const Icon(Icons.aspect_ratio),
+                  title: const Text('터미널 크기'),
+                  subtitle: Text(
+                    '${session['columns'] ?? '열'}×${session['rows'] ?? '행'}',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(c);
+                    menu('resize');
+                  },
+                ),
+              for (final option in [
+                ('fullscreen', '전체 화면', Icons.fullscreen),
+                ('titlebarhide', '제목 줄 자동 숨김', Icons.vertical_align_top),
+              ])
+                SwitchListTile(
+                  secondary: Icon(option.$3),
+                  title: Text(option.$2),
+                  value: engine.preferences[option.$1] == true,
+                  onChanged: (_) async {
+                    await selectMenuAction(option.$1);
+                    if (c.mounted) refresh(() {});
+                  },
+                ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
     if (action == 'resize') {
       final targetId = id;
       final size = await askText(
@@ -398,6 +460,7 @@ class ConsolePageState extends State<ConsolePage> {
         maxWidth: 640,
         multiline: true,
         showPasteAction: true,
+        hardwareKeyboard: engine.state['hardwareKeyboard'] == true,
       );
       await WidgetsBinding.instance.endOfFrame;
       if (text != null &&
@@ -594,34 +657,15 @@ class ConsolePageState extends State<ConsolePage> {
               ],
               if (connected) const Divider(),
               entry('urls', '링크', Icons.link_outlined),
-              if (connected)
-                entry(
-                  'resize',
-                  '터미널 크기',
-                  Icons.aspect_ratio_outlined,
-                  subtitle:
-                      '${session['columns'] ?? '열'}×${session['rows'] ?? '행'}',
-                  navigates: true,
-                ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                secondary: const Icon(Icons.fullscreen, size: 22),
-                title: const Text('전체 화면'),
-                value: engine.preferences['fullscreen'] == true,
-                onChanged: (_) => side
-                    ? selectMenuAction('fullscreen')
-                    : action('fullscreen'),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                secondary: const Icon(Icons.vertical_align_top, size: 22),
-                title: const Text('제목 줄 자동 숨김'),
-                value: engine.preferences['titlebarhide'] == true,
-                onChanged: (_) => side
-                    ? selectMenuAction('titlebarhide')
-                    : action('titlebarhide'),
+              entry(
+                'display',
+                '화면',
+                Icons.display_settings_outlined,
+                navigates: true,
               ),
               const Divider(),
+              if (session['hostId'] != null)
+                entry('files', '파일 전송', Icons.folder_outlined, navigates: true),
               if (connected && session['canForward'] == true)
                 entry('forwards', '포트 포워딩', Icons.swap_horiz, navigates: true),
               if (session['canEnroll'] == true)
@@ -635,7 +679,7 @@ class ConsolePageState extends State<ConsolePage> {
                 entry('reconnect', '다시 연결', Icons.refresh),
               entry(
                 'newSession',
-                '새 세션',
+                '새 터미널',
                 Icons.add_box_outlined,
                 enabled:
                     connectionTarget['hostId'] != null ||
@@ -687,10 +731,14 @@ class ConsolePageState extends State<ConsolePage> {
             value: 'urls',
             child: TildeMenuLabel('링크', Icons.link_outlined),
           ),
-          if (connected)
+          const PopupMenuItem(
+            value: 'display',
+            child: TildeMenuLabel('화면', Icons.display_settings_outlined),
+          ),
+          if (session['hostId'] != null)
             const PopupMenuItem(
-              value: 'resize',
-              child: TildeMenuLabel('터미널 크기', Icons.aspect_ratio_outlined),
+              value: 'files',
+              child: TildeMenuLabel('파일 전송', Icons.folder_outlined),
             ),
           const PopupMenuItem(
             value: 'fullscreen',
@@ -715,7 +763,7 @@ class ConsolePageState extends State<ConsolePage> {
           const PopupMenuItem(
             value: 'newSession',
             child: TildeMenuLabel(
-              '새 세션',
+              '새 터미널',
               Icons.add_box_outlined,
               shortcut: 'Ctrl Shift T',
             ),
@@ -769,7 +817,19 @@ class ConsolePageState extends State<ConsolePage> {
 
   Widget _loginPrompt(EngineRecord prompt) => TerminalPromptSurface(
     key: ValueKey((id, prompt['token'])),
-    prompt: prompt,
+    prompt: {
+      'nickname': session['nickname'],
+      'address':
+          session['uri'] ??
+          hostAddress(
+            engine
+                    .list('hosts')
+                    .where((h) => h['id'] == session['hostId'])
+                    .firstOrNull ??
+                session,
+          ),
+      ...prompt,
+    },
     enabled: visible == true,
     onResponse: (value) async {
       await runEngine(actionsContext, engine, 'prompt.respond', {
@@ -826,7 +886,24 @@ class ConsolePageState extends State<ConsolePage> {
             onPressed: () => showErrorDetails(
               actionsContext,
               details,
-              summary: failed ? title : '연결 기록',
+              summary: failed
+                  ? '${session['nickname'] ?? '서버'}에 연결하지 못했습니다'
+                  : '연결 기록',
+              target: session['uri'] as String?,
+              explanation: session['failureSummary'] as String?,
+              occurredAt: DateTime.tryParse('${session['failedAt']}'),
+              edit: host == null
+                  ? null
+                  : () => Navigator.push<void>(
+                      actionsContext,
+                      MaterialPageRoute(
+                        builder: (_) => RecordEditor(
+                          engine: engine,
+                          kind: RecordKind.host,
+                          record: host,
+                        ),
+                      ),
+                    ),
               retry: failed ? () => menu('reconnect') : null,
             ),
             child: Text(failed ? '자세히' : '연결 기록'),
@@ -1054,6 +1131,7 @@ class ConsolePageState extends State<ConsolePage> {
                                                 commonSession
                                                     .prepared['scheme'],
                                               ),
+                                              ended: ended,
                                             ),
                                             textStyle: TerminalStyle(
                                               fontSize: commonSession.fontSize,
@@ -1290,23 +1368,60 @@ class ConsolePageState extends State<ConsolePage> {
                                 left: 0,
                                 right: 0,
                                 bottom: MediaQuery.viewInsetsOf(context).bottom,
-                                child: Material(
+                                child: Card(
+                                  margin: const EdgeInsets.all(16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
                                   color: theme.colorScheme.surfaceContainerLow,
                                   child: SafeArea(
                                     top: false,
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 16,
-                                        vertical: 4,
+                                        vertical: 12,
                                       ),
-                                      child: Row(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          const Expanded(
-                                            child: Text('연결이 끊겼습니다'),
+                                          Text(
+                                            switch (session['disconnectReason']) {
+                                              'USER_REQUESTED' => '연결을 종료했습니다',
+                                              'SESSION_EXIT' =>
+                                                '서버에서 세션을 종료했습니다',
+                                              'AUTH_FAIL' =>
+                                                '인증에 실패해 연결이 종료되었습니다',
+                                              _ => '연결이 끊겼습니다',
+                                            },
                                           ),
-                                          TextButton(
-                                            onPressed: () => menu('reconnect'),
-                                            child: const Text('다시 연결'),
+                                          if (session['endedAt'] != null)
+                                            Text(
+                                              '종료 · ${DateTime.tryParse('${session['endedAt']}')?.toLocal().toString().split('.').first ?? session['endedAt']}',
+                                              style: theme.textTheme.bodySmall,
+                                            ),
+                                          Wrap(
+                                            spacing: 8,
+                                            children: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    menu('disconnect'),
+                                                child: const Text('닫기'),
+                                              ),
+                                              TextButton(
+                                                onPressed: () async {
+                                                  await menu('selectAll');
+                                                  await menu('copy');
+                                                },
+                                                child: const Text('출력 복사'),
+                                              ),
+                                              FilledButton.tonal(
+                                                onPressed: () =>
+                                                    menu('reconnect'),
+                                                child: const Text('다시 연결'),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
@@ -1334,17 +1449,24 @@ class ConsolePageState extends State<ConsolePage> {
   }
 }
 
-TerminalTheme consoleTerminalTheme(EngineRecord scheme) {
+TerminalTheme consoleTerminalTheme(EngineRecord scheme, {bool ended = false}) {
   final fallback = TerminalThemes.defaultTheme;
   final palette = (scheme['palette'] as List? ?? []).cast<num>();
   Color color(int index, Color defaultColor) =>
-      index < palette.length ? Color(palette[index].toInt()) : defaultColor;
+      (index < palette.length ? Color(palette[index].toInt()) : defaultColor)
+          .withValues(alpha: ended ? .55 : 1);
   return TerminalTheme(
-    cursor: scheme.isEmpty ? tildeTide : paletteColor(scheme, 'cursor'),
+    cursor: ended
+        ? Colors.transparent
+        : scheme.isEmpty
+        ? tildeTide
+        : paletteColor(scheme, 'cursor'),
     selection: tildeTide.withValues(alpha: .3),
-    foreground: scheme.isEmpty
-        ? const Color(0xffeae9e7)
-        : paletteColor(scheme, 'foreground'),
+    foreground:
+        (scheme.isEmpty
+                ? const Color(0xffeae9e7)
+                : paletteColor(scheme, 'foreground'))
+            .withValues(alpha: ended ? .55 : 1),
     background: scheme.isEmpty
         ? tildeNightBackground
         : paletteColor(scheme, 'background'),
@@ -1512,162 +1634,180 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       };
       return Scaffold(
         appBar: AppBar(title: const Text('SSH 키 로그인 등록')),
-        body: ListView(
-          padding: const EdgeInsets.only(bottom: 24),
-          children: [
-            settingsNote(context, '공개키를 등록한 뒤 별도 연결로 키 로그인을 확인합니다.'),
-            settingsSection(context, '등록할 키', [
-              ListTile(
-                leading: const Icon(Icons.key_outlined),
-                title: Text(
-                  keyId == null
-                      ? '새 생체인증 키'
-                      : '${selected?['nickname'] ?? '키 선택'}',
-                ),
-                subtitle: selected?['fingerprint'] == null
-                    ? null
-                    : Text(
-                        '${selected?['fingerprint']}',
-                        style: const TextStyle(
-                          fontFamily: tildeMono,
-                          fontSize: 12,
-                        ),
-                      ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: busy || state['stage'] == 'SUCCESS'
-                    ? null
-                    : () => choose(state),
-              ),
-              if (keyId == null && state['biometricAvailable'] == true)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: TextFormField(
-                    initialValue: name,
-                    enabled: !busy,
-                    decoration: const InputDecoration(labelText: '새 키 이름'),
-                    onChanged: (value) => name = value,
-                  ),
-                ),
-            ]),
-            settingsSection(context, '진행', [
-              for (var i = 0; i < 3; i++)
-                ListTile(
-                  leading: failed && stage == i
-                      ? Icon(
-                          Icons.error_outline,
-                          color: Theme.of(context).colorScheme.error,
-                        )
-                      : stage > i
-                      ? Icon(
-                          Icons.check,
-                          color: Theme.of(context).colorScheme.primary,
-                        )
-                      : busy && stage == i
-                      ? const TildeProgress.circular()
-                      : Text(
-                          '${i + 1}',
-                          style: TextStyle(
-                            fontFamily: tildeMono,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
+        body: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: tildePointer(context) ? 640 : double.infinity,
+            ),
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: 24),
+              children: [
+                settingsNote(context, '공개키를 등록한 뒤 별도 연결로 키 로그인을 확인합니다.'),
+                settingsSection(context, '등록할 키', [
+                  ListTile(
+                    leading: const Icon(Icons.key_outlined),
+                    title: Text(
+                      keyId == null
+                          ? '새 생체인증 키'
+                          : '${selected?['nickname'] ?? '키 선택'}',
+                    ),
+                    subtitle: selected?['fingerprint'] == null
+                        ? null
+                        : Text(
+                            '${selected?['fingerprint']}',
+                            style: const TextStyle(
+                              fontFamily: tildeMono,
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                  title: Text(
-                    ['공개키 등록', '키 로그인 검증', '호스트에 적용'][i],
-                    style: stage < i
-                        ? TextStyle(
-                            color: Theme.of(
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: busy || state['stage'] == 'SUCCESS'
+                        ? null
+                        : () => choose(state),
+                  ),
+                  if (keyId == null && state['biometricAvailable'] == true)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: TextFormField(
+                        initialValue: name,
+                        enabled: !busy,
+                        decoration: const InputDecoration(labelText: '새 키 이름'),
+                        onChanged: (value) => name = value,
+                      ),
+                    ),
+                ]),
+                settingsSection(context, '진행', [
+                  for (var i = 0; i < 3; i++)
+                    ListTile(
+                      leading: failed && stage == i
+                          ? Icon(
+                              Icons.error_outline,
+                              color: Theme.of(context).colorScheme.error,
+                            )
+                          : stage > i
+                          ? Icon(
+                              Icons.check,
+                              color: Theme.of(context).colorScheme.primary,
+                            )
+                          : busy && stage == i
+                          ? const TildeProgress.circular()
+                          : Text(
+                              '${i + 1}',
+                              style: TextStyle(
+                                fontFamily: tildeMono,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                      title: Text(
+                        ['공개키 등록', '키 로그인 검증', '호스트에 적용'][i],
+                        style: stage < i
+                            ? TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              )
+                            : null,
+                      ),
+                      subtitle: failed && stage == i
+                          ? Row(
+                              children: [
+                                Expanded(
+                                  child: Text(switch (state['verification']) {
+                                    'REJECTED' when i == 1 => '서버가 키를 거절했습니다',
+                                    'ADDITIONAL_AUTH_REQUIRED' when i == 1 =>
+                                      '서버가 추가 인증을 요구합니다',
+                                    _ => '이 단계를 완료하지 못했습니다',
+                                  }),
+                                ),
+                                TextButton(
+                                  onPressed: () => showErrorDetails(
+                                    context,
+                                    state['error']!,
+                                  ),
+                                  child: const Text('자세히'),
+                                ),
+                              ],
+                            )
+                          : i == 0 && state['registration'] != null
+                          ? Text(
+                              state['registration'] == 'ADDED'
+                                  ? '서버에 등록했습니다'
+                                  : '이미 등록된 키입니다',
+                            )
+                          : i == 1 && state['verification'] != null
+                          ? Text(switch (state['verification']) {
+                              'VERIFIED' => '키 로그인을 확인했습니다',
+                              'ADDITIONAL_AUTH_REQUIRED' => '서버가 추가 인증을 요구합니다',
+                              _ => '서버가 이 키를 거절했습니다',
+                            })
+                          : null,
+                    ),
+                ]),
+                if (state['stage'] == 'SUCCESS')
+                  settingsSection(context, '등록 완료', [
+                    ListTile(
+                      leading: const Icon(Icons.check_circle_outline),
+                      title: Text('${selected?['nickname'] ?? name} 키를 사용합니다'),
+                    ),
+                    if (widget.engine
+                            .list('hosts')
+                            .where((h) => h['id'] == widget.host['id'])
+                            .firstOrNull?['hasPassword'] ==
+                        true)
+                      TextButton(
+                        onPressed: () async {
+                          final fresh = widget.engine
+                              .list('hosts')
+                              .where((h) => h['id'] == widget.host['id'])
+                              .firstOrNull;
+                          if (fresh != null) {
+                            await runEngine(
                               context,
-                            ).colorScheme.onSurfaceVariant,
-                          )
-                        : null,
-                  ),
-                  subtitle: failed && stage == i
-                      ? Row(
-                          children: [
-                            Expanded(
-                              child: Text(switch (state['verification']) {
-                                'REJECTED' when i == 1 => '서버가 키를 거절했습니다',
-                                'ADDITIONAL_AUTH_REQUIRED' when i == 1 =>
-                                  '서버가 추가 인증을 요구합니다',
-                                _ => '이 단계를 완료하지 못했습니다',
-                              }),
+                              widget.engine,
+                              'host.save',
+                              {...fresh, 'clearPassword': true},
+                            );
+                          }
+                        },
+                        child: const Text('이 호스트의 저장된 비밀번호 지우기'),
+                      ),
+                  ])
+                else
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: FilledButton(
+                      onPressed:
+                          busy ||
+                              (keyId == null &&
+                                  state['biometricAvailable'] != true)
+                          ? null
+                          : () => runEngine(
+                              context,
+                              widget.engine,
+                              'key.enroll',
+                              {
+                                'sessionId': widget.sessionId,
+                                'keyId': keyId,
+                                'name': name,
+                              },
                             ),
-                            TextButton(
-                              onPressed: () =>
-                                  showErrorDetails(context, state['error']!),
-                              child: const Text('자세히'),
-                            ),
-                          ],
-                        )
-                      : i == 0 && state['registration'] != null
-                      ? Text(
-                          state['registration'] == 'ADDED'
-                              ? '서버에 등록했습니다'
-                              : '이미 등록된 키입니다',
-                        )
-                      : i == 1 && state['verification'] != null
-                      ? Text(switch (state['verification']) {
-                          'VERIFIED' => '키 로그인을 확인했습니다',
-                          'ADDITIONAL_AUTH_REQUIRED' => '서버가 추가 인증을 요구합니다',
-                          _ => '서버가 이 키를 거절했습니다',
-                        })
-                      : null,
-                ),
-            ]),
-            if (state['stage'] == 'SUCCESS')
-              settingsSection(context, '등록 완료', [
-                ListTile(
-                  leading: const Icon(Icons.check_circle_outline),
-                  title: Text('${selected?['nickname'] ?? name} 키를 사용합니다'),
-                ),
-                if (widget.engine
-                        .list('hosts')
-                        .where((h) => h['id'] == widget.host['id'])
-                        .firstOrNull?['hasPassword'] ==
-                    true)
-                  TextButton(
-                    onPressed: () async {
-                      final fresh = widget.engine
-                          .list('hosts')
-                          .where((h) => h['id'] == widget.host['id'])
-                          .firstOrNull;
-                      if (fresh != null) {
-                        await runEngine(context, widget.engine, 'host.save', {
-                          ...fresh,
-                          'clearPassword': true,
-                        });
-                      }
-                    },
-                    child: const Text('이 호스트의 저장된 비밀번호 지우기'),
+                      child: const Text('등록 및 검증'),
+                    ),
                   ),
-              ])
-            else
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: FilledButton(
-                  onPressed:
-                      busy ||
-                          (keyId == null && state['biometricAvailable'] != true)
-                      ? null
-                      : () => runEngine(context, widget.engine, 'key.enroll', {
-                          'sessionId': widget.sessionId,
-                          'keyId': keyId,
-                          'name': name,
-                        }),
-                  child: const Text('등록 및 검증'),
-                ),
-              ),
-            if (busy && started)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('백그라운드에서 계속'),
-                ),
-              ),
-          ],
+                if (busy && started)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('백그라운드에서 계속'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       );
     },

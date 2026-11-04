@@ -27,6 +27,14 @@ import 'package:xterm2/xterm.dart';
 
 import 'ui_engine_fixture.dart';
 
+Future<void> deferAuthentication(WidgetTester tester) async {
+  if (find.byType(TerminalPrompt).evaluate().isNotEmpty &&
+      find.byType(BottomSheet).evaluate().isNotEmpty) {
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+  }
+}
+
 void main() {
   const channel = MethodChannel('dev.korellas.androidshell/engine');
   int? selectedSession;
@@ -174,8 +182,10 @@ void main() {
         await tester.pumpAndSettle();
         await tester.pumpAndSettle();
         if (toolbar) {
+          await deferAuthentication(tester);
           await tester.tap(find.byTooltip('홈'));
         } else {
+          await deferAuthentication(tester);
           await tester.binding.handlePopRoute();
         }
         await tester.pumpAndSettle();
@@ -260,8 +270,10 @@ void main() {
           );
         }
         if (toolbar) {
+          await deferAuthentication(tester);
           await tester.tap(find.byTooltip('홈'));
         } else {
+          await deferAuthentication(tester);
           await tester.binding.handlePopRoute();
         }
         await tester.pumpAndSettle();
@@ -285,7 +297,7 @@ void main() {
   }
 
   testWidgets(
-    'common SSH authentication is inline and responds to its session',
+    'common SSH authentication uses a sheet and responds to its session',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -300,7 +312,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pumpAndSettle();
       expect(find.byType(Dialog), findsNothing);
-      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(BottomSheet), findsOneWidget);
       expect(engine.list('prompts').single['token'], 'password-request');
       expect(find.byType(TerminalPrompt), findsOneWidget);
       expect(
@@ -341,7 +353,7 @@ void main() {
         tester.widget<TerminalPane>(find.byType(TerminalPane)).enabled,
         isFalse,
       );
-      await tester.tap(find.byTooltip('인증 취소'));
+      await tester.tap(find.text('연결 취소'));
       await tester.pumpAndSettle();
       expect(
         calls.singleWhere((call) => call.method == 'prompt.respond').arguments,
@@ -409,6 +421,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'unsent');
+    await deferAuthentication(tester);
     await tester.tap(find.byTooltip('열린 세션'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Second'));
@@ -424,13 +437,14 @@ void main() {
     );
     expect(calls.where((call) => call.method == 'prompt.respond'), isEmpty);
     await tester.enterText(find.byType(TextField), '123456');
-    await tester.tap(find.byTooltip('인증 전송'));
+    await tester.tap(find.text('로그인'));
     await tester.pumpAndSettle();
     expect(
       calls.singleWhere((call) => call.method == 'prompt.respond').arguments,
       {'sessionId': 102, 'token': 'second', 'value': '123456'},
     );
     expect(engine.list('prompts').single['token'], 'first');
+    await deferAuthentication(tester);
     await tester.tap(find.byTooltip('열린 세션'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('First'));
@@ -484,7 +498,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('SHA256:example'), findsOneWidget);
       expect(find.byType(Dialog), findsNothing);
-      await tester.tap(find.text(accepted ? '예' : '아니요'));
+      await tester.tap(find.text(accepted ? '계속' : '거절'));
       await tester.pumpAndSettle();
       expect(
         calls.singleWhere((call) => call.method == 'prompt.respond').arguments,
@@ -522,7 +536,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('처음 연결하는 서버입니다'), findsOneWidget);
       expect(find.text('server.test'), findsOneWidget);
-      expect(find.text('SHA256:example'), findsOneWidget);
+      expect(find.text('SHA256:'), findsOneWidget);
+      expect(find.text('exam'), findsOneWidget);
+      expect(find.text('ple'), findsOneWidget);
       expect(find.byType(SegmentedButton<Object?>), findsOneWidget);
       await tester.tap(find.text('그림'));
       await tester.pumpAndSettle();
@@ -555,6 +571,7 @@ void main() {
     await tester.tap(find.text('새 터미널'));
     await tester.pumpAndSettle();
     await tester.pumpAndSettle();
+    await deferAuthentication(tester);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(ConsolePage), findsNothing);
@@ -578,6 +595,7 @@ void main() {
     await tester.tap(find.text('새 터미널'));
     await tester.pumpAndSettle();
     await tester.pumpAndSettle();
+    await deferAuthentication(tester);
     await tester.tap(find.byTooltip('열린 세션'));
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
@@ -585,6 +603,7 @@ void main() {
     expect(find.byType(ConsolePage), findsOneWidget);
     expect(connected, isTrue);
     expect(calls.where((c) => c.method == 'session.disconnect'), isEmpty);
+    await deferAuthentication(tester);
     await tester.tap(find.byTooltip('열린 세션'));
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
@@ -700,7 +719,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.longPress(find.text('Research'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('새 세션'));
+    await tester.tap(find.text('새 터미널'));
     await tester.pumpAndSettle();
     final connect = calls.singleWhere((c) => c.method == 'connect');
     expect(connect.arguments, {'id': 7, 'newSession': true});
@@ -785,6 +804,7 @@ void main() {
         MaterialApp(home: ConsolePage(engine: engine, sessionId: 101)),
       );
       await tester.pumpAndSettle();
+      await deferAuthentication(tester);
       await tester.tap(find.byTooltip('터미널 메뉴'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('다시 연결'));
@@ -838,6 +858,7 @@ void main() {
             ),
           );
       await tester.pumpAndSettle();
+      await deferAuthentication(tester);
       await tester.tap(find.byTooltip('열린 세션'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Research · 102'));
@@ -847,6 +868,7 @@ void main() {
         find.byType(TerminalPane),
       );
       expect(consoleView.terminal, same(engine.terminalSession(102)!.terminal));
+      await deferAuthentication(tester);
       await tester.tap(find.byTooltip('터미널 메뉴'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('연결 끊기'));
@@ -881,6 +903,7 @@ void main() {
       await tester.tap(find.text('새 터미널'));
       await tester.pumpAndSettle();
       await tester.pumpAndSettle();
+      await deferAuthentication(tester);
       await tester.tap(find.byTooltip('터미널 메뉴'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('연결 끊기'));
@@ -962,9 +985,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pumpAndSettle();
       for (final value in ['80×24', '100x30']) {
+        await deferAuthentication(tester);
         await tester.tap(find.byTooltip('터미널 메뉴'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byIcon(Icons.aspect_ratio_outlined));
+        await tester.tap(find.text('화면'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('터미널 크기'));
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextFormField), value);
         await tester.tap(find.text('크기 변경'));
@@ -995,12 +1021,14 @@ void main() {
     await tester.tap(find.text('새 터미널'));
     await tester.pumpAndSettle();
     await tester.pumpAndSettle();
+    await deferAuthentication(tester);
     await tester.tap(find.byTooltip('터미널 메뉴'));
     await tester.pumpAndSettle();
     expect(find.text('붙여넣기'), findsOneWidget);
     expect(find.text('텍스트 입력'), findsOneWidget);
     expect(find.text('추가 기능'), findsNothing);
-    expect(find.text('열×행'), findsOneWidget);
+    expect(find.text('화면'), findsOneWidget);
+    expect(find.byType(SwitchListTile), findsNothing);
     expect(find.text('조합 모드'), findsNothing);
     expect(find.text('편집 후 전송'), findsNothing);
     await tester.tap(find.text('텍스트 입력'));

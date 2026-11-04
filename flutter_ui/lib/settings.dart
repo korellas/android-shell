@@ -31,7 +31,8 @@ import 'settings_advertising.dart';
 
 class SettingsPage extends StatefulWidget {
   final AndroidEngine engine;
-  const SettingsPage({super.key, required this.engine});
+  final Widget? initialPage;
+  const SettingsPage({super.key, required this.engine, this.initialPage});
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
@@ -39,6 +40,8 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   AndroidEngine get engine => widget.engine;
   String? category;
+  late Widget? managementPage = widget.initialPage;
+  final managementNavigator = GlobalKey<NavigatorState>();
   Future<void> update(BuildContext c, String key, dynamic value) =>
       runEngine(c, engine, 'settings.update', {'key': key, 'value': value});
 
@@ -182,6 +185,23 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<bool> leaveManagement() async {
+    final nav = managementNavigator.currentState;
+    if (nav?.canPop() == true) {
+      await nav!.maybePop();
+      if (!mounted || nav.canPop()) return false;
+    }
+    return mounted;
+  }
+
+  Future<void> selectCategory(String id) async {
+    if (!await leaveManagement()) return;
+    setState(() {
+      category = id;
+      managementPage = null;
+    });
+  }
+
   Future<void> searchSettings([BuildContext? anchor]) async {
     indexSettings();
     final result = await pickTildeOption(
@@ -199,8 +219,10 @@ class _SettingsPageState extends State<SettingsPage> {
     navigateSetting(key);
   }
 
-  void navigateSetting(String key) {
+  Future<void> navigateSetting(String key) async {
+    if (!await leaveManagement()) return;
     setState(() {
+      managementPage = null;
       category = searchTargets[key]!.$1;
       highlighted = key;
     });
@@ -362,7 +384,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
               subtitle: tildePointer(context) ? null : Text(summary(id)),
-              onTap: () => setState(() => category = id),
+              onTap: () => selectCategory(id),
             )
         else if (sidebarQuery.isEmpty)
           LayoutBuilder(
@@ -385,7 +407,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         borderRadius: BorderRadius.circular(16),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(16),
-                          onTap: () => setState(() => category = id),
+                          onTap: () => selectCategory(id),
                           child: Padding(
                             padding: const EdgeInsets.all(16),
                             child: Column(
@@ -424,10 +446,20 @@ class _SettingsPageState extends State<SettingsPage> {
           leading: const Icon(Icons.help_outline, size: 22),
           title: const Text('도움말 및 로그'),
           trailing: const Icon(Icons.chevron_right),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute<void>(builder: (_) => HelpPage(engine: engine)),
-          ),
+          onTap: () async {
+            if (!await leaveManagement()) return;
+            if (!mounted) return;
+            if (tildePointer(context) && wide) {
+              setState(() => managementPage = HelpPage(engine: engine));
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => HelpPage(engine: engine),
+                ),
+              );
+            }
+          },
         ),
       ],
     );
@@ -496,8 +528,14 @@ class _SettingsPageState extends State<SettingsPage> {
         onTap: enabled ? action : null,
       ),
     );
-    void page(Widget child) =>
+    void page(Widget child) {
+      if (tildePointer(c) && MediaQuery.sizeOf(c).width >= 720) {
+        setState(() => managementPage = child);
+      } else {
         Navigator.push(c, MaterialPageRoute<void>(builder: (_) => child));
+      }
+    }
+
     switch (id) {
       case 'display':
         final fontPreview = TerminalPreview(
@@ -1119,6 +1157,14 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void back(bool wide) {
+    if (managementPage != null) {
+      if (managementNavigator.currentState?.canPop() == true) {
+        managementNavigator.currentState!.maybePop();
+      } else {
+        setState(() => managementPage = null);
+      }
+      return;
+    }
     if (category == 'bar') {
       setState(() => category = 'keyboard');
     } else if (category == 'fonts') {
@@ -1143,7 +1189,28 @@ class _SettingsPageState extends State<SettingsPage> {
             constraints.maxWidth >= 1200 &&
             MediaQuery.textScalerOf(context).scale(15) <= 20 &&
             ['display', 'keyboard', 'gesture'].contains(selected);
-        final contentView = selected == 'bar'
+        final contentView = managementPage != null
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => back(wide),
+                    icon: const Icon(Icons.arrow_back, size: 18),
+                    label: Text(
+                      '설정 › ${managementPage is HelpPage ? '도움말' : title(selected ?? 'display')}',
+                    ),
+                  ),
+                  Expanded(
+                    child: Navigator(
+                      key: managementNavigator,
+                      onGenerateRoute: (_) => MaterialPageRoute<void>(
+                        builder: (_) => managementPage!,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : selected == 'bar'
             ? TerminalBarPage(engine: engine, embedded: true)
             : ListView(
                 key: ValueKey(selected),
@@ -1189,7 +1256,9 @@ class _SettingsPageState extends State<SettingsPage> {
             : contentView;
         return PopScope(
           canPop:
-              category == null || wide && !['fonts', 'bar'].contains(category),
+              managementPage == null &&
+              (category == null ||
+                  wide && !['fonts', 'bar'].contains(category)),
           onPopInvokedWithResult: (didPop, result) {
             if (!didPop) back(wide);
           },

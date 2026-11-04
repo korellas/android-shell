@@ -86,6 +86,7 @@ class AppLocalSession implements AppTerminalSession {
   String get _runtimeId => 'app-local-$id-$_generation';
   String get _encoding => profile['encoding'] as String? ?? 'UTF-8';
   String? _error;
+  DateTime? _endedAt;
   String? _disconnectReason;
   Future<Object?>? _starting;
   final _modifiers = {'ctrl': 'OFF', 'alt': 'OFF', 'shift': 'OFF'};
@@ -105,6 +106,7 @@ class AppLocalSession implements AppTerminalSession {
     'disconnectReason': _disconnectReason,
     'connecting': connecting,
     'ended': ended,
+    'endedAt': _endedAt?.toIso8601String(),
     'awaitingClose': ended,
     'canForward': false,
     'canEnroll': false,
@@ -154,6 +156,7 @@ class AppLocalSession implements AppTerminalSession {
     final runtime = _runtimeId;
     _connecting = true;
     _ended = false;
+    _endedAt = null;
     _error = null;
     _disconnectReason = null;
     _changed();
@@ -276,6 +279,7 @@ class AppLocalSession implements AppTerminalSession {
         _open = false;
         _connecting = false;
         _ended = true;
+        _endedAt = DateTime.now();
         _closing = false;
         _changed();
       }

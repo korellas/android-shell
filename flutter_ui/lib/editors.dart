@@ -25,6 +25,7 @@ import 'tilde_controls.dart';
 import 'settings_widgets.dart';
 import 'management.dart';
 import 'main.dart';
+import 'files/file_browser.dart';
 
 enum RecordKind { host, profile, identity, forward, key }
 
@@ -43,7 +44,7 @@ class RecordEditor extends StatefulWidget {
   final int? hostId;
   final int? sessionId;
   final Future<void> Function(EngineRecord host)? onSetup;
-  final bool embedded;
+  final bool embedded, sheet;
   final VoidCallback? onClose;
   final ValueChanged<bool>? onDirtyChanged;
   final ValueChanged<EngineRecord>? onSaved;
@@ -57,6 +58,7 @@ class RecordEditor extends StatefulWidget {
     this.sessionId,
     this.onSetup,
     this.embedded = false,
+    this.sheet = false,
     this.onClose,
     this.onDirtyChanged,
     this.onSaved,
@@ -368,18 +370,24 @@ class _RecordEditorState extends State<RecordEditor> {
   );
 
   List<Widget> passwordFields() => [
-    text(
-      'password',
-      draft['hasPassword'] == true && '${draft['password'] ?? ''}'.isEmpty
-          ? '비밀번호 (저장됨)'
-          : '비밀번호',
-      password: true,
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        text(
+          'password',
+          draft['hasPassword'] == true && '${draft['password'] ?? ''}'.isEmpty
+              ? '비밀번호 (저장됨)'
+              : '비밀번호',
+          password: true,
+        ),
+        settingsNote(
+          context,
+          widget.kind == RecordKind.host
+              ? '이 기기에 암호화해 보관합니다. 다른 기기로 복원하면 다시 입력해야 합니다.'
+              : '이 기기에 암호화해 보관합니다.',
+        ),
+      ],
     ),
-    if (widget.kind == RecordKind.host)
-      const Padding(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-        child: Text('이 기기에 암호화해 보관합니다. 다른 기기로 복원하면 다시 입력해야 합니다.'),
-      ),
     if (draft['hasPassword'] == true)
       Align(
         alignment: Alignment.centerLeft,
@@ -413,10 +421,7 @@ class _RecordEditorState extends State<RecordEditor> {
           '${engine.list('hosts').where((h) => h['identityId'] == draft['id']).length}개 호스트에 적용됩니다',
         ),
       section('SSH 키', [pubkeySelector()]),
-      section('비밀번호', [
-        ...passwordFields(),
-        settingsNote(context, '이 기기에 암호화해 보관합니다.'),
-      ]),
+      section('비밀번호', passwordFields()),
     ],
     RecordKind.profile => [
       Padding(
@@ -523,36 +528,43 @@ class _RecordEditorState extends State<RecordEditor> {
             context,
             'SOCKS4는 실행할 수 없습니다. 방식을 SOCKS5로 변경하면 사용할 수 있습니다.',
           ),
-        Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: draft['type'] == 'remote'
-                  ? text('sourceAddr', '서버에서 받을 주소', required: true)
-                  : const ListTile(
-                      title: Text('이 기기에서 받을 주소'),
-                      subtitle: Text('127.0.0.1 · 이 기기에서만 접근'),
-                    ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: text('sourcePort', '포트', required: true, number: true),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final stacked =
+                constraints.maxWidth < 360 ||
+                MediaQuery.textScalerOf(context).scale(14) > 21;
+            Widget pair(Widget address, Widget port) => stacked
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [address, port],
+                  )
+                : Row(
+                    children: [
+                      Expanded(flex: 2, child: address),
+                      const SizedBox(width: 12),
+                      Expanded(child: port),
+                    ],
+                  );
+            return Column(
+              children: [
+                pair(
+                  draft['type'] == 'remote'
+                      ? text('sourceAddr', '서버에서 받을 주소', required: true)
+                      : const ListTile(
+                          title: Text('이 기기에서 받을 주소'),
+                          subtitle: Text('127.0.0.1 · 이 기기에서만 접근'),
+                        ),
+                  text('sourcePort', '포트', required: true, number: true),
+                ),
+                if (draft['type'] == 'local' || draft['type'] == 'remote')
+                  pair(
+                    text('destAddr', '대상 주소', required: true),
+                    text('destPort', '포트', required: true, number: true),
+                  ),
+              ],
+            );
+          },
         ),
-        if (draft['type'] == 'local' || draft['type'] == 'remote')
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: text('destAddr', '대상 주소', required: true),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: text('destPort', '포트', required: true, number: true),
-              ),
-            ],
-          ),
       ]),
     ],
     RecordKind.key => [
@@ -671,8 +683,7 @@ class _RecordEditorState extends State<RecordEditor> {
               '${draft['protocol']} 연결은 지원하지 않습니다. SSH 또는 로컬로 변경하세요.',
             ),
           if (!wideEditor) text('nickname', '호스트 이름', required: true),
-          if (wideEditor && draft['protocol'] == 'local')
-            text('nickname', '이름', required: true),
+          if (wideEditor) text('nickname', '이름', required: true),
           if (draft['protocol'] != 'local') ...[
             if (wideEditor)
               Row(
@@ -714,7 +725,6 @@ class _RecordEditorState extends State<RecordEditor> {
                 ),
               ),
             ),
-            if (wideEditor) text('nickname', '이름', required: true),
             group('고급', [
               choices('ipVersion', 'IP 주소', [
                 ('IPV4_AND_IPV6', '자동'),
@@ -1006,7 +1016,7 @@ class _RecordEditorState extends State<RecordEditor> {
         style: Theme.of(context).textTheme.headlineMedium,
       ),
       const SizedBox(height: 8),
-      Text(
+      tildePathText(
         hostAddress(draft),
         textAlign: TextAlign.center,
         style: TextStyle(
@@ -1020,20 +1030,20 @@ class _RecordEditorState extends State<RecordEditor> {
         Builder(
           builder: (context) {
             final actions = <Widget>[
-              if (supportedHost)
+              if (sshHost)
                 quick(
-                  '새 세션',
-                  Icons.library_add_outlined,
-                  () => connectSavedHost(newSession: true),
+                  '파일 전송',
+                  Icons.folder_open_outlined,
+                  () => page(FileBrowserPage(engine: engine, host: draft)),
                 ),
-              if (supportedHost)
-                quick('복제', Icons.file_copy_outlined, duplicateHost),
               if (sshHost)
                 quick(
                   '포워딩',
                   Icons.swap_horiz,
                   () => page(ForwardsPage(engine: engine, host: draft)),
                 ),
+              if (supportedHost)
+                quick('복제', Icons.file_copy_outlined, duplicateHost),
             ];
             return MediaQuery.textScalerOf(context).scale(15) > 21
                 ? Column(
@@ -1137,7 +1147,7 @@ class _RecordEditorState extends State<RecordEditor> {
     );
   }
 
-  Future<void> connectSavedHost({bool newSession = false}) async {
+  Future<void> connectSavedHost({bool newSession = true}) async {
     if (!mapEquals(originalDraft, draft) && !await save(close: false)) return;
     if (!mounted) return;
     final id = draft['id'];
@@ -1338,7 +1348,15 @@ class _RecordEditorState extends State<RecordEditor> {
           ),
         ),
         child: Padding(
-          padding: EdgeInsets.only(left: wide ? 177 : 0),
+          padding: EdgeInsets.only(
+            left: wide
+                ? (176 * MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
+                        176,
+                        320,
+                      ) +
+                      1
+                : 0,
+          ),
           child: Center(
             heightFactor: 1,
             child: ConstrainedBox(
@@ -1404,7 +1422,7 @@ class _RecordEditorState extends State<RecordEditor> {
                         if (supportedHost && !wide) ...[
                           FilledButton(
                             onPressed: saving ? null : connectSavedHost,
-                            child: Text(dirty ? '저장하고 연결' : '연결'),
+                            child: Text(dirty ? '저장하고 새 터미널' : '새 터미널'),
                           ),
                         ],
                       ],
@@ -1469,8 +1487,9 @@ class _RecordEditorState extends State<RecordEditor> {
       final details = Form(
         key: form,
         child: ListView(
+          shrinkWrap: widget.sheet,
           key: ValueKey(selected),
-          padding: const EdgeInsets.only(top: 12, bottom: 104),
+          padding: EdgeInsets.only(top: 12, bottom: widget.sheet ? 16 : 104),
           children: [
             if (wide && host && selected != null)
               Padding(
@@ -1487,7 +1506,7 @@ class _RecordEditorState extends State<RecordEditor> {
                       OutlinedButton.icon(
                         onPressed: saving ? null : connectSavedHost,
                         icon: const Icon(Icons.terminal_outlined, size: 18),
-                        label: Text(dirty ? '저장하고 연결' : '연결'),
+                        label: Text(dirty ? '저장하고 새 터미널' : '새 터미널'),
                       ),
                     if (savedHost) hostMenu,
                   ],
@@ -1524,181 +1543,252 @@ class _RecordEditorState extends State<RecordEditor> {
           onPopInvokedWithResult: (didPop, result) {
             if (!didPop) back(wide);
           },
-          child: Scaffold(
-            appBar: host && wide
-                ? null
-                : AppBar(
-                    actions: [if (host && savedHost) hostMenu],
-                    automaticallyImplyLeading: false,
-                    leading:
-                        widget.kind == RecordKind.forward ||
-                            widget.kind == RecordKind.identity ||
-                            pointer && host && wide
-                        ? null
-                        : widget.embedded &&
-                              hostCategory == null &&
-                              MediaQuery.sizeOf(context).width >= 720
-                        ? null
-                        : IconButton(
-                            tooltip: '뒤로',
-                            icon: const Icon(Icons.arrow_back),
-                            onPressed: () => back(wide),
-                          ),
-                    title: Text(
-                      host && !wide && selected != null
-                          ? hostCategoryTitle(selected)
-                          : widget.embedded
-                          ? '${draft['nickname'] ?? '새 호스트'} 편집'
-                          : '${kindTitle(widget.kind)} ${widget.record == null ? '추가' : '편집'}',
-                    ),
-                  ),
-            bottomNavigationBar:
-                pointer && host && (!wide || dirty || saving || savedNotice)
-                ? desktopSaveBar(wide, dirty)
-                : dirty
-                ? TildeSaveBar(
-                    changes: changeCount,
-                    busy: saving,
-                    cancel: cancelEdits,
-                    save: () => save(close: !host),
-                    saveLabel:
-                        widget.kind == RecordKind.forward &&
-                            widget.record == null
-                        ? '추가'
-                        : '저장',
-                  )
-                : host && savedHost && selected == null
-                ? SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) => Align(
-                          alignment: Alignment.centerLeft,
-                          heightFactor: 1,
-                          child: SizedBox(
-                            width:
-                                widget.embedded && constraints.maxWidth >= 568
-                                ? (constraints.maxWidth - 20) / 2
-                                : double.infinity,
-                            child: FilledButton.icon(
-                              onPressed: saving || !supportedHost
-                                  ? null
-                                  : connectSavedHost,
-                              icon: const Icon(Icons.terminal_outlined),
-                              label: const Text('연결'),
-                            ),
+          child: widget.sheet
+              ? Material(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 8,
+                        ),
+                        child: Text(
+                          '${kindTitle(widget.kind)} ${widget.record == null ? '추가' : '편집'}',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      Flexible(child: details),
+                      SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: saving ? null : () => back(false),
+                                child: const Text('취소'),
+                              ),
+                              const SizedBox(width: 8),
+                              FilledButton(
+                                onPressed: saving ? null : () => save(),
+                                child: Text(
+                                  saving
+                                      ? '저장 중…'
+                                      : widget.sessionId != null
+                                      ? '적용'
+                                      : '저장',
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ),
-                  )
-                : null,
-            body: host && wide
-                ? Row(
-                    children: [
-                      SizedBox(
-                        width: 176,
-                        child: ListView(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 16,
-                            horizontal: 8,
+                    ],
+                  ),
+                )
+              : Scaffold(
+                  appBar: host && wide
+                      ? null
+                      : AppBar(
+                          actions: [if (host && savedHost) hostMenu],
+                          automaticallyImplyLeading: false,
+                          leading:
+                              widget.kind == RecordKind.forward ||
+                                  widget.kind == RecordKind.identity ||
+                                  pointer && host && wide
+                              ? null
+                              : widget.embedded &&
+                                    hostCategory == null &&
+                                    MediaQuery.sizeOf(context).width >= 720
+                              ? null
+                              : IconButton(
+                                  tooltip: '뒤로',
+                                  icon: const Icon(Icons.arrow_back),
+                                  onPressed: () => back(wide),
+                                ),
+                          title: Text(
+                            host && !wide && selected != null
+                                ? hostCategoryTitle(selected)
+                                : widget.embedded
+                                ? '${draft['nickname'] ?? '새 호스트'} 편집'
+                                : '${kindTitle(widget.kind)} ${widget.record == null ? '추가' : '편집'}',
                           ),
+                        ),
+                  bottomNavigationBar:
+                      pointer &&
+                          host &&
+                          (!wide || dirty || saving || savedNotice)
+                      ? desktopSaveBar(wide, dirty)
+                      : dirty
+                      ? TildeSaveBar(
+                          changes: changeCount,
+                          busy: saving,
+                          cancel: cancelEdits,
+                          save: () => save(close: !host),
+                          saveLabel:
+                              widget.kind == RecordKind.forward &&
+                                  widget.record == null
+                              ? '추가'
+                              : '저장',
+                        )
+                      : host && savedHost && selected == null
+                      ? SafeArea(
+                          top: false,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: LayoutBuilder(
+                              builder: (context, constraints) => Align(
+                                alignment: Alignment.centerLeft,
+                                heightFactor: 1,
+                                child: SizedBox(
+                                  width:
+                                      widget.embedded &&
+                                          constraints.maxWidth >= 568
+                                      ? (constraints.maxWidth - 20) / 2
+                                      : double.infinity,
+                                  child: FilledButton.icon(
+                                    onPressed: saving || !supportedHost
+                                        ? null
+                                        : connectSavedHost,
+                                    icon: const Icon(Icons.terminal_outlined),
+                                    label: const Text('새 터미널'),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      : null,
+                  body: host && wide
+                      ? Row(
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(8, 4, 8, 20),
-                              child: Row(
+                            SizedBox(
+                              width:
+                                  (176 *
+                                          MediaQuery.textScalerOf(
+                                            context,
+                                          ).scale(14) /
+                                          14)
+                                      .clamp(176, 320),
+                              child: ListView(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                  horizontal: 8,
+                                ),
                                 children: [
-                                  TildeHostTile(host: draft, size: 32),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      8,
+                                      4,
+                                      8,
+                                      20,
+                                    ),
+                                    child: Row(
                                       children: [
-                                        Text(
-                                          '${draft['nickname'] ?? '새 호스트'}',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        Text(
-                                          hostAddress(draft),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                fontFamily: tildeMono,
-                                                fontFamilyFallback:
-                                                    tildeMonoFallback,
+                                        TildeHostTile(host: draft, size: 32),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                '${draft['nickname'] ?? '새 호스트'}',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                               ),
+                                              tildePathText(
+                                                hostAddress(draft),
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      fontFamily: tildeMono,
+                                                      fontFamilyFallback:
+                                                          tildeMonoFallback,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ),
+                                  for (final category in [
+                                    'connection',
+                                    if (sshHost) 'authentication',
+                                    'appearance',
+                                    'session',
+                                  ])
+                                    ListTile(
+                                      minTileHeight: 36,
+                                      selected: selected == category,
+                                      title: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Tooltip(
+                                              message: hostCategoryTitle(
+                                                category,
+                                              ),
+                                              child: Text(
+                                                hostCategoryTitle(category),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                          if (_fieldCategories.entries.any(
+                                            (entry) =>
+                                                entry.value == category &&
+                                                draft[entry.key] !=
+                                                    originalDraft[entry.key],
+                                          ))
+                                            Icon(
+                                              Icons.circle,
+                                              size: 5,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.tertiary,
+                                            ),
+                                        ],
+                                      ),
+                                      onTap: () => setState(
+                                        () => hostCategory = category,
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
-                            for (final category in [
-                              'connection',
-                              if (sshHost) 'authentication',
-                              'appearance',
-                              'session',
-                            ])
-                              ListTile(
-                                minTileHeight: 36,
-                                selected: selected == category,
-                                title: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(hostCategoryTitle(category)),
-                                    ),
-                                    if (_fieldCategories.entries.any(
-                                      (entry) =>
-                                          entry.value == category &&
-                                          draft[entry.key] !=
-                                              originalDraft[entry.key],
-                                    ))
-                                      Icon(
-                                        Icons.circle,
-                                        size: 5,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.tertiary,
-                                      ),
-                                  ],
+                            const VerticalDivider(width: 1),
+                            Expanded(
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 640,
+                                  ),
+                                  child: details,
                                 ),
-                                onTap: () =>
-                                    setState(() => hostCategory = category),
                               ),
+                            ),
                           ],
-                        ),
-                      ),
-                      const VerticalDivider(width: 1),
-                      Expanded(
-                        child: Center(
+                        )
+                      : host && selected == null
+                      ? hostCategories(null)
+                      : Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 640),
                             child: details,
                           ),
                         ),
-                      ),
-                    ],
-                  )
-                : host && selected == null
-                ? hostCategories(null)
-                : Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 640),
-                      child: details,
-                    ),
-                  ),
-          ),
+                ),
         ),
       );
     },

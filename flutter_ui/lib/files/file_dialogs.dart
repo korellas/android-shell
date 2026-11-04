@@ -4,9 +4,9 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import '../main.dart' show askText;
 import '../tilde_design.dart';
+import '../tilde_controls.dart';
 import 'sftp_file_operations.dart';
 import 'transfer.dart';
-import '../tilde_controls.dart';
 
 class FilePermissionsPrompt extends StatefulWidget {
   const FilePermissionsPrompt({super.key, required this.names, this.initial});
@@ -412,7 +412,9 @@ class FileDeletePrompt extends StatelessWidget {
               const LinearProgressIndicator()
             else
               Text(
-                '폴더 안의 내용을 포함해 ${snapshot.data!.values.fold<int>(0, (total, value) => total + value)}개 항목입니다.\n휴지통으로 이동하지 않으며 되돌릴 수 없습니다.',
+                entries.any((entry) => entry.attr.isDirectory)
+                    ? '폴더 안 내용을 포함해 ${snapshot.data!.values.fold<int>(0, (total, value) => total + value)}개 항목을 모두 지웁니다. 되돌릴 수 없습니다.'
+                    : '휴지통 없이 바로 지웁니다. 되돌릴 수 없습니다.',
               ),
             const SizedBox(height: 24),
             Row(
@@ -460,13 +462,17 @@ class FileConflictPrompt extends StatefulWidget {
 }
 
 class _FileConflictPromptState extends State<FileConflictPrompt> {
-  String choice = 'replace';
+  bool keepIncoming = false;
+  bool keepExisting = true;
   bool apply = false;
+  String get choice => keepIncoming
+      ? (keepExisting ? 'keep' : 'replace')
+      : (keepExisting ? 'skip' : 'cancel');
   String date(int? seconds) => seconds == null
       ? '수정일 알 수 없음'
       : DateTime.fromMillisecondsSinceEpoch(
           seconds * 1000,
-        ).toLocal().toString().split('.').first;
+        ).toLocal().toString().substring(0, 16);
   @override
   Widget build(BuildContext context) => SafeArea(
     child: SingleChildScrollView(
@@ -485,73 +491,73 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
               '전송 ${widget.currentFile} / ${widget.totalFiles}개',
               style: Theme.of(context).textTheme.bodySmall,
             ),
-          Text(
+          tildePathText(
             widget.destination,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontFamily: tildeMono,
               fontFamilyFallback: tildeMonoFallback,
             ),
           ),
           const SizedBox(height: 16),
-          for (final item in [
-            (
-              widget.upload ? '올리는 파일' : '내려받는 파일',
-              widget.sourceSize,
-              widget.sourceModified,
-            ),
-            (
-              widget.upload ? '서버의 파일' : '기기의 파일',
-              widget.existing.size,
-              widget.existing.modifyTime,
-            ),
-          ])
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: 132, child: Text(item.$1)),
-                  Expanded(
-                    child: Text(
-                      '${item.$2 == null ? '크기 알 수 없음' : formatBytes(item.$2!)}\n${date(item.$3)}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                ],
+          const Text('남길 파일을 각각 선택하세요.'),
+          const SizedBox(height: 8),
+          for (final incoming in [true, false])
+            CheckboxListTile(
+              key: ValueKey(
+                incoming ? 'conflict-incoming' : 'conflict-existing',
               ),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              value: incoming ? keepIncoming : keepExisting,
+              onChanged: (value) => setState(() {
+                if (incoming) {
+                  keepIncoming = value ?? false;
+                } else {
+                  keepExisting = value ?? false;
+                }
+                if (choice == 'cancel') apply = false;
+              }),
+              title: Text(
+                incoming
+                    ? (widget.upload ? '올리는 파일' : '내려받는 파일')
+                    : (widget.upload ? '서버의 기존 파일' : '기기의 기존 파일'),
+              ),
+              subtitle: Text(
+                '${(incoming ? widget.sourceSize : widget.existing.size) == null ? '크기 알 수 없음' : formatBytes((incoming ? widget.sourceSize : widget.existing.size)!)}\n${date(incoming ? widget.sourceModified : widget.existing.modifyTime)}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              isThreeLine: true,
             ),
           const Divider(),
-          RadioGroup<String>(
-            groupValue: choice,
-            onChanged: (value) {
-              if (value != null) setState(() => choice = value);
-            },
-            child: Column(
-              children: [
-                for (final item in [
-                  ('replace', '덮어쓰기'),
-                  ('skip', '건너뛰기'),
-                  ('keep', '둘 다 두기'),
-                ])
-                  RadioListTile<String>(
-                    value: item.$1,
-                    title: Text(item.$2),
-                    subtitle: item.$1 == 'keep'
-                        ? const Text('전송할 파일 이름에 번호를 붙입니다.')
-                        : null,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-              ],
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              switch (choice) {
+                'skip' => '기존 파일을 유지하고 이 파일의 복사를 건너뜁니다.',
+                'keep' => '둘 다 보관합니다. 복사되는 파일은 확장자 앞에 (1)부터 비어 있는 번호를 붙입니다.',
+                'replace' => '복사되는 파일로 기존 파일을 덮어씁니다. 되돌릴 수 없습니다.',
+                _ => '복사를 취소합니다. 기존 파일은 그대로 유지됩니다.',
+              },
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: choice == 'replace'
+                    ? Theme.of(context).colorScheme.error
+                    : null,
+              ),
             ),
           ),
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('남은 충돌에도 적용'),
-            value: apply,
-            onChanged: (value) => setState(() => apply = value ?? false),
-          ),
+          if (widget.totalFiles != null &&
+              widget.currentFile != null &&
+              widget.totalFiles! > widget.currentFile!)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                '남은 ${widget.totalFiles! - widget.currentFile!}개에도 적용',
+              ),
+              value: apply,
+              onChanged: choice == 'cancel'
+                  ? null
+                  : (value) => setState(() => apply = value ?? false),
+            ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -564,7 +570,7 @@ class _FileConflictPromptState extends State<FileConflictPrompt> {
               FilledButton(
                 onPressed: () =>
                     Navigator.pop(context, (action: choice, apply: apply)),
-                child: const Text('계속'),
+                child: Text(choice == 'cancel' ? '복사 취소' : '계속'),
               ),
             ],
           ),

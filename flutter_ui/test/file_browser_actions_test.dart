@@ -1,5 +1,6 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
+import 'dart:io';
 import 'package:android_shell_ui/files/file_browser.dart';
 import 'package:android_shell_ui/ssh/app_session.dart';
 import 'package:dartssh2/dartssh2.dart';
@@ -43,6 +44,26 @@ class BrowserEngine extends UiEngineFixture {
   }) async => BrowserSession(files, onChanged);
 }
 
+class ConflictFiles extends BrowserFiles {
+  @override
+  Future<void> link(String target, String path) async {
+    nodes[path] = SftpFileAttrs(mode: SftpFileMode.value(0xa000));
+  }
+}
+
+class UploadEngine extends BrowserEngine {
+  UploadEngine(super.files, this.path);
+  final String path;
+  @override
+  Future<dynamic> query(
+    String method, [
+    Map<String, dynamic> args = const {},
+  ]) async {
+    if (method == 'file.pickUpload') return {'path': path, 'name': 'old.txt'};
+    return super.query(method, args);
+  }
+}
+
 void main() {
   late BrowserFiles files;
   Future<void> show(WidgetTester tester) async {
@@ -68,6 +89,65 @@ void main() {
     await tester.ensureVisible(find.text(label).last);
     await tester.tap(find.text(label).last);
     await tester.pumpAndSettle();
+  }
+
+  for (final occupied in [false, true]) {
+    testWidgets('keep both uses first available suffix, occupied=$occupied', (
+      t,
+    ) async {
+      final temporary = Directory.systemTemp.createTempSync('tilde-conflict-');
+      addTearDown(() => temporary.deleteSync(recursive: true));
+      final source = Link('${temporary.path}/old.txt')..createSync('target');
+      final files = ConflictFiles()
+        ..nodes.addAll({
+          '/home': SftpFileAttrs(mode: SftpFileMode.value(0x4000)),
+          '/home/old.txt': SftpFileAttrs(size: 10),
+          if (occupied) '/home/old (1).txt': SftpFileAttrs(size: 15),
+        });
+      final engine = UploadEngine(files, source.path);
+      addTearDown(engine.dispose);
+      await t.pumpWidget(
+        MaterialApp(
+          home: FileBrowserPage(
+            engine: engine,
+            host: const {'id': 1, 'nickname': 'test'},
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+      await t.tap(find.widgetWithText(FilledButton, '업로드'));
+      for (
+        var i = 0;
+        i < 50 &&
+            find.byKey(const ValueKey('conflict-incoming')).evaluate().isEmpty;
+        i++
+      ) {
+        await t.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await t.pump();
+      }
+      await t.pump(const Duration(milliseconds: 400));
+      expect(find.byKey(const ValueKey('conflict-incoming')), findsOneWidget);
+      await t.tap(find.byKey(const ValueKey('conflict-incoming')));
+      await t.pump();
+      await t.tap(find.text('계속'));
+      final destination = '/home/old (${occupied ? 2 : 1}).txt';
+      for (var i = 0; i < 50 && !files.nodes.containsKey(destination); i++) {
+        await t.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await t.pump();
+      }
+      await t.pumpAndSettle();
+      expect(files.nodes[destination]?.isSymbolicLink, isTrue);
+      expect(files.nodes['/home/old.txt']?.size, 10);
+      if (occupied) expect(files.nodes['/home/old (1).txt']?.size, 15);
+      expect(files.allowedOverwrite, isFalse);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      await t.pumpAndSettle();
+    });
   }
 
   testWidgets(

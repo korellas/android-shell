@@ -17,8 +17,8 @@ void main() {
         };
       await tester.pumpWidget(MaterialApp(home: KeyPage(engine: engine)));
       await tester.pumpAndSettle();
-      final button = tester.widget<FloatingActionButton>(
-        find.byType(FloatingActionButton),
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, '키 파일 추가'),
       );
       expect(button.onPressed, isNotNull);
       expect(find.text('키 파일 추가'), findsOneWidget);

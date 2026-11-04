@@ -29,6 +29,7 @@ import 'console.dart';
 import 'desktop_workspace.dart';
 import 'terminal/session_tabs.dart';
 import 'files/file_browser.dart';
+import 'files/transfer.dart' show fileFailureSummary;
 
 void main() => runApp(const AndroidShellApp());
 
@@ -115,72 +116,123 @@ Future<dynamic> runEngine(
 Future<void> showErrorDetails(
   BuildContext context,
   Object error, {
-  String summary = '작업을 완료하지 못했습니다',
+  String summary = '작업을 마치지 못했습니다',
+  String? target,
+  explanation,
+  DateTime? occurredAt,
   Future<void> Function()? retry,
-}) => showTildeSheet<void>(
-  context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  builder: (c) => SingleChildScrollView(
-    padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(summary, style: Theme.of(c).textTheme.titleLarge),
-        const SizedBox(height: 16),
-
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(c).colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: SelectableText(
-            error is EngineException
-                ? error.details ?? error.message
-                : '$error',
-            style: const TextStyle(
-              fontFamily: tildeMono,
-              fontFamilyFallback: tildeMonoFallback,
-              fontSize: 12.5,
+  VoidCallback? edit,
+  Future<void> Function()? saveElsewhere,
+}) {
+  final details = error is EngineException
+      ? error.details ?? error.message
+      : '$error';
+  final occurred = occurredAt == null
+      ? '확인 시각 · ${TimeOfDay.now().format(context)}'
+      : '발생 · ${occurredAt.toLocal().toString().split('.').first}';
+  return showTildeSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    maxWidth: 440,
+    builder: (c) => SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(summary, style: Theme.of(c).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          Text(
+            explanation ?? fileFailureSummary(error),
+            style: Theme.of(c).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(c).colorScheme.onSurfaceVariant,
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Wrap(
-            alignment: WrapAlignment.end,
-            spacing: 8,
-            children: [
-              TextButton.icon(
-                onPressed: () => Clipboard.setData(
-                  ClipboardData(
-                    text: error is EngineException
-                        ? error.details ?? error.message
-                        : '$error',
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(c).colorScheme.surface,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        [?target, occurred].join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(c).textTheme.bodySmall,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '오류 기록 복사',
+                      onPressed: () => Clipboard.setData(
+                        ClipboardData(
+                          text: '$summary\n${target ?? ''}\n$details',
+                        ),
+                      ),
+                      icon: const Icon(Icons.copy_outlined, size: 18),
+                    ),
+                  ],
+                ),
+                SelectableText(
+                  details,
+                  style: TextStyle(
+                    fontFamily: tildeMono,
+                    fontFamilyFallback: tildeMonoFallback,
+                    fontSize: 12.5,
+                    color: Theme.of(c).colorScheme.onSurfaceVariant,
                   ),
                 ),
-                icon: const Icon(Icons.content_copy_outlined, size: 18),
-                label: const Text('복사'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: const Text('닫기'),
               ),
+              if (edit != null)
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.pop(c);
+                    edit();
+                  },
+                  child: const Text('호스트 편집'),
+                ),
+              if (saveElsewhere != null)
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.pop(c);
+                    unawaited(saveElsewhere());
+                  },
+                  child: const Text('다른 위치에 저장'),
+                ),
               if (retry != null)
                 FilledButton(
                   onPressed: () {
                     Navigator.pop(c);
                     unawaited(retry());
                   },
-                  child: const Text('다시 연결'),
+                  child: const Text('다시 시도'),
                 ),
             ],
           ),
-        ),
-      ],
+        ],
+      ),
     ),
-  ),
-);
+  );
+}
 
 void showEngineFailure(
   BuildContext context,
@@ -298,6 +350,7 @@ Future<String?> askText(
   double maxWidth = 440,
   String? hintText,
   bool showPasteAction = false,
+  bool hardwareKeyboard = false,
 }) => showTildeSheet<String>(
   context: context,
   isScrollControlled: true,
@@ -312,12 +365,13 @@ Future<String?> askText(
     action: action,
     hintText: hintText,
     showPasteAction: showPasteAction,
+    hardwareKeyboard: hardwareKeyboard,
   ),
 );
 
 class _TextPrompt extends StatefulWidget {
   final String title, initial, action;
-  final bool password, multiline, showPasteAction;
+  final bool password, multiline, showPasteAction, hardwareKeyboard;
   final String? hintText;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
@@ -331,6 +385,7 @@ class _TextPrompt extends StatefulWidget {
     required this.action,
     required this.hintText,
     required this.showPasteAction,
+    required this.hardwareKeyboard,
   });
   @override
   State<_TextPrompt> createState() => _TextPromptState();
@@ -399,7 +454,7 @@ class _TextPromptState extends State<_TextPrompt> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  '${controller.text.split('\n').length}줄 · Enter는 줄바꿈, Ctrl Enter는 보내기',
+                  '${controller.text.split('\n').length}줄 · Enter는 줄바꿈${tildePointer(context) || widget.hardwareKeyboard ? ', Ctrl Enter는 보내기' : ''}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -790,7 +845,7 @@ class _ShellHomeState extends State<ShellHome> {
         if (canConnectHost(host))
           const PopupMenuItem(
             value: 'newSession',
-            child: TildeMenuLabel('새 세션', Icons.add_box_outlined),
+            child: TildeMenuLabel('새 터미널', Icons.add_box_outlined),
           ),
         const PopupMenuItem(
           value: 'edit',
@@ -990,7 +1045,7 @@ class _ShellHomeState extends State<ShellHome> {
                               ),
                           ],
                         ),
-                        subtitle: Text(
+                        subtitle: tildePathText(
                           hostAddress(host),
                           style: TextStyle(
                             fontFamily: host['protocol'] == 'local'

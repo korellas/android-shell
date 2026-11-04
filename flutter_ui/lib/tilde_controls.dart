@@ -258,19 +258,48 @@ Widget tildeSegments(
         const SizedBox(height: 10),
         LayoutBuilder(
           builder: (context, c) {
-            final vertical =
-                MediaQuery.textScalerOf(context).scale(14) > 21 ||
-                c.maxWidth < values.length * 68;
+            final scale = MediaQuery.textScalerOf(context);
+            final widest = values.fold<double>(0, (width, v) {
+              final painter = TextPainter(
+                text: TextSpan(
+                  text: v.$2,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                textDirection: Directionality.of(context),
+                textScaler: scale,
+              )..layout();
+              return math.max(width, painter.width + 32);
+            });
+            if (widest * values.length > c.maxWidth) {
+              return DropdownButtonFormField<Object>(
+                initialValue: value,
+                isExpanded: true,
+                items: [
+                  for (final v in values)
+                    DropdownMenuItem(
+                      value: v.$1,
+                      child: Text(
+                        v.$2,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: onChanged,
+              );
+            }
             return SegmentedButton<Object?>(
-              key: ValueKey(vertical),
               segments: [
                 for (final v in values)
-                  ButtonSegment(value: v.$1, label: labels[v.$1] ?? Text(v.$2)),
+                  ButtonSegment(
+                    value: v.$1,
+                    label: labels[v.$1] ?? Text(v.$2, maxLines: 1),
+                  ),
               ],
               selected: {value},
-              direction: vertical ? Axis.vertical : Axis.horizontal,
+              direction: Axis.horizontal,
               showSelectedIcon: false,
-              expandedInsets: vertical ? null : EdgeInsets.zero,
+              expandedInsets: EdgeInsets.zero,
               onSelectionChanged: onChanged == null
                   ? null
                   : (v) => onChanged(v.first),
@@ -986,6 +1015,8 @@ class TildeItemMenu<T> extends StatelessWidget {
         context: context,
         position: _tildeMenuPosition(context, position),
         constraints: const BoxConstraints(minWidth: 220, maxWidth: 360),
+        menuPadding: const EdgeInsets.all(4),
+        surfaceTintColor: Colors.transparent,
         items: [
           for (final entry in itemBuilder(context))
             if (entry is PopupMenuItem<R>)
@@ -1019,7 +1050,7 @@ class TildeItemMenu<T> extends StatelessWidget {
         top: false,
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(c).height * .85,
+            maxHeight: MediaQuery.sizeOf(c).height * .9,
           ),
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
@@ -1103,3 +1134,52 @@ class TildeItemMenu<T> extends StatelessWidget {
     },
   );
 }
+
+Widget tildePathText(
+  String value, {
+  TextStyle? style,
+  TextAlign textAlign = TextAlign.start,
+}) => LayoutBuilder(
+  builder: (context, constraints) {
+    final effective = DefaultTextStyle.of(context).style.merge(style);
+    final chars = value.characters;
+    String middle(int count) => count >= chars.length
+        ? value
+        : '${chars.take((count + 1) ~/ 2)}…${chars.skip(chars.length - count ~/ 2)}';
+    bool fits(String text) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: effective),
+        maxLines: 1,
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      final fits = painter.width <= constraints.maxWidth;
+      painter.dispose();
+      return fits;
+    }
+
+    var low = 0, high = chars.length;
+    while (low < high) {
+      final mid = (low + high + 1) ~/ 2;
+      if (fits(middle(mid))) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return Tooltip(
+      message: value,
+      child: Semantics(
+        label: value,
+        excludeSemantics: true,
+        child: Text(
+          middle(low),
+          style: style,
+          textAlign: textAlign,
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+        ),
+      ),
+    );
+  },
+);

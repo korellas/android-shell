@@ -208,7 +208,7 @@ void main() {
       await capture(tester, 'host-menu-360-$scale');
       expect(tester.takeException(), isNull);
       expect(find.text('저장된 서버 키 삭제'), findsNothing);
-      for (final label in ['새 세션', '편집', '즐겨찾기', '연결 끊기', '삭제']) {
+      for (final label in ['새 터미널', '편집', '즐겨찾기', '연결 끊기', '삭제']) {
         for (final element
             in find
                 .descendant(
@@ -218,7 +218,7 @@ void main() {
                 .evaluate()) {
           final paragraph = element.findRenderObject()! as RenderParagraph;
           expect(paragraph.didExceedMaxLines, isFalse, reason: label);
-          if (scale == 2 && ['새 세션', '편집', '즐겨찾기'].contains(label)) {
+          if (scale == 2 && ['새 터미널', '편집', '즐겨찾기'].contains(label)) {
             expect(
               paragraph
                   .getBoxesForSelection(
@@ -250,7 +250,7 @@ void main() {
       tester,
     ) async {
       await open(tester, KeyPage(engine: engine), width, 2);
-      await tester.tap(find.text('새 키'));
+      await tester.tap(find.byTooltip('새 키'));
       await tester.pumpAndSettle();
       await capture(tester, 'key-create-${width.toInt()}-2.0');
       expect(find.byType(GenerateKeyPage), findsOneWidget);

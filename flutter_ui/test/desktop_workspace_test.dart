@@ -153,7 +153,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(engine.connections, 0);
       expect(find.text('파일 전송'), findsOneWidget);
-      await tester.tap(find.text('탭으로 이동').last);
+      await tester.tap(find.text('열기').last);
       await tester.pumpAndSettle();
       expect(engine.connections, 0);
       expect(
