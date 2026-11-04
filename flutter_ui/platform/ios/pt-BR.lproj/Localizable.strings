@@ -1,0 +1,8 @@
+// Copyright 2026 Kenny Root
+// SPDX-License-Identifier: Apache-2.0
+"invalid_credentials" = "Formato de credenciais inválido.";
+"unsupported_link" = "Link não suportado.";
+"could_not_open_link" = "Não foi possível abrir o link.";
+"export_file_missing" = "Nenhum arquivo para exportar.";
+"close_file_picker" = "Feche primeiro o seletor de arquivos aberto.";
+"could_not_open_file_picker" = "Não foi possível abrir o seletor de arquivos.";

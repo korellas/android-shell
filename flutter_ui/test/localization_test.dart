@@ -56,6 +56,41 @@ void main() {
     await tester.pump();
     expect(find.textContaining('2 lines ·'), findsOneWidget);
   });
+  testWidgets('additional locales resolve from device region and script', (
+    tester,
+  ) async {
+    final engine = _ReadyEngine();
+    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+    final cases = <(Locale, String)>[
+      (const Locale('ja', 'JP'), 'ホストを追加'),
+      (const Locale('zh', 'CN'), '添加主机'),
+      (
+        const Locale.fromSubtags(
+          languageCode: 'zh',
+          scriptCode: 'Hans',
+          countryCode: 'SG',
+        ),
+        '添加主机',
+      ),
+      (const Locale('pt', 'BR'), 'Adicionar host'),
+      (const Locale('es', 'MX'), 'Añadir host'),
+    ];
+    tester.platformDispatcher.localesTestValue = [cases.first.$1];
+    await tester.pumpWidget(AndroidShellApp(engine: engine));
+    for (final (locale, expected) in cases) {
+      tester.platformDispatcher.localesTestValue = [locale];
+      await tester.pumpAndSettle();
+      expect(
+        find.byTooltip(expected),
+        findsOneWidget,
+        reason: locale.toLanguageTag(),
+      );
+    }
+    tester.platformDispatcher.localesTestValue = [const Locale('fr')];
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Add host'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets('home follows device language and updates while running', (
     tester,
   ) async {

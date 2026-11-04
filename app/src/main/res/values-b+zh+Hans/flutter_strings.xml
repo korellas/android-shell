@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2026 Kenny Root; SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <!-- Tilde host UI: flutter_enter_a_host_name. -->
+    <string name="flutter_enter_a_host_name">请输入主机名称。</string>
+    <!-- Tilde host UI: flutter_enter_a_server_address. -->
+    <string name="flutter_enter_a_server_address">请输入服务器地址。</string>
+    <!-- Tilde host UI: flutter_port_must_be_between_1_and_65535. -->
+    <string name="flutter_port_must_be_between_1_and_65535">端口必须在1到65535之间。</string>
+    <!-- Tilde host UI: flutter_check_the_mosh_port_range. -->
+    <string name="flutter_check_the_mosh_port_range">请检查Mosh端口范围。</string>
+    <!-- Tilde host UI: flutter_mosh_timeout_must_be_positive. -->
+    <string name="flutter_mosh_timeout_must_be_positive">Mosh超时时间必须为正数。</string>
+    <!-- Tilde host UI: flutter_enter_a_profile_name. -->
+    <string name="flutter_enter_a_profile_name">请输入配置名称。</string>
+    <!-- Tilde host UI: flutter_font_size_must_be_between_4_and_72. -->
+    <string name="flutter_font_size_must_be_between_4_and_72">字号必须在4到72之间。</string>
+    <!-- Tilde host UI: flutter_check_the_row_count. -->
+    <string name="flutter_check_the_row_count">请检查行数。</string>
+    <!-- Tilde host UI: flutter_check_the_column_count. -->
+    <string name="flutter_check_the_column_count">请检查列数。</string>
+    <!-- Tilde host UI: flutter_unsupported_setting. -->
+    <string name="flutter_unsupported_setting">不支持此设置。</string>
+    <!-- Tilde host UI: flutter_could_not_read_file. -->
+    <string name="flutter_could_not_read_file">无法读取文件。</string>
+    <!-- Tilde host UI: flutter_could_not_save_file. -->
+    <string name="flutter_could_not_save_file">无法保存文件。</string>
+    <!-- Tilde host UI: flutter_unsupported_document. -->
+    <string name="flutter_unsupported_document">不支持此文档。</string>
+    <!-- Tilde host UI: flutter_share. -->
+    <string name="flutter_share">分享</string>
+    <!-- Tilde host UI: flutter_unsupported_platform_operation. -->
+    <string name="flutter_unsupported_platform_operation">不支持此平台操作。</string>
+    <!-- Tilde host UI: flutter_src_build_sample_md. -->
+    <string name="flutter_src_build_sample_md">src  build  sample.md</string>
+    <!-- Tilde host UI: flutter_a_file_picker_is_already_open. -->
+    <string name="flutter_a_file_picker_is_already_open">文件选择器已打开。</string>
+    <!-- Tilde host UI: flutter_cancel. -->
+    <string name="flutter_cancel">取消</string>
+    <!-- Tilde host UI: flutter_could_not_create_the_temporary_transfer_folder. -->
+    <string name="flutter_could_not_create_the_temporary_transfer_folder">无法创建传输临时文件夹。</string>
+    <!-- Tilde host UI: flutter_could_not_read_the_selected_file_name. -->
+    <string name="flutter_could_not_read_the_selected_file_name">无法读取所选文件的名称。</string>
+    <!-- Tilde host UI: flutter_could_not_open_the_selected_file. -->
+    <string name="flutter_could_not_open_the_selected_file">无法打开所选文件。</string>
+    <!-- Tilde host UI: flutter_could_not_open_the_download_file. -->
+    <string name="flutter_could_not_open_the_download_file">无法打开下载文件。</string>
+    <!-- Tilde host UI: flutter_could_not_save_download_1_s_could_not. -->
+    <string name="flutter_could_not_save_download_1_s_could_not">无法保存下载：%1$s。无法删除不完整文件：%2$s</string>
+    <!-- Tilde host UI: flutter_could_not_remove_cancelled_download_1_s. -->
+    <string name="flutter_could_not_remove_cancelled_download_1_s">无法删除已取消的下载文件：%1$s</string>
+    <!-- Tilde host UI: flutter_could_not_remove_temporary_transfer_file_1_s. -->
+    <string name="flutter_could_not_remove_temporary_transfer_file_1_s">无法删除传输临时文件：%1$s</string>
+    <!-- Tilde host UI: flutter_connection_failed. -->
+    <string name="flutter_connection_failed">连接失败。</string>
+    <!-- Tilde host UI: flutter_unlock_tilde. -->
+    <string name="flutter_unlock_tilde">解锁Tilde</string>
+    <!-- Tilde host UI: flutter_wait_for_app_initialization_or_unlock_the_app. -->
+    <string name="flutter_wait_for_app_initialization_or_unlock_the_app">请等待应用初始化或解锁应用。</string>
+    <!-- Tilde host UI: flutter_operation_cancelled. -->
+    <string name="flutter_operation_cancelled">操作已取消。</string>
+    <!-- Tilde host UI: flutter_could_not_complete_operation. -->
+    <string name="flutter_could_not_complete_operation">无法完成操作。</string>
+    <!-- Tilde host UI: flutter_the_undo_period_has_expired. -->
+    <string name="flutter_the_undo_period_has_expired">可撤销的时间已过。</string>
+    <!-- Tilde host UI: flutter_enter_a_credential_name_and_username. -->
+    <string name="flutter_enter_a_credential_name_and_username">请输入凭据名称和用户名。</string>
+    <!-- Tilde host UI: flutter_cannot_delete_the_default_profile_while_it_is. -->
+    <string name="flutter_cannot_delete_the_default_profile_while_it_is">无法删除正在使用的默认配置。</string>
+    <!-- Tilde host UI: flutter_unsupported_engine_operation_1_s. -->
+    <string name="flutter_unsupported_engine_operation_1_s">不支持的引擎操作：%1$s</string>
+    <!-- Tilde host UI: flutter_only_ssh_and_local_connections_are_supported. -->
+    <string name="flutter_only_ssh_and_local_connections_are_supported">仅支持SSH和本地连接。</string>
+    <!-- Tilde host UI: flutter_the_jump_host_must_be_a_different_ssh. -->
+    <string name="flutter_the_jump_host_must_be_a_different_ssh">跳板主机必须是另一台SSH主机。</string>
+    <!-- Tilde host UI: flutter_socks4_forwarding_is_unsupported. -->
+    <string name="flutter_socks4_forwarding_is_unsupported">不支持SOCKS4转发。</string>
+    <!-- Tilde host UI: flutter_check_the_forwarding_type. -->
+    <string name="flutter_check_the_forwarding_type">请检查转发类型。</string>
+    <!-- Tilde host UI: flutter_check_the_source_port_range. -->
+    <string name="flutter_check_the_source_port_range">请检查源端口范围。</string>
+    <!-- Tilde host UI: flutter_check_the_destination_address_and_port. -->
+    <string name="flutter_check_the_destination_address_and_port">请检查目标地址和端口。</string>
+    <!-- Tilde host UI: flutter_unsupported_protocol. -->
+    <string name="flutter_unsupported_protocol">不支持此协议</string>
+    <!-- Tilde host UI: flutter_app_locked. -->
+    <string name="flutter_app_locked">应用已锁定</string>
+    <!-- Tilde host UI: flutter_public_key_label. -->
+    <string name="flutter_public_key_label">SSH公钥</string>
+    <!-- Tilde host UI: flutter_strong_biometrics_required. -->
+    <string name="flutter_strong_biometrics_required">需要强生物识别验证</string>
+    <!-- Tilde host UI: flutter_p256_keys_only. -->
+    <string name="flutter_p256_keys_only">仅支持Android Keystore P-256密钥</string>
+    <!-- Tilde host UI: flutter_key_name_required. -->
+    <string name="flutter_key_name_required">请输入密钥名称</string>
+    <!-- Tilde host UI: flutter_duplicate_key_name. -->
+    <string name="flutter_duplicate_key_name">已存在同名密钥</string>
+    <!-- Tilde host UI: flutter_public_keys_only. -->
+    <string name="flutter_public_keys_only">只能复制或保存OpenSSH公钥</string>
+    <!-- Tilde host UI: flutter_password_in_ssh_address. -->
+    <string name="flutter_password_in_ssh_address">SSH地址中不能包含密码。</string>
+    <!-- Tilde host UI: flutter_missing_ssh_hostname. -->
+    <string name="flutter_missing_ssh_hostname">请输入SSH主机名</string>
+    <!-- Tilde host UI: flutter_help_contact. -->
+    <string name="flutter_help_contact">Tilde\n\n项目：https://github.com/korellas/android-shell\n\n报告问题：https://github.com/korellas/android-shell/issues</string>
+    <!-- Tilde host UI: flutter_help_hints. -->
+    <string name="flutter_help_hints">Ctrl+Shift+C：复制选择内容\nCtrl+Shift+V：粘贴\nCtrl+Shift++ / Ctrl+Shift+-：字号\n轻触终端即可打开键盘。可在键盘设置中选择Ctrl/Alt的锁定方式。</string>
+</resources>

@@ -13,7 +13,7 @@ plugins {
 
 appVersioning {
     tagFilter.set("v[0-9].*")
-    overrideVersionCode { _, _, _ -> 11100073 }
+    overrideVersionCode { _, _, _ -> 11100074 }
     overrideVersionName { _, _, _ -> "1.11.0" }
 }
 

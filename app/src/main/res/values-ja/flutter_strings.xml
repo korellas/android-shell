@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2026 Kenny Root; SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <!-- Tilde host UI: flutter_enter_a_host_name. -->
+    <string name="flutter_enter_a_host_name">ホストの名前を入力してください。</string>
+    <!-- Tilde host UI: flutter_enter_a_server_address. -->
+    <string name="flutter_enter_a_server_address">サーバーアドレスを入力してください。</string>
+    <!-- Tilde host UI: flutter_port_must_be_between_1_and_65535. -->
+    <string name="flutter_port_must_be_between_1_and_65535">ポートは1～65535の範囲で指定してください。</string>
+    <!-- Tilde host UI: flutter_check_the_mosh_port_range. -->
+    <string name="flutter_check_the_mosh_port_range">Moshのポート範囲を確認してください。</string>
+    <!-- Tilde host UI: flutter_mosh_timeout_must_be_positive. -->
+    <string name="flutter_mosh_timeout_must_be_positive">Moshのタイムアウトは正の値を指定してください。</string>
+    <!-- Tilde host UI: flutter_enter_a_profile_name. -->
+    <string name="flutter_enter_a_profile_name">プロファイル名を入力してください。</string>
+    <!-- Tilde host UI: flutter_font_size_must_be_between_4_and_72. -->
+    <string name="flutter_font_size_must_be_between_4_and_72">文字サイズは4～72の範囲で指定してください。</string>
+    <!-- Tilde host UI: flutter_check_the_row_count. -->
+    <string name="flutter_check_the_row_count">行数を確認してください。</string>
+    <!-- Tilde host UI: flutter_check_the_column_count. -->
+    <string name="flutter_check_the_column_count">列数を確認してください。</string>
+    <!-- Tilde host UI: flutter_unsupported_setting. -->
+    <string name="flutter_unsupported_setting">対応していない設定です。</string>
+    <!-- Tilde host UI: flutter_could_not_read_file. -->
+    <string name="flutter_could_not_read_file">ファイルを読み込めませんでした。</string>
+    <!-- Tilde host UI: flutter_could_not_save_file. -->
+    <string name="flutter_could_not_save_file">ファイルを保存できませんでした。</string>
+    <!-- Tilde host UI: flutter_unsupported_document. -->
+    <string name="flutter_unsupported_document">対応していない文書です。</string>
+    <!-- Tilde host UI: flutter_share. -->
+    <string name="flutter_share">共有</string>
+    <!-- Tilde host UI: flutter_unsupported_platform_operation. -->
+    <string name="flutter_unsupported_platform_operation">対応していないプラットフォーム操作です。</string>
+    <!-- Tilde host UI: flutter_src_build_sample_md. -->
+    <string name="flutter_src_build_sample_md">src  build  sample.md</string>
+    <!-- Tilde host UI: flutter_a_file_picker_is_already_open. -->
+    <string name="flutter_a_file_picker_is_already_open">ファイル選択画面は既に開いています。</string>
+    <!-- Tilde host UI: flutter_cancel. -->
+    <string name="flutter_cancel">キャンセル</string>
+    <!-- Tilde host UI: flutter_could_not_create_the_temporary_transfer_folder. -->
+    <string name="flutter_could_not_create_the_temporary_transfer_folder">ファイル転送用の一時フォルダーを作成できませんでした。</string>
+    <!-- Tilde host UI: flutter_could_not_read_the_selected_file_name. -->
+    <string name="flutter_could_not_read_the_selected_file_name">選択したファイルの名前を取得できませんでした。</string>
+    <!-- Tilde host UI: flutter_could_not_open_the_selected_file. -->
+    <string name="flutter_could_not_open_the_selected_file">選択したファイルを開けませんでした。</string>
+    <!-- Tilde host UI: flutter_could_not_open_the_download_file. -->
+    <string name="flutter_could_not_open_the_download_file">ダウンロード先のファイルを開けませんでした。</string>
+    <!-- Tilde host UI: flutter_could_not_save_download_1_s_could_not. -->
+    <string name="flutter_could_not_save_download_1_s_could_not">ダウンロードを保存できませんでした：%1$s。不完全なファイルを削除できませんでした：%2$s</string>
+    <!-- Tilde host UI: flutter_could_not_remove_cancelled_download_1_s. -->
+    <string name="flutter_could_not_remove_cancelled_download_1_s">キャンセルしたダウンロードファイルを削除できませんでした：%1$s</string>
+    <!-- Tilde host UI: flutter_could_not_remove_temporary_transfer_file_1_s. -->
+    <string name="flutter_could_not_remove_temporary_transfer_file_1_s">転送用の一時ファイルを削除できませんでした：%1$s</string>
+    <!-- Tilde host UI: flutter_connection_failed. -->
+    <string name="flutter_connection_failed">接続に失敗しました。</string>
+    <!-- Tilde host UI: flutter_unlock_tilde. -->
+    <string name="flutter_unlock_tilde">Tildeのロックを解除</string>
+    <!-- Tilde host UI: flutter_wait_for_app_initialization_or_unlock_the_app. -->
+    <string name="flutter_wait_for_app_initialization_or_unlock_the_app">アプリの初期化を待つか、ロックを解除してください。</string>
+    <!-- Tilde host UI: flutter_operation_cancelled. -->
+    <string name="flutter_operation_cancelled">操作をキャンセルしました。</string>
+    <!-- Tilde host UI: flutter_could_not_complete_operation. -->
+    <string name="flutter_could_not_complete_operation">操作を完了できませんでした。</string>
+    <!-- Tilde host UI: flutter_the_undo_period_has_expired. -->
+    <string name="flutter_the_undo_period_has_expired">元に戻せる時間が過ぎました。</string>
+    <!-- Tilde host UI: flutter_enter_a_credential_name_and_username. -->
+    <string name="flutter_enter_a_credential_name_and_username">認証情報の名前とユーザー名を入力してください。</string>
+    <!-- Tilde host UI: flutter_cannot_delete_the_default_profile_while_it_is. -->
+    <string name="flutter_cannot_delete_the_default_profile_while_it_is">使用中の既定プロファイルは削除できません。</string>
+    <!-- Tilde host UI: flutter_unsupported_engine_operation_1_s. -->
+    <string name="flutter_unsupported_engine_operation_1_s">対応していないエンジン操作：%1$s</string>
+    <!-- Tilde host UI: flutter_only_ssh_and_local_connections_are_supported. -->
+    <string name="flutter_only_ssh_and_local_connections_are_supported">SSH接続とローカル接続のみ対応しています。</string>
+    <!-- Tilde host UI: flutter_the_jump_host_must_be_a_different_ssh. -->
+    <string name="flutter_the_jump_host_must_be_a_different_ssh">踏み台には別のSSHホストを指定してください。</string>
+    <!-- Tilde host UI: flutter_socks4_forwarding_is_unsupported. -->
+    <string name="flutter_socks4_forwarding_is_unsupported">SOCKS4の転送には対応していません。</string>
+    <!-- Tilde host UI: flutter_check_the_forwarding_type. -->
+    <string name="flutter_check_the_forwarding_type">転送の種類を確認してください。</string>
+    <!-- Tilde host UI: flutter_check_the_source_port_range. -->
+    <string name="flutter_check_the_source_port_range">待受ポートの範囲を確認してください。</string>
+    <!-- Tilde host UI: flutter_check_the_destination_address_and_port. -->
+    <string name="flutter_check_the_destination_address_and_port">転送先のアドレスとポートを確認してください。</string>
+    <!-- Tilde host UI: flutter_unsupported_protocol. -->
+    <string name="flutter_unsupported_protocol">対応していないプロトコルです</string>
+    <!-- Tilde host UI: flutter_app_locked. -->
+    <string name="flutter_app_locked">アプリはロックされています</string>
+    <!-- Tilde host UI: flutter_public_key_label. -->
+    <string name="flutter_public_key_label">SSH公開鍵</string>
+    <!-- Tilde host UI: flutter_strong_biometrics_required. -->
+    <string name="flutter_strong_biometrics_required">強力な生体認証が必要です</string>
+    <!-- Tilde host UI: flutter_p256_keys_only. -->
+    <string name="flutter_p256_keys_only">Android KeystoreのP-256鍵のみ対応しています</string>
+    <!-- Tilde host UI: flutter_key_name_required. -->
+    <string name="flutter_key_name_required">鍵の名前を入力してください</string>
+    <!-- Tilde host UI: flutter_duplicate_key_name. -->
+    <string name="flutter_duplicate_key_name">同じ名前の鍵が既にあります</string>
+    <!-- Tilde host UI: flutter_public_keys_only. -->
+    <string name="flutter_public_keys_only">OpenSSHの公開鍵のみコピー・保存できます</string>
+    <!-- Tilde host UI: flutter_password_in_ssh_address. -->
+    <string name="flutter_password_in_ssh_address">SSHアドレスにパスワードを含めることはできません。</string>
+    <!-- Tilde host UI: flutter_missing_ssh_hostname. -->
+    <string name="flutter_missing_ssh_hostname">SSHホスト名を入力してください</string>
+    <!-- Tilde host UI: flutter_help_contact. -->
+    <string name="flutter_help_contact">Tilde\n\nプロジェクト：https://github.com/korellas/android-shell\n\n不具合の報告：https://github.com/korellas/android-shell/issues</string>
+    <!-- Tilde host UI: flutter_help_hints. -->
+    <string name="flutter_help_hints">Ctrl+Shift+C：選択範囲をコピー\nCtrl+Shift+V：貼り付け\nCtrl+Shift++ / Ctrl+Shift+-：文字サイズ\nターミナルをタッチするとキーボードが開きます。Ctrl/Altの固定動作はキーボード設定で選択できます。</string>
+</resources>
