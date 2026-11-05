@@ -5306,6 +5306,156 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Transfers'**
   String get transferHeading;
+
+  /// Tilde SSH passkey management.
+  ///
+  /// In en, this message translates to:
+  /// **'New passkey'**
+  String get newPasskey;
+
+  /// Tilde SSH passkey management.
+  ///
+  /// In en, this message translates to:
+  /// **'Create passkey'**
+  String get createPasskey;
+
+  /// Tilde SSH passkey management.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore passkey connection'**
+  String get restorePasskey;
+
+  /// Tilde SSH passkey management.
+  ///
+  /// In en, this message translates to:
+  /// **'Save passkey credential file'**
+  String get exportPasskey;
+
+  /// Tilde SSH passkey management.
+  ///
+  /// In en, this message translates to:
+  /// **'New SSH keys are encrypted using your passkey. Keep the encrypted credential backup and the passkey to restore after reinstalling or switching devices.'**
+  String get passkeyStorageNote;
+
+  /// Tilde SSH passkey management.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the encrypted credential backup and authorize its passkey to restore. Historical connection files contain public metadata only.'**
+  String get passkeyRestoreNote;
+
+  /// Tilde SSH passkey management.
+  ///
+  /// In en, this message translates to:
+  /// **'Passkeys require Android 9 or later and a compatible credential provider.'**
+  String get passkeyUnavailable;
+
+  /// Tilde SSH passkey management.
+  ///
+  /// In en, this message translates to:
+  /// **'Passkey operation cancelled.'**
+  String get passkeyCancelled;
+
+  /// Tilde SSH passkey management.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid passkey response or connection file.'**
+  String get invalidPasskey;
+
+  /// Passkey PRF interoperability experiment in SSH key management.
+  ///
+  /// In en, this message translates to:
+  /// **'Passkey decryption test'**
+  String get passkeyPrfTest;
+
+  /// Passkey PRF interoperability experiment in SSH key management.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a test passkey and save an encrypted test file. Open the file here, then in Tilde on another Android device using the same passkey. This test does not register an SSH key.'**
+  String get passkeyPrfTestNote;
+
+  /// Passkey PRF interoperability experiment in SSH key management.
+  ///
+  /// In en, this message translates to:
+  /// **'Create test file'**
+  String get passkeyPrfCreate;
+
+  /// Passkey PRF interoperability experiment in SSH key management.
+  ///
+  /// In en, this message translates to:
+  /// **'Open test file'**
+  String get passkeyPrfOpen;
+
+  /// Passkey PRF interoperability experiment in SSH key management.
+  ///
+  /// In en, this message translates to:
+  /// **'Test file saved. Open it to check decryption on this device and another device.'**
+  String get passkeyPrfSaved;
+
+  /// Passkey PRF interoperability experiment in SSH key management.
+  ///
+  /// In en, this message translates to:
+  /// **'Decryption succeeded. This environment recovered the same passkey PRF value.'**
+  String get passkeyPrfVerified;
+
+  /// Passkey PRF interoperability experiment in SSH key management.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected passkey provider does not support PRF in this environment.'**
+  String get passkeyPrfUnsupported;
+
+  /// Passkey PRF interoperability experiment in SSH key management.
+  ///
+  /// In en, this message translates to:
+  /// **'Decryption failed. The file may be damaged or the PRF value may differ.'**
+  String get passkeyPrfMismatch;
+
+  /// Passkey protected SSH credential creation and migration.
+  ///
+  /// In en, this message translates to:
+  /// **'Credential type'**
+  String get credentialKind;
+
+  /// Passkey protected SSH credential creation and migration.
+  ///
+  /// In en, this message translates to:
+  /// **'Create and protect an SSH key'**
+  String get passkeySshKeyMode;
+
+  /// Passkey protected SSH credential creation and migration.
+  ///
+  /// In en, this message translates to:
+  /// **'Protect an SSH password'**
+  String get passkeyPasswordMode;
+
+  /// Passkey protected SSH credential creation and migration.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlocks only for the specified server and account. SSH encrypts transport, but the server receives the password. Keep the encrypted backup and the passkey.'**
+  String get passkeyPasswordNote;
+
+  /// Passkey protected SSH credential creation and migration.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a passkey-protected credential above. Creating passwords with the previous device storage is disabled.'**
+  String get passkeyPasswordSelectNote;
+
+  /// Passkey protected SSH credential creation and migration.
+  ///
+  /// In en, this message translates to:
+  /// **'Deprecated · migration recommended'**
+  String get legacyCredential;
+
+  /// Passkey protected SSH credential creation and migration.
+  ///
+  /// In en, this message translates to:
+  /// **'This field is required.'**
+  String get credentialFieldRequired;
+
+  /// Passkey protected SSH credential creation and migration.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid SSH port.'**
+  String get credentialPortInvalid;
 }
 
 class _AppLocalizationsDelegate

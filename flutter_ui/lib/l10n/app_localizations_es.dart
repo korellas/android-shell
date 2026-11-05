@@ -3056,4 +3056,89 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get transferHeading => 'Transferencias';
+
+  @override
+  String get newPasskey => 'New passkey';
+
+  @override
+  String get createPasskey => 'Create passkey';
+
+  @override
+  String get restorePasskey => 'Restore passkey connection';
+
+  @override
+  String get exportPasskey => 'Save passkey credential file';
+
+  @override
+  String get passkeyStorageNote =>
+      'New SSH keys are encrypted using your passkey. Keep the encrypted credential backup and the passkey to restore after reinstalling or switching devices.';
+
+  @override
+  String get passkeyRestoreNote =>
+      'Open the encrypted credential backup and authorize its passkey to restore. Historical connection files contain public metadata only.';
+
+  @override
+  String get passkeyUnavailable =>
+      'Passkeys require Android 9 or later and a compatible credential provider.';
+
+  @override
+  String get passkeyCancelled => 'Passkey operation cancelled.';
+
+  @override
+  String get invalidPasskey => 'Invalid passkey response or connection file.';
+
+  @override
+  String get passkeyPrfTest => 'Passkey decryption test';
+
+  @override
+  String get passkeyPrfTestNote =>
+      'Create a test passkey and save an encrypted test file. Open the file here, then in Tilde on another Android device using the same passkey. This test does not register an SSH key.';
+
+  @override
+  String get passkeyPrfCreate => 'Create test file';
+
+  @override
+  String get passkeyPrfOpen => 'Open test file';
+
+  @override
+  String get passkeyPrfSaved =>
+      'Test file saved. Open it to check decryption on this device and another device.';
+
+  @override
+  String get passkeyPrfVerified =>
+      'Decryption succeeded. This environment recovered the same passkey PRF value.';
+
+  @override
+  String get passkeyPrfUnsupported =>
+      'The selected passkey provider does not support PRF in this environment.';
+
+  @override
+  String get passkeyPrfMismatch =>
+      'Decryption failed. The file may be damaged or the PRF value may differ.';
+
+  @override
+  String get credentialKind => 'Credential type';
+
+  @override
+  String get passkeySshKeyMode => 'Create and protect an SSH key';
+
+  @override
+  String get passkeyPasswordMode => 'Protect an SSH password';
+
+  @override
+  String get passkeyPasswordNote =>
+      'Unlocks only for the specified server and account. SSH encrypts transport, but the server receives the password. Keep the encrypted backup and the passkey.';
+
+  @override
+  String get passkeyPasswordSelectNote =>
+      'Choose a passkey-protected credential above. Creating passwords with the previous device storage is disabled.';
+
+  @override
+  String get legacyCredential => 'Deprecated · migration recommended';
+
+  @override
+  String get credentialFieldRequired => 'This field is required.';
+
+  @override
+  String get credentialPortInvalid => 'Enter a valid SSH port.';
 }

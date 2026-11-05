@@ -20,6 +20,7 @@ import 'dart:typed_data';
 
 import 'package:asn1lib/asn1lib.dart';
 import 'package:dartssh2/dartssh2.dart';
+import 'package:pointycastle/digests/sha256.dart';
 import '../l10n/strings.dart';
 
 typedef SshPlatformCall =
@@ -39,7 +40,10 @@ class SshKeyAdapter {
     final material = Map<String, Object?>.from(
       (await call('ssh.keyMaterial', {'id': id})) as Map,
     );
-    if (material['biometric'] != true) {
+    if (material['passkey'] == true) {
+      return [_passkeyIdentity(id, material)];
+    }
+    if (material['biometric'] != true && material['passkeyWrapped'] != true) {
       throw StateError(deviceStrings.onlyAndroidKeystoreSshKeysAreSupported);
     }
     final public = _PublicKey.decode(_bytes(material['publicKey']));
@@ -82,6 +86,81 @@ class SshKeyAdapter {
       ),
     ];
   }
+
+  SSHIdentity _passkeyIdentity(int id, Map<String, Object?> material) {
+    final rpId = material['rpId'] as String;
+    final origin = material['origin'] as String;
+    return SSHIdentity.custom(
+      type: 'webauthn-sk-ecdsa-sha2-nistp256@openssh.com',
+      publicKey: SSHRawHostKey(
+        storedPasskeyPublicKey(_bytes(material['publicKey']), rpId),
+      ),
+      shouldProbe: true,
+      signer: (data) async {
+        final reply = Map<String, Object?>.from(
+          (await call('ssh.sign', {
+                'id': id,
+                'algorithm': 'webauthn-sk-ecdsa-sha2-nistp256@openssh.com',
+                'data': data,
+              }))
+              as Map,
+        );
+        if (reply['authcancel'] == true) {
+          throw const SshKeyAuthenticationCancelled();
+        }
+        final auth = _bytes(reply['authenticatorData']);
+        final clientBytes = _bytes(reply['clientDataJSON']);
+        final client = jsonDecode(utf8.decode(clientBytes)) as Map;
+        final rpHash = SHA256Digest().process(
+          Uint8List.fromList(utf8.encode(rpId)),
+        );
+        if (auth.length < 37 ||
+            auth[32] & 5 != 5 ||
+            auth[32] & 0x40 != 0 ||
+            base64.encode(auth.sublist(0, 32)) != base64.encode(rpHash) ||
+            (auth[32] & 0x80 == 0 ? auth.length != 37 : auth.length == 37) ||
+            client['type'] != 'webauthn.get' ||
+            client['origin'] != origin ||
+            client['crossOrigin'] == true ||
+            client['challenge'] != base64Url.encode(data).replaceAll('=', '')) {
+          throw const FormatException('Invalid SSH passkey assertion');
+        }
+        final der = _sequence(_bytes(reply['signature']));
+        if (der.elements.length != 2) {
+          throw const FormatException('Invalid passkey signature');
+        }
+        final r = _integer(der.elements[0]);
+        final s = _integer(der.elements[1]);
+        if (r <= BigInt.zero || s <= BigInt.zero) {
+          throw const FormatException('Invalid passkey signature');
+        }
+        return SSHRawSignature(
+          Uint8List.fromList([
+            ..._strings([
+              utf8.encode('webauthn-sk-ecdsa-sha2-nistp256@openssh.com'),
+              _strings([_mpint(r), _mpint(s)]),
+            ]),
+            ...auth.sublist(32, 37),
+            ..._strings([utf8.encode(origin), clientBytes, auth.sublist(37)]),
+          ]),
+        );
+      },
+    );
+  }
+}
+
+/// Encodes an ES256 passkey public key for OpenSSH security-key authentication.
+Uint8List storedPasskeyPublicKey(Uint8List x509, String rpId) {
+  final key = _PublicKey.decode(x509);
+  if (key.type != 'ecdsa-sha2-nistp256') {
+    throw const FormatException('SSH passkeys require P-256');
+  }
+  return _strings([
+    utf8.encode('sk-ecdsa-sha2-nistp256@openssh.com'),
+    utf8.encode('nistp256'),
+    key.bytes,
+    utf8.encode(rpId),
+  ]);
 }
 
 class _PublicKey {

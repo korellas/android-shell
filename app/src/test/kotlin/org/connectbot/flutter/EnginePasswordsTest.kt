@@ -19,6 +19,7 @@ package org.connectbot.flutter
 
 import org.connectbot.data.entity.Host
 import org.connectbot.util.SecurePasswordStorage
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
@@ -35,12 +36,10 @@ class EnginePasswordsTest {
         verifyNoInteractions(passwords)
     }
 
-    @Test fun newPasswordsUseExistingEncryptedStorage() {
-        passwords.updateHostPassword(host, mapOf("password" to "new-host-password"))
-        passwords.updateIdentityPassword(3, mapOf("password" to "new-identity-password"))
-        verify(passwords).savePassword(7, "new-host-password")
-        verify(passwords).saveIdentityPassword(3, "new-identity-password")
-        verifyNoMoreInteractions(passwords)
+    @Test fun newPasswordsCannotUseDeprecatedDeviceStorage() {
+        assertThrows(IllegalArgumentException::class.java) { passwords.updateHostPassword(host, mapOf("password" to "secret")) }
+        assertThrows(IllegalArgumentException::class.java) { passwords.updateIdentityPassword(3, mapOf("password" to "secret")) }
+        verifyNoInteractions(passwords)
     }
 
     @Test fun explicitClearRemovesStoredPassword() {
@@ -51,16 +50,8 @@ class EnginePasswordsTest {
         verifyNoMoreInteractions(passwords)
     }
 
-    @Test fun replacementAfterClearSavesTheNewPassword() {
-        passwords.updateHostPassword(host, mapOf("clearPassword" to true, "password" to "replacement"))
-        passwords.updateIdentityPassword(3, mapOf("clearPassword" to true, "password" to "replacement"))
-        verify(passwords).savePassword(7, "replacement")
-        verify(passwords).saveIdentityPassword(3, "replacement")
-        verifyNoMoreInteractions(passwords)
-    }
-
     @Test fun sharedAccountRemovesPerHostPassword() {
-        passwords.updateHostPassword(host.copy(identityId = 3), mapOf("password" to "ignored"))
+        passwords.updateHostPassword(host.copy(identityId = 3), emptyMap())
         verify(passwords).deletePassword(7)
         verifyNoMoreInteractions(passwords)
     }

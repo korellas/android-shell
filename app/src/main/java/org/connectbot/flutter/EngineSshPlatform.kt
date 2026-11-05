@@ -39,8 +39,35 @@ internal suspend fun AndroidShellEngine.sshPlatformOperation(method: String, arg
             if (activity.appState.shouldRequestNotificationPermission()) activity.requestNotifications()
         }
     }
+    if (method == "ssh.unlockPassword") {
+        val key = withContext(activity.dispatchers.io) { requireNotNull(keys.getById(args.number("id"))) }
+        require(key.isPasskeyPassword())
+        val password = activity.passkeys.unlockPassword(key, args.text("hostname"), args.number("port", 22).toInt(), args.text("username"))
+        check(authenticated) { activity.getString(R.string.flutter_app_locked) }
+        return password
+    }
+    if (method == "ssh.legacyPassword") {
+        return withContext(activity.dispatchers.io) {
+            val host = requireNotNull(hosts.findHostById(args.number("id")))
+            val identity = host.identityId?.let { requireNotNull(database.identityDao().getById(it)) }
+            require(host.hostname == args.text("hostname") && host.port == args.number("port", 22).toInt() && (identity?.username ?: host.username) == args.text("username")) {
+                "Host authentication settings changed"
+            }
+            if (host.identityId != null) activity.passwords.getIdentityPassword(host.identityId) else activity.passwords.getPassword(host.id)
+        }
+    }
     if (method == "ssh.sign") {
         val key = withContext(activity.dispatchers.io) { requireNotNull(keys.getById(args.number("id"))) }
+        if (key.isWrappedPasskey()) {
+            require(args.text("algorithm") == "ecdsa-sha2-nistp256")
+            val reply = activity.passkeys.signCredential(key, args.bytes("data"))
+            check(authenticated) { activity.getString(R.string.flutter_app_locked) }
+            return reply
+        }
+        if (key.isPasskey()) {
+            require(args.text("algorithm") == PASSKEY_SSH_ALGORITHM)
+            return activity.passkeys.sign(key, args.bytes("data"))
+        }
         val manager = activity.biometricKeys
         require(key.isKeystoreSshKeyEligible(manager)) { "Native signing requires an eligible Android Keystore P-256 key" }
         val crypto = withContext(activity.dispatchers.io) {
@@ -78,7 +105,13 @@ internal suspend fun AndroidShellEngine.sshPlatformOperation(method: String, arg
 
             "ssh.keyMaterial" -> {
                 val key = requireNotNull(keys.getById(args.number("id")))
-                key.sshKeyMaterial(activity.biometricKeys)
+                if (key.isPasskey()) {
+                    mapOf("passkey" to true, "publicKey" to key.publicKey, "rpId" to PASSKEY_RP_ID, "origin" to activity.passkeys.origin())
+                } else if (key.isWrappedPasskey()) {
+                    mapOf("passkeyWrapped" to true, "publicKey" to key.publicKey)
+                } else {
+                    key.sshKeyMaterial(activity.biometricKeys)
+                }
             }
 
             "ssh.knownHosts" -> database.knownHostDao().getByHostId(args.number("id")).map { it.sshTrustWire() }
@@ -138,14 +171,16 @@ private suspend fun AndroidShellEngine.prepareSshHost(configured: Host): Wire {
     val host = if (identity == null) configured else configured.copy(username = identity.username, pubkeyId = identity.pubkeyId)
     val profile = resolveTerminalProfile(host.profileId)
     Charset.forName(profile.encoding)
-    val password = if (identity != null) activity.passwords.getIdentityPassword(identity.id) else activity.passwords.getPassword(host.id)
+    val legacyPassword = if (identity != null) activity.passwords.hasIdentityPassword(identity.id) else activity.passwords.hasPassword(host.id)
+    val selectedCredential = if (host.pubkeyId >= 0) keys.getById(host.pubkeyId) else null
+    val protectedPassword = selectedCredential?.takeIf { it.isPasskeyPassword() }
     val manager = activity.biometricKeys
-    val candidates = if (host.protocol == "local" || !host.useKeys || host.pubkeyId == -2L) {
+    val candidates = if (protectedPassword != null || host.protocol == "local" || !host.useKeys || host.pubkeyId == -2L) {
         emptyList()
     } else if (host.pubkeyId >= 0) {
-        listOfNotNull(keys.getById(host.pubkeyId)).filter { it.isKeystoreSshKeyEligible(manager) }
+        listOfNotNull(keys.getById(host.pubkeyId)).filter { it.isWrappedPasskey() || it.isPasskey() || it.isKeystoreSshKeyEligible(manager) }
     } else {
-        keys.getAll().filter { it.isKeystoreSshKeyEligible(manager) }
+        keys.getAll().filter { it.isWrappedPasskey() || it.isPasskey() || it.isKeystoreSshKeyEligible(manager) }
     }
     val schemeId = profile.colorSchemeId
     val defaults = colors.getSchemeDefaults(schemeId)
@@ -154,7 +189,10 @@ private suspend fun AndroidShellEngine.prepareSshHost(configured: Host): Wire {
         "scheme" to mapOf("palette" to colors.getSchemeColors(schemeId).toList(), "foreground" to defaults.first, "background" to defaults.second, "foregroundColor" to appearance.first, "backgroundColor" to appearance.second, "cursorColor" to appearance.third),
         "host" to host.toWire(),
         "profile" to profile.toWire(),
-        "password" to password,
+        "legacyPassword" to (legacyPassword && protectedPassword == null && selectedCredential?.isWrappedPasskey() != true),
+        "passkeyPasswordId" to protectedPassword?.id,
+        "passkeyKeyOnly" to (selectedCredential?.isWrappedPasskey() == true),
+        "passkeyOnly" to true,
         "keys" to candidates.map { it.storageWire(manager) },
         "forwards" to hosts.getPortForwardsForHost(host.id).map { it.toWire() },
     )

@@ -54,23 +54,29 @@ class AndroidEngine extends ChangeNotifier {
   late final KeyManager _keys = KeyManager(
     _platformQuery,
     identityLoader: _identityLoader,
+    passkeysAvailable: () =>
+        row(_nativeState['generation'])['passkeyAvailable'] == true,
   );
   late final SshEnrollmentController _enrollment = SshEnrollmentController(
     onChanged: _sessionChanged,
-    keys: () => list('keys').where((key) => key['supported'] != false).toList(),
+    keys: () => list('keys')
+        .where(
+          (key) => key['supported'] != false && key['passkeyPassword'] != true,
+        )
+        .toList(),
     biometricAvailable: () =>
+        row(_nativeState['generation'])['passkeyAvailable'] == true ||
         row(_nativeState['generation'])['biometricAvailable'] == true,
     createBiometricKey: (name) async {
-      final created = row(
-        await _keys.operation('key.generate', {
-          'nickname': name,
-          'type': 'EC',
-          'bits': 256,
-          'biometric': true,
-        }),
-      );
+      final created = await _keys.operation('key.generate', {
+        'nickname': name,
+        'type': 'EC',
+        'bits': 256,
+        'biometric': true,
+      });
+      if (created == null) throw StateError(deviceStrings.passkeyCancelled);
       await refresh();
-      return created;
+      return row(created);
     },
     readHost: (id) async {
       final fresh = row(await _platformQuery('snapshot'));

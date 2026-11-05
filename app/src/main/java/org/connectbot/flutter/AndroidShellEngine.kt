@@ -177,6 +177,7 @@ internal class AndroidShellEngine(
             }
 
             "host.save" -> {
+                requirePasskeyPasswordStorage(args)
                 val old = args.optionalId("id")?.let { hosts.findHostById(it) }
                 val host = ((old ?: activity.settings.uiState.value.newHostDefaults()).toWire() + args).toHost(activity.resources)
                 validateHostSelection(activity.resources, host, old, host.jumpHostId?.let { hosts.findHostById(it) })
@@ -236,6 +237,7 @@ internal class AndroidShellEngine(
             }
 
             "identity.save" -> {
+                requirePasskeyPasswordStorage(args)
                 val name = args.text("name").trim()
                 val username = args.text("username").trim()
                 require(name.isNotEmpty() && username.isNotEmpty()) { activity.getString(R.string.flutter_enter_a_credential_name_and_username) }
@@ -415,7 +417,7 @@ internal class AndroidShellEngine(
             "startupKeys" to emptyList<Wire>(),
             "preferences" to (activity.settings.uiState.value.toWire() + mapOf("defaultProfileId" to resolveTerminalProfile().id)),
             "keyState" to emptyMap<String, Any?>(),
-            "generation" to mapOf("busy" to false, "biometricAvailable" to (activity.biometricKeys.isBiometricAvailable() == org.connectbot.util.BiometricAvailability.AVAILABLE), "nicknameExists" to false),
+            "generation" to mapOf("passkeyOnly" to true, "passkeyAvailable" to activity.passkeys.available, "busy" to false, "biometricAvailable" to false, "nicknameExists" to false),
             "enrollment" to emptyMap<String, Any?>(),
         )
     }

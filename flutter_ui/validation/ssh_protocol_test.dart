@@ -7,12 +7,16 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
+import 'package:dartssh2/src/hostkey/hostkey_ecdsa.dart';
+import 'package:asn1lib/asn1lib.dart';
+import 'package:android_shell_ui/platform/ssh_keys.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:android_shell_ui/ssh/ssh_session.dart';
 import 'package:android_shell_ui/ssh/app_session.dart';
 import 'package:xterm2/xterm.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   final configFile = Platform.environment['TILDE_SSH_TEST_CONFIG'];
   final configured = configFile != null;
   late Map<String, dynamic> config;
@@ -298,6 +302,80 @@ void main() {
     },
     skip: !configured,
   );
+
+  test('passkey-unlocked standard key authenticates to OpenSSH', () async {
+    final ec =
+        SSHKeyPair.fromPem(
+              await File(
+                'third_party/dartssh2/test/fixtures/ecdsa-sha2-nistp256/id_ecdsa',
+              ).readAsString(),
+            ).single
+            as OpenSSHEcdsaKeyPair;
+    final spki = Uint8List.fromList([
+      0x30,
+      0x59,
+      0x30,
+      0x13,
+      0x06,
+      0x07,
+      0x2a,
+      0x86,
+      0x48,
+      0xce,
+      0x3d,
+      0x02,
+      0x01,
+      0x06,
+      0x08,
+      0x2a,
+      0x86,
+      0x48,
+      0xce,
+      0x3d,
+      0x03,
+      0x01,
+      0x07,
+      0x03,
+      0x42,
+      0x00,
+      ...ec.q,
+    ]);
+    var signs = 0;
+    final adapter = SshKeyAdapter((method, args) async {
+      if (method == 'ssh.keyMaterial') {
+        return {'passkeyWrapped': true, 'publicKey': spki};
+      }
+      signs++;
+      expect(args['algorithm'], 'ecdsa-sha2-nistp256');
+      final signed = SSHEcdsaSignature.decode(
+        ec.sign(args['data'] as Uint8List).encode(),
+      );
+      final der = ASN1Sequence()
+        ..add(ASN1Integer(signed.r))
+        ..add(ASN1Integer(signed.s));
+      return {'signature': der.encodedBytes};
+    });
+    final identity = (await adapter.identities(id: 1)).single;
+    expect(identity.type, 'ecdsa-sha2-nistp256');
+    final authorized = File(
+      '${File(config['keyFile'] as String).parent.path}/client.pub',
+    );
+    final original = await authorized.readAsString();
+    await authorized.writeAsString(
+      '$original\n${identity.type} ${base64.encode(identity.toPublicKey().encode())} passkey-fixture\n',
+    );
+    try {
+      final client = await connect(identities: [identity]);
+      try {
+        expect(utf8.decode(await client.run('unicode')), '한글 ABC 😀\n');
+        expect(signs, 1);
+      } finally {
+        await client.close();
+      }
+    } finally {
+      await authorized.writeAsString(original);
+    }
+  }, skip: !configured);
 
   test('an asynchronous external signer can authenticate', () async {
     var signs = 0;

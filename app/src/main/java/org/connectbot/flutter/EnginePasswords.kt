@@ -20,18 +20,22 @@ package org.connectbot.flutter
 import org.connectbot.data.entity.Host
 import org.connectbot.util.SecurePasswordStorage
 
+internal fun requirePasskeyPasswordStorage(args: Wire) {
+    require(args.text("password").isEmpty()) { "Save passwords as passkey-protected credentials" }
+}
+
 internal fun SecurePasswordStorage.updateHostPassword(host: Host, args: Wire) {
     if (host.protocol != "ssh" && host.protocol != "mosh") return
+    requirePasskeyPasswordStorage(args)
     when {
         host.identityId != null -> deletePassword(host.id)
-        args.text("password").isNotEmpty() -> savePassword(host.id, args.text("password"))
         args.flag("clearPassword") -> deletePassword(host.id)
     }
 }
 
 internal fun SecurePasswordStorage.updateIdentityPassword(id: Long, args: Wire) {
+    requirePasskeyPasswordStorage(args)
     when {
-        args.text("password").isNotEmpty() -> saveIdentityPassword(id, args.text("password"))
         args.flag("clearPassword") -> deleteIdentityPassword(id)
     }
 }
