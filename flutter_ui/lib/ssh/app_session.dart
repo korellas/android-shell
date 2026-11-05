@@ -284,6 +284,8 @@ class AppSshSession implements AppTerminalSession {
   ) async {
     final target = _map(config['host']);
     final savedPassword = config['password'] as String?;
+    final protectedPasswordId = config['passkeyPasswordId'] as int?;
+    var hostVerified = false;
     var passwordSavedTried = false, interactiveSavedTried = false;
     Future<String> askString(
       String instructions, {
@@ -301,6 +303,7 @@ class AppSshSession implements AppTerminalSession {
             '${target['username']}@${target['hostname']}:${target['port'] ?? 22}',
         if (hostPassword) 'passwordKind': 'host',
         'canSavePassword':
+            config['passkeyOnly'] != true &&
             hostPassword &&
             (target['id'] as int? ?? 0) > 0 &&
             target['identityId'] == null,
@@ -310,7 +313,7 @@ class AppSshSession implements AppTerminalSession {
           hostPassword &&
           (target['id'] as int? ?? 0) > 0 &&
           target['identityId'] == null) {
-        if (answer['savePassword'] == true) {
+        if (answer['savePassword'] == true && config['passkeyOnly'] != true) {
           _passwordsToSave[target['id'] as int] = {
             'id': target['id'],
             'password': answer['value'],
@@ -326,8 +329,44 @@ class AppSshSession implements AppTerminalSession {
 
     Future<String> password() async {
       _passwordsToSave.remove(target['id']);
+      if (protectedPasswordId != null) {
+        if (!hostVerified || !_current(generation)) {
+          throw StateError(deviceStrings.sshAuthenticationCancelled);
+        }
+        if (passwordSavedTried) {
+          throw SSHAuthFailError(
+            deviceStrings.theServerDidNotAuthenticateYouCheckYourUsername,
+          );
+        }
+        passwordSavedTried = true;
+        final unlocked = await platform('ssh.unlockPassword', {
+          'id': protectedPasswordId,
+          'hostname': target['hostname'],
+          'port': target['port'] ?? 22,
+          'username': target['username'],
+        });
+        if (unlocked is! String || !_current(generation)) {
+          throw const SshKeyAuthenticationCancelled();
+        }
+        return unlocked;
+      }
       if (!passwordSavedTried) {
         passwordSavedTried = true;
+        if (config['legacyPassword'] == true) {
+          if (!hostVerified) {
+            throw StateError(deviceStrings.sshAuthenticationCancelled);
+          }
+          final legacy = await platform('ssh.legacyPassword', {
+            'id': target['id'],
+            'hostname': target['hostname'],
+            'port': target['port'] ?? 22,
+            'username': target['username'],
+          });
+          if (!_current(generation)) {
+            throw const SshKeyAuthenticationCancelled();
+          }
+          if (legacy is String) return legacy;
+        }
         if (savedPassword != null) return savedPassword;
       }
       return askString(
@@ -390,6 +429,11 @@ class AppSshSession implements AppTerminalSession {
     }
 
     return SshEndpoint(
+      preferredAuthMethods: protectedPasswordId != null
+          ? const [SSHAuthMethod.none, SSHAuthMethod.password]
+          : config['passkeyKeyOnly'] == true
+          ? const [SSHAuthMethod.none, SSHAuthMethod.publicKey]
+          : null,
       host: target['hostname'] as String,
       port: target['port'] as int? ?? 22,
       username: target['username'] as String? ?? '',
@@ -414,6 +458,7 @@ class AppSshSession implements AppTerminalSession {
         _ => SshIpVersion.any,
       },
       verifyHostKey: (algorithm, fingerprint) async {
+        hostVerified = false;
         if (!_current(generation)) return false;
         _setConnectionPhase(SshConnectionPhase.hostKey);
         final args = <String, Object?>{
@@ -426,6 +471,7 @@ class AppSshSession implements AppTerminalSession {
         final check = _map(await platform('ssh.checkHost', args));
         if (!_current(generation)) return false;
         if (check['status'] == 'match') {
+          hostVerified = true;
           _setConnectionPhase(SshConnectionPhase.authentication);
           _trustedHostKeys['${target['hostname']}:${target['port'] ?? 22}'] = (
             algorithm,
@@ -452,6 +498,7 @@ class AppSshSession implements AppTerminalSession {
         if (accepted != true || !_current(generation)) return false;
         await platform('ssh.saveHost', {...args, 'accept': true});
         if (_current(generation)) {
+          hostVerified = true;
           _trustedHostKeys['${target['hostname']}:${target['port'] ?? 22}'] = (
             algorithm,
             utf8.decode(fingerprint),
@@ -464,12 +511,35 @@ class AppSshSession implements AppTerminalSession {
       },
       onPassword: password,
       onInteractive: (request) async {
+        if (protectedPasswordId != null) {
+          throw SSHAuthFailError(
+            deviceStrings.theServerDidNotAuthenticateYouCheckYourUsername,
+          );
+        }
         _passwordsToSave.remove(target['id']);
         final answers = <String>[];
         for (final prompt in request.prompts) {
-          if (!prompt.echo && !interactiveSavedTried && savedPassword != null) {
+          if (!prompt.echo &&
+              !interactiveSavedTried &&
+              (savedPassword != null || config['legacyPassword'] == true)) {
             interactiveSavedTried = true;
-            answers.add(savedPassword);
+            if (config['legacyPassword'] == true) {
+              if (!hostVerified) {
+                throw StateError(deviceStrings.sshAuthenticationCancelled);
+              }
+              final legacy = await platform('ssh.legacyPassword', {
+                'id': target['id'],
+                'hostname': target['hostname'],
+                'port': target['port'] ?? 22,
+                'username': target['username'],
+              });
+              if (legacy is! String || !_current(generation)) {
+                throw const SshKeyAuthenticationCancelled();
+              }
+              answers.add(legacy);
+            } else {
+              answers.add(savedPassword!);
+            }
           } else {
             answers.add(
               await askString(
@@ -485,6 +555,11 @@ class AppSshSession implements AppTerminalSession {
         return answers;
       },
       onPasswordChange: (prompt) async {
+        if (protectedPasswordId != null) {
+          throw SSHAuthFailError(
+            deviceStrings.theServerDidNotAuthenticateYouCheckYourUsername,
+          );
+        }
         _passwordsToSave.remove(target['id']);
         return SSHChangePasswordResponse(
           await askString(prompt, hint: deviceStrings.currentPassword),

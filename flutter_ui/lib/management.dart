@@ -339,6 +339,78 @@ Future<void> importTildeKeyFile(
   });
 }
 
+class _PasskeyPrfProbeSheet extends StatefulWidget {
+  const _PasskeyPrfProbeSheet({required this.engine});
+  final AndroidEngine engine;
+
+  @override
+  State<_PasskeyPrfProbeSheet> createState() => _PasskeyPrfProbeSheetState();
+}
+
+class _PasskeyPrfProbeSheetState extends State<_PasskeyPrfProbeSheet> {
+  bool busy = false;
+  String? status;
+
+  Future<void> run(bool create) async {
+    if (busy) return;
+    setState(() {
+      busy = true;
+      status = null;
+    });
+    try {
+      final result = await runEngine(
+        context,
+        widget.engine,
+        create ? 'key.storagePrfProbeCreate' : 'key.storagePrfProbeVerify',
+      );
+      if (mounted) setState(() => status = row(result)['status'] as String?);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.l10n;
+    final message = switch (status) {
+      'saved' => strings.passkeyPrfSaved,
+      'verified' => strings.passkeyPrfVerified,
+      'unsupported' => strings.passkeyPrfUnsupported,
+      'mismatch' => strings.passkeyPrfMismatch,
+      _ => null,
+    };
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            strings.passkeyPrfTest,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 16),
+          Text(strings.passkeyPrfTestNote),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: busy ? null : () => run(true),
+            child: Text(strings.passkeyPrfCreate),
+          ),
+          OutlinedButton(
+            onPressed: busy ? null : () => run(false),
+            child: Text(strings.passkeyPrfOpen),
+          ),
+          if (busy) const LinearProgressIndicator(),
+          if (message != null) ...[
+            const SizedBox(height: 16),
+            Text(message, key: const ValueKey('prf-probe-result')),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class KeyPage extends StatefulWidget {
   final AndroidEngine engine;
   const KeyPage({super.key, required this.engine});
@@ -391,6 +463,10 @@ class _KeyPageState extends State<KeyPage> {
       return;
     }
     if (!mounted) return;
+    if (action == 'export.passkey') {
+      await runEngine(context, engine, 'key.exportPasskey', {'id': key['id']});
+      return;
+    }
     final parts = action.split('.');
     if (mounted && parts.last == 'public') {
       await runEngine(context, engine, 'key.${parts.first}', {
@@ -421,6 +497,16 @@ class _KeyPageState extends State<KeyPage> {
         ),
       ),
     ],
+    if (key['passkey'] == true ||
+        key['passkeyWrapped'] == true ||
+        key['passkeyPassword'] == true)
+      PopupMenuItem(
+        value: 'export.passkey',
+        child: TildeMenuLabel(
+          context.l10n.exportPasskey,
+          Icons.download_outlined,
+        ),
+      ),
     const PopupMenuDivider(),
     PopupMenuItem(
       value: 'delete',
@@ -453,21 +539,48 @@ class _KeyPageState extends State<KeyPage> {
     final state = row(engine.state['keyState']);
     final ios = engine.state['platform'] == 'ios';
     final fileKeys = ios || engine.state['platform'] == 'windows';
-    final VoidCallback? addKey = fileKeys
-        ? () => importTildeKeyFile(context, engine)
-        : row(engine.state['generation'])['biometricAvailable'] == true
+    final passkeys =
+        row(engine.state['generation'])['passkeyAvailable'] == true;
+    final biometric =
+        row(engine.state['generation'])['biometricAvailable'] == true;
+    final VoidCallback? addKey = passkeys || biometric
         ? () => showTildeSheet<void>(
             context: context,
             isScrollControlled: true,
             useSafeArea: true,
             builder: (c) => GenerateKeyPage(engine: engine),
           )
+        : fileKeys
+        ? () => importTildeKeyFile(context, engine)
         : null;
-    final addLabel = fileKeys ? context.l10n.addKeyFile : context.l10n.newKey;
+    final addLabel = passkeys
+        ? context.l10n.newPasskey
+        : biometric
+        ? context.l10n.newKey
+        : fileKeys
+        ? context.l10n.addKeyFile
+        : context.l10n.newKey;
     return Scaffold(
       appBar: AppBar(
         title: Text(context.l10n.sshKeys),
         actions: [
+          if (passkeys)
+            IconButton(
+              tooltip: context.l10n.passkeyPrfTest,
+              onPressed: () => showTildeSheet<void>(
+                context: context,
+                useSafeArea: true,
+                isScrollControlled: true,
+                builder: (_) => _PasskeyPrfProbeSheet(engine: engine),
+              ),
+              icon: const Icon(Icons.science_outlined),
+            ),
+          if (passkeys)
+            IconButton(
+              tooltip: context.l10n.restorePasskey,
+              onPressed: () => runEngine(context, engine, 'key.restorePasskey'),
+              icon: const Icon(Icons.restore),
+            ),
           if (tildePointer(context))
             TextButton.icon(
               onPressed: addKey,
@@ -501,15 +614,15 @@ class _KeyPageState extends State<KeyPage> {
           if (engine.list('keys').isEmpty)
             settingsNote(
               context,
-              ios
+              passkeys
+                  ? context.l10n.passkeyStorageNote
+                  : ios
                   ? context
                         .l10n
                         .importedPrivateKeysAreUsedFromProtectedAppStorage
                   : fileKeys
                   ? context.l10n.privateKeyFilesAreUsedFromTheirOriginalLocation
-                  : context
-                        .l10n
-                        .privateKeysAreCreatedInAndroidKeystoreAndCannot,
+                  : context.l10n.passkeyUnavailable,
             ),
           if (engine.list('keys').isEmpty)
             Padding(
@@ -518,7 +631,13 @@ class _KeyPageState extends State<KeyPage> {
                 alignment: Alignment.centerLeft,
                 child: FilledButton.icon(
                   onPressed: addKey,
-                  icon: const Icon(Icons.add),
+                  icon: Icon(
+                    passkeys
+                        ? Icons.key_outlined
+                        : biometric
+                        ? Icons.fingerprint
+                        : Icons.add,
+                  ),
                   label: Text(addLabel),
                 ),
               ),
@@ -530,10 +649,14 @@ class _KeyPageState extends State<KeyPage> {
                   onSecondaryTapUp: (event) =>
                       showMenu(anchor, key, event.globalPosition),
                   child: ListTile(
-                    leading: const Icon(Icons.key_outlined),
+                    leading: Icon(
+                      key['passkeyPassword'] == true
+                          ? Icons.password
+                          : Icons.key_outlined,
+                    ),
                     title: Text('${key['nickname']}'),
                     subtitle: Text(
-                      '${key['displayType'] ?? key['type']}${key['supported'] == true ? ' · ${key['providerLabel'] ?? (fileKeys ? context.l10n.keyFile : 'Android Keystore')}' : ' · ${key['supportMessage'] ?? context.l10n.disabled}'}',
+                      '${key['displayType'] ?? key['type']}${key['supported'] == true ? ' · ${key['providerLabel'] ?? (fileKeys ? context.l10n.keyFile : 'Android Keystore')}' : ' · ${key['supportMessage'] ?? context.l10n.disabled}'}${key['deprecated'] == true ? ' · ${context.l10n.legacyCredential}' : ''}',
                     ),
                     onTap: () => keyAction(key, 'edit'),
                     onLongPress: () => showMenu(anchor, key),

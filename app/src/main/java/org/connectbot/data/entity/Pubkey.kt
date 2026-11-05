@@ -26,8 +26,9 @@ import androidx.room.PrimaryKey
  * SSH key metadata.
  *
  * Historical software-key fields remain only for migration, inspection, and
- * deletion. Runtime SSH authentication accepts only eligible Android Keystore
- * rows and never exposes private bytes.
+ * deletion. Runtime SSH authentication uses protected signers and never exposes private
+ * bytes. Protected credentials contain ciphertext and public metadata; historical
+ * WebAuthn references contain their public key and credential identifier.
  */
 @Entity(
     tableName = "pubkeys",

@@ -67,6 +67,7 @@ class FlutterShellActivity : FlutterFragmentActivity() {
     @Inject lateinit var dispatchers: CoroutineDispatchers
     val appState: AppViewModel by viewModels()
     val settings: SettingsViewModel by viewModels()
+    internal val passkeys by lazy { AndroidPasskeys(this) }
     internal lateinit var engine: AndroidShellEngine
     internal val logs: org.connectbot.ui.screens.help.LogViewerViewModel by viewModels()
     private var documentResult: CompletableDeferred<android.net.Uri?>? = null

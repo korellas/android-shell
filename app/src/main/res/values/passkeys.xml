@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2026 Kenny Root. SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <!-- Machine-readable link to the relying party's public app association. -->
+    <string name="passkey_asset_statements" translatable="false">[{\"include\":\"https://korellas.github.io/.well-known/assetlinks.json\"}]</string>
+</resources>

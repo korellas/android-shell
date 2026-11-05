@@ -2924,4 +2924,85 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get transferHeading => '전송';
+
+  @override
+  String get newPasskey => '새 패스키';
+
+  @override
+  String get createPasskey => '패스키 만들기';
+
+  @override
+  String get restorePasskey => '패스키 연결 복원';
+
+  @override
+  String get exportPasskey => '패스키 인증 정보 파일 저장';
+
+  @override
+  String get passkeyStorageNote =>
+      '새 SSH 키는 패스키로 암호화해 보관합니다. 재설치하거나 다른 기기에서 복구하려면 암호화된 인증 정보 백업 파일과 같은 패스키가 모두 필요합니다.';
+
+  @override
+  String get passkeyRestoreNote =>
+      '암호화 백업 파일을 열고 해당 패스키로 승인하면 복구합니다. 이전 연결 파일에는 공개 정보만 들어 있습니다.';
+
+  @override
+  String get passkeyUnavailable => '패스키는 Android 9 이상과 호환되는 인증 정보 제공자가 필요합니다.';
+
+  @override
+  String get passkeyCancelled => '패스키 작업을 취소했습니다.';
+
+  @override
+  String get invalidPasskey => '패스키 응답 또는 연결 파일이 올바르지 않습니다.';
+
+  @override
+  String get passkeyPrfTest => '패스키 복호화 테스트';
+
+  @override
+  String get passkeyPrfTestNote =>
+      '테스트용 패스키를 만들고 암호화된 테스트 파일을 저장합니다. 이 기기에서 파일을 열어 확인한 뒤, 다른 Android 기기의 Tilde에서도 같은 패스키로 열어 보세요. SSH 키는 등록하지 않습니다.';
+
+  @override
+  String get passkeyPrfCreate => '테스트 파일 만들기';
+
+  @override
+  String get passkeyPrfOpen => '테스트 파일 열기';
+
+  @override
+  String get passkeyPrfSaved =>
+      '테스트 파일을 저장했습니다. 이 기기와 다른 기기에서 파일을 열어 복호화를 확인하세요.';
+
+  @override
+  String get passkeyPrfVerified => '복호화 성공. 이 환경에서 같은 패스키의 PRF 값을 복구했습니다.';
+
+  @override
+  String get passkeyPrfUnsupported => '선택한 패스키 제공자가 이 환경에서 PRF를 지원하지 않습니다.';
+
+  @override
+  String get passkeyPrfMismatch => '복호화 실패. 파일이 손상되었거나 PRF 값이 다를 수 있습니다.';
+
+  @override
+  String get credentialKind => '인증 정보 종류';
+
+  @override
+  String get passkeySshKeyMode => 'SSH 키 생성 및 보관';
+
+  @override
+  String get passkeyPasswordMode => 'SSH 비밀번호 보관';
+
+  @override
+  String get passkeyPasswordNote =>
+      '지정한 서버와 계정에서만 사용합니다. SSH 전송은 암호화되지만 서버는 비밀번호를 받습니다. 패스키와 암호화 백업 파일을 함께 보관하세요.';
+
+  @override
+  String get passkeyPasswordSelectNote =>
+      '위에서 패스키로 보호한 인증 정보를 선택하세요. 이전 기기 저장 방식으로 비밀번호를 새로 저장할 수 없습니다.';
+
+  @override
+  String get legacyCredential => '이전 방식 · 전환 권장';
+
+  @override
+  String get credentialFieldRequired => '필수 항목입니다.';
+
+  @override
+  String get credentialPortInvalid => '올바른 SSH 포트를 입력하세요.';
 }

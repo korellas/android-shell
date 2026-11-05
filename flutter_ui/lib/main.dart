@@ -1152,16 +1152,22 @@ class _ShellHomeState extends State<ShellHome> {
                     RecordEditor(engine: engine, kind: RecordKind.host),
                   ),
                   onQuickConnect: () => _quickFocus.requestFocus(),
-                  keyLabel: engine.state['platform'] == 'ios'
+                  keyLabel:
+                      row(engine.state['generation'])['passkeyAvailable'] ==
+                          true
+                      ? context.l10n.createPasskey
+                      : engine.state['platform'] == 'ios'
                       ? context.l10n.importSshKey
                       : context.l10n.createSshKeyOnThisDevice,
                   onKey: () async {
                     if (engine.state['platform'] == 'ios') {
                       await importTildeKeyFile(context, engine);
                     } else if (row(
-                          engine.state['generation'],
-                        )['biometricAvailable'] ==
-                        true) {
+                              engine.state['generation'],
+                            )['passkeyAvailable'] ==
+                            true ||
+                        row(engine.state['generation'])['biometricAvailable'] ==
+                            true) {
                       await showTildeSheet<void>(
                         context: context,
                         isScrollControlled: true,

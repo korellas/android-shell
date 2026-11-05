@@ -105,4 +105,12 @@
     <string name="flutter_help_contact">Tilde\n\nProject: https://github.com/korellas/android-shell\n\nReport a bug: https://github.com/korellas/android-shell/issues</string>
     <!-- Ctrl+Shift+C: copy selection; Tilde key, connection, or help UI. -->
     <string name="flutter_help_hints">Ctrl+Shift+C: copy selection\nCtrl+Shift+V: paste\nCtrl+Shift++ / Ctrl+Shift+-: font size\nTouch the terminal to open the keyboard. Choose Ctrl/Alt hold behavior in Keyboard settings.</string>
+    <!-- Error shown when creating a passkey on an unsupported Android version. -->
+    <string name="flutter_passkeys_require_android9">Passkeys require Android 9 or later.</string>
+    <!-- Error for passkey-protected SSH credential operations. -->
+    <string name="flutter_passkey_prf_unavailable">This credential provider does not support PRF. Choose a PRF-capable passkey provider.</string>
+    <!-- Error for passkey-protected SSH credential operations. -->
+    <string name="flutter_password_target_mismatch">This password belongs to a different server or account.</string>
+    <!-- Error for passkey-protected SSH credential operations. -->
+    <string name="flutter_use_passkey_credentials">Create a passkey-protected credential to save a password.</string>
 </resources>

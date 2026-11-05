@@ -378,24 +378,27 @@ class _RecordEditorState extends State<RecordEditor> {
   );
 
   List<Widget> passwordFields() => [
-    Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        text(
-          'password',
-          draft['hasPassword'] == true && '${draft['password'] ?? ''}'.isEmpty
-              ? context.l10n.passwordSaved
-              : context.l10n.password,
-          password: true,
-        ),
-        settingsNote(
-          context,
-          widget.kind == RecordKind.host
-              ? context.l10n.storedEncryptedOnThisDeviceEnterItAgainAfter
-              : context.l10n.storedEncryptedOnThisDevice,
-        ),
-      ],
-    ),
+    if (row(engine.state['generation'])['passkeyOnly'] == true)
+      settingsNote(context, context.l10n.passkeyPasswordSelectNote)
+    else
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          text(
+            'password',
+            draft['hasPassword'] == true && '${draft['password'] ?? ''}'.isEmpty
+                ? context.l10n.passwordSaved
+                : context.l10n.password,
+            password: true,
+          ),
+          settingsNote(
+            context,
+            widget.kind == RecordKind.host
+                ? context.l10n.storedEncryptedOnThisDeviceEnterItAgainAfter
+                : context.l10n.storedEncryptedOnThisDevice,
+          ),
+        ],
+      ),
     if (draft['hasPassword'] == true)
       Align(
         alignment: Alignment.centerLeft,
@@ -666,12 +669,16 @@ class _RecordEditorState extends State<RecordEditor> {
                   : Icons.fingerprint,
             ),
             title: Text(
-              draft['type'] == 'IMPORTED'
+              draft['passkey'] == true
+                  ? 'Passkey'
+                  : draft['type'] == 'IMPORTED'
                   ? context.l10n.importedPrivateKey
                   : context.l10n.androidKeystoreP256Key,
             ),
             subtitle: Text(
-              draft['type'] == 'IMPORTED'
+              draft['passkey'] == true
+                  ? context.l10n.passkeyStorageNote
+                  : draft['type'] == 'IMPORTED'
                   ? context.l10n.authenticateWithAnImportedPrivateKeyFile
                   : context.l10n.thePrivateKeyCannotBeExportedFromThisDevice,
             ),
@@ -1991,8 +1998,20 @@ class GenerateKeyPage extends StatefulWidget {
 class _GenerateKeyPageState extends State<GenerateKeyPage> {
   final form = GlobalKey<FormState>();
   String name = '';
+  String kind = 'key';
+  String hostname = '';
+  String username = '';
+  int port = 22;
+  final password = TextEditingController();
   bool busy = false;
   String? error;
+  @override
+  void dispose() {
+    password.clear();
+    password.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => Material(
     color: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -2010,10 +2029,39 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              context.l10n.newSshKey,
+              row(widget.engine.state['generation'])['passkeyAvailable'] == true
+                  ? context.l10n.newPasskey
+                  : context.l10n.newSshKey,
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 24),
+            if (row(widget.engine.state['generation'])['passkeyAvailable'] ==
+                    true &&
+                !widget.returnGeneratedKey) ...[
+              DropdownButtonFormField<String>(
+                initialValue: kind,
+                decoration: InputDecoration(
+                  labelText: context.l10n.credentialKind,
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: 'key',
+                    child: Text(context.l10n.passkeySshKeyMode),
+                  ),
+                  DropdownMenuItem(
+                    value: 'password',
+                    child: Text(context.l10n.passkeyPasswordMode),
+                  ),
+                ],
+                onChanged: busy
+                    ? null
+                    : (value) => setState(() {
+                        kind = value ?? 'key';
+                        password.clear();
+                      }),
+              ),
+              const SizedBox(height: 16),
+            ],
             Text(context.l10n.keyName, style: TextStyle(fontSize: 13)),
             const SizedBox(height: 8),
             TextFormField(
@@ -2022,9 +2070,54 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
                   (v ?? '').trim().isEmpty ? context.l10n.enterAName : null,
               onChanged: (v) => name = v,
             ),
+            if (kind == 'password') ...[
+              TextFormField(
+                decoration: InputDecoration(
+                  labelText: context.l10n.serverAddress,
+                ),
+                validator: (value) => (value ?? '').trim().isEmpty
+                    ? context.l10n.credentialFieldRequired
+                    : null,
+                onChanged: (value) => hostname = value.trim(),
+              ),
+              TextFormField(
+                initialValue: '22',
+                decoration: InputDecoration(labelText: context.l10n.port),
+                keyboardType: TextInputType.number,
+                validator: (value) => switch (int.tryParse(value ?? '')) {
+                  final number? when number >= 1 && number <= 65535 => null,
+                  _ => context.l10n.credentialPortInvalid,
+                },
+                onChanged: (value) => port = int.tryParse(value) ?? 22,
+              ),
+              TextFormField(
+                decoration: InputDecoration(labelText: context.l10n.username),
+                validator: (value) => (value ?? '').trim().isEmpty
+                    ? context.l10n.credentialFieldRequired
+                    : null,
+                onChanged: (value) => username = value.trim(),
+              ),
+              TextFormField(
+                controller: password,
+                decoration: InputDecoration(labelText: context.l10n.password),
+                obscureText: true,
+                autocorrect: false,
+                enableSuggestions: false,
+                validator: (value) => (value ?? '').isEmpty
+                    ? context.l10n.credentialFieldRequired
+                    : null,
+              ),
+            ],
             settingsNote(
               context,
-              context.l10n.createAP256PrivateKeyInAndroidKeystore,
+              kind == 'password'
+                  ? context.l10n.passkeyPasswordNote
+                  : row(
+                          widget.engine.state['generation'],
+                        )['passkeyAvailable'] ==
+                        true
+                  ? context.l10n.passkeyStorageNote
+                  : context.l10n.createAP256PrivateKeyInAndroidKeystore,
             ),
             if (error != null)
               ListTile(
@@ -2047,8 +2140,27 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
                       try {
                         final generated = await widget.engine.invoke(
                           'key.generate',
-                          {'nickname': name, 'type': 'EC', 'bits': 256},
+                          {
+                            'nickname': name,
+                            'type': 'EC',
+                            'bits': 256,
+                            if (row(
+                                  widget.engine.state['generation'],
+                                )['passkeyAvailable'] ==
+                                true)
+                              'kind': kind,
+                            if (kind == 'password') ...{
+                              'password': password.text,
+                              'hostname': hostname,
+                              'port': port,
+                              'username': username,
+                            },
+                          },
                         );
+                        if (generated == null) {
+                          if (mounted) setState(() => busy = false);
+                          return;
+                        }
                         if (context.mounted) {
                           if (widget.returnGeneratedKey) {
                             Navigator.pop(context, row(generated));
@@ -2063,11 +2175,20 @@ class _GenerateKeyPageState extends State<GenerateKeyPage> {
                             error = '$e';
                           });
                         }
+                      } finally {
+                        if (mounted) password.clear();
                       }
                     },
               child: busy
                   ? const TildeProgress.circular()
-                  : Text(context.l10n.createKey),
+                  : Text(
+                      row(
+                                widget.engine.state['generation'],
+                              )['passkeyAvailable'] ==
+                              true
+                          ? context.l10n.createPasskey
+                          : context.l10n.createKey,
+                    ),
             ),
           ],
         ),

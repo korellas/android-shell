@@ -21,6 +21,9 @@ package org.connectbot.data.entity
  * Defines how an SSH key is stored and managed.
  */
 enum class KeyStorageType {
+    /** Passkey-protected credentials, or historical public WebAuthn references. */
+    PASSKEY,
+
     /**
      * Historical software key retained in the database for inspection and
      * deletion. It is ineligible for SSH authentication and export.

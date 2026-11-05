@@ -13,7 +13,7 @@ plugins {
 
 appVersioning {
     tagFilter.set("v[0-9].*")
-    overrideVersionCode { _, _, _ -> 11100076 }
+    overrideVersionCode { _, _, _ -> 11100080 }
     overrideVersionName { _, _, _ -> "1.11.0" }
 }
 
@@ -419,6 +419,8 @@ dependencies {
     testImplementation(libs.hilt.android.testing)
     kspTest(libs.hilt.android.compiler)
 
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.core)
 

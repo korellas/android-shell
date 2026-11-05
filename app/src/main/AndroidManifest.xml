@@ -71,6 +71,7 @@
 			android:windowSoftInputMode="adjustResize">
 		</activity>
 		<meta-data android:name="flutterEmbedding" android:value="2" />
+		<meta-data android:name="asset_statements" android:resource="@string/passkey_asset_statements" />
 		<meta-data
 			android:name="com.google.android.gms.ads.APPLICATION_ID"
 			android:value="ca-app-pub-2419651602326063~2885561822" />
