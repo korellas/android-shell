@@ -3138,6 +3138,19 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get credentialPortInvalid => 'Enter a valid SSH port.';
+
+  @override
+  String get exitApp => 'Sair do Tilde?';
+
+  @override
+  String get exitAppSessionsNote =>
+      'Mantenha as sessões em segundo plano ou desconecte todas as sessões e saia.';
+
+  @override
+  String get keepSessions => 'Manter sessões';
+
+  @override
+  String get disconnectAndExit => 'Desconectar e sair';
 }
 
 /// The translations for Portuguese, as used in Brazil (`pt_BR`).

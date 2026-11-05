@@ -3012,4 +3012,17 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get credentialPortInvalid => 'Enter a valid SSH port.';
+
+  @override
+  String get exitApp => 'Tildeを終了しますか？';
+
+  @override
+  String get exitAppSessionsNote =>
+      'セッションをバックグラウンドで維持するか、すべてのセッションを切断して終了できます。';
+
+  @override
+  String get keepSessions => 'セッションを維持';
+
+  @override
+  String get disconnectAndExit => '切断して終了';
 }

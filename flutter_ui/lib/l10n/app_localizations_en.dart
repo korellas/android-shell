@@ -3104,4 +3104,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get credentialPortInvalid => 'Enter a valid SSH port.';
+
+  @override
+  String get exitApp => 'Exit Tilde?';
+
+  @override
+  String get exitAppSessionsNote =>
+      'Keep your sessions running in the background, or disconnect all sessions and exit.';
+
+  @override
+  String get keepSessions => 'Keep sessions';
+
+  @override
+  String get disconnectAndExit => 'Disconnect and exit';
 }

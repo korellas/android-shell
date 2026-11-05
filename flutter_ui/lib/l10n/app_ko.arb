@@ -890,5 +890,9 @@
   "passkeyPasswordSelectNote": "위에서 패스키로 보호한 인증 정보를 선택하세요. 이전 기기 저장 방식으로 비밀번호를 새로 저장할 수 없습니다.",
   "legacyCredential": "이전 방식 · 전환 권장",
   "credentialFieldRequired": "필수 항목입니다.",
-  "credentialPortInvalid": "올바른 SSH 포트를 입력하세요."
+  "credentialPortInvalid": "올바른 SSH 포트를 입력하세요.",
+  "exitApp": "앱을 종료할까요?",
+  "exitAppSessionsNote": "세션을 유지한 채 앱을 내려두거나, 모든 세션을 종료하고 나갈 수 있습니다.",
+  "keepSessions": "세션 유지",
+  "disconnectAndExit": "세션 종료 후 나가기"
 }

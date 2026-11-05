@@ -5456,6 +5456,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter a valid SSH port.'**
   String get credentialPortInvalid;
+
+  /// Home screen Android Back exit confirmation: exitApp
+  ///
+  /// In en, this message translates to:
+  /// **'Exit Tilde?'**
+  String get exitApp;
+
+  /// Home screen Android Back exit confirmation: exitAppSessionsNote
+  ///
+  /// In en, this message translates to:
+  /// **'Keep your sessions running in the background, or disconnect all sessions and exit.'**
+  String get exitAppSessionsNote;
+
+  /// Home screen Android Back exit confirmation: keepSessions
+  ///
+  /// In en, this message translates to:
+  /// **'Keep sessions'**
+  String get keepSessions;
+
+  /// Home screen Android Back exit confirmation: disconnectAndExit
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect and exit'**
+  String get disconnectAndExit;
 }
 
 class _AppLocalizationsDelegate

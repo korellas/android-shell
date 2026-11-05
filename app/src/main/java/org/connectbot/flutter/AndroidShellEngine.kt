@@ -309,6 +309,16 @@ internal class AndroidShellEngine(
                 null
             }
 
+            "app.background" -> {
+                activity.moveTaskToBack(true)
+                null
+            }
+
+            "app.exit" -> {
+                activity.finishAndRemoveTask()
+                null
+            }
+
             "scheme.palette" -> {
                 val appearance = colors.getSchemeAppearance(args.number("id"))
                 mapOf("colors" to colors.getSchemeColors(args.number("id")).toList(), "foregroundColor" to appearance.first, "backgroundColor" to appearance.second, "cursorColor" to appearance.third)

@@ -865,5 +865,9 @@
   "editAuthentication": "Editar autenticação",
   "serverMessage": "Mensagem do servidor",
   "cancellingOperation": "Cancelando…",
-  "transferHeading": "Transferências"
+  "transferHeading": "Transferências",
+  "exitApp": "Sair do Tilde?",
+  "exitAppSessionsNote": "Mantenha as sessões em segundo plano ou desconecte todas as sessões e saia.",
+  "keepSessions": "Manter sessões",
+  "disconnectAndExit": "Desconectar e sair"
 }

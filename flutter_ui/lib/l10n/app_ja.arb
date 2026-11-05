@@ -865,5 +865,9 @@
   "editAuthentication": "認証設定を編集",
   "serverMessage": "サーバーからのメッセージ",
   "cancellingOperation": "キャンセル中…",
-  "transferHeading": "転送"
+  "transferHeading": "転送",
+  "exitApp": "Tildeを終了しますか？",
+  "exitAppSessionsNote": "セッションをバックグラウンドで維持するか、すべてのセッションを切断して終了できます。",
+  "keepSessions": "セッションを維持",
+  "disconnectAndExit": "切断して終了"
 }
