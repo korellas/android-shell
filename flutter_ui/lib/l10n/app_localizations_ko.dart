@@ -3005,4 +3005,17 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get credentialPortInvalid => '올바른 SSH 포트를 입력하세요.';
+
+  @override
+  String get exitApp => '앱을 종료할까요?';
+
+  @override
+  String get exitAppSessionsNote =>
+      '세션을 유지한 채 앱을 내려두거나, 모든 세션을 종료하고 나갈 수 있습니다.';
+
+  @override
+  String get keepSessions => '세션 유지';
+
+  @override
+  String get disconnectAndExit => '세션 종료 후 나가기';
 }

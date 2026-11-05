@@ -597,6 +597,7 @@ class ShellHome extends StatefulWidget {
 class _ShellHomeState extends State<ShellHome> {
   AndroidEngine get engine => widget.engine;
   bool _promptOpen = false;
+  bool _exitPending = false;
   final Set<String> _answered = {};
   int? _setupHostId;
   int? _intentSession;
@@ -766,6 +767,73 @@ class _ShellHomeState extends State<ShellHome> {
       'id': host['id'],
     });
     if (connected == null) _setupHostId = null;
+  }
+
+  Future<void> _exitApp() async {
+    if (_exitPending || !mounted || ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    _exitPending = true;
+    final strings = context.l10n;
+    try {
+      final active = engine
+          .list('sessions')
+          .any(
+            (session) =>
+                session['open'] == true || session['connecting'] == true,
+          );
+      final closeSessions = active
+          ? await showTildeSheet<bool>(
+              context: context,
+              isScrollControlled: true,
+              builder: (c) => SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      strings.exitApp,
+                      style: Theme.of(c).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(strings.exitAppSessionsNote),
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(c, false),
+                      child: Text(strings.keepSessions),
+                    ),
+                    OutlinedButton(
+                      onPressed: () => Navigator.pop(c, true),
+                      child: Text(strings.disconnectAndExit),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(c),
+                      child: Text(strings.cancel),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : true;
+      if (!mounted || closeSessions == null) return;
+      if (closeSessions) {
+        await engine.invoke('session.disconnectAll');
+        if (mounted) await engine.query('app.exit');
+      } else {
+        await engine.query('app.background');
+      }
+    } catch (error) {
+      if (mounted) {
+        showEngineFailure(
+          context,
+          error,
+          summary: strings.couldNotCloseConnection,
+        );
+      }
+    } finally {
+      _exitPending = false;
+    }
   }
 
   Future<void> _homeMenu(String action) async {
@@ -1134,7 +1202,17 @@ class _ShellHomeState extends State<ShellHome> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PopScope(
+    canPop: defaultTargetPlatform != TargetPlatform.android || !engine.ready,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop && defaultTargetPlatform == TargetPlatform.android) {
+        unawaited(_exitApp());
+      }
+    },
+    child: _buildHome(context),
+  );
+
+  Widget _buildHome(BuildContext context) {
     if (!engine.ready) return AppGate(engine: engine);
     if (tildePointer(context)) return DesktopWorkspace(engine: engine);
     final hosts = engine.list('hosts');

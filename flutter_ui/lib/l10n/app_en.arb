@@ -4175,5 +4175,21 @@
   "credentialFieldRequired": "This field is required.",
   "@credentialFieldRequired": {"description": "Passkey protected SSH credential creation and migration."},
   "credentialPortInvalid": "Enter a valid SSH port.",
-  "@credentialPortInvalid": {"description": "Passkey protected SSH credential creation and migration."}
+  "@credentialPortInvalid": {"description": "Passkey protected SSH credential creation and migration."},
+  "exitApp": "Exit Tilde?",
+  "exitAppSessionsNote": "Keep your sessions running in the background, or disconnect all sessions and exit.",
+  "keepSessions": "Keep sessions",
+  "disconnectAndExit": "Disconnect and exit",
+  "@exitApp": {
+    "description": "Home screen Android Back exit confirmation: exitApp"
+  },
+  "@exitAppSessionsNote": {
+    "description": "Home screen Android Back exit confirmation: exitAppSessionsNote"
+  },
+  "@keepSessions": {
+    "description": "Home screen Android Back exit confirmation: keepSessions"
+  },
+  "@disconnectAndExit": {
+    "description": "Home screen Android Back exit confirmation: disconnectAndExit"
+  }
 }

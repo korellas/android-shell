@@ -2986,6 +2986,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get credentialPortInvalid => 'Enter a valid SSH port.';
+
+  @override
+  String get exitApp => '退出 Tilde？';
+
+  @override
+  String get exitAppSessionsNote => '在后台保持会话，或断开所有会话后退出。';
+
+  @override
+  String get keepSessions => '保持会话';
+
+  @override
+  String get disconnectAndExit => '断开并退出';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
