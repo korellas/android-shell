@@ -3151,6 +3151,9 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get disconnectAndExit => 'Desconectar e sair';
+
+  @override
+  String get openInBrowser => 'Abrir no navegador';
 }
 
 /// The translations for Portuguese, as used in Brazil (`pt_BR`).

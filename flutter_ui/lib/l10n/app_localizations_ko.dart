@@ -3018,4 +3018,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get disconnectAndExit => '세션 종료 후 나가기';
+
+  @override
+  String get openInBrowser => '웹으로 열기';
 }

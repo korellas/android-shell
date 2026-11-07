@@ -26,7 +26,11 @@ void main() {
     controller.dispose();
   });
 
-  Future<void> mount(WidgetTester tester, {bool enabled = true}) async {
+  Future<void> mount(
+    WidgetTester tester, {
+    bool enabled = true,
+    ValueChanged<String>? onOpenUrl,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -38,6 +42,7 @@ void main() {
             controller: controller,
             input: input,
             enabled: enabled,
+            onOpenUrl: onOpenUrl,
           ),
         ),
       ),
@@ -111,6 +116,39 @@ void main() {
     );
     expect(output.join(), '\x1b[D\x1b[D\x1b[D');
   });
+
+  for (final osc in [false, true]) {
+    testWidgets('long press offers web before copy (OSC=$osc)', (tester) async {
+      final opened = <String>[];
+      await mount(tester, onOpenUrl: opened.add);
+      terminal.write(
+        osc
+            ? '\x1b]8;;https://example.test/path\x07Website\x1b]8;;\x07'
+            : 'https://example.test/path',
+      );
+      await tester.pumpAndSettle();
+      final render = tester
+          .state<TerminalViewState>(find.byType(TerminalView))
+          .renderTerminal;
+      final point = render.localToGlobal(
+        render.getOffset(const CellOffset(3, 0)) +
+            render.cellSize.center(Offset.zero),
+      );
+      await tester.tapAt(point);
+      expect(opened, isEmpty);
+      await tester.longPressAt(point);
+      await tester.pumpAndSettle();
+      expect(find.text('웹으로 열기'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('웹으로 열기')).dx,
+        lessThan(tester.getTopLeft(find.text('복사')).dx),
+      );
+      await tester.tap(find.text('웹으로 열기'));
+      await tester.pumpAndSettle();
+      expect(opened, ['https://example.test/path']);
+      expect(find.text('웹으로 열기'), findsNothing);
+    });
+  }
 
   testWidgets('blank long press offers direct paste without selecting text', (
     tester,

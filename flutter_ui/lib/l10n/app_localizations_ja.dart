@@ -3025,4 +3025,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get disconnectAndExit => '切断して終了';
+
+  @override
+  String get openInBrowser => 'ブラウザで開く';
 }

@@ -4191,5 +4191,6 @@
   },
   "@disconnectAndExit": {
     "description": "Home screen Android Back exit confirmation: disconnectAndExit"
-  }
+  },
+  "openInBrowser": "Open in browser"
 }

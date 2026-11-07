@@ -2998,6 +2998,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get disconnectAndExit => '断开并退出';
+
+  @override
+  String get openInBrowser => '在浏览器中打开';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).

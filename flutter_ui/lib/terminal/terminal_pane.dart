@@ -452,6 +452,7 @@ class TerminalPaneState extends State<TerminalPane> {
           onEdit: _edit,
           onPaste: widget.input.paste,
           onShare: widget.onShare,
+          onOpenUrl: widget.onOpenUrl,
           child: Listener(
             onPointerDown: (event) {
               _interaction();

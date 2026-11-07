@@ -869,5 +869,6 @@
   "exitApp": "Tildeを終了しますか？",
   "exitAppSessionsNote": "セッションをバックグラウンドで維持するか、すべてのセッションを切断して終了できます。",
   "keepSessions": "セッションを維持",
-  "disconnectAndExit": "切断して終了"
+  "disconnectAndExit": "切断して終了",
+  "openInBrowser": "ブラウザで開く"
 }

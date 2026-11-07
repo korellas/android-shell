@@ -3117,4 +3117,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get disconnectAndExit => 'Disconnect and exit';
+
+  @override
+  String get openInBrowser => 'Open in browser';
 }

@@ -19,6 +19,7 @@ package org.connectbot.flutter
 
 import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
@@ -34,6 +35,13 @@ import org.robolectric.Shadows.shadowOf
 
 @RunWith(RobolectricTestRunner::class)
 class LauncherActivityTest {
+    @Test
+    fun launcherTaskIsIncludedInRecents() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val launcher = context.packageManager.getActivityInfo(ComponentName(context, LauncherActivity::class.java), 0)
+        assertEquals(0, launcher.flags and ActivityInfo.FLAG_EXCLUDE_FROM_RECENTS)
+    }
+
     @Test
     fun exportedLauncherStripsUntrustedIntentState() {
         val incoming = Intent("evil.action.CONNECT").apply {

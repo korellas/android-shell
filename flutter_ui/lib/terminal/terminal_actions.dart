@@ -23,6 +23,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm2/xterm.dart';
 import '../tilde_design.dart';
+import 'terminal_links.dart';
 import '../tilde_controls.dart';
 import '../l10n/strings.dart';
 
@@ -36,6 +37,7 @@ class TerminalActions extends StatefulWidget {
     required this.onEdit,
     required this.onPaste,
     this.onShare,
+    this.onOpenUrl,
     this.enabled = true,
     this.inputEnabled = true,
     this.magnifyCursor = false,
@@ -48,6 +50,7 @@ class TerminalActions extends StatefulWidget {
   final Future<void> Function(String text) onEdit;
   final void Function(String text) onPaste;
   final void Function(String text)? onShare;
+  final ValueChanged<String>? onOpenUrl;
   final bool enabled;
   final bool inputEnabled;
   final bool magnifyCursor;
@@ -62,6 +65,7 @@ class _TerminalActionsState extends State<TerminalActions> {
   Offset? _pressOrigin;
   final _pressedPointers = <int>{};
   Offset? _contextPoint;
+  String? _longPressedUrl;
   ScrollPosition? _scrollPosition;
   CellOffset? _touchedCell;
   final _overflow = MenuController();
@@ -110,6 +114,7 @@ class _TerminalActionsState extends State<TerminalActions> {
       _geometry = null;
       _longPressTimer?.cancel();
       _contextPoint = null;
+      _longPressedUrl = null;
     }
     _refresh();
   }
@@ -418,6 +423,20 @@ class _TerminalActionsState extends State<TerminalActions> {
                       mainAxisSize: MainAxisSize.min,
                       spacing: 2,
                       children: [
+                        if (_longPressedUrl != null && widget.onOpenUrl != null)
+                          action(
+                            context.l10n.openInBrowser,
+                            Icons.open_in_browser,
+                            () {
+                              final url = _longPressedUrl!;
+                              setState(() {
+                                _longPressedUrl = null;
+                                _contextPoint = null;
+                              });
+                              widget.controller.clearSelection();
+                              widget.onOpenUrl!(url);
+                            },
+                          ),
                         if (!selected && widget.inputEnabled)
                           action(
                             context.l10n.paste,
@@ -513,6 +532,7 @@ class _TerminalActionsState extends State<TerminalActions> {
               setState(() {
                 _dragExtent = extent;
                 _draggingHandle = true;
+                _longPressedUrl = null;
               });
             }
           },
@@ -829,6 +849,7 @@ class _TerminalActionsState extends State<TerminalActions> {
       _pressedPointers.add(event.pointer);
       _longPressTimer?.cancel();
       _pressOrigin = event.position;
+      _longPressedUrl = null;
       if (_contextPoint != null) setState(() => _contextPoint = null);
       if (widget.enabled &&
           widget.inputEnabled &&
@@ -839,7 +860,16 @@ class _TerminalActionsState extends State<TerminalActions> {
           final box =
               _stackKey.currentContext?.findRenderObject() as RenderBox?;
           if (box == null || !box.hasSize) return;
-          setState(() => _contextPoint = box.globalToLocal(event.position));
+          final render = widget.terminalViewKey.currentState?.renderTerminal;
+          setState(() {
+            _contextPoint = box.globalToLocal(event.position);
+            _longPressedUrl = render == null
+                ? null
+                : terminalWebLinkAt(
+                    widget.terminal,
+                    render.getCellOffset(render.globalToLocal(event.position)),
+                  );
+          });
         });
       }
     } else if (_pressOrigin != null &&

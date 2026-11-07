@@ -869,5 +869,6 @@
   "exitApp": "退出 Tilde？",
   "exitAppSessionsNote": "在后台保持会话，或断开所有会话后退出。",
   "keepSessions": "保持会话",
-  "disconnectAndExit": "断开并退出"
+  "disconnectAndExit": "断开并退出",
+  "openInBrowser": "在浏览器中打开"
 }
