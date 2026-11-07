@@ -43,7 +43,9 @@ String? terminalWebLinkAt(Terminal terminal, CellOffset cell) {
     }
   }
   for (final match in RegExp(
-    r'''https?://[^\s<>"']+''',
+    r'''(https?://)[^\s<>"']+|'''
+    r'(?<![\w@/.-])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+'
+    r'''[a-z]{2,}(?![\w-])(?::[0-9]+)?(?:[/?#][^\s<>"']*)?''',
     caseSensitive: false,
   ).allMatches(text.toString())) {
     var url = match.group(0)!;
@@ -60,7 +62,7 @@ String? terminalWebLinkAt(Terminal terminal, CellOffset cell) {
       }
     }
     if (offset >= match.start && offset < match.start + url.length) {
-      return webUrl(url);
+      return webUrl(match.group(1) == null ? 'https://$url' : url);
     }
   }
   return null;
