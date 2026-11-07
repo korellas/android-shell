@@ -5480,6 +5480,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Disconnect and exit'**
   String get disconnectAndExit;
+
+  /// No description provided for @openInBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in browser'**
+  String get openInBrowser;
 }
 
 class _AppLocalizationsDelegate

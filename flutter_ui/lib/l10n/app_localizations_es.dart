@@ -3154,4 +3154,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get disconnectAndExit => 'Desconectar y salir';
+
+  @override
+  String get openInBrowser => 'Abrir en el navegador';
 }

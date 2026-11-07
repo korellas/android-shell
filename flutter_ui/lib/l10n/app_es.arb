@@ -869,5 +869,6 @@
   "exitApp": "¿Salir de Tilde?",
   "exitAppSessionsNote": "Mantén las sesiones en segundo plano o desconecta todas las sesiones y sal.",
   "keepSessions": "Mantener sesiones",
-  "disconnectAndExit": "Desconectar y salir"
+  "disconnectAndExit": "Desconectar y salir",
+  "openInBrowser": "Abrir en el navegador"
 }
