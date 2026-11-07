@@ -117,15 +117,15 @@ void main() {
     expect(output.join(), '\x1b[D\x1b[D\x1b[D');
   });
 
-  for (final osc in [false, true]) {
-    testWidgets('long press offers web before copy (OSC=$osc)', (tester) async {
+  for (final kind in ['http', 'osc', 'domain']) {
+    testWidgets('long press offers web before copy ($kind)', (tester) async {
       final opened = <String>[];
       await mount(tester, onOpenUrl: opened.add);
-      terminal.write(
-        osc
-            ? '\x1b]8;;https://example.test/path\x07Website\x1b]8;;\x07'
-            : 'https://example.test/path',
-      );
+      terminal.write(switch (kind) {
+        'osc' => '\x1b]8;;https://example.test/path\x07Website\x1b]8;;\x07',
+        'domain' => 'example.test/path',
+        _ => 'https://example.test/path',
+      });
       await tester.pumpAndSettle();
       final render = tester
           .state<TerminalViewState>(find.byType(TerminalView))

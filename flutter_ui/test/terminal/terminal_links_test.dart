@@ -6,6 +6,30 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xterm2/xterm.dart';
 
 void main() {
+  for (final text in [
+    'example.com',
+    'www.example.com/docs?q=1#section',
+    'dev.example.com:8443/path',
+  ]) {
+    test('opens bare domain $text with HTTPS', () {
+      final terminal = Terminal()..resize(20, 8);
+      terminal.write('($text).');
+      expect(
+        terminalWebLinkAt(terminal, const CellOffset(4, 0)),
+        'https://$text',
+      );
+    });
+  }
+  test('does not extract domains from email or non-web URLs', () {
+    for (final text in ['user@example.com', 'ssh://example.com', 'ordinary']) {
+      final terminal = Terminal()..resize(80, 8);
+      terminal.write(text);
+      for (var x = 0; x < text.length; x++) {
+        expect(terminalWebLinkAt(terminal, CellOffset(x, 0)), isNull);
+      }
+    }
+  });
+
   test(
     'detects wrapped URL after wide text, preserving query and brackets',
     () {
