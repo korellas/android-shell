@@ -418,7 +418,7 @@ class _TerminalActionsState extends State<TerminalActions> {
                       mainAxisSize: MainAxisSize.min,
                       spacing: 2,
                       children: [
-                        if (!selected && widget.inputEnabled)
+                        if (widget.inputEnabled)
                           action(
                             context.l10n.paste,
                             Icons.content_paste_outlined,

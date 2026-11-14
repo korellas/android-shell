@@ -256,21 +256,31 @@ void showEngineFailure(
 }) {
   summary ??= context.l10n.couldNotCompleteOperation;
   final colors = Theme.of(context).colorScheme;
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.hideCurrentMaterialBanner();
+  messenger.showMaterialBanner(
+    MaterialBanner(
       backgroundColor: colors.surfaceContainerHighest,
       content: Text(
         summary,
-        maxLines: 1,
+        maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(color: colors.onSurface),
       ),
-      action: SnackBarAction(
-        label: context.l10n.details,
-        textColor: colors.primary,
-        onPressed: () =>
-            showErrorDetails(context, error, summary: summary, retry: retry),
-      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            messenger.hideCurrentMaterialBanner();
+            showErrorDetails(context, error, summary: summary, retry: retry);
+          },
+          child: Text(context.l10n.details),
+        ),
+        IconButton(
+          tooltip: context.l10n.dismissBanner,
+          onPressed: messenger.hideCurrentMaterialBanner,
+          icon: const Icon(Icons.close),
+        ),
+      ],
     ),
   );
 }

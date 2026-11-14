@@ -45,6 +45,34 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('long press pastes clipboard text into the terminal', (
+    tester,
+  ) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.getData') {
+            return {'text': 'pasted text'};
+          }
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    await mount(tester);
+    terminal.write('existing output');
+    await tester.pumpAndSettle();
+    await tester.longPressAt(
+      tester.getTopLeft(find.byType(TerminalView)) + const Offset(30, 10),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('붙여넣기'), findsOneWidget);
+    await tester.tap(find.text('붙여넣기'));
+    await tester.pumpAndSettle();
+    expect(output.join(), 'pasted text');
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('touch swipes send all arrow directions and stop on release', (
     tester,
   ) async {

@@ -819,6 +819,46 @@ void main() {
     },
   );
 
+  testWidgets('operation errors leave disconnected controls accessible', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final engine = UiEngineFixture();
+    engine.state = {
+      'ready': true,
+      'sessions': [
+        {'id': 101, 'nickname': 'Research', 'open': false, 'ended': true},
+      ],
+      'preferences': {'titlebarhide': false},
+    };
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ko'),
+        home: ConsolePage(engine: engine, sessionId: 101),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final context = tester.element(find.byType(TerminalPane));
+    showEngineFailure(context, StateError('failed'));
+    await tester.pumpAndSettle();
+    final notification = find.text('작업을 완료하지 못했습니다');
+    final reconnect = find.widgetWithText(FilledButton, '다시 연결');
+    expect(
+      tester.getRect(notification).overlaps(tester.getRect(reconnect)),
+      isFalse,
+    );
+    expect(find.byType(MaterialBanner), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.close).last);
+    await tester.pumpAndSettle();
+    expect(notification, findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets(
     'reconnecting targets the current session among same-host sessions',
     (tester) async {
