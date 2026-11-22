@@ -196,9 +196,11 @@ void main() {
         throwsA(isA<SftpAbortError>()),
       );
 
+      expect(harness.client.isClosed, isFalse);
       harness.closeRemote();
 
       await openExpectation;
+      expect(harness.client.isClosed, isTrue);
       harness.dispose();
     });
 

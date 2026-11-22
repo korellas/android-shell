@@ -522,8 +522,9 @@ class ConsolePageState extends State<ConsolePage> {
       return;
     }
     if (action == 'urls') {
+      final targetId = id;
       final urls = await command('session.urls') as List? ?? [];
-      if (mounted) {
+      if (mounted && id == targetId) {
         await showTildeSheet<void>(
           context: actionsContext,
           isScrollControlled: true,
@@ -629,12 +630,7 @@ class ConsolePageState extends State<ConsolePage> {
     }
   }
 
-  Widget consoleMenu(
-    BuildContext c,
-    VoidCallback close, {
-    bool side = false,
-    int? urlCount,
-  }) {
+  Widget consoleMenu(BuildContext c, VoidCallback close, {bool side = false}) {
     final connected = session['open'] == true;
     final host =
         engine
@@ -656,7 +652,6 @@ class ConsolePageState extends State<ConsolePage> {
       String label,
       IconData icon, {
       String? subtitle,
-      String? valueText,
       bool enabled = true,
       bool navigates = false,
     }) => ListTile(
@@ -665,16 +660,7 @@ class ConsolePageState extends State<ConsolePage> {
       leading: Icon(icon, size: 22),
       title: Text(label),
       subtitle: subtitle == null ? null : Text(subtitle),
-      trailing: navigates || valueText != null
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (valueText != null)
-                  Text(valueText, style: Theme.of(c).textTheme.bodySmall),
-                if (navigates) const Icon(Icons.chevron_right),
-              ],
-            )
-          : null,
+      trailing: navigates ? const Icon(Icons.chevron_right) : null,
       onTap: enabled ? () => action(value) : null,
     );
     return Material(
@@ -711,9 +697,6 @@ class ConsolePageState extends State<ConsolePage> {
                 context.l10n.links,
                 Icons.link_outlined,
                 navigates: true,
-                valueText: urlCount == null
-                    ? null
-                    : context.l10n.items(urlCount),
               ),
               entry(
                 'display',
@@ -772,14 +755,6 @@ class ConsolePageState extends State<ConsolePage> {
     final anchorStrings = anchor.l10n;
     titleTimer?.cancel();
     final targetId = id;
-    int? urlCount;
-    try {
-      urlCount = (await engine.query('session.urls', {'id': targetId}) as List?)
-          ?.length;
-    } on EngineException {
-      // Optional metadata must not block terminal actions.
-    }
-    if (!mounted || !anchor.mounted || id != targetId) return;
     final connected = session['open'] == true;
     final String? action;
     if (tildePointer(anchor)) {
@@ -808,21 +783,7 @@ class ConsolePageState extends State<ConsolePage> {
           ],
           PopupMenuItem(
             value: 'urls',
-            child: Row(
-              children: [
-                Expanded(
-                  child: TildeMenuLabel(
-                    context.l10n.links,
-                    Icons.link_outlined,
-                  ),
-                ),
-                if (urlCount != null)
-                  Text(
-                    context.l10n.items(urlCount),
-                    style: Theme.of(anchor).textTheme.bodySmall,
-                  ),
-              ],
-            ),
+            child: TildeMenuLabel(anchorStrings.links, Icons.link_outlined),
           ),
           PopupMenuItem(
             value: 'display',
@@ -893,8 +854,7 @@ class ConsolePageState extends State<ConsolePage> {
         isScrollControlled: true,
         builder: (c) => ListenableBuilder(
           listenable: engine,
-          builder: (_, _) =>
-              consoleMenu(c, () => Navigator.pop(c), urlCount: urlCount),
+          builder: (_, _) => consoleMenu(c, () => Navigator.pop(c)),
         ),
       );
     }

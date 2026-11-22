@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import 'dart:io';
 import 'package:android_shell_ui/files/file_browser.dart';
+import 'package:android_shell_ui/files/file_dialogs.dart';
 import 'package:android_shell_ui/files/file_drag_scope.dart';
 import 'package:android_shell_ui/ssh/app_session.dart';
 import 'package:dartssh2/dartssh2.dart';
@@ -69,6 +70,57 @@ class UploadEngine extends BrowserEngine {
   ]) async {
     if (method == 'file.pickUpload') return {'path': path, 'name': 'old.txt'};
     return super.query(method, args);
+  }
+}
+
+class InterruptedUploadFiles extends ConflictFiles {
+  bool disconnected = false;
+  @override
+  bool get isClosed => disconnected;
+
+  @override
+  Future<void> link(String target, String path) async {
+    disconnected = true;
+    throw SftpAbortError('disconnected');
+  }
+}
+
+class CheckedDirectoryFiles extends ConflictFiles {
+  @override
+  Future<List<SftpName>> listdir(String path) async {
+    await stat(path);
+    return super.listdir(path);
+  }
+}
+
+class InterruptedSession extends BrowserSession {
+  InterruptedSession(this.first, VoidCallback changed) : super(first, changed);
+  final InterruptedUploadFiles first;
+  @override
+  bool get connected => !first.disconnected;
+}
+
+class RecoveringUploadEngine extends UploadEngine {
+  RecoveringUploadEngine(
+    this.first,
+    this.replacement,
+    String path, {
+    required this.keepSsh,
+  }) : super(first, path);
+  final InterruptedUploadFiles first;
+  final BrowserFiles replacement;
+  final bool keepSsh;
+  int connections = 0;
+  @override
+  Future<AppSshSession> createFileConnection(
+    int hostId, {
+    required VoidCallback onChanged,
+  }) async {
+    connections++;
+    if (connections == 1 && !keepSsh) {
+      return InterruptedSession(first, onChanged);
+    }
+    return BrowserSession(connections == 1 ? first : replacement, onChanged);
   }
 }
 
@@ -244,6 +296,102 @@ void main() {
     variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
 
+  for (final (removed, cancel) in [
+    (false, false),
+    (true, false),
+    (true, true),
+  ]) {
+    testWidgets(
+      'retry reconnects and respects the upload destination (removed=$removed, cancel=$cancel)',
+      (tester) async {
+        final temp = Directory.systemTemp.createTempSync('tilde-retry-');
+        addTearDown(() => temp.deleteSync(recursive: true));
+        final link = Link('${temp.path}/old.txt')..createSync('target');
+        final dir = SftpFileAttrs(mode: SftpFileMode.value(0x4000));
+        final first = InterruptedUploadFiles()
+          ..nodes.addAll({'/home': dir, '/home/work': dir});
+        final second = CheckedDirectoryFiles()
+          ..nodes.addAll({'/home': dir, if (!removed) '/home/work': dir});
+        final engine = RecoveringUploadEngine(
+          first,
+          second,
+          link.path,
+          keepSsh: removed,
+        );
+        addTearDown(engine.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
+            home: FileBrowserPage(
+              engine: engine,
+              host: const {'id': 1, 'nickname': 'test'},
+            ),
+          ),
+        );
+        Future<void> until(bool Function() ready) async {
+          for (var i = 0; i < 80 && !ready(); i++) {
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 10)),
+            );
+            await tester.pump(const Duration(milliseconds: 20));
+          }
+          expect(ready(), isTrue);
+        }
+
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('work'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, '업로드'));
+        await until(() => first.disconnected);
+        await tester.pumpAndSettle();
+        expect(engine.connections, 1);
+        if (cancel) {
+          await tester.tap(find.byTooltip('다시 연결'));
+          await tester.pumpAndSettle();
+          expect(engine.connections, 2);
+          expect(second.nodes.containsKey('/home/old.txt'), isFalse);
+          expect(find.byType(RemoteFolderPicker), findsNothing);
+        }
+        await tester.tap(find.byTooltip('전송 목록 펼치기'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(TextButton, '다시 시도'));
+        await until(() => engine.connections == 2);
+        if (removed) {
+          await until(
+            () => find.byType(RemoteFolderPicker).evaluate().isNotEmpty,
+          );
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(second.nodes.containsKey('/home/old.txt'), isFalse);
+          if (cancel) {
+            await tester.tap(find.widgetWithText(TextButton, '취소'));
+            await tester.pumpAndSettle();
+            expect(second.nodes.containsKey('/home/old.txt'), isFalse);
+            expect(find.widgetWithText(TextButton, '다시 시도'), findsOneWidget);
+            await tester.pumpWidget(const SizedBox());
+            return;
+          }
+          await tester.tap(
+            find.descendant(
+              of: find.byType(RemoteFolderPicker),
+              matching: find.byType(FilledButton),
+            ),
+          );
+        }
+        final folder = removed ? '/home' : '/home/work';
+        await until(() => second.nodes.containsKey('$folder/old.txt'));
+        await tester.pumpAndSettle();
+        expect(find.text('old.txt'), findsOneWidget);
+        expect(
+          second.nodes.keys.where((p) => p.endsWith('/old.txt')),
+          hasLength(1),
+        );
+        expect(engine.connections, 2);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
   for (final occupied in [false, true]) {
     testWidgets('keep both uses first available suffix, occupied=$occupied', (
       t,

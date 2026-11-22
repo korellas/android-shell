@@ -47,6 +47,7 @@ class FileBrowserPage extends StatefulWidget {
 class _FileBrowserPageState extends State<FileBrowserPage> {
   AppSshSession? _connection;
   SftpClient? _files;
+  Future<void>? _connecting;
   List<SftpName> _entries = [];
   String _path = '', _status = deviceStrings.loggingInForFileTransfer;
   bool _editingAddress = false;
@@ -132,7 +133,8 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     }
   }
 
-  bool get _connected => _connection?.connected == true && !_leaving;
+  bool get _connected =>
+      _files?.isClosed == false && _connection?.connected == true && !_leaving;
   bool get _enabled => _connected && !_loading && _operationControl == null;
   String _parent(String path) {
     final trimmed = path.length > 1 && path.endsWith('/')
@@ -155,10 +157,22 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     });
   }
 
-  Future<void> _connect() async {
-    final contextStrings = deviceStrings;
+  Future<void> _connect() {
+    final pending = _connecting;
+    if (pending != null) return pending;
     final generation = ++_connectGeneration;
+    return _connecting = _openConnection(generation).whenComplete(() {
+      if (generation == _connectGeneration) {
+        _connecting = null;
+        _changed();
+      }
+    });
+  }
+
+  Future<void> _openConnection(int generation) async {
+    final contextStrings = deviceStrings;
     final previous = _connection;
+    ++_request;
     setState(() {
       _connection = null;
       _files = null;
@@ -190,7 +204,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       final files = await connection.openSftp();
       if (!mounted || generation != _connectGeneration) return;
       _files = files;
-      if (mounted && generation == _connectGeneration) await _navigate('.');
+      await _navigate(_path.isEmpty ? '.' : _path, restoring: true);
     } catch (error) {
       if (mounted && generation == _connectGeneration) {
         setState(() {
@@ -205,6 +219,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     String path, {
     bool record = true,
     bool quiet = false,
+    bool restoring = false,
     int? historyIndex,
   }) async {
     final files = _files;
@@ -247,7 +262,19 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       });
       _saveLocations();
     } catch (error) {
-      if (mounted && request == _request) setState(() => _error = '$error');
+      if (!mounted || request != _request) return;
+      if (restoring && path != '.' && _connected) {
+        await _navigate('.', restoring: true);
+      } else {
+        setState(() {
+          _error = '$error';
+          if (restoring) {
+            _path = '';
+            _entries = [];
+            _files = null;
+          }
+        });
+      }
     } finally {
       if (mounted && request == _request && !quiet) {
         setState(() => _loading = false);
@@ -381,9 +408,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       newFile: create,
       load: () async {
         if (create) return Uint8List(0);
-        if (_connection?.connected != true) {
+        if (!_connected) {
           await _connect();
-          if (_connection?.connected != true) {
+          if (!_connected) {
             throw StateError(
               contextStrings.couldNotReconnectToTheServerCheckAuthenticationIn,
             );
@@ -869,6 +896,27 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     };
   }
 
+  Future<void> _retryJob(FileJob job, BuildContext source) async {
+    if (!_connected || _connecting != null) {
+      if (ModalRoute.of(source) != ModalRoute.of(context) &&
+          ModalRoute.of(source)?.isCurrent == true) {
+        Navigator.of(source).pop();
+      }
+      await _connect();
+    }
+    if (mounted && _connected) _queue.retry(job);
+  }
+
+  Future<bool> _uploadDirectoryExists(String path) async {
+    try {
+      final attrs = await _files!.stat(path);
+      return attrs.mode == null || attrs.isDirectory;
+    } on SftpStatusError catch (error) {
+      if (error.code == SftpStatusCode.noSuchFile) return false;
+      rethrow;
+    }
+  }
+
   Future<void> _uploadPaths(
     List<String> paths,
     String target, {
@@ -879,7 +927,30 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     for (final path in paths) {
       final destination = remoteChild(target, names[path] ?? fileName(path));
       List<TreeEntry>? plan;
+      var attempted = false;
       _queue.add(contextStrings.upload, destination, (job) async {
+        if (attempted && !await _uploadDirectoryExists(target)) {
+          await job.control.ready;
+          if (!mounted || !_connected) throw TransferCancelled();
+          final folder = await showTildeSheet<String>(
+            context: context,
+            isScrollControlled: true,
+            maxWidth: 560,
+            builder: (_) => RemoteFolderPicker(
+              files: _files!,
+              path: _path,
+              favorites: _favorites.toList(),
+              missingUploadFolder: target,
+            ),
+          );
+          await job.control.ready;
+          if (folder != null && mounted && _connected) {
+            await _uploadPaths([path], folder, names: names);
+            job.retryable = false;
+          }
+          throw TransferCancelled();
+        }
+        attempted = true;
         final tree = SftpTreeTransfer(_files!, _connection!.openSftp);
         plan ??= await tree.planUpload(path, destination, job.control);
         await tree.run(
@@ -1142,6 +1213,8 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
 
   Future<void> _cancelConnection() async {
     ++_connectGeneration;
+    ++_request;
+    _connecting = null;
     final connection = _connection;
     setState(() {
       _connection = null;
@@ -1386,7 +1459,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
             )
           : null,
       onUp: () => _navigate(_parent(_path)),
-      onRefresh: () => _navigate(_path, record: false),
+      onRefresh: _connected ? () => _navigate(_path, record: false) : _connect,
       onAddress: _editAddress,
       onNewFolder: _enabled ? _createDirectory : null,
     );
@@ -1644,9 +1717,13 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                       ),
                     ),
                     IconButton(
-                      tooltip: context.l10n.refresh,
+                      tooltip: _connected
+                          ? context.l10n.refresh
+                          : context.l10n.reconnect,
                       onPressed: _connected
                           ? () => _navigate(_path, record: false)
+                          : _connecting == null
+                          ? _connect
                           : null,
                       icon: const Icon(Icons.refresh),
                     ),
@@ -1777,7 +1854,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                     ) ??
                     listing,
               ),
-              FileQueuePanel(queue: _queue),
+              FileQueuePanel(queue: _queue, onRetry: _retryJob),
               if (_error != null)
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 80),

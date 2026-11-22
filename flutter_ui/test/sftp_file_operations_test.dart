@@ -6,6 +6,9 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeFiles implements SftpClient {
+  @override
+  bool get isClosed => false;
+
   final nodes = <String, SftpFileAttrs>{};
   final removed = <String>[];
   bool? followedLink;

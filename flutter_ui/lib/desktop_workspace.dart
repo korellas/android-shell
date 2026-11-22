@@ -17,6 +17,7 @@ import 'main.dart'
         confirm,
         deleteTildeHost,
         hostAddress,
+        quickConnectAddress,
         runEngine,
         canConnectHost;
 import 'management.dart';
@@ -221,7 +222,7 @@ class _DesktopWorkspaceState extends State<DesktopWorkspace> {
       return;
     }
     await runEngine(context, engine, 'connect', {
-      'uri': text.startsWith('ssh ') ? text.substring(4).trim() : text,
+      'uri': quickConnectAddress(text),
     });
   }
 

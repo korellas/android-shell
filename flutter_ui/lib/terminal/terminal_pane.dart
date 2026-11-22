@@ -204,9 +204,10 @@ class TerminalPaneState extends State<TerminalPane> {
     final contextStrings = context.l10n;
     if (!mounted) return null;
     final normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final previewLines = normalized.split('\n');
     final lines = math.max(
       1,
-      normalized.split('\n').length - (normalized.endsWith('\n') ? 1 : 0),
+      previewLines.length - (normalized.endsWith('\n') ? 1 : 0),
     );
     var omitTrailingEnter = false;
     final accepted =
@@ -245,9 +246,9 @@ class TerminalPaneState extends State<TerminalPane> {
                       TextSpan(
                         children: [
                           for (final (index, line)
-                              in normalized.split('\n').take(6).indexed) ...[
+                              in previewLines.take(6).indexed) ...[
                             TextSpan(text: line),
-                            if (index < normalized.split('\n').length - 1)
+                            if (index < previewLines.length - 1)
                               TextSpan(
                                 text: '⏎\n',
                                 style: TextStyle(
