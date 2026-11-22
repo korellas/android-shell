@@ -1114,12 +1114,25 @@ class FileBrowserListingState extends State<FileBrowserListing> {
                               behavior: HitTestBehavior.opaque,
                               onTap: _listFocus.requestFocus,
                               child: Center(
-                                child: Text(
-                                  widget.loading
-                                      ? context.l10n.loading
-                                      : widget.entries.isEmpty
-                                      ? context.l10n.noFilesToDisplay
-                                      : context.l10n.noMatchingFiles,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      widget.loading
+                                          ? context.l10n.loading
+                                          : widget.entries.isEmpty
+                                          ? context.l10n.noFilesToDisplay
+                                          : context.l10n.noMatchingFiles,
+                                    ),
+                                    if (!desktop &&
+                                        !widget.loading &&
+                                        widget.onPaste != null)
+                                      TextButton.icon(
+                                        onPressed: widget.onPaste,
+                                        icon: const Icon(Icons.content_paste),
+                                        label: Text(context.l10n.paste),
+                                      ),
+                                  ],
                                 ),
                               ),
                             )

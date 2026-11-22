@@ -707,7 +707,10 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   Future<void> _paste() async {
     final contextStrings = context.l10n;
     final directory = _path;
-    final text = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = _clipboard.isEmpty
+        ? null
+        : await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted || !_enabled) return;
     if (_clipboard.isNotEmpty &&
         text?.text == _clipboard.map((item) => item.path).join('\n')) {
       final items = List.of(_clipboard);
@@ -720,6 +723,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       return;
     }
     final paths = await _platform?.readLocalFiles?.call();
+    if (!mounted || !_enabled) return;
     if (paths != null && paths.isNotEmpty) {
       await _uploadPaths(paths, directory);
     } else if (mounted) {
@@ -1354,7 +1358,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       onCut: _enabled
           ? (entries) => _guard(() => _copy(entries, cut: true))
           : null,
-      onPaste: _enabled && _clipboard.isNotEmpty
+      onPaste:
+          _enabled &&
+              (_clipboard.isNotEmpty || _platform?.readLocalFiles != null)
           ? () => unawaited(_guard(_paste))
           : null,
       onMove: _enabled ? (entries) => _guard(() => _moveMany(entries)) : null,

@@ -1,6 +1,8 @@
 // Copyright 2026 Kenny Root
 // SPDX-License-Identifier: Apache-2.0
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -93,6 +95,35 @@ void main() {
     input.paste('safe');
     expect(output.join(), 'first\rsecondsafe');
   });
+
+  for (final approval in [null, 'X\nY']) {
+    testWidgets(
+      'IME replacement waits for decision ($approval)',
+      (tester) async {
+        await open(tester);
+        final decision = Completer<String?>();
+        var prompts = 0;
+        input.installPasteGuard(Object(), (text) {
+          prompts++;
+          expect(text, 'X\nY');
+          return decision.future;
+        });
+        edit(tester, 'abc');
+        output.clear();
+        edit(tester, 'aX\nY');
+        input.updateEditingValue(const TextEditingValue(text: '  late'));
+        expect(output, isEmpty);
+        decision.complete(approval);
+        await tester.pump();
+        expect(prompts, 1);
+        expect(output.join(), approval == null ? '' : '\x7f\x7fX\rY');
+        output.clear();
+        edit(tester, 'z');
+        expect(output.join(), 'z');
+      },
+      variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+    );
+  }
 
   testWidgets('IME-committed control text uses the paste approval boundary', (
     tester,

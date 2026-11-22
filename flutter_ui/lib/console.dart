@@ -264,6 +264,20 @@ class ConsolePageState extends State<ConsolePage> {
     }
   }
 
+  EngineRecord? get _fileTransferHost {
+    final current = session;
+    if (current['protocol'] == 'local' || current['hostId'] == null) {
+      return null;
+    }
+    return engine
+        .list('hosts')
+        .where(
+          (host) =>
+              host['id'] == current['hostId'] && host['protocol'] == 'ssh',
+        )
+        .firstOrNull;
+  }
+
   EngineRecord get session =>
       engine.list('sessions').where((s) => s['id'] == id).firstOrNull ?? {};
   Future<dynamic> command(String method, [EngineRecord args = const {}]) =>
@@ -370,10 +384,7 @@ class ConsolePageState extends State<ConsolePage> {
       return;
     }
     if (action == 'files') {
-      final host = engine
-          .list('hosts')
-          .where((h) => h['id'] == session['hostId'])
-          .firstOrNull;
+      final host = _fileTransferHost;
       if (host != null) {
         await Navigator.push(
           context,
@@ -711,7 +722,7 @@ class ConsolePageState extends State<ConsolePage> {
                 navigates: true,
               ),
               const Divider(),
-              if (session['hostId'] != null)
+              if (_fileTransferHost != null)
                 entry(
                   'files',
                   context.l10n.fileTransfer,
@@ -820,7 +831,7 @@ class ConsolePageState extends State<ConsolePage> {
               Icons.display_settings_outlined,
             ),
           ),
-          if (session['hostId'] != null)
+          if (_fileTransferHost != null)
             PopupMenuItem(
               value: 'files',
               child: TildeMenuLabel(

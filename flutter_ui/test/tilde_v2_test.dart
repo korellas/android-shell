@@ -578,6 +578,31 @@ void main() {
       engine.dispose();
     },
   );
+  for (final (protocol, hostProtocol) in [
+    ('local', 'local'),
+    ('ssh', 'ssh'),
+    ('local', 'ssh'),
+  ]) {
+    testWidgets(
+      '$protocol console file transfer availability for saved $hostProtocol host',
+      (tester) async {
+        engine.state['hosts'] = [
+          {...host, 'protocol': hostProtocol},
+        ];
+        engine.state['sessions'] = [
+          {...engine.list('sessions').first, 'protocol': protocol},
+        ];
+        await open(tester, ConsolePage(engine: engine, sessionId: 101));
+        await tester.tap(find.byTooltip('터미널 메뉴'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('파일 전송'),
+          protocol == 'ssh' ? findsOneWidget : findsNothing,
+        );
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
   testWidgets('mobile paste sends multiline text only after approval', (
     tester,
   ) async {

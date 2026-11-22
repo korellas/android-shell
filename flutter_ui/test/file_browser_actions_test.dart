@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import 'dart:io';
 import 'package:android_shell_ui/files/file_browser.dart';
+import 'package:android_shell_ui/files/file_drag_scope.dart';
 import 'package:android_shell_ui/ssh/app_session.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
@@ -82,15 +83,23 @@ void main() {
     }
   });
   late BrowserFiles files;
-  Future<void> show(WidgetTester tester, {ThemeData? theme}) async {
+  Future<void> show(
+    WidgetTester tester, {
+    ThemeData? theme,
+    TransitionBuilder? builder,
+    bool emptyDestination = false,
+  }) async {
     files = BrowserFiles()
       ..nodes.addAll({
         '/home': SftpFileAttrs(mode: SftpFileMode.value(0x4000)),
         '/home/old.txt': SftpFileAttrs(size: 10),
+        if (emptyDestination)
+          '/home/empty': SftpFileAttrs(mode: SftpFileMode.value(0x4000)),
       });
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,
+        builder: builder,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('ko'),
@@ -180,6 +189,60 @@ void main() {
     await tester.tap(find.text(label).last);
     await tester.pumpAndSettle();
   }
+
+  testWidgets('cut file can be pasted by touch into an empty folder', (
+    tester,
+  ) async {
+    String? clipboard;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        clipboard = call.arguments['text'] as String;
+      }
+      if (call.method == 'Clipboard.getData') return {'text': clipboard};
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    await show(tester, emptyDestination: true);
+    await action(tester, '잘라내기');
+    await tester.tap(find.byTooltip('선택 해제'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('empty'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '붙여넣기'));
+    await tester.pumpAndSettle();
+    expect(files.nodes, contains('/home/empty/old.txt'));
+    expect(files.nodes, isNot(contains('/home/old.txt')));
+  });
+
+  testWidgets(
+    'first Ctrl+V reads the Windows file clipboard on demand',
+    (tester) async {
+      var reads = 0;
+      await show(
+        tester,
+        builder: (_, child) => FileDragScope(
+          dragBuilder: (child, _, _) => child,
+          dropBuilder: (child, _) => child,
+          readLocalFiles: () async {
+            reads++;
+            return [];
+          },
+          child: child!,
+        ),
+      );
+      expect(reads, 0);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(reads, 1);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
 
   for (final occupied in [false, true]) {
     testWidgets('keep both uses first available suffix, occupied=$occupied', (
