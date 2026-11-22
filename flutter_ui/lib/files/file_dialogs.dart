@@ -155,10 +155,12 @@ class RemoteFolderPicker extends StatefulWidget {
     required this.path,
     this.favorites = const [],
     this.names = const [],
+    this.missingUploadFolder,
   });
   final SftpClient files;
   final String path;
   final List<String> favorites, names;
+  final String? missingUploadFolder;
   @override
   State<RemoteFolderPicker> createState() => _RemoteFolderPickerState();
 }
@@ -255,13 +257,17 @@ class _RemoteFolderPickerState extends State<RemoteFolderPicker> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              widget.names.isEmpty
+              widget.missingUploadFolder != null
+                  ? context.l10n.upload
+                  : widget.names.isEmpty
                   ? context.l10n.destinationFolder
                   : widget.names.length == 1
                   ? context.l10n.move((widget.names.single).toString())
                   : context.l10n.moveItems((widget.names.length).toString()),
               style: Theme.of(context).textTheme.titleLarge,
             ),
+            if (widget.missingUploadFolder case final folder?)
+              Text('$folder · ${context.l10n.theFileOrFolderNoLongerExists}'),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -366,7 +372,11 @@ class _RemoteFolderPickerState extends State<RemoteFolderPicker> {
                   onPressed: loading || error != null
                       ? null
                       : () => Navigator.pop(context, path),
-                  child: Text(context.l10n.moveHere),
+                  child: Text(
+                    widget.missingUploadFolder != null
+                        ? context.l10n.uploadTo(path)
+                        : context.l10n.moveHere,
+                  ),
                 ),
               ],
             ),

@@ -31,6 +31,7 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
   bool _enabled = true;
   bool _showSoftKeyboard = true;
   bool _disposed = false;
+  bool _awaitingImePaste = false;
   bool _ctrl = false;
   bool _alt = false;
   bool _shift = false;
@@ -158,12 +159,14 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
 
   Future<void> _pasteAfterConfirmation(
     String text,
-    Future<String?> Function(String text) guard,
-  ) async {
+    Future<String?> Function(String text) guard, {
+    int backspaces = 0,
+  }) async {
     final approved = await guard(text);
     if (approved == null || !_canSend || !identical(_pasteGuard, guard)) {
       return;
     }
+    _backspace(backspaces);
     terminal.paste(approved);
   }
 
@@ -201,6 +204,7 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
 
   void _openConnection() {
     if (!_canSend ||
+        _awaitingImePaste ||
         !_showSoftKeyboard ||
         _focusNode?.hasFocus != true ||
         _viewId == null) {
@@ -268,10 +272,11 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
         _initialValue.text.length,
         value.text.length,
       );
-      _sendCommitted(
+      if (_sendCommitted(
         value.text.substring(_initialValue.text.length, prefixEnd),
-      );
-      _setComposing(range.textInside(value.text));
+      )) {
+        _setComposing(range.textInside(value.text));
+      }
       return;
     }
 
@@ -299,7 +304,7 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
     }
   }
 
-  void _sendCommitted(String text) {
+  bool _sendCommitted(String text) {
     final previous = _committed.characters.toList();
     final next = text.characters.toList();
     var common = 0;
@@ -308,21 +313,41 @@ class TerminalInputController extends ChangeNotifier with TextInputClient {
         previous[common] == next[common]) {
       common++;
     }
-    for (var index = common; index < previous.length; index++) {
+    final backspaces = previous.length - common;
+    final inserted = next.skip(common).join();
+    if (requiresPasteConfirmation(inserted)) {
+      // Retire this IME client before the dialog can trigger a focus change.
+      // Late edits must not be diffed against text awaiting approval.
+      _closeConnection();
+      _reset();
+      final guard = _pasteGuard;
+      if (guard == null) {
+        _openConnection();
+      } else {
+        _awaitingImePaste = true;
+        unawaited(
+          _pasteAfterConfirmation(
+            inserted,
+            guard,
+            backspaces: backspaces,
+          ).whenComplete(() {
+            _awaitingImePaste = false;
+            _openConnection();
+          }),
+        );
+      }
+      return false;
+    }
+    _backspace(backspaces);
+    if (inserted.isNotEmpty) _emitText(inserted);
+    _committed = text;
+    return true;
+  }
+
+  void _backspace(int count) {
+    for (var index = 0; index < count; index++) {
       terminal.keyInput(TerminalKey.backspace);
     }
-    final inserted = next.skip(common).join();
-    if (inserted.isNotEmpty) {
-      if (requiresPasteConfirmation(inserted)) {
-        final guard = _pasteGuard;
-        if (guard != null) {
-          unawaited(_pasteAfterConfirmation(inserted, guard));
-        }
-      } else {
-        _emitText(inserted);
-      }
-    }
-    _committed = text;
   }
 
   void _emitText(String text) {

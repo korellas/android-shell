@@ -164,7 +164,10 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(AndroidEngine.channel, (call) async {
           if (call.method == 'snapshot') return engine.state;
-          if (call.method == 'font.import') changes.add(call);
+          if (call.method == 'font.import' ||
+              call.method == 'settings.bellMode') {
+            changes.add(call);
+          }
           if (call.method == 'settings.update') {
             if (rejectBar && call.arguments['key'] == 'terminalBar') {
               throw PlatformException(code: 'engine_error', message: '저장 실패');
@@ -322,6 +325,42 @@ void main() {
     await tester.pumpAndSettle();
     expect(engine.preferences['scrollback'], '1734');
   });
+  testWidgets(
+    'Android bell offers combined mode and one notification settings link',
+    (tester) async {
+      await open(tester);
+      await tester.tap(find.text('연결·알림'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('벨이 울리면'));
+      final dropdown = find.byType(DropdownButtonFormField<Object>);
+      if (dropdown.evaluate().isNotEmpty) {
+        await tester.tap(dropdown);
+        await tester.pumpAndSettle();
+      }
+      await tester.ensureVisible(find.text('소리·진동').last);
+      await tester.tap(find.text('소리·진동').last);
+      await tester.pumpAndSettle();
+      expect(changes.last.method, 'settings.bellMode');
+      expect(changes.last.arguments['mode'], 3);
+      expect(find.text('백그라운드 연결 알림'), findsNothing);
+    },
+  );
+  for (final platform in ['windows', 'ios']) {
+    testWidgets(
+      '$platform omits Android connection settings from navigation and search',
+      (tester) async {
+        engine.state['platform'] = platform;
+        await open(tester);
+        expect(find.text('연결·알림'), findsNothing);
+        await tester.tap(find.byTooltip('설정 검색'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField).last, 'Android 알림 설정');
+        await tester.pumpAndSettle();
+        expect(find.widgetWithText(ListTile, 'Android 알림 설정'), findsNothing);
+      },
+    );
+  }
+
   testWidgets('alert master switch preserves individual alert choices', (
     tester,
   ) async {

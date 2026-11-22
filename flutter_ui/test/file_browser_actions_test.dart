@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import 'dart:io';
 import 'package:android_shell_ui/files/file_browser.dart';
+import 'package:android_shell_ui/files/file_dialogs.dart';
+import 'package:android_shell_ui/files/file_drag_scope.dart';
 import 'package:android_shell_ui/ssh/app_session.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
@@ -71,6 +73,57 @@ class UploadEngine extends BrowserEngine {
   }
 }
 
+class InterruptedUploadFiles extends ConflictFiles {
+  bool disconnected = false;
+  @override
+  bool get isClosed => disconnected;
+
+  @override
+  Future<void> link(String target, String path) async {
+    disconnected = true;
+    throw SftpAbortError('disconnected');
+  }
+}
+
+class CheckedDirectoryFiles extends ConflictFiles {
+  @override
+  Future<List<SftpName>> listdir(String path) async {
+    await stat(path);
+    return super.listdir(path);
+  }
+}
+
+class InterruptedSession extends BrowserSession {
+  InterruptedSession(this.first, VoidCallback changed) : super(first, changed);
+  final InterruptedUploadFiles first;
+  @override
+  bool get connected => !first.disconnected;
+}
+
+class RecoveringUploadEngine extends UploadEngine {
+  RecoveringUploadEngine(
+    this.first,
+    this.replacement,
+    String path, {
+    required this.keepSsh,
+  }) : super(first, path);
+  final InterruptedUploadFiles first;
+  final BrowserFiles replacement;
+  final bool keepSsh;
+  int connections = 0;
+  @override
+  Future<AppSshSession> createFileConnection(
+    int hostId, {
+    required VoidCallback onChanged,
+  }) async {
+    connections++;
+    if (connections == 1 && !keepSsh) {
+      return InterruptedSession(first, onChanged);
+    }
+    return BrowserSession(connections == 1 ? first : replacement, onChanged);
+  }
+}
+
 void main() {
   setUpAll(() async {
     for (final (family, path) in [
@@ -82,15 +135,23 @@ void main() {
     }
   });
   late BrowserFiles files;
-  Future<void> show(WidgetTester tester, {ThemeData? theme}) async {
+  Future<void> show(
+    WidgetTester tester, {
+    ThemeData? theme,
+    TransitionBuilder? builder,
+    bool emptyDestination = false,
+  }) async {
     files = BrowserFiles()
       ..nodes.addAll({
         '/home': SftpFileAttrs(mode: SftpFileMode.value(0x4000)),
         '/home/old.txt': SftpFileAttrs(size: 10),
+        if (emptyDestination)
+          '/home/empty': SftpFileAttrs(mode: SftpFileMode.value(0x4000)),
       });
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,
+        builder: builder,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('ko'),
@@ -181,6 +242,156 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('cut file can be pasted by touch into an empty folder', (
+    tester,
+  ) async {
+    String? clipboard;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        clipboard = call.arguments['text'] as String;
+      }
+      if (call.method == 'Clipboard.getData') return {'text': clipboard};
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    await show(tester, emptyDestination: true);
+    await action(tester, '잘라내기');
+    await tester.tap(find.byTooltip('선택 해제'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('empty'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '붙여넣기'));
+    await tester.pumpAndSettle();
+    expect(files.nodes, contains('/home/empty/old.txt'));
+    expect(files.nodes, isNot(contains('/home/old.txt')));
+  });
+
+  testWidgets(
+    'first Ctrl+V reads the Windows file clipboard on demand',
+    (tester) async {
+      var reads = 0;
+      await show(
+        tester,
+        builder: (_, child) => FileDragScope(
+          dragBuilder: (child, _, _) => child,
+          dropBuilder: (child, _) => child,
+          readLocalFiles: () async {
+            reads++;
+            return [];
+          },
+          child: child!,
+        ),
+      );
+      expect(reads, 0);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(reads, 1);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
+
+  for (final (removed, cancel) in [
+    (false, false),
+    (true, false),
+    (true, true),
+  ]) {
+    testWidgets(
+      'retry reconnects and respects the upload destination (removed=$removed, cancel=$cancel)',
+      (tester) async {
+        final temp = Directory.systemTemp.createTempSync('tilde-retry-');
+        addTearDown(() => temp.deleteSync(recursive: true));
+        final link = Link('${temp.path}/old.txt')..createSync('target');
+        final dir = SftpFileAttrs(mode: SftpFileMode.value(0x4000));
+        final first = InterruptedUploadFiles()
+          ..nodes.addAll({'/home': dir, '/home/work': dir});
+        final second = CheckedDirectoryFiles()
+          ..nodes.addAll({'/home': dir, if (!removed) '/home/work': dir});
+        final engine = RecoveringUploadEngine(
+          first,
+          second,
+          link.path,
+          keepSsh: removed,
+        );
+        addTearDown(engine.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ko'),
+            home: FileBrowserPage(
+              engine: engine,
+              host: const {'id': 1, 'nickname': 'test'},
+            ),
+          ),
+        );
+        Future<void> until(bool Function() ready) async {
+          for (var i = 0; i < 80 && !ready(); i++) {
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 10)),
+            );
+            await tester.pump(const Duration(milliseconds: 20));
+          }
+          expect(ready(), isTrue);
+        }
+
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('work'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, '업로드'));
+        await until(() => first.disconnected);
+        await tester.pumpAndSettle();
+        expect(engine.connections, 1);
+        if (cancel) {
+          await tester.tap(find.byTooltip('다시 연결'));
+          await tester.pumpAndSettle();
+          expect(engine.connections, 2);
+          expect(second.nodes.containsKey('/home/old.txt'), isFalse);
+          expect(find.byType(RemoteFolderPicker), findsNothing);
+        }
+        await tester.tap(find.byTooltip('전송 목록 펼치기'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(TextButton, '다시 시도'));
+        await until(() => engine.connections == 2);
+        if (removed) {
+          await until(
+            () => find.byType(RemoteFolderPicker).evaluate().isNotEmpty,
+          );
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(second.nodes.containsKey('/home/old.txt'), isFalse);
+          if (cancel) {
+            await tester.tap(find.widgetWithText(TextButton, '취소'));
+            await tester.pumpAndSettle();
+            expect(second.nodes.containsKey('/home/old.txt'), isFalse);
+            expect(find.widgetWithText(TextButton, '다시 시도'), findsOneWidget);
+            await tester.pumpWidget(const SizedBox());
+            return;
+          }
+          await tester.tap(
+            find.descendant(
+              of: find.byType(RemoteFolderPicker),
+              matching: find.byType(FilledButton),
+            ),
+          );
+        }
+        final folder = removed ? '/home' : '/home/work';
+        await until(() => second.nodes.containsKey('$folder/old.txt'));
+        await tester.pumpAndSettle();
+        expect(find.text('old.txt'), findsOneWidget);
+        expect(
+          second.nodes.keys.where((p) => p.endsWith('/old.txt')),
+          hasLength(1),
+        );
+        expect(engine.connections, 2);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
   for (final occupied in [false, true]) {
     testWidgets('keep both uses first available suffix, occupied=$occupied', (
       t,

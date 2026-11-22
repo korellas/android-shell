@@ -583,6 +583,11 @@ Future<bool> confirm(
 bool canConnectHost(EngineRecord host) =>
     host['protocol'] == 'ssh' || host['protocol'] == 'local';
 
+String quickConnectAddress(String value) {
+  final text = value.trim();
+  return text.startsWith('ssh ') ? text.substring(4).trim() : text;
+}
+
 String hostAddress(EngineRecord host) {
   final protocol = '${host['protocol'] ?? ''}';
   if (protocol == 'local') return deviceStrings.localShell;
@@ -616,8 +621,9 @@ class _ShellHomeState extends State<ShellHome> {
   final _quickFocus = FocusNode();
   int? _selectedHostId;
   void _quickConnect(String value) {
-    if (value.trim().isNotEmpty) {
-      runEngine(context, engine, 'connect', {'uri': value.trim()});
+    final address = quickConnectAddress(value);
+    if (address.isNotEmpty) {
+      runEngine(context, engine, 'connect', {'uri': address});
     }
   }
 

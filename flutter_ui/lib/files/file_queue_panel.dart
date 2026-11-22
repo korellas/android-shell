@@ -11,8 +11,14 @@ import 'transfer.dart';
 import '../l10n/strings.dart';
 
 class FileQueuePanel extends StatefulWidget {
-  const FileQueuePanel({super.key, required this.queue, this.fullPage = false});
+  const FileQueuePanel({
+    super.key,
+    required this.queue,
+    required this.onRetry,
+    this.fullPage = false,
+  });
   final FileJobQueue queue;
+  final Future<void> Function(FileJob, BuildContext) onRetry;
   final bool fullPage;
   @override
   State<FileQueuePanel> createState() => _FileQueuePanelState();
@@ -125,7 +131,7 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
                   (job.state == FileJobState.failed ||
                       job.state == FileJobState.cancelled))
                 TextButton(
-                  onPressed: () => queue.retry(job),
+                  onPressed: () => widget.onRetry(job, context),
                   child: Text(context.l10n.retry),
                 ),
               if (job.error != null)
@@ -139,9 +145,7 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
                     ),
                     target: job.target,
                     retry: job.retryable
-                        ? () async {
-                            queue.retry(job);
-                          }
+                        ? () => widget.onRetry(job, context)
                         : null,
                   ),
                 ),
@@ -274,7 +278,11 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
                   MaterialPageRoute(
                     builder: (_) => Scaffold(
                       appBar: AppBar(title: Text(context.l10n.transferQueue)),
-                      body: FileQueuePanel(queue: queue, fullPage: true),
+                      body: FileQueuePanel(
+                        queue: queue,
+                        onRetry: widget.onRetry,
+                        fullPage: true,
+                      ),
                     ),
                   ),
                 );
@@ -312,6 +320,7 @@ class _FileQueuePanelState extends State<FileQueuePanel> {
                               ),
                               body: FileQueuePanel(
                                 queue: queue,
+                                onRetry: widget.onRetry,
                                 fullPage: true,
                               ),
                             ),

@@ -70,6 +70,9 @@ class SftpClient {
 
   Future<void>? _closeFuture;
 
+  /// Whether this channel can no longer serve requests.
+  bool get isClosed => _terminalState.isTerminated;
+
   /// The handshake information received from the server.
   Future<SftpHandsake> get handshake => _handshake.future;
 

@@ -329,6 +329,51 @@ void main() {
     );
   }
 
+  testWidgets('mobile quick connect accepts the displayed ssh example', (
+    tester,
+  ) async {
+    await open(tester, ShellHome(engine: engine));
+    for (final value in ['ssh alice@example.test', 'alice@example.test']) {
+      await tester.enterText(find.byType(TextField), value);
+      await tester.testTextInput.receiveAction(TextInputAction.go);
+      await tester.pumpAndSettle();
+    }
+    expect(
+      calls
+          .where((call) => call.method == 'connect')
+          .map((call) => call.arguments['uri']),
+      ['alice@example.test', 'alice@example.test'],
+    );
+  });
+
+  testWidgets('terminal menu opens while link lookup would wait for output', (
+    tester,
+  ) async {
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(AndroidEngine.channel, (call) async {
+      calls.add(call);
+      if (call.method == 'snapshot') return engine.state;
+      if (call.method == 'session.urls') {
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        return ['https://example.test/'];
+      }
+      return null;
+    });
+    await open(tester, ConsolePage(engine: engine, sessionId: 101));
+    await tester.tap(find.byTooltip('터미널 메뉴'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(find.text('붙여넣기'), findsOneWidget);
+    expect(calls.where((call) => call.method == 'session.urls'), isEmpty);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('링크'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(find.text('https://example.test/'), findsOneWidget);
+  });
+
   testWidgets('phone home keeps quick connect below flat host rows', (
     tester,
   ) async {
@@ -578,6 +623,31 @@ void main() {
       engine.dispose();
     },
   );
+  for (final (protocol, hostProtocol) in [
+    ('local', 'local'),
+    ('ssh', 'ssh'),
+    ('local', 'ssh'),
+  ]) {
+    testWidgets(
+      '$protocol console file transfer availability for saved $hostProtocol host',
+      (tester) async {
+        engine.state['hosts'] = [
+          {...host, 'protocol': hostProtocol},
+        ];
+        engine.state['sessions'] = [
+          {...engine.list('sessions').first, 'protocol': protocol},
+        ];
+        await open(tester, ConsolePage(engine: engine, sessionId: 101));
+        await tester.tap(find.byTooltip('터미널 메뉴'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('파일 전송'),
+          protocol == 'ssh' ? findsOneWidget : findsNothing,
+        );
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
   testWidgets('mobile paste sends multiline text only after approval', (
     tester,
   ) async {

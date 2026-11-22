@@ -173,6 +173,9 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  bool get _hasAndroidConnectionSettings =>
+      !const {'windows', 'ios'}.contains(engine.state['platform']);
+
   void indexSettings() {
     searchTargets.clear();
     for (final id in [
@@ -180,7 +183,7 @@ class _SettingsPageState extends State<SettingsPage> {
       'keyboard',
       'gesture',
       'terminal',
-      'connection',
+      if (_hasAndroidConnectionSettings) 'connection',
       'security',
       'fonts',
     ]) {
@@ -293,7 +296,8 @@ class _SettingsPageState extends State<SettingsPage> {
       ('keyboard', Icons.keyboard_outlined),
       ('gesture', Icons.swipe_outlined),
       ('terminal', Icons.terminal_outlined),
-      ('connection', Icons.notifications_outlined),
+      if (_hasAndroidConnectionSettings)
+        ('connection', Icons.notifications_outlined),
       ('security', Icons.lock_outline),
     ];
     return ListView(
@@ -932,13 +936,6 @@ class _SettingsPageState extends State<SettingsPage> {
               c.l10n.preventWiFiSleep,
               sub: c.l10n.usesMoreBattery,
             ),
-            go(
-              'backgroundNotification',
-              c.l10n.backgroundConnectionNotification,
-              () => runEngine(c, engine, 'settings.notifications'),
-              sub: c.l10n.pinnedWhileConnected,
-              icon: Icons.notifications_active_outlined,
-            ),
           ]),
           group(c.l10n.terminalBell, [
             tracked(
@@ -951,8 +948,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   (0, c.l10n.ignore),
                   (1, c.l10n.sound),
                   (2, c.l10n.vibration),
-                  if (p['bell'] == true && p['bellVibrate'] == true)
-                    (3, c.l10n.soundAndVibration),
+                  (3, c.l10n.soundAndVibration),
                 ],
                 p['bell'] == true
                     ? (p['bellVibrate'] == true ? 3 : 1)
@@ -1030,7 +1026,7 @@ class _SettingsPageState extends State<SettingsPage> {
               () => runEngine(c, engine, 'settings.notifications'),
               sub: p['notificationsAvailable'] == false
                   ? c.l10n.notificationsOff
-                  : c.l10n.notificationsAllowed,
+                  : '${c.l10n.notificationsAllowed} · ${c.l10n.pinnedWhileConnected}',
               icon: Icons.open_in_new,
             ),
           ]),
