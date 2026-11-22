@@ -578,6 +578,28 @@ void main() {
       engine.dispose();
     },
   );
+  testWidgets('mobile paste sends multiline text only after approval', (
+    tester,
+  ) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.getData') return {'text': 'one\ntwo'};
+          return null;
+        });
+    await open(tester, ConsolePage(engine: engine, sessionId: 101));
+    final output = <String>[];
+    engine.terminalSession(101)!.terminal.onOutput = output.add;
+    for (final choice in ['취소', '2줄 붙여넣기']) {
+      await tester.tap(find.byTooltip('터미널 메뉴'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('붙여넣기'));
+      await tester.pumpAndSettle();
+      expect(output, isEmpty);
+      await tester.tap(find.text(choice));
+      await tester.pumpAndSettle();
+    }
+    expect(output, ['one\rtwo']);
+  });
   for (final switchSession in [false, true]) {
     testWidgets(
       'mobile paste is discarded when its console ${switchSession ? 'switches' : 'closes'} during restoration',

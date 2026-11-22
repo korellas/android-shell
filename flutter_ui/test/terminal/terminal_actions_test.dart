@@ -148,7 +148,7 @@ void main() {
     await mount(tester);
     terminal.write('first\r\nsecond');
     await select(tester, const CellOffset(0, 0), const CellOffset(3, 0));
-    expect(find.text('붙여넣기'), findsNothing);
+    expect(find.text('붙여넣기'), findsOneWidget);
     final toolbar = find.byKey(const ValueKey('terminal-selection-menu'));
     final before = tester.getRect(toolbar);
     await tester.tap(find.byTooltip('선택 메뉴 더보기'));

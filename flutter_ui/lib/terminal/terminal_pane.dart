@@ -299,6 +299,8 @@ class TerminalPaneState extends State<TerminalPane> {
         ) ??
         false;
     if (!accepted) return null;
+    // Closing the sheet restores console input during the next rebuild.
+    await WidgetsBinding.instance.endOfFrame;
     return omitTrailingEnter
         ? normalized.replaceFirst(RegExp(r'\n+$'), '')
         : text;
